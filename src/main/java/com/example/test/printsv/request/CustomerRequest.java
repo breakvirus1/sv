@@ -14,6 +14,6 @@ public class CustomerRequest {
     
 
     @NonNull    
-    private String email;
+    private String name;
     private String phone;
 }

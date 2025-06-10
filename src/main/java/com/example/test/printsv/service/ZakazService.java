@@ -32,7 +32,7 @@ public class ZakazService {
     }
 
     public ZakazResponse getZakazById(Long id) {
-        return zakazMapper.toZakazResponse(zakazRepository.findById(id)
+        return zakazMapper.fromZakazEntitytoZakazResponse(zakazRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Заказ с id " + id + " не найден")));
     }
 
@@ -43,12 +43,12 @@ public class ZakazService {
         Zakaz updatedZakaz = zakazMapper.toEntity(zakazRequest);
         updatedZakaz.setId(existingZakaz.getId());
 
-        return zakazMapper.toZakazResponse(zakazRepository.save(updatedZakaz));
+        return zakazMapper.fromZakazEntitytoZakazResponse(zakazRepository.save(updatedZakaz));
     }
 
     public List<ZakazResponse> getAllZakaz() {
         return zakazRepository.findAll().stream()
-                .map(zakazMapper::toZakazResponse)
+                .map(zakazMapper::fromZakazEntitytoZakazResponse)
                 .toList();
     }
 
@@ -59,12 +59,19 @@ public class ZakazService {
         zakazRepository.deleteById(id);
     }
 
+    public List<ZakazResponse> getAllZakazByCustomerName(String customerName){
+        
+        return zakazRepository.findByCustomerNameIgnoreCase(customerName).stream().toList();
+    }
+
     public void deleteAllZakaz() {
         zakazRepository.deleteAll();
     }
+
 
     @PreDestroy
     public void destroyZakaz() {
         log.info("Zakaz destroyed successfully.");
     }
+
 }

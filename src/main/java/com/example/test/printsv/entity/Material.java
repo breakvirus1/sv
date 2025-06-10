@@ -3,7 +3,7 @@ package com.example.test.printsv.entity;
 import jakarta.persistence.*;
 
 import lombok.*;
-
+@Entity
 @Data
 @Setter
 @Getter

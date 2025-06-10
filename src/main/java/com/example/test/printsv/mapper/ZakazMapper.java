@@ -9,10 +9,11 @@ import com.example.test.printsv.response.ZakazResponse;
 @Mapper
 public interface ZakazMapper {
 
-    
+
     Zakaz toEntity(ZakazRequest zakazRequest);
     ZakazRequest toZakazRequest(Zakaz zakaz);
-    ZakazResponse toZakazResponse(Zakaz zakaz);
+    ZakazResponse fromZakazEntitytoZakazResponse(Zakaz zakaz);
+    ZakazResponse fromZakazRequestToZakazResponse(ZakazRequest zakazRequest);
     
 
 }

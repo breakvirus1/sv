@@ -8,8 +8,7 @@ import com.example.test.printsv.entity.Customer;
 
 
 public interface CustomerRepository extends JpaRepository<Customer,Long>{
-    List<Customer> findByEmail(String email);
-    List<Customer> findByZakazId (Long id);
+    List<Customer> findByName(String name);
 
     
 

@@ -20,12 +20,12 @@ public class Customer {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private String email;
+    private String name;
 
     @Column(nullable = false)
     private String phone;
     
     @JoinColumn(name = "zakaz_id")
     @ManyToOne
-    private List<Zakaz> listOfZakaz;
+    private Zakaz listOfZakaz;
 }

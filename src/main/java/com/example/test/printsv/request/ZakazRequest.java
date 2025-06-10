@@ -11,7 +11,7 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ZakazRequest {
-    private List<SubZakaz> subZakazList;
+    private SubZakaz subZakaz;
     private Customer customer;
     private User user;
     private Integer sum;

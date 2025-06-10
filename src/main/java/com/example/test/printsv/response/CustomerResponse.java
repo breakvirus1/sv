@@ -18,9 +18,9 @@ public class CustomerResponse {
     
 
     @NonNull    
-    private String email;
+    private String name;
 
     private String phone;
-    private List<Zakaz> listOfZakaz;
+    private Zakaz listOfZakaz;
 
 }
