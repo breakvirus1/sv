@@ -1,15 +1,12 @@
 package com.example.test.printsv.entity;
 
-
-import java.util.List;
-
 import jakarta.persistence.*;
-
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
-@Setter
-@Getter
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
@@ -24,8 +21,7 @@ public class Customer {
 
     @Column(nullable = false)
     private String phone;
-    
-    @JoinColumn(name = "zakaz_id")
-    @ManyToOne
-    private Zakaz listOfZakaz;
+
+    @OneToMany(mappedBy = "customerOfZakaz", cascade = CascadeType.ALL)
+    private List<Zakaz> zakazList = new ArrayList<>();
 }

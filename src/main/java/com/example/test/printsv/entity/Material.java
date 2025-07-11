@@ -16,6 +16,6 @@ public class Material {
     private Long id;
     @Column(nullable = false)
     private Double price;
-    @Column(nullable = false, name="material_name")
-    private String materialName;
+    @Column(nullable = false, name="name")
+    private String name;
 }

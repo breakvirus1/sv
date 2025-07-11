@@ -8,5 +8,5 @@ import lombok.*;
 @NoArgsConstructor
 public class MaterialRequest {
     @NonNull        
-    private String materialName;
+    private String name;
 }

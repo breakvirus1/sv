@@ -9,6 +9,7 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MaterialResponse {
-    private String materialName;
+    private Long id;
+    private String name;
     private Double price;
 }

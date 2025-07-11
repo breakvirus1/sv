@@ -1,27 +1,16 @@
 package com.example.test.printsv.request;
 
-import com.example.test.printsv.entity.Material;
+import lombok.Getter;
+import lombok.Setter;
 
-import io.micrometer.common.lang.NonNull;
-import lombok.*;
-
-
-@Builder
-@Setter
 @Getter
-@AllArgsConstructor
-@NoArgsConstructor
+@Setter
 public class SubZakazRequest {
-    @NonNull
-    private Material material;
-    @NonNull
-    private Double lenght;
-    @NonNull
+    private String name;
+    private Double length;
     private Double width;
     private String filePath;
-    @NonNull
+    private String comment;
     private Integer cena;
-    @NonNull
-    private boolean done;
-
+    private Boolean done;
 }

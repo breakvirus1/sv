@@ -37,11 +37,11 @@ public class SubZakazService {
     }
 
     public List<SubZakazResponse> getAllSubZakaz() {
-        return subZakazRepository.findAll().stream().map(subZakazMapper::toSubzakazResponse).toList();
+        return subZakazRepository.findAll().stream().map(subZakazMapper::toSubZakazResponse).toList();
     }
 
     public SubZakazResponse getSubZakazById(Long id) {
-        return subZakazMapper.toSubzakazResponse(
+        return subZakazMapper.toSubZakazResponse(
                 subZakazRepository.findById(id)
                         .orElseThrow(() -> new RuntimeException("Позиция с " + id + " не найдена")));
     }
