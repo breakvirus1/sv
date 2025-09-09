@@ -1,11 +1,14 @@
 package com.example.test.printsv.request;
 
-import lombok.Getter;
-import lombok.Setter;
+import jakarta.persistence.Entity;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter
-@Setter
+
+@Data
 public class ZakazRequest {
     private Integer sum;
-    private Long customerId;
+    private Long userOfZakazId;
+    private Long customerOfZakazId;
 }

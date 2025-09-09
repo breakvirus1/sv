@@ -11,10 +11,6 @@ import java.util.List;
 
 @Repository
 public interface SubZakazRepository extends JpaRepository<SubZakaz, Long> {
-    List<Zakaz> findByDone(boolean statusDone);
-
-    
-
-    // Count zakaz by specific status
-    long countByDone(boolean statusDone);
+List<SubZakaz> findByNameContaining(String name);
+    List<SubZakaz> findByDone(Boolean done);
 }

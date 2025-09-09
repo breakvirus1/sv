@@ -3,6 +3,7 @@ package com.example.test.printsv.request;
 
 
 
+import com.example.test.printsv.entity.Zakaz;
 import lombok.*;
 
 @Data

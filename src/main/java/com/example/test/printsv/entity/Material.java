@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 
 import lombok.*;
 @Entity
-@Data
+//@Data
 @Setter
 @Getter
 @AllArgsConstructor
@@ -16,6 +16,6 @@ public class Material {
     private Long id;
     @Column(nullable = false)
     private Double price;
-    @Column(nullable = false, name="name")
+    @Column(nullable = false)
     private String name;
 }

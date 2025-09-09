@@ -3,8 +3,12 @@ package com.example.test.printsv.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
 @Data
@@ -18,18 +22,22 @@ public class Zakaz {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToMany(mappedBy = "zakaz", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "zakaz", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private List<SubZakaz> subZakazList = new ArrayList<>();
 
     @Column(nullable = false)
     private Integer sum;
 
-    @OneToOne
-    @JoinColumn(name = "user_of_zakaz_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "userOfZakaz_id", nullable = false)
+    @JsonBackReference
     private User userOfZakaz;
+    
+    private LocalDateTime createdAt;
 
-    @OneToOne
-    @JoinColumn(name = "customer_of_zakaz_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customerOfZakaz_id", nullable = false)
     private Customer customerOfZakaz;
 
     public void addSubZakaz(SubZakaz subZakaz) {

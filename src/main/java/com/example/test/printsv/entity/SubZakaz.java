@@ -1,12 +1,14 @@
 package com.example.test.printsv.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
 @Data
-@AllArgsConstructor
-@NoArgsConstructor
+//@AllArgsConstructor
+//@NoArgsConstructor
 @Table(name = "subZakaz")
 public class SubZakaz {
     @Id
@@ -33,8 +35,17 @@ public class SubZakaz {
 
     @Column
     private Boolean done;
+    
+    @ManyToOne
+    @JoinColumn(name= "material_id", nullable = false)
+    private Material material;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "zakaz_id")
+    @JsonBackReference
     private Zakaz zakaz;
+
+    public void setZakaz(Zakaz zakaz) {
+        this.zakaz=zakaz;
+    }
 }

@@ -3,21 +3,22 @@ package com.example.test.printsv.service;
 import com.example.test.printsv.entity.SubZakaz;
 import com.example.test.printsv.mapper.SubZakazMapper;
 import com.example.test.printsv.repository.SubZakazRepository;
+import com.example.test.printsv.repository.ZakazRepository;
 import com.example.test.printsv.request.SubZakazRequest;
 import com.example.test.printsv.response.SubZakazResponse;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RequestParam;
+
 @Slf4j
 @Service
-@RequiredArgsConstructor
+
 public class SubZakazService {
 
     
@@ -30,15 +31,13 @@ public class SubZakazService {
 
     private SubZakazRepository subZakazRepository;
     private SubZakazMapper subZakazMapper;
+    private ZakazRepository zakazRepository;
 
     public SubZakaz createZakaz(SubZakazRequest subZakazRequest) {
-        SubZakaz zakaz = subZakazMapper.toEntity(subZakazRequest);
+        SubZakaz zakaz = subZakazMapper.toSubZakaz(subZakazRequest);
         return subZakazRepository.save(zakaz);
     }
 
-    public List<SubZakazResponse> getAllSubZakaz() {
-        return subZakazRepository.findAll().stream().map(subZakazMapper::toSubZakazResponse).toList();
-    }
 
     public SubZakazResponse getSubZakazById(Long id) {
         return subZakazMapper.toSubZakazResponse(
@@ -49,7 +48,7 @@ public class SubZakazService {
     public SubZakaz updateSubZakaz(Long id, SubZakazRequest updatedSubZakazRequest) {
         SubZakaz exSubZakaz = subZakazRepository.findById(id)
                 .orElseThrow(()->new RuntimeException(String.format("позиция с %d не найдена", id)));
-        SubZakaz updatedSubZakaz = subZakazMapper.toEntity(updatedSubZakazRequest);
+        SubZakaz updatedSubZakaz = subZakazMapper.toSubZakaz(updatedSubZakazRequest);
         updatedSubZakaz.setId(exSubZakaz.getId());
 
         return subZakazRepository.save(updatedSubZakaz);
@@ -68,8 +67,16 @@ public class SubZakazService {
         }
     }
 
+    
+
+
+
+
     @PreDestroy
     public void destroySubZakaz() {
         log.info("SubZakaz destroyed successfully.");
     }
+
+
+
 }

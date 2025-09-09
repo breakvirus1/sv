@@ -2,27 +2,34 @@ package com.example.test.printsv.service;
 
 import com.example.test.printsv.entity.Customer;
 import com.example.test.printsv.entity.SubZakaz;
+import com.example.test.printsv.entity.User;
 import com.example.test.printsv.entity.Zakaz;
 import com.example.test.printsv.mapper.ZakazMapper;
 import com.example.test.printsv.repository.CustomerRepository;
 import com.example.test.printsv.repository.MaterialRepository;
+import com.example.test.printsv.repository.UserRepository;
 import com.example.test.printsv.repository.ZakazRepository;
 import com.example.test.printsv.request.SubZakazRequest;
 import com.example.test.printsv.request.ZakazRequest;
 import com.example.test.printsv.response.SubZakazResponse;
+
 import com.example.test.printsv.response.ZakazResponse;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.boot.autoconfigure.neo4j.Neo4jProperties.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@AllArgsConstructor
 public class ZakazService {
 
     private final ZakazRepository zakazRepository;
@@ -30,15 +37,9 @@ public class ZakazService {
     private final UserService userService;
     private final CustomerRepository customerRepository;
     private final MaterialRepository materialRepository;
+    private final UserRepository userRepository;
 
-    public ZakazService(ZakazRepository zakazRepository, ZakazMapper zakazMapper, UserService userService,
-                        CustomerRepository customerRepository, MaterialRepository materialRepository) {
-        this.zakazRepository = zakazRepository;
-        this.zakazMapper = zakazMapper;
-        this.userService = userService;
-        this.customerRepository = customerRepository;
-        this.materialRepository = materialRepository;
-    }
+    
 
     @PostConstruct
     public void zakazInit() {
@@ -47,23 +48,24 @@ public class ZakazService {
 
     @Transactional
     public ZakazResponse createZakaz(Long userId, ZakazRequest zakazRequest) {
-        if (userService.checkUserAuthorization(userId)) {
-            Zakaz zakaz = zakazMapper.toEntity(zakazRequest);
+        
+            Zakaz zakaz = zakazMapper.toZakaz(zakazRequest);
             zakaz.setUserOfZakaz(userService.getUserById(userId));
-            Customer customer = customerRepository.findById(zakazRequest.getCustomerId())
-                    .orElseThrow(() -> new RuntimeException("Клиент с id " + zakazRequest.getCustomerId() + " не найден"));
+            Customer customer = customerRepository.findById(zakazRequest.getCustomerOfZakazId())
+                    .orElseThrow(() -> new RuntimeException("Клиент с id " + zakazRequest.getCustomerOfZakazId() + " не найден"));
             zakaz.setCustomerOfZakaz(customer);
             zakaz = zakazRepository.save(zakaz);
-            return zakazMapper.fromZakazEntitytoZakazResponse(zakaz);
-        }
-        throw new SecurityException("User ID does not match authenticated user");
+            return zakazMapper.toZakazResponse(zakaz);
+        
     }
 
     @Transactional(readOnly = true)
-    public List<ZakazResponse> getAllZakazByUserId(Long userId) {
-        if (userService.checkUserAuthorization(userId)) {
-            return zakazRepository.findByUserOfZakazId(userId).stream()
-                    .map(zakazMapper::fromZakazEntitytoZakazResponse)
+    public List<ZakazResponse> getAllZakazByUserName(String userName) {
+        Optional<User> user = userRepository.findByUsername(userName);
+
+        if (userService.checkUserAuthorization(user.get().getId())) {
+            return zakazRepository.findByUserOfZakaz(user.get()).stream()
+                    .map(zakazMapper::toZakazResponse)
                     .collect(Collectors.toList());
         }
         throw new SecurityException("User ID does not match authenticated user");
@@ -74,20 +76,18 @@ public class ZakazService {
         if (userService.checkUserAuthorization(userId)) {
             Zakaz zakaz = zakazRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Заказ с id " + id + " не найден"));
-            return zakazMapper.fromZakazEntitytoZakazResponse(zakaz);
+            return zakazMapper.toZakazResponse(zakaz);
         }
         throw new SecurityException("User ID does not match authenticated user");
     }
 
     @Transactional(readOnly = true)
-    public List<ZakazResponse> getAllZakazByCustomerName(Long userId, String customerName) {
-        if (userService.checkUserAuthorization(userId)) {
-            
-            return zakazRepository.findByCustomerOfZakazNameIgnoreCase(customerName).stream()
-                    .map(zakazMapper::fromZakazEntitytoZakazResponse)
+    public List<ZakazResponse> getAllZakazByCustomerName(String customerName) {
+
+            return zakazRepository.findByCustomerOfZakazIgnoreCase(customerName).stream()
+                    .map(zakazMapper::toZakazResponse)
                     .collect(Collectors.toList());
-        }
-        throw new SecurityException("User ID does not match authenticated user");
+ 
     }
 
     @Transactional
@@ -95,14 +95,14 @@ public class ZakazService {
         if (userService.checkUserAuthorization(userId)) {
             Zakaz existingZakaz = zakazRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Заказ с id " + id + " не найден"));
-            Zakaz updatedZakaz = zakazMapper.toEntity(zakazRequest);
+            Zakaz updatedZakaz = zakazMapper.toZakaz(zakazRequest);
             updatedZakaz.setId(existingZakaz.getId());
             updatedZakaz.setUserOfZakaz(existingZakaz.getUserOfZakaz());
-            Customer customer = customerRepository.findById(zakazRequest.getCustomerId())
-                    .orElseThrow(() -> new RuntimeException("Клиент с id " + zakazRequest.getCustomerId() + " не найден"));
+            Customer customer = customerRepository.findById(zakazRequest.getCustomerOfZakazId())
+                    .orElseThrow(() -> new RuntimeException("Клиент с id " + zakazRequest.getCustomerOfZakazId() + " не найден"));
             updatedZakaz.setCustomerOfZakaz(customer);
             updatedZakaz = zakazRepository.save(updatedZakaz);
-            return zakazMapper.fromZakazEntitytoZakazResponse(updatedZakaz);
+            return zakazMapper.toZakazResponse(updatedZakaz);
         }
         throw new SecurityException("User ID does not match authenticated user");
     }

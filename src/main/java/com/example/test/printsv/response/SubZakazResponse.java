@@ -1,5 +1,7 @@
 package com.example.test.printsv.response;
 
+import com.example.test.printsv.entity.Material;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -15,4 +17,5 @@ public class SubZakazResponse {
     private Integer cena;
     private Boolean done;
     private Long zakazId;
+    private Material material;
 }

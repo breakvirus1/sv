@@ -5,7 +5,7 @@ package com.example.test.printsv.response;
 
 import java.util.List;
 
-import com.example.test.printsv.entity.Zakaz;
+
 
 import lombok.*;
 
@@ -15,12 +15,12 @@ import lombok.*;
 @NoArgsConstructor
 
 public class CustomerResponse {
-    
+    private Long id;
 
     @NonNull    
     private String name;
 
     private String phone;
-    private Zakaz listOfZakaz;
+
 
 }

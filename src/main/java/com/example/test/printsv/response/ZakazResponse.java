@@ -1,15 +1,17 @@
 package com.example.test.printsv.response;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
+
 import java.util.List;
 
-@Getter
-@Setter
+@Data
+
 public class ZakazResponse {
     private Long id;
     private Integer sum;
-    private Long userId;
-    private Long customerId;
-    private List<SubZakazResponse> subZakaz;
+    private Long userOfZakazId;
+    private Long customerOfZakazId;
+    private List<SubZakazResponse> subZakazList;
 }

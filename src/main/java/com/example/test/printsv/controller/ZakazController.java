@@ -1,112 +1,125 @@
 package com.example.test.printsv.controller;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.test.printsv.entity.User;
+import com.example.test.printsv.entity.Zakaz;
+import com.example.test.printsv.repository.ZakazRepository;
 import com.example.test.printsv.request.ZakazRequest;
 import com.example.test.printsv.response.ZakazResponse;
 import com.example.test.printsv.service.UserService;
 import com.example.test.printsv.service.ZakazService;
-import io.swagger.v3.oas.annotations.Operation;
+
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/api/user/{userId}/zakaz")
+@RequestMapping("/api/zakaz")
 public class ZakazController {
 
     private final ZakazService zakazService;
+    private final ZakazRepository zakazRepository;
     private final UserService userService;
 
-    @Operation(summary = "Create a new order", description = "Creates a new order for the specified user")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "201", description = "Order created successfully"),
-        @ApiResponse(responseCode = "400", description = "Invalid request data"),
-        @ApiResponse(responseCode = "401", description = "Unauthorized"),
-        @ApiResponse(responseCode = "403", description = "User ID does not match authenticated user"),
-        @ApiResponse(responseCode = "404", description = "User or customer not found")
-    })
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ZakazResponse createZakaz(
-            @Parameter(description = "User ID") @PathVariable @Positive Long userId,
-            @Parameter(description = "Order request data") @RequestBody @Valid ZakazRequest zakazRequest) {
-        return zakazService.createZakaz(userId, zakazRequest);
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public Zakaz create(@RequestBody Zakaz zakaz) {
+        return zakazRepository.save(zakaz);
+    }
+    @GetMapping("/my")
+    @PreAuthorize("hasAnyRole('USER', 'MANAGER')")
+    public void getMyZakazList(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        System.out.println("getPrincipal: "+authentication.getPrincipal());
+        System.out.println("getAuthorities: "+authentication.getAuthorities());
+        System.out.println("getName: "+authentication.getName());
+        System.out.println("getDetails: "+authentication.getDetails());
+
+        // return zakazService.getAllZakazByUserName(null);
     }
 
-    @Operation(summary = "Get all orders for a user", description = "Retrieves all orders for the specified user")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Orders retrieved successfully"),
-        @ApiResponse(responseCode = "401", description = "Unauthorized"),
-        @ApiResponse(responseCode = "403", description = "User ID does not match authenticated user")
-    })
-    @GetMapping
-    public List<ZakazResponse> getAllZakaz(
-            @Parameter(description = "User ID") @PathVariable @Positive Long userId) {
-        return zakazService.getAllZakazByUserId(userId);
+    
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Page<Zakaz> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return zakazRepository.findAll(pageable);
     }
 
-    @Operation(summary = "Get order by ID", description = "Retrieves a specific order by its ID")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Order retrieved successfully"),
-        @ApiResponse(responseCode = "401", description = "Unauthorized"),
-        @ApiResponse(responseCode = "403", description = "User ID does not match authenticated user"),
-        @ApiResponse(responseCode = "404", description = "Order not found")
-    })
-    @GetMapping("/{id}")
-    public ZakazResponse getZakazById(
-            @Parameter(description = "User ID") @PathVariable @Positive Long userId,
-            @Parameter(description = "Order ID") @PathVariable @Positive Long id) {
-        return zakazService.getZakazById(userId, id);
+@GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')") // Add check if owns or admin
+    public Zakaz getById(@PathVariable Long id) {
+        return zakazRepository.findById(id).orElseThrow();
     }
 
-    @Operation(summary = "Get orders by customer name", description = "Retrieves orders for a user by customer name")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Orders retrieved successfully"),
-        @ApiResponse(responseCode = "401", description = "Unauthorized"),
-        @ApiResponse(responseCode = "403", description = "User ID does not match authenticated user")
-    })
-    @GetMapping("/customer/{customerName}")
+    
+    @GetMapping("/customer")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
     public List<ZakazResponse> getZakazByCustomerName(
-            @Parameter(description = "User ID") @PathVariable @Positive Long userId,
-            @Parameter(description = "Customer name") @PathVariable String customerName) {
-        return zakazService.getAllZakazByCustomerName(userId, customerName);
+            
+            @Parameter(description = "Имя клиента") @PathVariable String customerName) {
+        return zakazService.getAllZakazByCustomerName(customerName);
     }
 
-    @Operation(summary = "Update an order", description = "Updates an existing order")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Order updated successfully"),
-        @ApiResponse(responseCode = "400", description = "Invalid request data"),
-        @ApiResponse(responseCode = "401", description = "Unauthorized"),
-        @ApiResponse(responseCode = "403", description = "User ID does not match authenticated user"),
-        @ApiResponse(responseCode = "404", description = "Order or customer not found")
-    })
+    
     @PutMapping("/{id}")
     public ZakazResponse updateZakaz(
-            @Parameter(description = "User ID") @PathVariable @Positive Long userId,
-            @Parameter(description = "Order ID") @PathVariable @Positive Long id,
-            @Parameter(description = "Updated order data") @RequestBody @Valid ZakazRequest zakazRequest) {
+            @Parameter(description = "ID пользователя") @PathVariable @Positive Long userId,
+            @Parameter(description = "ID заказа") @PathVariable @Positive Long id,
+            @Parameter(description = "Обновленные данные заказа") @RequestBody @Valid ZakazRequest zakazRequest) {
         return zakazService.updateZakaz(userId, id, zakazRequest);
     }
 
-    @Operation(summary = "Delete an order", description = "Deletes an existing order")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "204", description = "Order deleted successfully"),
-        @ApiResponse(responseCode = "401", description = "Unauthorized"),
-        @ApiResponse(responseCode = "403", description = "User ID does not match authenticated user"),
-        @ApiResponse(responseCode = "404", description = "Order not found")
-    })
+    
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteZakaz(
-            @Parameter(description = "User ID") @PathVariable @Positive Long userId,
-            @Parameter(description = "Order ID") @PathVariable @Positive Long id) {
+            @Parameter(description = "ID пользователя") @PathVariable @Positive Long userId,
+            @Parameter(description = "ID заказа") @PathVariable @Positive Long id) {
         zakazService.deleteZakaz(userId, id);
+    }
+
+    @GetMapping("/sum")
+    @PreAuthorize("hasAnyRole('USER', 'MANAGER')")
+    public ResponseEntity<Integer> getSumForPeriod(@RequestParam String startDate, @RequestParam String endDate) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"); // Adjust format as needed
+        LocalDateTime start = LocalDateTime.parse(startDate + " 00:00:00", formatter);
+        LocalDateTime end = LocalDateTime.parse(endDate + " 23:59:59", formatter);
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) auth.getPrincipal();
+        Integer sum = zakazRepository.findSumByUserAndPeriod(user, start, end);
+        return ResponseEntity.ok(sum != null ? sum : 0);
+    }
+    @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+    public List<Zakaz> search(@RequestParam(required = false) Integer minSum) {
+        if (minSum != null) {
+            return zakazRepository.findBySumGreaterThan(minSum);
+        }
+        return zakazRepository.findAll();
     }
 }

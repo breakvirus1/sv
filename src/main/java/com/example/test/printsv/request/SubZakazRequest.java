@@ -1,8 +1,9 @@
 package com.example.test.printsv.request;
 
+import com.example.test.printsv.entity.Material;
+
 import lombok.Getter;
 import lombok.Setter;
-
 @Getter
 @Setter
 public class SubZakazRequest {
@@ -13,4 +14,5 @@ public class SubZakazRequest {
     private String comment;
     private Integer cena;
     private Boolean done;
+    private Material material;
 }

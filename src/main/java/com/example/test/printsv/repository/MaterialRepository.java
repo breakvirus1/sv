@@ -8,6 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.example.test.printsv.entity.Material;
 
 public interface MaterialRepository extends JpaRepository<Material,Long>{
-    Optional<Material> findByName(String name);
-
+List<Material> findByNameContaining(String name);
+    List<Material> findByPriceBetween(Double min, Double max);
 }
