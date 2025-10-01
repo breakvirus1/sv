@@ -29,15 +29,15 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
     private final JwtUtil jwtUtil;
-    private final RequestService requestBuilder;
 
-    public AuthService(UserRepository userRepository, AuthenticationManager authenticationManager, PasswordEncoder passwordEncoder, RoleRepository roleRepository, JwtUtil jwtUtil, JwtUtil jwtUtil1, RequestService requestBuilder) {
+
+    public AuthService(UserRepository userRepository, AuthenticationManager authenticationManager, PasswordEncoder passwordEncoder, RoleRepository roleRepository, JwtUtil jwtUtil, RequestService requestBuilder) {
         this.userRepository = userRepository;
         this.authenticationManager = authenticationManager;
         this.passwordEncoder = passwordEncoder;
         this.roleRepository = roleRepository;
         this.jwtUtil = jwtUtil;
-        this.requestBuilder = requestBuilder;
+
     }
 
     public LoginResponse authenticate(LoginRequest request) {
