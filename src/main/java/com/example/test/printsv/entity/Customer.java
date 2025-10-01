@@ -23,17 +23,10 @@ public class Customer {
     @Column(nullable = false)
     private String phone;
 
-    @OneToMany(mappedBy = "customerOfZakaz", cascade = CascadeType.ALL)
-    private List<Zakaz> zakazList = new ArrayList<>();
+//    @OneToMany(mappedBy = "customerOfZakaz", cascade = CascadeType.ALL)
+//    private List<Zakaz> zakazList = new ArrayList<>();
 
-    public void addZakaz(Zakaz zakaz){
-        zakazList.add(zakaz);
-    }
 
-    public void removeZakaz(Zakaz zakaz){
-        zakazList.remove(zakaz);
-        zakaz.setCustomerOfZakaz(null);
-    }
 
 
 }

@@ -40,86 +40,86 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 @RequestMapping("/api/zakaz")
 public class ZakazController {
-
-    private final ZakazService zakazService;
-    private final ZakazRepository zakazRepository;
-    private final UserService userService;
-
-    @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public Zakaz create(@RequestBody Zakaz zakaz) {
-        return zakazRepository.save(zakaz);
-    }
-    @GetMapping("/my")
-    @PreAuthorize("hasAnyRole('USER', 'MANAGER')")
-    public void getMyZakazList(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("getPrincipal: "+authentication.getPrincipal());
-        System.out.println("getAuthorities: "+authentication.getAuthorities());
-        System.out.println("getName: "+authentication.getName());
-        System.out.println("getDetails: "+authentication.getDetails());
-
-        // return zakazService.getAllZakazByUserName(null);
-    }
-
-    
-    @GetMapping("/all")
-    @PreAuthorize("hasRole('ADMIN')")
-    public Page<Zakaz> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return zakazRepository.findAll(pageable);
-    }
-
-@GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')") // Add check if owns or admin
-    public Zakaz getById(@PathVariable Long id) {
-        return zakazRepository.findById(id).orElseThrow();
-    }
-
-    
-    @GetMapping("/customer")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
-    public List<ZakazResponse> getZakazByCustomerName(
-            
-            @Parameter(description = "Имя клиента") @PathVariable String customerName) {
-        return zakazService.getAllZakazByCustomerName(customerName);
-    }
-
-    
-    @PutMapping("/{id}")
-    public ZakazResponse updateZakaz(
-            @Parameter(description = "ID пользователя") @PathVariable @Positive Long userId,
-            @Parameter(description = "ID заказа") @PathVariable @Positive Long id,
-            @Parameter(description = "Обновленные данные заказа") @RequestBody @Valid ZakazRequest zakazRequest) {
-        return zakazService.updateZakaz(userId, id, zakazRequest);
-    }
-
-    
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteZakaz(
-            @Parameter(description = "ID пользователя") @PathVariable @Positive Long userId,
-            @Parameter(description = "ID заказа") @PathVariable @Positive Long id) {
-        zakazService.deleteZakaz(userId, id);
-    }
-
-    @GetMapping("/sum")
-    @PreAuthorize("hasAnyRole('USER', 'MANAGER')")
-    public ResponseEntity<Integer> getSumForPeriod(@RequestParam String startDate, @RequestParam String endDate) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"); // Adjust format as needed
-        LocalDateTime start = LocalDateTime.parse(startDate + " 00:00:00", formatter);
-        LocalDateTime end = LocalDateTime.parse(endDate + " 23:59:59", formatter);
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = (User) auth.getPrincipal();
-        Integer sum = zakazRepository.findSumByUserAndPeriod(user, start, end);
-        return ResponseEntity.ok(sum != null ? sum : 0);
-    }
-    @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
-    public List<Zakaz> search(@RequestParam(required = false) Integer minSum) {
-        if (minSum != null) {
-            return zakazRepository.findBySumGreaterThan(minSum);
-        }
-        return zakazRepository.findAll();
-    }
+//
+//    private final ZakazService zakazService;
+//    private final ZakazRepository zakazRepository;
+//    private final UserService userService;
+//
+//    @PostMapping
+//    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+//    public Zakaz create(@RequestBody Zakaz zakaz) {
+//        return zakazRepository.save(zakaz);
+//    }
+//    @GetMapping("/my")
+//    @PreAuthorize("hasAnyRole('USER', 'MANAGER')")
+//    public void getMyZakazList(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+//        System.out.println("getPrincipal: "+authentication.getPrincipal());
+//        System.out.println("getAuthorities: "+authentication.getAuthorities());
+//        System.out.println("getName: "+authentication.getName());
+//        System.out.println("getDetails: "+authentication.getDetails());
+//
+//        // return zakazService.getAllZakazByUserName(null);
+//    }
+//
+//
+//    @GetMapping("/all")
+//    @PreAuthorize("hasRole('ADMIN')")
+//    public Page<Zakaz> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+//        Pageable pageable = PageRequest.of(page, size);
+//        return zakazRepository.findAll(pageable);
+//    }
+//
+//@GetMapping("/{id}")
+//    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')") // Add check if owns or admin
+//    public Zakaz getById(@PathVariable Long id) {
+//        return zakazRepository.findById(id).orElseThrow();
+//    }
+//
+//
+//    @GetMapping("/customer")
+//    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+//    public List<ZakazResponse> getZakazByCustomerName(
+//
+//            @Parameter(description = "Имя клиента") @PathVariable String customerName) {
+//        return zakazService.getAllZakazByCustomerName(customerName);
+//    }
+//
+//
+//    @PutMapping("/{id}")
+//    public ZakazResponse updateZakaz(
+//            @Parameter(description = "ID пользователя") @PathVariable @Positive Long userId,
+//            @Parameter(description = "ID заказа") @PathVariable @Positive Long id,
+//            @Parameter(description = "Обновленные данные заказа") @RequestBody @Valid ZakazRequest zakazRequest) {
+//        return zakazService.updateZakaz(userId, id, zakazRequest);
+//    }
+//
+//
+//    @DeleteMapping("/{id}")
+//    @ResponseStatus(HttpStatus.NO_CONTENT)
+//    public void deleteZakaz(
+//            @Parameter(description = "ID пользователя") @PathVariable @Positive Long userId,
+//            @Parameter(description = "ID заказа") @PathVariable @Positive Long id) {
+//        zakazService.deleteZakaz(userId, id);
+//    }
+//
+//    @GetMapping("/sum")
+//    @PreAuthorize("hasAnyRole('USER', 'MANAGER')")
+//    public ResponseEntity<Integer> getSumForPeriod(@RequestParam String startDate, @RequestParam String endDate) {
+//        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"); // Adjust format as needed
+//        LocalDateTime start = LocalDateTime.parse(startDate + " 00:00:00", formatter);
+//        LocalDateTime end = LocalDateTime.parse(endDate + " 23:59:59", formatter);
+//        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+//        User user = (User) auth.getPrincipal();
+//        Integer sum = zakazRepository.findSumByUserAndPeriod(user, start, end);
+//        return ResponseEntity.ok(sum != null ? sum : 0);
+//    }
+//    @GetMapping("/search")
+//    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
+//    public List<Zakaz> search(@RequestParam(required = false) Integer minSum) {
+//        if (minSum != null) {
+//            return zakazRepository.findBySumGreaterThan(minSum);
+//        }
+//        return zakazRepository.findAll();
+//    }
 }

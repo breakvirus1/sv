@@ -13,5 +13,5 @@ public class ZakazResponse {
     private Integer sum;
     private Long userOfZakazId;
     private Long customerOfZakazId;
-    private List<SubZakazResponse> subZakazList;
+
 }

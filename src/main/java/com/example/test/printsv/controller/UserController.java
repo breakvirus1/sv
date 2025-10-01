@@ -32,7 +32,7 @@ public class UserController {
     private final UserRepository userRepository;
 
     @Operation(summary = "Получить всех пользователей", description = "Возвращает список всех пользователей (только для администратора)")
-    @Secured("ROLE_ADMIN")
+    @PreAuthorize("ROLE_ADMIN")
     @GetMapping
     public List<UserResponse> getAllUsers() {
         
@@ -52,18 +52,18 @@ public class UserController {
             return ResponseEntity.status(404).body(locale);
         }
     }
-
-    @Operation(summary = "Создать пользователя", description = "Создаёт нового пользователя (только для администратора)")
-    @Secured("ROLE_ADMIN")
-    @PostMapping
-    public ResponseEntity<?> create(@RequestBody User user) {
-        return ResponseEntity.status(201).body(userService.saveUser(user));
-    }
+//
+//    @Operation(summary = "Создать пользователя", description = "Создаёт нового пользователя (только для администратора)")
+//    @Secured("ROLE_ADMIN")
+//    @PostMapping
+//    public ResponseEntity<?> create(@RequestBody User user) {
+//        return ResponseEntity.status(201).body(userService.(user));
+//    }
 
     @Operation(summary = "Обновить пользователя", description = "Обновляет данные пользователя (только для администратора)")
     @Secured("ROLE_ADMIN")
     @PutMapping("/{id}")
-    public ResponseEntity<User> update(@Parameter(description = "Id пользователя") @PathVariable("id") Long id,
+    public ResponseEntity<String> update(@Parameter(description = "Id пользователя") @PathVariable("id") Long id,
                                        @RequestBody User updatedUser) {
         return ResponseEntity.ok(userService.updateUser(id, updatedUser));
     }

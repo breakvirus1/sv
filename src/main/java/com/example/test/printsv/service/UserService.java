@@ -1,27 +1,29 @@
 package com.example.test.printsv.service;
 
 import com.example.test.printsv.entity.User;
-import com.example.test.printsv.enums.Role;
+
 import com.example.test.printsv.mapper.UserMapper;
 import com.example.test.printsv.repository.UserRepository;
-import com.example.test.printsv.request.RegisterRequest;
 import com.example.test.printsv.response.UserResponse;
 
 
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import jakarta.transaction.Transactional;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 
 import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,9 +38,14 @@ import org.springframework.stereotype.Service;
 
 @RequiredArgsConstructor
 public class UserService implements UserDetailsService {
+
     private final UserRepository userRepository;
+
+
     private PasswordEncoder passwordEncoder;
+
     private final UserMapper userMapper;
+
 
 
     @Autowired
@@ -46,30 +53,19 @@ public class UserService implements UserDetailsService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    @PostConstruct
+    public void init() {
 
-    public User registerUser(RegisterRequest request) {
-        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            throw new RuntimeException("Username already taken");
-        }
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRoles(Set.of(Role.USER));
-
-        return userRepository.save(user);
     }
-
-
     public Optional<User> findByUsername(String username) {
         return userRepository.findByUsername(username);
     }
 
     @Transactional
     public User getUserById(Long id) {
-        log.info("запрос пользователя с id: "+id);
-
+        log.info("запрос пользователя с id: " + id);
         return userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Пользователь с id " + id + " не найден"));
+                .orElse(new User());
     }
 
     @Transactional
@@ -77,19 +73,21 @@ public class UserService implements UserDetailsService {
         return userRepository.findByUsername(name);
     }
 
-    public ResponseEntity<UserResponse> getUserInfo(Authentication authentication) {
-        String currentUserName = authentication.getName();
-        log.info("Запрос информации о пользователе: {}", currentUserName);
-        Optional<User> user = userRepository.findByUsername(currentUserName);
-        if (user.isPresent()) {
-            return ResponseEntity.ok(userMapper.toUserResponse(user.get()));
-        }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-    }
-
+//    public ResponseEntity<UserResponse> getUserInfo(Authentication authentication) {
+//        String currentUserName = authentication.getName();
+//        log.info("Запрос информации о пользователе: {}", currentUserName);
+//        Optional<User> user = userRepository.findByUsername(currentUserName);
+//        if (user.isPresent()) {
+//            return ResponseEntity.ok(userMapper.toUserResponse(user.get()));
+//        }
+//        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+//    }
+@PreAuthorize("ROLE_ADMIN")
     public List<UserResponse> getAllUsers() {
         log.info("запрос всех пользователей");
-
+        if (userMapper == null) {
+            throw new IllegalStateException("UserMapper is not initialized");
+        }
         return userRepository.findAll().stream()
                 .map(userMapper::toUserResponse)
                 .collect(Collectors.toList());
@@ -98,12 +96,17 @@ public class UserService implements UserDetailsService {
     }
 
 
-    public User saveUser(User user) {
-        user.setId(null); // Ensure new user
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        log.info("Сохранен пользователь: {}", user.getUsername());
-        return userRepository.save(user);
-    }
+//    public boolean saveUser(User user) {
+//        Optional<User> userFromDB = userRepository.findByUsername(user.getUsername());
+//        if (userFromDB!=null){
+//            return false;
+//        }
+//        user.setRoles(Collections.singleton(R);
+//        user.setPassword(passwordEncoder.encode(user.getPassword()));
+//        userRepository.save(user);
+//        log.info("Сохранен пользователь: {}", user.getUsername());
+//        return true;
+//    }
 
     public void deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
@@ -121,33 +124,24 @@ public class UserService implements UserDetailsService {
 
 
     @Override
-    @Transactional //все обращения к БД происходят в одной транзакции
+    @Transactional
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
-        System.out.println(user.getUsername());
-        System.out.println("ROLES:");
-        user.getRoles().forEach(System.out::println);
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),
                 user.getPassword(),
-                user.getRoles().stream()
-                        .map(role -> {
-                            System.out.println("-> Granted: " + role.name());
-                            return new SimpleGrantedAuthority(role.name());
-                        })
-                        .collect(Collectors.toSet()));
-
+                Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")));
     }
 
-    public User updateUser(Long id, User updatedUser) {
+    public String updateUser(Long id, User updatedUser) {
         User existing = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
         existing.setUsername(updatedUser.getUsername());
         existing.setPassword(existing.getPassword());
         existing.setRoles(updatedUser.getRoles());
-
-        return saveUser(existing);
+        userRepository.save(existing);
+        return existing.getUsername() + " is updated";
     }
 
 
@@ -156,5 +150,9 @@ public class UserService implements UserDetailsService {
     //     return user.isPresent() && user.get().getRole().equals(role.toString());
     // }
 
+    @PreDestroy
+    public void destroy() {
+
+    }
 
 }

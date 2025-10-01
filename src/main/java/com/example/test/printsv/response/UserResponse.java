@@ -1,6 +1,6 @@
 package com.example.test.printsv.response;
 
-import com.example.test.printsv.enums.Role;
+import com.example.test.printsv.entity.Role;
 import lombok.*;
 
 import java.util.Set;
