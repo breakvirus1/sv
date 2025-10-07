@@ -1,6 +1,5 @@
 package com.example.test.printsv.request;
 
-import com.example.test.printsv.entity.Role;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -12,5 +11,5 @@ public class RegisterRequest {
     private String username;
     @NotBlank
     private String password;
-    private Set<Role> roles;
+    private Set<String> roles;
 }
