@@ -1,5 +1,6 @@
 package com.example.test.printsv.controller;
 
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class HelloController {
     @GetMapping("/hello")
     public String hello() {
-        return "Hello from the secured backend!";
+        String name =  SecurityContextHolder.getContext().getAuthentication().getName();
+        return "Hello from the secured backend, "+name;
     }
 }
