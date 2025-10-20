@@ -14,8 +14,6 @@ public class ZakazResponse {
     private User userId;
     private LocalDateTime createdAt;
 
-
-
-    // private Long customerOfZakazId;
+    // private Long customerOfZakazId
 
 }
