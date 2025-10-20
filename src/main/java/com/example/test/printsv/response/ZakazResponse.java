@@ -13,7 +13,6 @@ public class ZakazResponse {
     private Integer sum;
     private User userId;
     private LocalDateTime createdAt;
-
     // private Long customerOfZakazId
 
 }
