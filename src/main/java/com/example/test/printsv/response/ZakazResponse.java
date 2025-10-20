@@ -1,17 +1,21 @@
 package com.example.test.printsv.response;
 
+import com.example.test.printsv.entity.User;
+import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 
-import java.util.List;
+import java.time.LocalDateTime;
 
 @Data
-
+@AllArgsConstructor
 public class ZakazResponse {
     private Long id;
     private Integer sum;
-    private Long userOfZakazId;
-    private Long customerOfZakazId;
+    private User userId;
+    private LocalDateTime createdAt;
+
+
+
+    // private Long customerOfZakazId;
 
 }

@@ -9,6 +9,6 @@ import lombok.NoArgsConstructor;
 @Data
 public class ZakazRequest {
     private Integer sum;
-    private Long userOfZakazId;
-    private Long customerOfZakazId;
+    // private Long userOfZakazId;
+    // private Long customerOfZakazId;
 }

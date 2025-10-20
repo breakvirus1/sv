@@ -1,12 +1,18 @@
 package com.example.test.printsv;
 
-import com.example.test.printsv.entity.ERole;
-import com.example.test.printsv.entity.Role;
-import com.example.test.printsv.repository.RoleRepository;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+
+import com.example.test.printsv.entity.ERole;
+import com.example.test.printsv.entity.Role;
+import com.example.test.printsv.repository.RoleRepository;
+import com.example.test.printsv.request.*;
+import com.example.test.printsv.service.AuthService;
 
 @SpringBootApplication
 public class PrintsvApplication {
@@ -39,34 +45,43 @@ public class PrintsvApplication {
 		};
 	}
 
-//	@Bean
-//	CommandLineRunner initUserAdmin(AuthService authService, RoleRepository roleRepository) {
-//		return args -> {
-//			RegisterRequest request = new RegisterRequest();
-//
-//			request.setUsername("vas");
-//			request.setPassword("1");
-//			Set<Role> roles = new HashSet<>();
-//			roles.add(new Role(null, ERole.ROLE_ADMIN));
-//			request.setRoles(roles);
-//			authService.registerForInit(request);
-//			System.out.println(request);
-//		};
-//	}
-//
-//	@Bean
-//    CommandLineRunner initUserManager(AuthService authService, RequestToViewNameTranslator requestToViewNameTranslator, RoleRepository roleRepository, RequestService requestBuilder) {
-//		return args -> {
-//			for (int i = 0; i < 10; i++) {
-//				RegisterRequest request1 = new RegisterRequest();
-//				request1.setUsername("vas" + i);
-//				request1.setPassword("1");
-//				Set<Role> roles = new HashSet<>();
-//				roles.add(new Role(null, ERole.ROLE_OPERATOR));
-//				request1.setRoles(roles);
-//				authService.registerForInit(request1);
-//				System.out.println(request1);
-//			}
-//		};
-//	}
+@Bean
+    CommandLineRunner initUsers(AuthService authService, RoleRepository roleRepository) {
+        return args -> {
+            
+            Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
+                    .orElseThrow(() -> new RuntimeException("Role ROLE_ADMIN not found"));
+            Role managerRole = roleRepository.findByName(ERole.ROLE_MANAGER)
+                    .orElseThrow(() -> new RuntimeException("Role ROLE_MANAGER not found"));
+            Role operatorRole = roleRepository.findByName(ERole.ROLE_OPERATOR)
+                    .orElseThrow(() -> new RuntimeException("Role ROLE_OPERATOR not found"));
+
+            
+            RegisterRequest adminRequest = new RegisterRequest();
+            adminRequest.setUsername("admin");
+            adminRequest.setPassword("111111");
+            Set<Role> adminRoles = new HashSet<>();
+            adminRoles.add(adminRole);
+            authService.registerForInit(adminRequest);
+            System.out.println("Created user: " + adminRequest);
+
+            
+            RegisterRequest managerRequest = new RegisterRequest();
+            managerRequest.setUsername("manager");
+            managerRequest.setPassword("111111");
+            Set<Role> managerRoles = new HashSet<>();
+            managerRoles.add(managerRole);
+            authService.registerForInit(managerRequest);
+            System.out.println("Created user: " + managerRequest);
+
+            
+            RegisterRequest operatorRequest = new RegisterRequest();
+            operatorRequest.setUsername("operator");
+            operatorRequest.setPassword("111111");
+            Set<Role> operatorRoles = new HashSet<>();
+            operatorRoles.add(operatorRole);
+            authService.registerForInit(operatorRequest);
+            System.out.println("Created user: " + operatorRequest);
+        };
+    }
 }

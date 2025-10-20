@@ -55,13 +55,14 @@ public class JwtFilter extends OncePerRequestFilter {
 
         logger.debug("JwtFilter: Обработка пути '{}', заголовок Auth: {}", path, authHeader != null ? "присутствует" : "отсутствует");
 
-        // Пропуск для permitAll (/auth/**)
-        if (path.startsWith("/auth/")) {
+ if (path.startsWith("/auth/") || 
+            path.startsWith("/swagger-ui/") || 
+            path.startsWith("/v3/api-docs/") || 
+            path.startsWith("/api/swagger-ui/")) {
             logger.debug("Пропуск JWT для permitAll: {}", path);
             filterChain.doFilter(request, response);
             return;
         }
-
         // Для защищённых путей (/hello и т.д.)
         String username = null;
         String token = null;

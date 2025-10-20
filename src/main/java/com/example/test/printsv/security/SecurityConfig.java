@@ -44,12 +44,12 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()  // <-- ГЛОБАЛЬНО: Все OPTIONS permitAll (preflight)
                         .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api/swagger-ui/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()  // Для остальных /auth/*
                         .requestMatchers("/hello").authenticated()  // GET /hello требует токен
-                        .requestMatchers("/").permitAll()  // <-- Добавьте для root / (если OPTIONS / от axios)
+                        .requestMatchers("/").permitAll()  
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

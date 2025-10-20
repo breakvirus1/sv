@@ -34,7 +34,7 @@ public class SwaggerConfiguration {
                 .info(new Info()
                         .title("Author API")
                         .version("1.0")
-                        .description("API для управления авторами и постами"))
+                        .description("API для управления заказами"))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth", securityScheme))
                 .addSecurityItem(securityRequirement);

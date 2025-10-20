@@ -1,6 +1,7 @@
 package com.example.test.printsv.service;
 
 import com.example.test.printsv.entity.ERole;
+import com.example.test.printsv.entity.Role;
 import com.example.test.printsv.entity.User;
 import com.example.test.printsv.repository.RoleRepository;
 import com.example.test.printsv.repository.UserRepository;
@@ -96,28 +97,29 @@ public class AuthService {
             return new MessageResponse("Error: Username is already taken!");
         }
 
-        // Create user
         User user = new User();
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
-        // Map frontend strings to ERole and fetch Role entities
         Set<String> strRoles = request.getRoles();
-        Set<com.example.test.printsv.entity.Role> roles = new HashSet<>();  // Adjust import
+        Set<com.example.test.printsv.entity.Role> roles = new HashSet<>();
 
         if (strRoles == null || strRoles.isEmpty()) {
-            // Default to USER if no roles specified
             com.example.test.printsv.entity.Role userRole = roleRepository.findByName(ERole.ROLE_OPERATOR)
                     .orElseThrow(() -> new RuntimeException("Error: Role not found."));
             roles.add(userRole);
         } else {
             strRoles.forEach(roleStr -> {
-                switch (roleStr.toLowerCase()) {  // Handle "operator" or "user"
+                switch (roleStr.toLowerCase()) {
                     case "operator":
-                    case "user":
                         com.example.test.printsv.entity.Role userRole = roleRepository.findByName(ERole.ROLE_OPERATOR)
                                 .orElseThrow(() -> new RuntimeException("Error: Role not found."));
                         roles.add(userRole);
+                        break;
+                    case "manager":
+                        com.example.test.printsv.entity.Role managerRole = roleRepository.findByName(ERole.ROLE_MANAGER)
+                                .orElseThrow(() -> new RuntimeException("Error: Role not found."));
+                        roles.add(managerRole);
                         break;
                     case "admin":
                         com.example.test.printsv.entity.Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
@@ -130,12 +132,13 @@ public class AuthService {
             });
         }
 
-        user.setRoles(roles);  // Assuming User has Set<Role> roles
+        user.setRoles(roles);
         userRepository.save(user);
 
         return new MessageResponse("User registered successfully!");
     }
-//    public void registerForInit(RegisterRequest request) {
+    public void registerForInit(RegisterRequest request) {
+        register(request);
 //        if (userRepository.existsByUsername(request.getUsername())) {
 //            throw new RuntimeException("Error: Username is already taken!");
 //        }
@@ -145,6 +148,7 @@ public class AuthService {
 //        user.setPassword(passwordEncoder.encode(request.getPassword()));
 //
 //        Set<Role> roles = new HashSet<>();
+//
 //        for (Role role : request.getRoles()) {
 //            Role savedRole = roleRepository.save(role);
 //            roles.add(savedRole);
@@ -153,4 +157,4 @@ public class AuthService {
 //        user.setRoles(roles);
 //        userRepository.save(user);
 //    }
-}
+}}
