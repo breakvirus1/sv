@@ -3,6 +3,12 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+!**/gigaide.properties
+!.continue
+!.gigaide
+!.vscode
+!.idea
+!.mvn
 
 ### STS ###
 .apt_generated
