@@ -23,6 +23,15 @@ public class Role {
     @Column(length = 20)
     private ERole name;
 
+    @Override
+    public String toString() {
+        return "{" +
+            ", name='" + getName() + "'" +
+            "}";
+    }
+
+    
+
 
 }
 

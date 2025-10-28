@@ -1,5 +1,7 @@
 package com.example.test.printsv;
 
+import java.lang.reflect.Array;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -32,6 +34,7 @@ public class PrintsvApplication {
 
 	@Bean
 	CommandLineRunner initRoles(RoleRepository roleRepository) {
+        System.out.println("initialize roles...");
 		return args -> {
 			if (!roleRepository.existsByName(ERole.ROLE_MANAGER)) {
 				roleRepository.save(new Role(null, ERole.ROLE_MANAGER));
@@ -47,8 +50,8 @@ public class PrintsvApplication {
 
 @Bean
     CommandLineRunner initUsers(AuthService authService, RoleRepository roleRepository) {
+        System.out.println("FIND ROLES IN REPOSITORY: "+roleRepository.findAll());
         return args -> {
-            
             Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
                     .orElseThrow(() -> new RuntimeException("Role ROLE_ADMIN not found"));
             Role managerRole = roleRepository.findByName(ERole.ROLE_MANAGER)
@@ -56,14 +59,17 @@ public class PrintsvApplication {
             Role operatorRole = roleRepository.findByName(ERole.ROLE_OPERATOR)
                     .orElseThrow(() -> new RuntimeException("Role ROLE_OPERATOR not found"));
 
-            
+        
             RegisterRequest adminRequest = new RegisterRequest();
             adminRequest.setUsername("admin");
             adminRequest.setPassword("111111");
             Set<Role> adminRoles = new HashSet<>();
             adminRoles.add(adminRole);
-            authService.registerForInit(adminRequest);
-            System.out.println("Created user: " + adminRequest);
+            System.out.println(Arrays.asList(adminRoles));
+
+            
+            authService.registerForInit(adminRequest,adminRoles);
+            System.out.println("Created user: " + adminRequest.toString());
 
             
             RegisterRequest managerRequest = new RegisterRequest();
@@ -71,8 +77,8 @@ public class PrintsvApplication {
             managerRequest.setPassword("111111");
             Set<Role> managerRoles = new HashSet<>();
             managerRoles.add(managerRole);
-            authService.registerForInit(managerRequest);
-            System.out.println("Created user: " + managerRequest);
+            authService.registerForInit(managerRequest, managerRoles);
+            System.out.println("Created user: " + managerRequest.toString());
 
             
             RegisterRequest operatorRequest = new RegisterRequest();
@@ -80,8 +86,8 @@ public class PrintsvApplication {
             operatorRequest.setPassword("111111");
             Set<Role> operatorRoles = new HashSet<>();
             operatorRoles.add(operatorRole);
-            authService.registerForInit(operatorRequest);
-            System.out.println("Created user: " + operatorRequest);
+            authService.registerForInit(operatorRequest,operatorRoles);
+            System.out.println("Created user: " + operatorRequest.toString());
         };
     }
 }

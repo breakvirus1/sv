@@ -22,7 +22,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-
 @Component
 @Lazy
 public class JwtFilter extends OncePerRequestFilter {
@@ -43,22 +42,22 @@ public class JwtFilter extends OncePerRequestFilter {
 
     }
 
-
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
-                                    @NonNull HttpServletResponse response,
-                                    @NonNull FilterChain filterChain)
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
         final String path = request.getRequestURI();
         final String authHeader = request.getHeader("Authorization");
 
-        logger.debug("JwtFilter: Обработка пути '{}', заголовок Auth: {}", path, authHeader != null ? "присутствует" : "отсутствует");
+        logger.debug("JwtFilter: Обработка пути '{}', заголовок Auth: {}", path,
+                authHeader != null ? "присутствует" : "отсутствует");
 
- if (path.startsWith("/auth/") || 
-            path.startsWith("/swagger-ui/") || 
-            path.startsWith("/v3/api-docs/") || 
-            path.startsWith("/api/swagger-ui/")) {
+        if (path.startsWith("/auth/") ||
+                path.startsWith("/swagger-ui/") ||
+                path.startsWith("/v3/api-docs/") ||
+                path.startsWith("/api/swagger-ui/")) {
             logger.debug("Пропуск JWT для permitAll: {}", path);
             filterChain.doFilter(request, response);
             return;
@@ -101,36 +100,38 @@ public class JwtFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-
-//    @Override
-//    protected void doFilterInternal(@NonNull HttpServletRequest request,
-//                                    @NonNull HttpServletResponse response,
-//                                    @NonNull FilterChain filterChain)
-//            throws ServletException, IOException {
-//
-//        final String authHeader = request.getHeader("Authorization");
-//
-//        String username = null;
-//        String token = null;
-//
-//        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-//            token = authHeader.substring(7);
-//            username = jwtUtil.extractUsername(token);
-//        }
-//
-//        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-//            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-//
-//            if (jwtUtil.validateToken(token, userDetails)) {
-//                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails,
-//                        null, userDetails.getAuthorities());
-//                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-//                SecurityContextHolder.getContext().setAuthentication(authToken);
-//            }
-//        }
-//
-//        filterChain.doFilter(request, response);
-//    }
+    // @Override
+    // protected void doFilterInternal(@NonNull HttpServletRequest request,
+    // @NonNull HttpServletResponse response,
+    // @NonNull FilterChain filterChain)
+    // throws ServletException, IOException {
+    //
+    // final String authHeader = request.getHeader("Authorization");
+    //
+    // String username = null;
+    // String token = null;
+    //
+    // if (authHeader != null && authHeader.startsWith("Bearer ")) {
+    // token = authHeader.substring(7);
+    // username = jwtUtil.extractUsername(token);
+    // }
+    //
+    // if (username != null &&
+    // SecurityContextHolder.getContext().getAuthentication() == null) {
+    // UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+    //
+    // if (jwtUtil.validateToken(token, userDetails)) {
+    // UsernamePasswordAuthenticationToken authToken = new
+    // UsernamePasswordAuthenticationToken(userDetails,
+    // null, userDetails.getAuthorities());
+    // authToken.setDetails(new
+    // WebAuthenticationDetailsSource().buildDetails(request));
+    // SecurityContextHolder.getContext().setAuthentication(authToken);
+    // }
+    // }
+    //
+    // filterChain.doFilter(request, response);
+    // }
 
     @PreDestroy
     public void destroy() {

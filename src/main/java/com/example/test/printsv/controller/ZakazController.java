@@ -11,30 +11,50 @@ import com.example.test.printsv.response.ListZakazByUserIdResponse;
 import com.example.test.printsv.response.ZakazResponse;
 import com.example.test.printsv.service.ZakazService;
 
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 
 @RestController
 @AllArgsConstructor
-
 @RequestMapping("/api/users")
 public class ZakazController {
     @Autowired
     private ZakazService zakazService;
 
-
+    @Operation(summary = "Получить список заказов для пользователя по id", description = "Возвращает список заказов (только для оператора)")
     @GetMapping("/zakaz/all")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
     public ResponseEntity<ListZakazByUserIdResponse> getAllZakazByUser(@RequestParam("id") Long id) {
-
         return ResponseEntity.ok(zakazService.getAllZakazByUserId(id));
     }
 
-
+    @Operation(summary = "создать заказ с введенной суммой")
     @PostMapping("/zakaz")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
     public ResponseEntity<ZakazResponse> createZakaz(@RequestBody ZakazRequest request) {
         return ResponseEntity.ok(zakazService.addZakaz(request.getSum()));
     }
     
+    @Operation(summary = "получить заказ по id")
+    @GetMapping("/zakaz/{id}")
+    @PreAuthorize("hasRole('ROLE_OPERATOR')")
+    public ResponseEntity<ZakazResponse> getZakazById(@PathVariable Long id) {
+        return ResponseEntity.ok(zakazService.getZakazById(id));
+    }
+
+    @Operation(summary = "обновить заказ")
+    @PutMapping("/zakaz/{id}")
+    @PreAuthorize("hasRole('ROLE_OPERATOR')")
+    public ResponseEntity<ZakazResponse> updateZakaz(@PathVariable Long id, @RequestBody ZakazRequest request) {
+        return ResponseEntity.ok(zakazService.updateZakaz(id, request.getSum()));
+    }
+
+    @Operation(summary = "удалить заказ по id")
+    @DeleteMapping("/zakaz/{id}")
+    @PreAuthorize("hasRole('ROLE_OPERATOR')")
+    public ResponseEntity<Void> deleteZakaz(@PathVariable Long id) {
+        zakazService.deleteZakaz(id);
+        return ResponseEntity.noContent().build();
+    }
 }

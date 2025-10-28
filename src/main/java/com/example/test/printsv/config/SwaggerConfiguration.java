@@ -4,7 +4,8 @@ import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-
+// import com.example.test.printsv.mapper.ZakazMapper;
+// import com.example.test.printsv.mapper.ZakazMapperImpl;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;

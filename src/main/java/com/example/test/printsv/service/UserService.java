@@ -28,19 +28,20 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-
-@RequiredArgsConstructor
 public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
-
-    private PasswordEncoder passwordEncoder;
-
     private final UserMapper userMapper;
+    private PasswordEncoder passwordEncoder;
 
     @Autowired
     public void setPasswordEncoder(PasswordEncoder passwordEncoder) {
         this.passwordEncoder = passwordEncoder;
+    }
+    @Autowired(required = true)
+    public UserService(UserRepository userRepository, UserMapper userMapper) {
+        this.userRepository = userRepository;
+        this.userMapper = userMapper;
     }
 
     @PostConstruct
@@ -73,7 +74,6 @@ public class UserService implements UserDetailsService {
         return userRepository.findAll().stream()
                 .map(userMapper::toUserResponse)
                 .collect(Collectors.toList());
-
     }
 
     public void deleteUser(Long id) {
@@ -117,10 +117,8 @@ public class UserService implements UserDetailsService {
         return existing.getUsername() + " is updated";
     }
 
-
     @PreDestroy
     public void destroy() {
 
     }
-
 }

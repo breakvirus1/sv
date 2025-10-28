@@ -25,6 +25,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class User{
 
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -33,12 +34,21 @@ public class User{
     private String username;
     @Size(min=2, message = "не меньше 2 знаков")
     private String password;
-
-
+    
+    
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
-
+    
     private Set<Role> roles = new HashSet<>();
-
+    
+    @Override
+    public String toString() {
+        return "{" +
+            " id='" + getId() + "'" +
+            ", username='" + getUsername() + "'" +
+            ", password='" + getPassword() + "'" +
+            ", roles='" + getRoles() + "'" +
+            "}";
+    }
 
 }

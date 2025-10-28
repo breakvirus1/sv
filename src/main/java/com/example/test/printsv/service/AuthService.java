@@ -19,6 +19,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -31,8 +32,9 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final JwtUtil jwtUtil;
 
-
-    public AuthService(UserRepository userRepository, AuthenticationManager authenticationManager, PasswordEncoder passwordEncoder, RoleRepository roleRepository, JwtUtil jwtUtil, RequestService requestBuilder) {
+    public AuthService(UserRepository userRepository, AuthenticationManager authenticationManager,
+            PasswordEncoder passwordEncoder, RoleRepository roleRepository, JwtUtil jwtUtil,
+            RequestService requestBuilder) {
         this.userRepository = userRepository;
         this.authenticationManager = authenticationManager;
         this.passwordEncoder = passwordEncoder;
@@ -50,65 +52,47 @@ public class AuthService {
         return new LoginResponse(token);
     }
 
-//    public MessageResponse register(RegisterRequest request) {
-//        if (userRepository.existsByUsername(request.getUsername())) {
-//            return new MessageResponse("Error: Username is already taken!");
-//        }
-//        System.out.println("request = " + request);
-//
-//        User user = new User();
-//        user.setUsername(request.getUsername());
-//        user.setPassword(passwordEncoder.encode(request.getPassword()));
-//
-//        Set<String> strRoles = request.getRoles().stream().map(role -> role.toString()).collect(Collectors.toSet());
-//        Set<Role> roles = request.getRoles();
-//
-//        if (strRoles == null || strRoles.isEmpty()) {
-//            Role userRole = roleRepository.findByName(ERole.ROLE_MANAGER)
-//                    .orElseThrow(() -> new RuntimeException("Error: Role not found."));
-//            roles.add(userRole);
-//        } else {
-//            strRoles.forEach(role -> {
-//                if ("admin".equalsIgnoreCase(role)) {
-//                    Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
-//                            .orElseThrow(() -> new RuntimeException("Error: Role not found."));
-//                    roles.add(adminRole);
-//                } else if ("operator".equalsIgnoreCase(role)) {
-//                    Role operatorRole = roleRepository.findByName(ERole.ROLE_OPERATOR)
-//                            .orElseThrow(() -> new RuntimeException("Error: Role not found."));
-//                    roles.add(operatorRole);
-//                } else {
-//                    Role userRole = roleRepository.findByName(ERole.ROLE_MANAGER)
-//                            .orElseThrow(() -> new RuntimeException("Error: Role not found."));
-//                    roles.add(userRole);
-//                }
-//            });
-//        }
-//
-//        user.setRoles(roles);
-//        userRepository.save(user);
-//
-//        return new MessageResponse("User registered successfully!");
-//    }
-
-
     public MessageResponse register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
             return new MessageResponse("Error: Username is already taken!");
         }
-
         User user = new User();
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-
         Set<String> strRoles = request.getRoles();
-        Set<com.example.test.printsv.entity.Role> roles = new HashSet<>();
-
+        Set<Role> roles = new HashSet<>();
         if (strRoles == null || strRoles.isEmpty()) {
-            com.example.test.printsv.entity.Role userRole = roleRepository.findByName(ERole.ROLE_OPERATOR)
+            Role userRole = roleRepository.findByName(ERole.ROLE_OPERATOR)
                     .orElseThrow(() -> new RuntimeException("Error: Role not found."));
             roles.add(userRole);
         } else {
+            roles = rolesStrToHashSet(strRoles);
+        }
+        user.setRoles(roles);
+        userRepository.save(user);
+
+        return new MessageResponse("User registered successfully!");
+    }
+
+    public MessageResponse registerForInit(RegisterRequest request, Set<Role> roles) {
+        if (userRepository.existsByUsername(request.getUsername())) {
+            return new MessageResponse("Error: Username is already taken!");
+        }
+        
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRoles(roles);
+        System.out.println("registerforinitrequest: "+request);
+        
+        userRepository.save(user);
+        return new MessageResponse(user.getUsername() + " registered successfully!");
+    }
+
+    public Set<Role> rolesStrToHashSet(Set<String> strRoles){
+        System.out.println("rolesstrtohasset: "+strRoles);
+        Set<Role> roles = new HashSet<>();
+
             strRoles.forEach(roleStr -> {
                 switch (roleStr.toLowerCase()) {
                     case "operator":
@@ -130,31 +114,8 @@ public class AuthService {
                         throw new RuntimeException("Error: Unknown role: " + roleStr);
                 }
             });
-        }
-
-        user.setRoles(roles);
-        userRepository.save(user);
-
-        return new MessageResponse("User registered successfully!");
+        
+        return roles;
     }
-    public void registerForInit(RegisterRequest request) {
-        register(request);
-//        if (userRepository.existsByUsername(request.getUsername())) {
-//            throw new RuntimeException("Error: Username is already taken!");
-//        }
-//
-//        User user = new User();
-//        user.setUsername(request.getUsername());
-//        user.setPassword(passwordEncoder.encode(request.getPassword()));
-//
-//        Set<Role> roles = new HashSet<>();
-//
-//        for (Role role : request.getRoles()) {
-//            Role savedRole = roleRepository.save(role);
-//            roles.add(savedRole);
-//        }
-//
-//        user.setRoles(roles);
-//        userRepository.save(user);
-//    }
-}}
+}
+

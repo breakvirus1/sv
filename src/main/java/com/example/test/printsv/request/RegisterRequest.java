@@ -5,6 +5,8 @@ import lombok.Data;
 
 import java.util.Set;
 
+import com.example.test.printsv.entity.Role;
+
 @Data
 public class RegisterRequest {
     @NotBlank
