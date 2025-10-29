@@ -23,7 +23,6 @@ import com.example.test.printsv.response.UserResponse;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -94,6 +93,13 @@ public class UserService implements UserDetailsService {
         String currentUserName = SecurityContextHolder.getContext().getAuthentication().getName();
         
         return currentUserName;
+    }
+    public Long getCurrentUserId(){
+        Optional<User> user = userRepository.findByUsername(getCurrentUserName());
+        Long currentUserId = user.get().getId();
+
+        
+        return currentUserId;
     }
 
     @Override

@@ -1,7 +1,5 @@
 package com.example.test.printsv;
 
-import java.lang.reflect.Array;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -9,13 +7,11 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.DependsOn;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.example.test.printsv.entity.ERole;
 import com.example.test.printsv.entity.Role;
 import com.example.test.printsv.repository.RoleRepository;
-import com.example.test.printsv.request.*;
+import com.example.test.printsv.request.RegisterRequest;
 import com.example.test.printsv.service.AuthService;
 
 @SpringBootApplication

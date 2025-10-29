@@ -1,21 +1,28 @@
 package com.example.test.printsv.controller;
 
-import java.util.*;
+import java.util.List;
+import java.util.Locale;
 
-import com.example.test.printsv.entity.User;
-import com.example.test.printsv.repository.UserRepository;
-import com.example.test.printsv.request.UserRequest;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
+import com.example.test.printsv.entity.User;
+import com.example.test.printsv.repository.UserRepository;
 import com.example.test.printsv.response.UserResponse;
 import com.example.test.printsv.service.UserService;
 
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 
 
@@ -29,18 +36,20 @@ public class UserController {
 
     private UserService userService;
 
+    
     private final UserRepository userRepository;
 
     @Operation(summary = "Получить всех пользователей", description = "Возвращает список всех пользователей (только для администратора)")
     @PreAuthorize("ROLE_ADMIN")
     @GetMapping
+    
     public List<UserResponse> getAllUsers() {
         
         return userService.getAllUsers();
     }
 
     @Operation(summary = "Получить пользователя по id", description = "Возвращает пользователя по идентификатору (только для администратора)")
-    @Secured("ROLE_ADMIN")
+    @PreAuthorize("ROLE_ADMIN")
     @GetMapping("/{id}")
     public ResponseEntity<?> getById(@Parameter(description = "Id пользователя") @PathVariable("id") Long id,
                                      Locale locale) {
@@ -51,6 +60,13 @@ public class UserController {
         catch (RuntimeException ex){
             return ResponseEntity.status(404).body(locale);
         }
+    }
+    @Operation(summary = "Получить id аутентифицированного пользователя ", description = "Возвращает пользователя")
+    @PreAuthorize("ROLE_ADMIN")
+    @GetMapping("/me")
+    public ResponseEntity<?> getMyId() {
+        return ResponseEntity.ok(userService.getCurrentUserId());
+        
     }
 //
 //    @Operation(summary = "Создать пользователя", description = "Создаёт нового пользователя (только для администратора)")
