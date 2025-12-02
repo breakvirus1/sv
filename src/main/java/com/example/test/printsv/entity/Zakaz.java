@@ -43,17 +43,17 @@ public class Zakaz {
     
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "zakaz", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "zakaz", cascade = CascadeType.ALL)
     @JsonManagedReference
     private List<SubZakaz> subZakazList;
 
-    public void addSubZakaz(SubZakaz subZakaz) {
-        subZakazList.add(subZakaz);
-        subZakaz.setZakaz(this);
-    }
+    // public void addSubZakaz(SubZakaz subZakaz) {
+    //     subZakazList.add(subZakaz);
+    //     subZakaz.setZakaz(this);
+    // }
 
-    public void removeSubZakaz(SubZakaz subZakaz) {
-        subZakazList.remove(subZakaz);
-        subZakaz.setZakaz(null);
-    }
+    // public void removeSubZakaz(SubZakaz subZakaz) {
+    //     subZakazList.remove(subZakaz);
+    //     subZakaz.setZakaz(null);
+    // }
 }

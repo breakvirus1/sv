@@ -1,18 +1,18 @@
 package com.example.test.printsv.response;
 
-import com.example.test.printsv.entity.User;
+import java.time.LocalDateTime;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
-
-import java.time.LocalDateTime;
+import lombok.NoArgsConstructor;
 
 @Data
 @AllArgsConstructor
+@NoArgsConstructor
 public class ZakazResponse {
     private Long id;
     private Integer sum;
-    private User userId;
+    private Long userId;
+    private String username;
     private LocalDateTime createdAt;
-    // private Long customerOfZakazId
-
 }

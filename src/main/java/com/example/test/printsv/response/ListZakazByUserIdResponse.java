@@ -3,17 +3,18 @@ package com.example.test.printsv.response;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.example.test.printsv.entity.Zakaz;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import lombok.*;
-@Getter
-@Setter
+@Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class ListZakazByUserIdResponse {
-
-    private Long id;
+    private Long userId;
     private String username;
-    private List<Zakaz> zakazList;
-
+    private List<ZakazResponse> zakazList;
+    private LocalDateTime createdAt;
+    private Integer sum;
+    private Long id;
 }

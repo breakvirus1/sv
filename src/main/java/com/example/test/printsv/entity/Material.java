@@ -1,21 +1,29 @@
 package com.example.test.printsv.entity;
 
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 
 import lombok.*;
 @Entity
-//@Data
 @Setter
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "material")
+@Table(name = "materials")
 public class Material {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column(nullable = false)
-    private Double price;
+    private Integer price;
     @Column(nullable = false)
     private String name;
+    @OneToMany( mappedBy = "material", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<SubZakaz> subZakazList;
+
+
 }

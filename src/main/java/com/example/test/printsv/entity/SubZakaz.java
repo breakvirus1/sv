@@ -1,5 +1,7 @@
 package com.example.test.printsv.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,17 +18,17 @@ public class SubZakaz {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    private String material;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "material_id", nullable = false)
+    private Material material;
     private Double width;
     private Double height;
     private Double cena;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "zakaz_id", nullable = false)
+    @JsonIgnore
     private Zakaz zakaz;
 
-    public Double getTotal() {
-        return width * height * cena;
-    }
+
 }
