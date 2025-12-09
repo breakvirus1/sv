@@ -1,5 +1,7 @@
 package com.example.test.printsv.controller;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.test.printsv.request.ZakazRequest;
-import com.example.test.printsv.response.ListZakazByUserIdResponse;
+
 import com.example.test.printsv.response.ZakazResponse;
 import com.example.test.printsv.service.ZakazService;
 
@@ -31,7 +33,7 @@ public class ZakazController {
     @Operation(summary = "Получить список заказов для пользователя по id", description = "Возвращает список заказов (только для оператора)")
     @GetMapping("/zakaz/all")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
-    public ResponseEntity<ListZakazByUserIdResponse> getAllZakazByUser(@RequestParam("id") Long id) {
+    public ResponseEntity<List<ZakazResponse>> getAllZakazByUser(@RequestParam("id") Long id) {
         return ResponseEntity.ok(zakazService.getAllZakazByUserId(id));
     }
 
@@ -39,7 +41,7 @@ public class ZakazController {
     @PostMapping("/zakaz")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
     public ResponseEntity<ZakazResponse> createZakaz(@RequestBody ZakazRequest request) {
-        return ResponseEntity.ok(zakazService.addZakaz(request.getSum()));
+        return ResponseEntity.ok(zakazService.addZakaz(request));
     }
     
     @Operation(summary = "получить заказ по id")

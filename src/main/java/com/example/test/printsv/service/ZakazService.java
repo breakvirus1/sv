@@ -71,7 +71,7 @@ import com.example.test.printsv.entity.Zakaz;
 import com.example.test.printsv.mapper.ZakazMapper;
 import com.example.test.printsv.repository.UserRepository;
 import com.example.test.printsv.repository.ZakazRepository;
-import com.example.test.printsv.response.ListZakazByUserIdResponse;
+import com.example.test.printsv.request.ZakazRequest;
 import com.example.test.printsv.response.ZakazResponse;
 
 import lombok.AllArgsConstructor;
@@ -90,35 +90,27 @@ public class ZakazService {
 
 
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
-    public ListZakazByUserIdResponse getAllZakazByUserId(Long id) {
+    public List<ZakazResponse> getAllZakazByUserId(Long id) {
 
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with ID: " + id));
         
         List<Zakaz> zakazList = zakazRepository.findAllByUserId(id);
+        
 
 
-        List<ZakazResponse> zakazResponses = zakazList.stream()
-                .map(zakazMapper::toZakazResponse)
-                .collect(Collectors.toList());
-    ListZakazByUserIdResponse listZakazByUserIdResponse = new ListZakazByUserIdResponse();
-    listZakazByUserIdResponse.setId(user.getId());
-    listZakazByUserIdResponse.setUsername(user.getUsername());
-    listZakazByUserIdResponse.setZakazList(zakazResponses);
-
-        return listZakazByUserIdResponse;
+        return zakazList.stream().map(zakazMapper::toZakazResponse).collect(Collectors.toList());
     }
 
 
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
-    public ZakazResponse addZakaz(Integer sum) {
+    public ZakazResponse addZakaz(ZakazRequest zakazRequest) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found with name: " + username));
-        Zakaz zakaz = new Zakaz();
+                .orElseThrow(() -> new RuntimeException("User not found with name: " + username));        
+        Zakaz zakaz = zakazMapper.toZakaz(zakazRequest);
         zakaz.setUser(user);
         zakaz.setCreatedAt(LocalDateTime.now());
-        zakaz.setSum(sum);
         Zakaz savedZakaz = zakazRepository.save(zakaz);
 
         return zakazMapper.toZakazResponse(savedZakaz);
