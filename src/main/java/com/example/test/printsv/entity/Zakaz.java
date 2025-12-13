@@ -34,7 +34,7 @@ public class Zakaz {
 
 
     // @Column(nullable = false)
-    private Integer sum;
+    private Double sum;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

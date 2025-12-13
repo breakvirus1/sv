@@ -54,8 +54,8 @@ public class ZakazController {
     @Operation(summary = "обновить заказ")
     @PutMapping("/zakaz/{id}")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
-    public ResponseEntity<ZakazResponse> updateZakaz(@PathVariable Long id, @RequestBody ZakazRequest request) {
-        return ResponseEntity.ok(zakazService.updateZakaz(id, request.getSum()));
+    public ResponseEntity<ZakazResponse> updateZakaz(@PathVariable Long id) {
+        return ResponseEntity.ok(zakazService.updateZakaz(id));
     }
 
     @Operation(summary = "удалить заказ по id")

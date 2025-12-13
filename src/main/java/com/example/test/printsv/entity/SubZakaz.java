@@ -24,6 +24,7 @@ public class SubZakaz {
     private Double width;
     private Double height;
     private Double cena;
+    private Double price;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "zakaz_id", nullable = false)

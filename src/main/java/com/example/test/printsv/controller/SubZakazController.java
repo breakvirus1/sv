@@ -17,31 +17,38 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.test.printsv.entity.SubZakaz;
 import com.example.test.printsv.service.SubZakazService;
 
+import io.swagger.v3.oas.annotations.Operation;
+
 @RestController
 @RequestMapping("/api/subzakaz")
 public class SubZakazController {
     @Autowired
     private SubZakazService subZakazService;
 
+    @Operation(summary = "Создать позицию для заказа", description = "Создает новую позицию для заказа ")
     @PostMapping("/{zakazId}")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
     public ResponseEntity<SubZakaz> createSubZakaz(@PathVariable Long zakazId, @RequestBody SubZakaz subZakaz) {
         return ResponseEntity.ok(subZakazService.addSubZakaz(zakazId, subZakaz));
     }
 
-    @GetMapping("/{zakazId}")
+    @Operation(summary = "Получить список позиций для заказа", description = "Возвращает список позиций для заказа (только для оператора)")
+
+    @GetMapping("/{zakazId}/subzakaz")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
     public ResponseEntity<List<SubZakaz>> getAllSubZakazByZakazId(@PathVariable Long zakazId) {
         return ResponseEntity.ok(subZakazService.getAllSubZakazByZakazId(zakazId));
     }
 
-    @PutMapping("/{id}")
+    @Operation(summary = "Обновить позицию заказа", description = "Обновляет позицию заказа (только для оператора)")
+    @PutMapping("/{zakazId}/subzakaz/{id}")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
-    public ResponseEntity<SubZakaz> updateSubZakaz(@PathVariable Long id, @RequestBody SubZakaz subZakazDetails) {
+    public ResponseEntity<SubZakaz> updateSubZakaz(@PathVariable Long zakazId, @PathVariable Long id, @RequestBody SubZakaz subZakazDetails) {
         return ResponseEntity.ok(subZakazService.updateSubZakaz(id, subZakazDetails));
     }
 
-    @DeleteMapping("/{id}")
+    @Operation(summary = "Удалить позицию заказа", description = "Удаляет позицию заказа (только для оператора)")
+    @DeleteMapping("/{zakazId}/subzakaz/{id}")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
     public ResponseEntity<Void> deleteSubZakaz(@PathVariable Long id) {
         subZakazService.deleteSubZakaz(id);

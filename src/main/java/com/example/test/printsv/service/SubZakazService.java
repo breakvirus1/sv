@@ -22,6 +22,7 @@ public class SubZakazService {
         Zakaz zakaz = zakazRepository.findById(zakazId)
                 .orElseThrow(() -> new RuntimeException("Zakaz not found with ID: " + zakazId));
         subZakaz.setZakaz(zakaz);
+        subZakaz.setCena(subZakaz.getWidth() * subZakaz.getHeight() * subZakaz.getMaterial().getPrice());
         return subZakazRepository.save(subZakaz);
     }
 
@@ -41,5 +42,11 @@ public class SubZakazService {
 
     public void deleteSubZakaz(Long id) {
         subZakazRepository.deleteById(id);
+    }
+
+
+    public Double setsumForZakaz(Long zakazId) {
+        List<SubZakaz> subZakazList = subZakazRepository.findAllByZakazId(zakazId);
+        return subZakazList.stream().mapToDouble(SubZakaz::getPrice).sum();
     }
 }
