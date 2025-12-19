@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.test.printsv.entity.SubZakaz;
+import com.example.test.printsv.response.SubZakazResponse;
 import com.example.test.printsv.service.SubZakazService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,21 +35,21 @@ public class SubZakazController {
 
     @Operation(summary = "Получить список позиций для заказа", description = "Возвращает список позиций для заказа (только для оператора)")
 
-    @GetMapping("/{zakazId}/subzakaz")
+    @GetMapping("/zakaz/all")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
-    public ResponseEntity<List<SubZakaz>> getAllSubZakazByZakazId(@PathVariable Long zakazId) {
+    public ResponseEntity<List<SubZakazResponse>> getAllSubZakazByZakazId(Long zakazId) {
         return ResponseEntity.ok(subZakazService.getAllSubZakazByZakazId(zakazId));
     }
 
     @Operation(summary = "Обновить позицию заказа", description = "Обновляет позицию заказа (только для оператора)")
-    @PutMapping("/{zakazId}/subzakaz/{id}")
+    @PutMapping("/{id}")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
-    public ResponseEntity<SubZakaz> updateSubZakaz(@PathVariable Long zakazId, @PathVariable Long id, @RequestBody SubZakaz subZakazDetails) {
+    public ResponseEntity<SubZakaz> updateSubZakaz(@PathVariable Long id, @RequestBody SubZakaz subZakazDetails) {
         return ResponseEntity.ok(subZakazService.updateSubZakaz(id, subZakazDetails));
     }
 
     @Operation(summary = "Удалить позицию заказа", description = "Удаляет позицию заказа (только для оператора)")
-    @DeleteMapping("/{zakazId}/subzakaz/{id}")
+    @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
     public ResponseEntity<Void> deleteSubZakaz(@PathVariable Long id) {
         subZakazService.deleteSubZakaz(id);

@@ -1,14 +1,18 @@
 package com.example.test.printsv.service;
 
 import java.util.List;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.test.printsv.entity.SubZakaz;
 import com.example.test.printsv.entity.Zakaz;
+import com.example.test.printsv.mapper.SubZakazMapper;
 import com.example.test.printsv.repository.SubZakazRepository;
 import com.example.test.printsv.repository.ZakazRepository;
+import com.example.test.printsv.response.SubZakazResponse;
 
 @Service
 public class SubZakazService {
@@ -17,6 +21,8 @@ public class SubZakazService {
 
     @Autowired
     private ZakazRepository zakazRepository;
+    @Autowired
+    private SubZakazMapper subZakazMapper;
 
     public SubZakaz addSubZakaz(Long zakazId, SubZakaz subZakaz) {
         Zakaz zakaz = zakazRepository.findById(zakazId)
@@ -26,8 +32,16 @@ public class SubZakazService {
         return subZakazRepository.save(subZakaz);
     }
 
-    public List<SubZakaz> getAllSubZakazByZakazId(Long zakazId) {
-        return subZakazRepository.findAllByZakazId(zakazId);
+    public List<SubZakazResponse> getAllSubZakazByZakazId(Long zakazId) {
+        Zakaz zakaz = zakazRepository.findById(zakazId)
+                .orElseThrow(() -> new RuntimeException("Zakaz not found with ID: " + zakazId));
+        List<SubZakaz> subZakazList = subZakazRepository.findAllByZakazId(zakaz.getId());
+        return subZakazList.stream()
+                .map(subZakazMapper::toSubZakazResponse).collect(Collectors.toList());
+
+        
+
+        
     }
 
     public SubZakaz updateSubZakaz(Long id, SubZakaz subZakazDetails) {

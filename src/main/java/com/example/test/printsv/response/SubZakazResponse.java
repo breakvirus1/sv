@@ -7,7 +7,7 @@ import lombok.Data;
 @AllArgsConstructor
 public class SubZakazResponse {
     private Long id;
-    private String material;
+    private String materialName;
     private Double width;
     private Double height;
     private Double cena;

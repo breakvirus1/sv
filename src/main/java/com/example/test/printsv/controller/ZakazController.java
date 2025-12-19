@@ -33,12 +33,12 @@ public class ZakazController {
     @Operation(summary = "Получить список заказов для пользователя по id", description = "Возвращает список заказов (только для оператора)")
     @GetMapping("/zakaz/all")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
-    public ResponseEntity<List<ZakazResponse>> getAllZakazByUser(@RequestParam("id") Long id) {
+    public ResponseEntity<List<ZakazResponse>> getAllZakazByUser(Long id) {
         return ResponseEntity.ok(zakazService.getAllZakazByUserId(id));
     }
 
     @Operation(summary = "создать заказ с введенной суммой")
-    @PostMapping("/zakaz")
+    @PostMapping("/zakaz/new")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
     public ResponseEntity<ZakazResponse> createZakaz(@RequestBody ZakazRequest request) {
         return ResponseEntity.ok(zakazService.addZakaz(request));

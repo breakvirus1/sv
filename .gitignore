@@ -9,6 +9,7 @@ target/
 !.vscode
 !.idea
 !.mvn
+!.http
 
 ### STS ###
 .apt_generated

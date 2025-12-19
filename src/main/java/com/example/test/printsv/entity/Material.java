@@ -21,7 +21,7 @@ public class Material {
     private Integer price;
     @Column(nullable = false)
     private String name;
-    @OneToMany( mappedBy = "material", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany( mappedBy = "material", cascade = CascadeType.ALL)
     @JsonIgnore
     private List<SubZakaz> subZakazList;
 

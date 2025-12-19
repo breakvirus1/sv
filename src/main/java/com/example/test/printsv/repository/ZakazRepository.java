@@ -13,5 +13,6 @@ import com.example.test.printsv.entity.Zakaz;
 public interface ZakazRepository extends JpaRepository<Zakaz, Long> {
     @Query("SELECT z FROM Zakaz z WHERE z.user.id = :userId")
     List<Zakaz> findAllByUserId(@Param("userId") Long userId);
+    
 
 }
