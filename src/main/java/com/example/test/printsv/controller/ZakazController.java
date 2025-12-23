@@ -33,7 +33,9 @@ public class ZakazController {
     @Operation(summary = "Получить список заказов для пользователя по id", description = "Возвращает список заказов (только для оператора)")
     @GetMapping("/zakaz/all")
     @PreAuthorize("hasRole('ROLE_OPERATOR')")
-    public ResponseEntity<List<ZakazResponse>> getAllZakazByUser(Long id) {
+    public ResponseEntity<List<ZakazResponse>> getAllZakazByUser(@RequestParam Long id, 
+                                                                @RequestParam(defaultValue = "0") int page, 
+                                                                @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(zakazService.getAllZakazByUserId(id));
     }
 
