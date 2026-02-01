@@ -23,10 +23,12 @@ import com.example.test.printsv.response.UserResponse;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
+
 public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
@@ -37,11 +39,12 @@ public class UserService implements UserDetailsService {
     public void setPasswordEncoder(PasswordEncoder passwordEncoder) {
         this.passwordEncoder = passwordEncoder;
     }
-    @Autowired(required = true)
+    
     public UserService(UserRepository userRepository, UserMapper userMapper) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
     }
+
 
     @PostConstruct
     public void init() {

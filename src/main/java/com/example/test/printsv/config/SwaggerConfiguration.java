@@ -33,7 +33,7 @@ public class SwaggerConfiguration {
 
         return new OpenAPI()
                 .info(new Info()
-                        .title("Author API")
+                        .title("SV API")
                         .version("1.0")
                         .description("API для управления заказами"))
                 .components(new Components()
