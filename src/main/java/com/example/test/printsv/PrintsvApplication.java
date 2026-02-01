@@ -109,8 +109,8 @@ public class PrintsvApplication {
             authService.registerForInit(operatorRequest, operatorRoles);
             System.out.println("Created user: " + operatorRequest.toString());
 
-            Long zakazcount = 30L;
-            Long subzakazcount = 21L;
+            Long zakazcount = 5L;
+            Long subzakazcount = 5L;
             Long MaterialCount = 5L;
 
             // Создаем материалы
