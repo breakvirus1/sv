@@ -15,36 +15,33 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.test.printsv.entity.User;
+import com.example.test.printsv.entity.Zakaz;
 import com.example.test.printsv.repository.UserRepository;
 import com.example.test.printsv.response.UserResponse;
+import com.example.test.printsv.response.ZakazResponse;
 import com.example.test.printsv.service.UserService;
-
+import com.example.test.printsv.service.ZakazService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 
-
 @Tag(name="Юзеры", description = "CRUD действия над юзерами")
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/user")
-//@PreAuthorize("hasRole('ADMIN')")
-
 public class UserController {
 
     private UserService userService;
+    private ZakazService zakazService;
 
-    
     private final UserRepository userRepository;
 
     @Operation(summary = "Получить всех пользователей", description = "Возвращает список всех пользователей (только для администратора)")
     @PreAuthorize("ROLE_ADMIN")
     @GetMapping
-    
     public List<UserResponse> getAllUsers() {
-        
         return userService.getAllUsers();
     }
 
@@ -52,35 +49,33 @@ public class UserController {
     @PreAuthorize("ROLE_ADMIN")
     @GetMapping("/{id}")
     public ResponseEntity<?> getById(@Parameter(description = "Id пользователя") @PathVariable("id") Long id,
-                                     Locale locale) {
-        try{
+                                    Locale locale) {
+        try {
             User userRequest = userService.getUserById(id);
             return ResponseEntity.ok(userRequest);
-        }
-        catch (RuntimeException ex){
+        } catch (RuntimeException ex) {
             return ResponseEntity.status(404).body(locale);
         }
     }
+
     @Operation(summary = "Получить id аутентифицированного пользователя ", description = "Возвращает пользователя")
-    @PreAuthorize("ROLE_ADMIN")
-    @GetMapping("/me")
+    @GetMapping("/me-id")
     public ResponseEntity<?> getMyId() {
         return ResponseEntity.ok(userService.getCurrentUserId());
-        
     }
-//
-//    @Operation(summary = "Создать пользователя", description = "Создаёт нового пользователя (только для администратора)")
-//    @Secured("ROLE_ADMIN")
-//    @PostMapping
-//    public ResponseEntity<?> create(@RequestBody User user) {
-//        return ResponseEntity.status(201).body(userService.(user));
-//    }
+
+    @Operation(summary = "Получить список заказов пользователя", description = "Возвращает список заказов пользователя")
+    @GetMapping("/zakaz/all")
+    public ResponseEntity<?> getZakazList(@Parameter(description = "Id пользователя") @RequestParam("id") Long id) {
+        List<ZakazResponse> zakazList = zakazService.getAllZakazByUserId(id);
+        return ResponseEntity.ok(zakazList);
+    }
 
     @Operation(summary = "Обновить пользователя", description = "Обновляет данные пользователя (только для администратора)")
     @Secured("ROLE_ADMIN")
     @PutMapping("/{id}")
     public ResponseEntity<String> update(@Parameter(description = "Id пользователя") @PathVariable("id") Long id,
-                                       @RequestBody User updatedUser) {
+                                        @RequestBody User updatedUser) {
         return ResponseEntity.ok(userService.updateUser(id, updatedUser));
     }
 
@@ -90,11 +85,6 @@ public class UserController {
     public ResponseEntity<?> delete(
             @Parameter(description = "Id пользователя") @PathVariable("id") Long id, Locale locale) {
         userService.deleteUser(id);
-
         return ResponseEntity.ok(201);
     }
-
-
-
-
 }
