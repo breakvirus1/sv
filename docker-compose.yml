@@ -1,0 +1,132 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: svdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sv-network
+
+  discovery-server:
+    build:
+      context: .
+      dockerfile: back/discovery-server/Dockerfile
+    ports:
+      - "8762:8761"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sv-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_URL=http://discovery-server:8761/eureka/
+      - DB_HOST=postgres
+
+  auth-server:
+    build:
+      context: .
+      dockerfile: back/auth-server/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+    networks:
+      - sv-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_URL=http://discovery-server:8761/eureka/
+      - DB_HOST=postgres
+
+  user-service:
+    build:
+      context: .
+      dockerfile: back/user-service/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+      auth-server:
+        condition: service_started
+    networks:
+      - sv-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_URL=http://discovery-server:8761/eureka/
+      - JWK_SET_URI=http://auth-server:8080/oauth2/jwks
+      - DB_HOST=postgres
+    deploy:
+      replicas: 1
+
+  zakaz-service:
+    build:
+      context: .
+      dockerfile: back/zakaz-service/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+      auth-server:
+        condition: service_started
+    networks:
+      - sv-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_URL=http://discovery-server:8761/eureka/
+      - JWK_SET_URI=http://auth-server:8080/oauth2/jwks
+      - DB_HOST=postgres
+    deploy:
+      replicas: 1
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: back/api-gateway/Dockerfile
+    ports:
+      - "8085:8081"
+    depends_on:
+      - discovery-server
+      - auth-server
+      - user-service
+      - zakaz-service
+    networks:
+      - sv-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_URL=http://discovery-server:8761/eureka/
+      - DB_HOST=postgres
+
+  frontend:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    ports:
+      - "5174:5174"
+    depends_on:
+      - api-gateway
+    networks:
+      - sv-network
+
+networks:
+  sv-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
