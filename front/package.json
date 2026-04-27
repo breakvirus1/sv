@@ -13,6 +13,14 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0",
     "axios": "^1.6.0",
+    "@mui/material": "^5.15.0",
+    "@mui/icons-material": "^5.15.0",
+    "@mui/x-data-grid": "^6.18.2",
+    "@tanstack/react-query": "^5.56.2",
+    "@tanstack/react-table": "^8.20.2",
+    "react-hook-form": "^7.52.1",
+    "zod": "^3.23.8",
+    "@hookform/resolvers": "^3.9.0",
     "oidc-client-ts": "^3.0.0"
   },
   "devDependencies": {

@@ -1,2 +1,0 @@
--- Flyway migration for user-service
--- This can be left empty as Hibernate auto-DDL will create tables

@@ -3,9 +3,8 @@ import { useAuth } from './context/AuthContext'
 import Navbar from './components/Navbar'
 import LoginPage from './pages/LoginPage'
 import Dashboard from './pages/Dashboard'
-import UsersPage from './pages/UsersPage'
-import ZakazListPage from './pages/ZakazListPage'
-import ZakazCreatePage from './pages/ZakazCreatePage'
+import OrdersList from './pages/OrdersList'
+import OrderDetail from './pages/OrderDetail'
 import CallbackPage from './pages/CallbackPage'
 
 function App() {
@@ -16,8 +15,13 @@ function App() {
   }
 
   const isAuthenticated = !!user
-  const isOperator = user?.roles?.includes('ROLE_OPERATOR') || user?.roles?.includes('ROLE_ADMIN')
   const isAdmin = user?.roles?.includes('ROLE_ADMIN')
+  const isManager = user?.roles?.includes('ROLE_MANAGER')
+  const isProduction = user?.roles?.includes('ROLE_PRODUCTION')
+  const isAccountant = user?.roles?.includes('ROLE_ACCOUNTANT')
+  const hasPermission = user?.roles?.some(role =>
+    ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_PRODUCTION', 'ROLE_ACCOUNTANT'].includes(role)
+  )
 
   return (
     <div>
@@ -28,7 +32,7 @@ function App() {
             isAuthenticated ? <Dashboard /> : <Navigate to="/login" />
           } />
           <Route path="/login" element={
-            isAuthenticated ? <Navigate to="/" /> : <LoginPage />
+            isAuthenticated ? <Navigate to="/orders" /> : <LoginPage />
           } />
           <Route path="/callback" element={<CallbackPage />} />
           <Route path="/dashboard" element={
@@ -36,19 +40,19 @@ function App() {
               <Dashboard />
             </ProtectedRoute>
           } />
-          <Route path="/users" element={
-            <ProtectedRoute requiresAdmin={true}>
-              <UsersPage />
+          <Route path="/orders" element={
+            <ProtectedRoute>
+              <OrdersList />
             </ProtectedRoute>
           } />
-          <Route path="/zakaz" element={
-            <ProtectedRoute requiresOperator={true}>
-              <ZakazListPage />
+          <Route path="/orders/new" element={
+            <ProtectedRoute requiresManager={true}>
+              <OrderDetail mode="create" />
             </ProtectedRoute>
           } />
-          <Route path="/zakaz/create" element={
-            <ProtectedRoute requiresOperator={true}>
-              <ZakazCreatePage />
+          <Route path="/orders/:id" element={
+            <ProtectedRoute>
+              <OrderDetail />
             </ProtectedRoute>
           } />
         </Routes>
@@ -57,17 +61,13 @@ function App() {
   )
 }
 
-const ProtectedRoute = ({ children, requiresAdmin, requiresOperator }) => {
+const ProtectedRoute = ({ children, requiresManager }) => {
   const { user } = useAuth()
 
   if (!user) return <Navigate to="/login" />
 
-  if (requiresAdmin && !user.roles?.includes('ROLE_ADMIN')) {
-    return <Navigate to="/" />
-  }
-
-  if (requiresOperator && !(user.roles?.includes('ROLE_OPERATOR') || user.roles?.includes('ROLE_ADMIN'))) {
-    return <Navigate to="/" />
+  if (requiresManager && !(user.roles?.includes('ROLE_MANAGER') || user.roles?.includes('ROLE_ADMIN'))) {
+    return <Navigate to="/orders" />
   }
 
   return children

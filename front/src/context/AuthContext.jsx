@@ -1,99 +1,101 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react';
+import { UserManager, WebStorageStateStore } from 'oidc-client-ts';
 
-const AuthContext = createContext(null)
+const userManager = new UserManager({
+  authority: 'http://localhost:8080/realms/print-sv',
+  client_id: 'frontend',
+  redirect_uri: 'http://localhost:5174/callback',
+  post_logout_redirect_uri: 'http://localhost:5174/',
+  response_type: 'code',
+  scope: 'openid profile email',
+  userStore: new WebStorageStateStore({ store: window.localStorage })
+});
 
-export const useAuth = () => useContext(AuthContext)
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const hash = window.location.hash
-    if (hash && hash.includes('access_token')) {
-      const params = new URLSearchParams(hash.substring(1))
-      const token = params.get('access_token')
-      if (token) {
-        localStorage.setItem('token', token)
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        setUser({
-          username: payload.preferred_username || payload.sub,
-          roles: payload.roles || [],
-          ...payload
-        })
-        window.location.hash = ''
+    const initAuth = async () => {
+      try {
+        const storedUser = await userManager.getUser();
+        if (storedUser && !storedUser.expired) {
+          setUser({
+            name: storedUser.profile?.name || storedUser.profile?.preferred_username,
+            email: storedUser.profile?.email,
+            roles: storedUser.profile?.realm_access?.roles || [],
+            accessToken: storedUser.access_token
+          });
+          // Сохраняем токен для api.js
+          localStorage.setItem('token', storedUser.access_token);
+        }
+      } catch (err) {
+        console.error('Auth init error:', err);
+      } finally {
+        setLoading(false);
       }
-    } else {
-      const token = localStorage.getItem('token')
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        setUser({
-          username: payload.preferred_username || payload.sub,
-          roles: payload.roles || [],
-          ...payload
-        })
-      }
+    };
+
+    initAuth();
+  }, []);
+
+  const login = async () => {
+    try {
+      await userManager.signinRedirect();
+    } catch (err) {
+      console.error('Login error:', err);
     }
-    setLoading(false)
-  }, [])
+  };
 
-  const login = () => {
-    const state = Math.random().toString(36).substring(7)
-    localStorage.setItem('oauth_state', state)
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: 'web-app',
-      redirect_uri: `${window.location.origin}/callback`,
-      scope: 'openid read write',
-      state: state
-    })
-    // Use relative path to go through gateway/nginx
-    window.location.href = `/auth/oauth2/authorize?${params}`
-  }
-
-  const logout = () => {
-    localStorage.removeItem('token')
-    setUser(null)
-    window.location.href = '/'
-  }
-
-  const handleCallback = async (code, state) => {
-    const savedState = localStorage.getItem('oauth_state')
-    if (state !== savedState) {
-      throw new Error('Invalid state parameter')
+  const logout = async () => {
+    try {
+      localStorage.removeItem('token');
+      await userManager.signoutRedirect();
+    } catch (err) {
+      console.error('Logout error:', err);
     }
+  };
 
-    // Exchange authorization code for tokens at token endpoint
-    const response = await fetch('/auth/oauth2/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + btoa('web-app:secret')
-      },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: `${window.location.origin}/callback`
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to obtain token')
+  const handleCallback = async () => {
+    try {
+      const user = await userManager.signinRedirectCallback();
+      setUser({
+        name: user.profile?.name || user.profile?.preferred_username,
+        email: user.profile?.email,
+        roles: user.profile?.realm_access?.roles || [],
+        accessToken: user.access_token
+      });
+      // Сохраняем токен для api.js
+      localStorage.setItem('token', user.access_token);
+    } catch (err) {
+      console.error('Callback error:', err);
+      throw err;
     }
+  };
 
-    const data = await response.json()
-    localStorage.setItem('token', data.access_token)
-    const payload = JSON.parse(atob(data.access_token.split('.')[1]))
-    setUser({
-      username: payload.preferred_username || payload.sub,
-      roles: payload.roles || [],
-      ...payload
-    })
-  }
+  const value = {
+    user,
+    loading,
+    login,
+    logout,
+    handleCallback,
+    isAuthenticated: !!user
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, handleCallback }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
-  )
-}
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+

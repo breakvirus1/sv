@@ -1,66 +1,42 @@
 server:
-  port: 8081
+  port: 8085
 
 spring:
   application:
     name: api-gateway
+  main:
+    web-application-type: reactive
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
-      routes:
-        # OAuth2 endpoints - strip /auth prefix
-        - id: auth-server-oauth2
-          uri: lb://auth-server
-          predicates:
-            - Path=/auth/**
-          filters:
-            - StripPrefix=1
-
-        # Well-known endpoints - no prefix stripping
-        - id: auth-server-well-known
-          uri: lb://auth-server
-          predicates:
-            - Path=/.well-known/**
-          filters:
-            - StripPrefix=0
-
-        # User service - keep full path /api/user/**
-        - id: user-service
-          uri: lb://user-service
-          predicates:
-            - Path=/api/user/**
-
-        # Zakaz service - keep full path /api/zakaz/**
-        - id: zakaz-service
-          uri: lb://zakaz-service
-          predicates:
-            - Path=/api/zakaz/**
-            - Path=/api/subzakaz/**
-
-        # Auth server login page
-        - id: auth-server-login
-          uri: lb://auth-server
-          predicates:
-            - Path=/login
-
-        # Frontend static
-        - id: frontend-static
-          uri: http://frontend:5174
-          predicates:
-            - Path=/*
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins: "http://localhost:5174"
+            allowed-methods: "*"
+            allowed-headers: "*"
+            allow-credentials: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/print-sv
 
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+      defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: true
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,gateway
+logging:
+  level:
+    org.springframework.security: DEBUG
+    com.example.apigateway: DEBUG
+    org.springframework.cloud.gateway: TRACE
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true

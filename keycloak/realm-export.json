@@ -1,0 +1,123 @@
+{
+  "realm": "print-sv",
+  "enabled": true,
+  "displayName": "Print SV Production",
+  "clients": [
+    {
+      "clientId": "order-service",
+      "name": "Order Service Client",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "order-service-secret",
+      "redirectUris": ["http://localhost:8081/*"],
+      "webOrigins": ["http://localhost:8081"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false
+    },
+    {
+      "clientId": "frontend",
+      "name": "Frontend SPA",
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "redirectUris": ["http://localhost:5174/*", "http://localhost:5174/callback"],
+      "webOrigins": ["http://localhost:5174"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "Administrator with full access",
+        "composite": false
+      },
+      {
+        "name": "MANAGER",
+        "description": "Manager - can manage orders and clients",
+        "composite": false
+      },
+      {
+        "name": "PRODUCTION",
+        "description": "Production user - can update production stages",
+        "composite": false
+      },
+      {
+        "name": "ACCOUNTANT",
+        "description": "Accountant - can manage payments and view analytics",
+        "composite": false
+      },
+      {
+        "name": "USER",
+        "description": "Regular user with limited access",
+        "composite": false
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ADMIN"],
+      "attributes": {
+        "fullName": ["System Administrator"]
+      }
+    },
+    {
+      "username": "manager",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "manager",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["MANAGER"],
+      "attributes": {
+        "fullName": ["Менеджер Тестовый"]
+      }
+    },
+    {
+      "username": "production",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "production",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["PRODUCTION"],
+      "attributes": {
+        "fullName": ["Производство Исполнитель"]
+      }
+    },
+    {
+      "username": "accountant",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "accountant",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ACCOUNTANT"],
+      "attributes": {
+        "fullName": ["Бухгалтер Главный"]
+      }
+    }
+  ]
+}

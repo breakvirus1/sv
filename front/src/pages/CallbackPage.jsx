@@ -1,26 +1,40 @@
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Box, CircularProgress, Typography } from '@mui/material';
+import { useAuth } from '../context/AuthContext';
 
 const CallbackPage = () => {
-  const { handleCallback } = useAuth()
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+  const { handleCallback } = useAuth();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
-    const state = params.get('state')
+    const processAuth = async () => {
+      try {
+        await handleCallback();
+        navigate('/orders', { replace: true });
+      } catch (error) {
+        console.error('Auth callback error:', error);
+        navigate('/login', { replace: true });
+      }
+    };
 
-    if (code && state) {
-      handleCallback(code, state)
-        .then(() => navigate('/'))
-        .catch(() => navigate('/login'))
-    } else {
-      navigate('/login')
-    }
-  }, [])
+    processAuth();
+  }, [handleCallback, navigate]);
 
-  return <div>Processing login...</div>
-}
+  return (
+    <Box
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
+      minHeight="100vh"
+    >
+      <CircularProgress size={60} />
+      <Typography variant="h6" sx={{ mt: 3 }}>
+        Авторизация...
+      </Typography>
+    </Box>
+  );
+};
 
-export default CallbackPage
+export default CallbackPage;

@@ -14,28 +14,31 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.0</version>
+        <version>3.2.5</version>
         <relativePath/>
     </parent>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.release>17</maven.compiler.release>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <flyway.version>10.12.0</flyway.version>
         <jjwt.version>0.11.5</jjwt.version>
         <lombok.version>1.18.34</lombok.version>
         <springdoc.version>2.8.9</springdoc.version>
-        <spring-cloud.version>2023.0.0</spring-cloud.version>
-        <oauth2.version>1.2.0</oauth2.version>
+        <spring-cloud.version>2023.0.3</spring-cloud.version>
     </properties>
 
     <modules>
         <module>back/common</module>
         <module>back/discovery-server</module>
-        <module>back/auth-server</module>
-        <module>back/user-service</module>
-        <module>back/zakaz-service</module>
+        <module>back/client-service</module>
+        <module>back/order-service</module>
         <module>back/api-gateway</module>
+        <module>back/employee-service</module>
+        <module>back/material-service</module>
     </modules>
 
     <dependencyManagement>
@@ -47,6 +50,13 @@
                 <version>${spring-cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- Spring Cloud OpenFeign -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-starter-openfeign</artifactId>
+                <version>4.1.2</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -67,3 +77,4 @@
         </pluginManagement>
     </build>
 </project>
+
