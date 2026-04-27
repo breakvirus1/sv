@@ -39,4 +39,22 @@ build/
 ### VS Code ###
 .vscode/
 .continue/
+.front/node_modules/
+
+### Node.js ###
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+
+### Docker ###
+docker-compose.override.yml
+
+### Logs ###
+*.log
+
+### OS ###
+.DS_Store
+Thumbs.db
 

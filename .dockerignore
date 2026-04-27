@@ -1,4 +1,6 @@
+# Exclude build outputs and temp files
 target/
+**/target/
 .git/
 .gitignore
 README.md
@@ -9,6 +11,8 @@ README.md
 back/auth-server/
 back/user-service/
 back/zakaz-service/
-**/target/
 **/*.log
 **/*.tmp
+
+# Re-include built JARs from service targets
+!**/target/*.jar

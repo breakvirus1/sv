@@ -488,85 +488,85 @@ databaseChangeLog:
       id: 8
       author: system
       changes:
-        - addIndex:
+        - createIndex:
             tableName: orders
             indexName: idx_orders_status
             columns:
               - column:
                   name: status
-        - addIndex:
+        - createIndex:
             tableName: orders
             indexName: idx_orders_due_date
             columns:
               - column:
                   name: due_date
-        - addIndex:
+        - createIndex:
             tableName: orders
             indexName: idx_orders_client
             columns:
               - column:
                   name: client_id
-        - addIndex:
+        - createIndex:
             tableName: orders
             indexName: idx_orders_manager
             columns:
               - column:
                   name: manager_id
-        - addIndex:
+        - createIndex:
             tableName: order_items
             indexName: idx_order_items_order
             columns:
               - column:
                   name: order_id
-        - addIndex:
+        - createIndex:
             tableName: order_stages
             indexName: idx_order_stages_order
             columns:
               - column:
                   name: order_id
-        - addIndex:
+        - createIndex:
             tableName: order_stages
             indexName: idx_order_stages_workshop
             columns:
               - column:
                   name: workshop_id
-        - addIndex:
+        - createIndex:
             tableName: payments
             indexName: idx_payments_order
             columns:
               - column:
                   name: order_id
-        - addIndex:
+        - createIndex:
             tableName: order_comments
             indexName: idx_order_comments_order
             columns:
               - column:
                   name: order_id
-        - addIndex:
+        - createIndex:
             tableName: files
             indexName: idx_files_order
             columns:
               - column:
                   name: order_id
-        - addIndex:
+        - createIndex:
             tableName: files
             indexName: idx_files_order_item
             columns:
               - column:
                   name: order_item_id
-        - addIndex:
+        - createIndex:
             tableName: order_materials
             indexName: idx_order_materials_order
             columns:
               - column:
                   name: order_id
-        - addIndex:
+        - createIndex:
             tableName: order_materials
             indexName: idx_order_materials_item
             columns:
               - column:
                   name: order_item_id
-        - addIndex:
+        - createIndex:
             tableName: order_materials
             indexName: idx_order_materials_material
             columns:
