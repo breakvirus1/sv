@@ -35,37 +35,38 @@ public class OrderController {
      * Получить список заказов с фильтрами и пагинацией.
      * Доступно: ADMIN, MANAGER, PRODUCTION, ACCOUNTANT.
      */
-    @Operation(summary = "Получить список заказов с фильтрами")
-    @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
-    public ResponseEntity<Page<OrderDto>> getAllOrders(
-            @Parameter(description = "Статус заказа") @RequestParam(required = false) String status,
-            @Parameter(description = "ID менеджера") @RequestParam(required = false) Long managerId,
-            @Parameter(description = "Дата с") @RequestParam(required = false) LocalDate fromDate,
-            @Parameter(description = "Дата по") @RequestParam(required = false) LocalDate toDate,
-            Pageable pageable) {
+     @Operation(summary = "Получить список заказов с фильтрами")
+     @GetMapping
+     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+     public ResponseEntity<Page<OrderDto>> getAllOrders(
+             @Parameter(description = "Статус заказа") @RequestParam(required = false) String status,
+             @Parameter(description = "ID менеджера") @RequestParam(required = false) Long managerId,
+             @Parameter(description = "Дата с") @RequestParam(required = false) LocalDate fromDate,
+             @Parameter(description = "Дата по") @RequestParam(required = false) LocalDate toDate,
+             Pageable pageable) {
 
-        Specification<Order> spec = Specification.where(null);
+         Specification<Order> spec = Specification.where(null);
 
-        if (status != null) {
-            spec = spec.and((root, query, cb) ->
-                    cb.equal(root.get("status"), OrderStatus.valueOf(status)));
-        }
-        if (managerId != null) {
-            spec = spec.and((root, query, cb) ->
-                    cb.equal(root.get("manager").get("id"), managerId));
-        }
-        if (fromDate != null) {
-            spec = spec.and((root, query, cb) ->
-                    cb.greaterThanOrEqualTo(root.get("orderDate"), fromDate));
-        }
-        if (toDate != null) {
-            spec = spec.and((root, query, cb) ->
-                    cb.lessThanOrEqualTo(root.get("orderDate"), toDate));
-        }
+         if (status != null) {
+             spec = spec.and((root, query, cb) ->
+                     cb.equal(root.get("status"), OrderStatus.valueOf(status)));
+         }
+         if (managerId != null) {
+             spec = spec.and((root, query, cb) ->
+                     cb.equal(root.get("manager").get("id"), managerId));
+         }
+         if (fromDate != null) {
+             spec = spec.and((root, query, cb) ->
+                     cb.greaterThanOrEqualTo(root.get("orderDate"), fromDate));
+         }
+         if (toDate != null) {
+             spec = spec.and((root, query, cb) ->
+                     cb.lessThanOrEqualTo(root.get("orderDate"), toDate));
+         }
 
-        return ResponseEntity.ok(orderService.getAllOrders(spec, pageable));
-    }
+         Page<OrderDto> page = orderService.getAllOrders(spec, pageable);
+         return ResponseEntity.ok(page);
+     }
 
     /**
      * Получить детальную информацию о заказе.

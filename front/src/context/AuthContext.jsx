@@ -2,8 +2,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { UserManager, WebStorageStateStore } from 'oidc-client-ts';
 
 const userManager = new UserManager({
-  authority: 'http://localhost:8080/realms/print-sv',
-  client_id: 'frontend',
+  authority: import.meta.env.VITE_KEYCLOAK_ISSUER,
+  client_id: import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'frontend',
   redirect_uri: 'http://localhost:5174/callback',
   post_logout_redirect_uri: 'http://localhost:5174/',
   response_type: 'code',

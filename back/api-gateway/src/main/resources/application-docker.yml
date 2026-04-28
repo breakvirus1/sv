@@ -1,30 +1,18 @@
 server:
   port: 8085
 
-spring:
-  application:
-    name: api-gateway
-  main:
-    web-application-type: reactive
-  cloud:
-    gateway:
-      discovery:
-        locator:
-          enabled: false
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowed-origins: "http://localhost:5174"
-            allowed-methods: "*"
-            allowed-headers: "*"
-            allow-credentials: true
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://keycloak:8080/realms/print-sv
+ spring:
+   application:
+     name: api-gateway
+   main:
+     web-application-type: reactive
+   cloud:
+     gateway:
+       discovery:
+         locator:
+           enabled: false
 
-eureka:
+ eureka:
   client:
     service-url:
       defaultZone: http://discovery-server:8761/eureka/
