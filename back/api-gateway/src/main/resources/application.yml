@@ -8,6 +8,9 @@ spring:
     web-application-type: reactive
   cloud:
     gateway:
+      discovery:
+        locator:
+          enabled: false
       globalcors:
         cors-configurations:
           '[/**]':

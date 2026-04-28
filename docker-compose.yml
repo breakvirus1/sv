@@ -146,7 +146,7 @@ services:
       context: .
       dockerfile: back/api-gateway/Dockerfile
     ports:
-      - "8085:8081"
+      - "8085:8085"
     depends_on:
       - discovery-server
       - keycloak
@@ -163,6 +163,7 @@ services:
     build:
       context: ./front
       dockerfile: Dockerfile
+      target: production
       args:
         VITE_API_URL: http://localhost:8085
     ports:

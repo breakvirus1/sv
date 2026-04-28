@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -18,13 +18,24 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
+  Select,
+  FormControl,
+  InputLabel,
+  Snackbar
 } from '@mui/material';
-import { ArrowBack, Add, Payment } from '@mui/icons-material';
+import { ArrowBack, Add, Payment, Delete } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 
-const OrderDetail = () => {
+const OrderDetail = ({ mode = 'view' }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -32,6 +43,38 @@ const OrderDetail = () => {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState('');
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+
+  // Create mode state
+  const [createForm, setCreateForm] = useState({
+    orderNumber: '',
+    clientId: '',
+    description: '',
+    orderDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    managerId: '',
+    items: []
+  });
+
+  // Fetch clients for dropdown
+  const { data: clientsData } = useQuery({
+    queryKey: ['clients'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/clients?size=100');
+      return response.data.content || [];
+    },
+    enabled: mode === 'create'
+  });
+
+  // Fetch employees (managers) for dropdown
+  const { data: employeesData } = useQuery({
+    queryKey: ['employees'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/employees?size=100');
+      return response.data.content || [];
+    },
+    enabled: mode === 'create'
+  });
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['order', id],
@@ -39,6 +82,19 @@ const OrderDetail = () => {
       const response = await api.get(`/api/v1/orders/${id}`);
       return response.data;
     },
+    enabled: mode !== 'create'
+  });
+
+  const createOrderMutation = useMutation({
+    mutationFn: (data) => api.post('/api/v1/orders', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
+      setTimeout(() => navigate('/orders'), 1500);
+    },
+    onError: (err) => {
+      setNotification({ open: true, message: `Ошибка: ${err.response?.data?.message || err.message}`, severity: 'error' });
+    }
   });
 
   const updateStatusMutation = useMutation({
@@ -47,6 +103,7 @@ const OrderDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       setStatusDialogOpen(false);
+      setNotification({ open: true, message: 'Статус обновлен', severity: 'success' });
     }
   });
 
@@ -56,8 +113,256 @@ const OrderDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       setPaymentDialogOpen(false);
+      setNotification({ open: true, message: 'Оплата добавлена', severity: 'success' });
     }
   });
+
+  const addItem = () => {
+    setCreateForm(prev => ({
+      ...prev,
+      items: [...prev.items, { name: '', price: '', quantity: '1', readyDate: '' }]
+    }));
+  };
+
+  const removeItem = (index) => {
+    setCreateForm(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateItem = (index, field, value) => {
+    setCreateForm(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
+    }));
+  };
+
+  const handleCreateSubmit = (e) => {
+    e.preventDefault();
+    const orderData = {
+      orderNumber: createForm.orderNumber,
+      clientId: parseInt(createForm.clientId),
+      description: createForm.description,
+      orderDate: createForm.orderDate,
+      dueDate: createForm.dueDate || null,
+      managerId: parseInt(createForm.managerId),
+      items: createForm.items.map(item => ({
+        name: item.name,
+        price: parseFloat(item.price),
+        quantity: parseInt(item.quantity),
+        readyDate: item.readyDate || null
+      }))
+    };
+    createOrderMutation.mutate(orderData);
+  };
+
+  if (mode === 'create') {
+    return (
+      <Container maxWidth="xl" sx={{ mt: 4 }}>
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
+          <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
+            Назад
+          </Button>
+          <Typography variant="h4">Новый заказ</Typography>
+        </Box>
+
+        <Paper sx={{ p: 4 }}>
+          <form onSubmit={handleCreateSubmit}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Номер заказа"
+                  name="orderNumber"
+                  value={createForm.orderNumber}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, orderNumber: e.target.value }))}
+                  required
+                  margin="normal"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Клиент</InputLabel>
+                  <Select
+                    name="clientId"
+                    value={createForm.clientId}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, clientId: e.target.value }))}
+                    required
+                  >
+                    {clientsData?.map((client) => (
+                      <MenuItem key={client.id} value={client.id}>
+                        {client.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Дата заказа"
+                  name="orderDate"
+                  type="date"
+                  value={createForm.orderDate}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, orderDate: e.target.value }))}
+                  required
+                  margin="normal"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Срок сдачи"
+                  name="dueDate"
+                  type="date"
+                  value={createForm.dueDate}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                  margin="normal"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Менеджер</InputLabel>
+                  <Select
+                    name="managerId"
+                    value={createForm.managerId}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, managerId: e.target.value }))}
+                    required
+                  >
+                    {employeesData?.map((emp) => (
+                      <MenuItem key={emp.id} value={emp.id}>
+                        {emp.fullName}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Описание"
+                  name="description"
+                  multiline
+                  rows={3}
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
+                  margin="normal"
+                />
+              </Grid>
+
+              {/* Items Section */}
+              <Grid item xs={12}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Typography variant="h6">Позиции заказа</Typography>
+                  <Button startIcon={<Add />} onClick={addItem} variant="outlined">
+                    Добавить позицию
+                  </Button>
+                </Box>
+
+                <TableContainer component={Paper} variant="outlined">
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Наименование</TableCell>
+                        <TableCell width="150">Цена, ₽</TableCell>
+                        <TableCell width="100">Кол-во</TableCell>
+                        <TableCell width="150">Срок готовности</TableCell>
+                        <TableCell width="80">Действия</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {createForm.items.map((item, index) => (
+                        <TableRow key={index}>
+                          <TableCell>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              value={item.name}
+                              onChange={(e) => updateItem(index, 'name', e.target.value)}
+                              placeholder="Наименование изделия"
+                              required
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              type="number"
+                              value={item.price}
+                              onChange={(e) => updateItem(index, 'price', e.target.value)}
+                              required
+                              inputProps={{ step: 0.01 }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+                              required
+                              inputProps={{ min: 1 }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              type="date"
+                              value={item.readyDate}
+                              onChange={(e) => updateItem(index, 'readyDate', e.target.value)}
+                              InputLabelProps={{ shrink: true }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <IconButton onClick={() => removeItem(index)} color="error" size="small">
+                              <Delete />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+
+                {createForm.items.length === 0 && (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    Добавьте хотя бы одну позицию в заказ
+                  </Alert>
+                )}
+              </Grid>
+
+              <Grid item xs={12}>
+                <Box display="flex" gap={2} justifyContent="flex-end" mt={2}>
+                  <Button onClick={() => navigate('/orders')}>Отмена</Button>
+                  <Button type="submit" variant="contained" disabled={createForm.items.length === 0}>
+                    Создать заказ
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          </form>
+        </Paper>
+
+        <Snackbar
+          open={notification.open}
+          autoHideDuration={6000}
+          onClose={() => setNotification({ ...notification, open: false })}
+        >
+          <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
+            {notification.message}
+          </Alert>
+        </Snackbar>
+      </Container>
+    );
+  }
+
+  // View mode (existing order details)
+  const statusOptions = ['WAITING', 'LAUNCHED', 'IN_PROGRESS', 'READY', 'ACCEPTED', 'CLOSED'];
 
   if (isLoading) {
     return (
@@ -74,8 +379,6 @@ const OrderDetail = () => {
       </Container>
     );
   }
-
-  const statusOptions = ['WAITING', 'LAUNCHED', 'IN_PROGRESS', 'READY', 'ACCEPTED', 'CLOSED'];
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4 }}>
@@ -142,7 +445,7 @@ const OrderDetail = () => {
             </Box>
           </Paper>
 
-          {/* Табы для деталей заказа */}
+          {/* Tabs */}
           <Paper sx={{ mt: 3 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
@@ -196,7 +499,7 @@ const OrderDetail = () => {
         </Grid>
       </Grid>
 
-      {/* Диалог изменения статуса */}
+      {/* Dialog for Status Change */}
       <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)}>
         <DialogTitle>Изменить статус заказа</DialogTitle>
         <DialogContent>
@@ -226,7 +529,7 @@ const OrderDetail = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Диалог добавления оплаты */}
+      {/* Dialog for Payment */}
       <Dialog open={paymentDialogOpen} onClose={() => setPaymentDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Добавить оплату</DialogTitle>
         <DialogContent>
@@ -250,7 +553,7 @@ const getStatusColor = (status) => {
 };
 
 const PositionsTab = ({ items }) => {
-  if (!items.length) {
+  if (!items?.length) {
     return <Typography>Нет позиций в заказе</Typography>;
   }
 
@@ -259,7 +562,7 @@ const PositionsTab = ({ items }) => {
       {items.map((item, index) => (
         <Paper key={item.id} sx={{ p: 2, mb: 2 }} variant="outlined">
           <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6">{item.name}</Typography>
+            <Typography variant="subtitle1">{item.name}</Typography>
             <Typography variant="h6">{item.cost?.toFixed(2)} ₽</Typography>
           </Box>
           <Box display="flex" gap={4} mt={1}>
@@ -280,7 +583,7 @@ const PositionsTab = ({ items }) => {
 };
 
 const StagesTab = ({ stages }) => {
-  if (!stages.length) {
+  if (!stages?.length) {
     return <Typography>Этапы производства не заданы</Typography>;
   }
 
@@ -316,7 +619,7 @@ const StagesTab = ({ stages }) => {
 };
 
 const PaymentsTab = ({ payments }) => {
-  if (!payments.length) {
+  if (!payments?.length) {
     return <Typography>Нет оплат</Typography>;
   }
 
@@ -345,7 +648,7 @@ const PaymentsTab = ({ payments }) => {
 };
 
 const CommentsTab = ({ comments }) => {
-  if (!comments.length) {
+  if (!comments?.length) {
     return <Typography>Нет комментариев</Typography>;
   }
 
@@ -374,16 +677,12 @@ const PaymentForm = ({ onSubmit }) => {
     amount: '',
     paymentDate: new Date().toISOString().split('T')[0],
     paymentType: 'Безнал',
-    details: '',
-    isPartial: false
+    details: ''
   });
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e) => {
@@ -405,6 +704,7 @@ const PaymentForm = ({ onSubmit }) => {
         value={formData.amount}
         onChange={handleChange}
         required
+        inputProps={{ step: 0.01 }}
       />
       <TextField
         fullWidth
@@ -415,6 +715,7 @@ const PaymentForm = ({ onSubmit }) => {
         value={formData.paymentDate}
         onChange={handleChange}
         required
+        InputLabelProps={{ shrink: true }}
       />
       <TextField
         fullWidth

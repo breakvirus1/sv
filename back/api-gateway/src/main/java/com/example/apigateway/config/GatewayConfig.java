@@ -1,5 +1,7 @@
 package com.example.apigateway.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
@@ -8,17 +10,30 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class GatewayConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(GatewayConfig.class);
+
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
-        return builder.routes()
+        log.info("Configuring custom routes for API Gateway");
+        RouteLocator routes = builder.routes()
             .route("order-service", r -> r
                 .path("/api/v1/orders/**")
-                .uri("http://localhost:8081")
+                .uri("http://order-service:8081")
             )
             .route("client-service", r -> r
                 .path("/api/v1/clients/**")
-                .uri("http://localhost:8082")
+                .uri("http://client-service:8082")
+            )
+            .route("employee-service", r -> r
+                .path("/api/v1/employees/**")
+                .uri("http://employee-service:8083")
+            )
+            .route("material-service", r -> r
+                .path("/api/v1/materials/**")
+                .uri("http://material-service:8084")
             )
             .build();
+        log.info("Custom routes configured: order-service, client-service, employee-service, material-service");
+        return routes;
     }
 }

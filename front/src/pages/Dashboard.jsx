@@ -6,7 +6,7 @@ import api from '../services/api';
 
 const Dashboard = () => {
   const { data: orders = [] } = useQuery({
-    queryKey: ['orders'],
+    queryKey: ['recentOrders'],
     queryFn: async () => {
       const response = await api.get('/api/v1/orders?size=5');
       return response.data.content || [];

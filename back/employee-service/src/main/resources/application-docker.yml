@@ -8,9 +8,11 @@ spring:
     url: jdbc:postgresql://postgres:5432/svdb
     username: postgres
     password: 12345
+  flyway:
+    enabled: false
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
   security:
     oauth2:
       resourceserver:

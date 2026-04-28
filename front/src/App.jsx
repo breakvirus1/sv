@@ -15,10 +15,6 @@ function App() {
   }
 
   const isAuthenticated = !!user
-  const isAdmin = user?.roles?.includes('ROLE_ADMIN')
-  const isManager = user?.roles?.includes('ROLE_MANAGER')
-  const isProduction = user?.roles?.includes('ROLE_PRODUCTION')
-  const isAccountant = user?.roles?.includes('ROLE_ACCOUNTANT')
   const hasPermission = user?.roles?.some(role =>
     ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_PRODUCTION', 'ROLE_ACCOUNTANT'].includes(role)
   )

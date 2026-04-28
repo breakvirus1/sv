@@ -36,7 +36,7 @@ const getStatusColor = (status) => {
 const OrdersList = () => {
   const navigate = useNavigate();
   const { data: orders = [], isLoading, error } = useQuery({
-    queryKey: ['orders'],
+    queryKey: ['orders', { size: 50 }],
     queryFn: fetchOrders,
     refetchInterval: 30000, // опрос каждые 30 сек
   });
