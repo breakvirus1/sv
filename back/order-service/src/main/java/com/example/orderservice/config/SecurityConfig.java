@@ -1,5 +1,6 @@
 package com.example.orderservice.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -10,6 +11,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -41,6 +44,12 @@ public class SecurityConfig {
     }
 
     @Bean
+    public JwtDecoder jwtDecoder(@Value("${KEYCLOAK_ISSUER_URI}") String issuerUri) {
+        String jwkSetUri = issuerUri + "/protocol/openid-connect/certs";
+        return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+    }
+
+    @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(new KeycloakRoleConverter());
@@ -52,7 +61,6 @@ public class SecurityConfig {
         public Collection<GrantedAuthority> convert(Jwt jwt) {
             Collection<GrantedAuthority> authorities = new java.util.ArrayList<>();
 
-            // Извлекаем роли из realm_access
             Map<String, Object> realmAccess = jwt.getClaim("realm_access");
             if (realmAccess != null && realmAccess.get("roles") instanceof List) {
                 @SuppressWarnings("unchecked")
@@ -62,7 +70,6 @@ public class SecurityConfig {
                         .collect(Collectors.toList()));
             }
 
-            // Извлекаем роли из resource_access (если есть)
             Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
             if (resourceAccess != null && resourceAccess.get("print-sv-client") instanceof Map) {
                 @SuppressWarnings("unchecked")
@@ -76,7 +83,6 @@ public class SecurityConfig {
                 }
             }
 
-            // Добавляем username как атрибут
             String username = jwt.getClaimAsString("preferred_username");
             if (username != null) {
                 authorities.add(new SimpleGrantedAuthority("USERNAME_" + username));

@@ -65,6 +65,14 @@ public class OrderController {
          }
 
          Page<OrderDto> page = orderService.getAllOrders(spec, pageable);
+         
+         // If no orders found, add a header message for frontend
+         if (page.isEmpty()) {
+             return ResponseEntity.ok()
+                     .header("X-Empty-Message", "Нет заказов")
+                     .body(page);
+         }
+         
          return ResponseEntity.ok(page);
      }
 
