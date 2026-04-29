@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Grid, Paper, Typography, Box, Button, Card, CardContent } from '@mui/material';
-import { People, Inventory, Payments, Assessment } from '@mui/icons-material';
-import { Link } from 'react-router-dom';
+import { People, Inventory, Payments, Assessment, Add } from '@mui/icons-material';
+import { Link, useNavigate } from 'react-router-dom';
+import { useWindowsStore } from '../store/windowsStore';
+import CreateOrderForm from '../components/CreateOrderForm';
 import api from '../services/api';
 
 const Dashboard = () => {
@@ -12,6 +14,20 @@ const Dashboard = () => {
       return response.data.content || [];
     },
   });
+
+  const openWindow = useWindowsStore((state) => state.openWindow);
+
+  const handleCreateOrder = () => {
+    openWindow({
+      title: 'Новый заказ',
+      x: 100,
+      y: 100,
+      width: 800,
+      height: 600,
+      Component: CreateOrderForm,
+      props: {}
+    });
+  };
 
   const stats = {
     totalOrders: orders.length,
@@ -29,9 +45,14 @@ const Dashboard = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Панель управления
-      </Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h4">
+          Панель управления
+        </Typography>
+        <Button variant="contained" startIcon={<Add />} onClick={handleCreateOrder}>
+          Создать заказ
+        </Button>
+      </Box>
 
       <Grid container spacing={3}>
         {statCards.map((stat, index) => (

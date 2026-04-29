@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
+import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import {
   Box,
   Button,

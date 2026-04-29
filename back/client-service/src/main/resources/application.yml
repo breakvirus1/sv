@@ -23,11 +23,11 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/print-sv}
+   security:
+     oauth2:
+       resourceserver:
+         jwt:
+           issuer-uri: http://localhost:8080/realms/print-sv
 
 eureka:
   client:

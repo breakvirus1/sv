@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -20,7 +20,7 @@ EXPOSE 5174
 CMD ["nginx", "-g", "daemon off;"]
 
 # Stage 3: Development
-FROM node:18-alpine AS development
+FROM node:20-alpine AS development
 WORKDIR /app
 COPY package*.json ./
 RUN npm install

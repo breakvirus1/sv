@@ -1,11 +1,15 @@
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
-import { Person, Logout } from '@mui/icons-material';
+import { Person, Logout, Add } from '@mui/icons-material';
+import { useWindowsStore } from '../store/windowsStore';
+import CreateOrderForm from './CreateOrderForm';
 
 const Navbar = () => {
   const { user, login, logout, isAuthenticated } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
+  const [createAnchorEl, setCreateAnchorEl] = useState(null);
+  const openWindow = useWindowsStore((state) => state.openWindow);
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -13,6 +17,27 @@ const Navbar = () => {
 
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleCreateMenu = (event) => {
+    setCreateAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseCreate = () => {
+    setCreateAnchorEl(null);
+  };
+
+  const handleCreateOrder = () => {
+    handleCloseCreate();
+    openWindow({
+      title: 'Новый заказ',
+      x: 100,
+      y: 100,
+      width: 800,
+      height: 600,
+      Component: CreateOrderForm,
+      props: {}
+    });
   };
 
   return (
@@ -24,6 +49,35 @@ const Navbar = () => {
 
         {isAuthenticated ? (
           <Box display="flex" alignItems="center" gap={2}>
+            {/* Create Order button with dropdown */}
+            <Button
+              variant="contained"
+              color="secondary"
+              size="small"
+              onClick={handleCreateMenu}
+              startIcon={<Add />}
+            >
+              Создать заказ
+            </Button>
+            <Menu
+              anchorEl={createAnchorEl}
+              open={Boolean(createAnchorEl)}
+              onClose={handleCloseCreate}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+            >
+              <MenuItem onClick={handleCreateOrder}>
+                <Add fontSize="small" sx={{ mr: 1 }} />
+                Создать заказ
+              </MenuItem>
+            </Menu>
+
             <Typography variant="body2">
               {user?.name} ({user?.roles?.join(', ')})
             </Typography>

@@ -41,6 +41,7 @@ public class OrderController {
      public ResponseEntity<Page<OrderDto>> getAllOrders(
              @Parameter(description = "Статус заказа") @RequestParam(required = false) String status,
              @Parameter(description = "ID менеджера") @RequestParam(required = false) Long managerId,
+             @Parameter(description = "ID клиента") @RequestParam(required = false) Long clientId,
              @Parameter(description = "Дата с") @RequestParam(required = false) LocalDate fromDate,
              @Parameter(description = "Дата по") @RequestParam(required = false) LocalDate toDate,
              Pageable pageable) {
@@ -55,6 +56,10 @@ public class OrderController {
              spec = spec.and((root, query, cb) ->
                      cb.equal(root.get("manager").get("id"), managerId));
          }
+         if (clientId != null) {
+             spec = spec.and((root, query, cb) ->
+                     cb.equal(root.get("client").get("id"), clientId));
+         }
          if (fromDate != null) {
              spec = spec.and((root, query, cb) ->
                      cb.greaterThanOrEqualTo(root.get("orderDate"), fromDate));
@@ -64,16 +69,8 @@ public class OrderController {
                      cb.lessThanOrEqualTo(root.get("orderDate"), toDate));
          }
 
-         Page<OrderDto> page = orderService.getAllOrders(spec, pageable);
-         
-         // If no orders found, add a header message for frontend
-         if (page.isEmpty()) {
-             return ResponseEntity.ok()
-                     .header("X-Empty-Message", "Нет заказов")
-                     .body(page);
-         }
-         
-         return ResponseEntity.ok(page);
+          Page<OrderDto> page = orderService.getAllOrders(spec, pageable);
+          return ResponseEntity.ok(page);
      }
 
     /**
