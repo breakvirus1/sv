@@ -1,8 +1,9 @@
-import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
-import { Person, Logout, Add } from '@mui/icons-material';
+import { Person, Logout, Add, AdminPanelSettings } from '@mui/icons-material';
 import { useWindowsStore } from '../store/windowsStore';
+import { useNavigate } from 'react-router-dom';
 import CreateOrderForm from './CreateOrderForm';
 
 const Navbar = () => {
@@ -10,6 +11,7 @@ const Navbar = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [createAnchorEl, setCreateAnchorEl] = useState(null);
   const openWindow = useWindowsStore((state) => state.openWindow);
+  const navigate = useNavigate();
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -49,6 +51,20 @@ const Navbar = () => {
 
         {isAuthenticated ? (
           <Box display="flex" alignItems="center" gap={2}>
+            {/* Admin Panel button - only for ADMIN role */}
+            {user?.roles?.includes('ROLE_ADMIN') && (
+              <Button
+                variant="outlined"
+                color="inherit"
+                size="small"
+                onClick={() => navigate('/admin')}
+                startIcon={<AdminPanelSettings />}
+                sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
+              >
+                Admin Panel
+              </Button>
+            )}
+
             {/* Create Order button with dropdown */}
             <Button
               variant="contained"

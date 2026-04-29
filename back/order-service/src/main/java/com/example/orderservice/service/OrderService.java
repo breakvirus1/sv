@@ -1,6 +1,7 @@
 package com.example.orderservice.service;
 
 import com.example.common.dto.*;
+import com.example.common.entity.Client;
 import com.example.common.entity.Employee;
 import com.example.common.entity.Material;
 import com.example.common.entity.Order;
@@ -16,15 +17,19 @@ import com.example.orderservice.repository.OrderItemRepository;
 import com.example.orderservice.repository.OrderRepository;
 import com.example.orderservice.repository.OrderStageRepository;
 import com.example.orderservice.repository.PaymentRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -45,6 +50,9 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final OrderCommentRepository orderCommentRepository;
     private final OrderMapper orderMapper;
+    @PersistenceContext
+    private EntityManager entityManager;
+    private final JdbcTemplate jdbcTemplate;
 
     /**
      * Получить список заказов с фильтрацией и пагинацией.
@@ -97,8 +105,23 @@ public class OrderService {
         order.setOrderDate(request.getOrderDate() != null ? request.getOrderDate() : LocalDate.now());
         order.setDueDate(request.getDueDate());
 
-        // Здесь нужно загрузить Client и Employee по ID (ленивая загрузка)
-        // Для простоты оставляем null, в реальности используем repositories
+        // Load and set Client
+        Client client = entityManager.find(Client.class, request.getClientId());
+        if (client == null) {
+            throw new RuntimeException("Клиент не найден");
+        }
+        order.setClient(client);
+
+        // Load and set Manager (Employee)
+        if (request.getManagerId() != null) {
+            Employee manager = entityManager.find(Employee.class, request.getManagerId());
+            if (manager == null) {
+                throw new RuntimeException("Менеджер не найден");
+            }
+            order.setManager(manager);
+        }
+
+        order.setDescription(request.getDescription());
 
         order.setTotalAmount(BigDecimal.ZERO);
         order.setPaidAmount(BigDecimal.ZERO);
@@ -108,7 +131,7 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
 
-        // Если есть позиции - создать их
+        // If there are items - create them
         if (request.getItems() != null) {
             request.getItems().forEach(itemReq -> {
                 OrderItem item = new OrderItem();
@@ -121,7 +144,7 @@ public class OrderService {
                 orderItemRepository.save(item);
             });
 
-            // Пересчитать общую сумму
+            // Recalculate total amount
             recalculateTotalAmount(saved.getId());
         }
 
@@ -180,16 +203,28 @@ public class OrderService {
      * Пересчитать общую сумму заказа на основе позиций.
      */
     private void recalculateTotalAmount(Long orderId) {
-        // Реализация: агрегация order_items.cost
-        // Заглушка — нужно реализовать через repository или JPQL
+        BigDecimal total = jdbcTemplate.queryForObject(
+            "SELECT COALESCE(SUM(cost), 0) FROM order_items WHERE order_id = ? AND deleted = false",
+            new Object[]{orderId},
+            BigDecimal.class
+        );
+        orderRepository.updateTotalAmount(orderId, total);
+        // Also update debt
+        orderRepository.updateDebtAmount(orderId);
     }
 
     /**
      * Пересчитать сумму оплат и долг.
      */
     private void recalculatePaidAmount(Long orderId) {
-        // Реализация: сумма всех payments по заказу
-        // Заглушка — нужно реализовать
+        BigDecimal paid = jdbcTemplate.queryForObject(
+            "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE order_id = ? AND deleted = false",
+            new Object[]{orderId},
+            BigDecimal.class
+        );
+        orderRepository.updatePaidAmount(orderId, paid);
+        // Also update debt
+        orderRepository.updateDebtAmount(orderId);
     }
 
     /**

@@ -32,8 +32,25 @@ public class GatewayConfig {
                 .path("/api/v1/materials/**")
                 .uri("http://material-service:8084")
             )
+            // Admin endpoints
+            .route("admin-client-service", r -> r
+                .path("/api/v1/admin/clients/**")
+                .uri("http://client-service:8082")
+            )
+            .route("admin-employee-service", r -> r
+                .path("/api/v1/admin/employees/**")
+                .uri("http://employee-service:8083")
+            )
+            .route("admin-material-service", r -> r
+                .path("/api/v1/admin/materials/**")
+                .uri("http://material-service:8084")
+            )
+            .route("admin-order-service", r -> r
+                .path("/api/v1/admin/orders/**")
+                .uri("http://order-service:8081")
+            )
             .build();
-        log.info("Custom routes configured: order-service, client-service, employee-service, material-service");
+        log.info("Custom routes configured: order-service, client-service, employee-service, material-service, and admin endpoints");
         return routes;
     }
 }

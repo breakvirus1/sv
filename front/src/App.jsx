@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import OrdersList from './pages/OrdersList'
 import OrderDetail from './pages/OrderDetail'
 import CallbackPage from './pages/CallbackPage'
+import AdminPanel from './pages/AdminPanel'
 import { useWindowsStore } from './store/windowsStore'
 import Window from './components/Window'
 
@@ -73,6 +74,11 @@ function App() {
                 <OrderDetail />
               </ProtectedRoute>
             } />
+            <Route path="/admin" element={
+              <ProtectedRoute requiresAdmin={true}>
+                <AdminPanel />
+              </ProtectedRoute>
+            } />
           </Routes>
         </div>
       </div>
@@ -80,16 +86,20 @@ function App() {
   )
 }
 
-const ProtectedRoute = ({ children, requiresManager }) => {
-  const { user } = useAuth()
+  const ProtectedRoute = ({ children, requiresManager, requiresAdmin }) => {
+    const { user } = useAuth()
 
-  if (!user) return <Navigate to="/login" />
+    if (!user) return <Navigate to="/login" />
 
-  if (requiresManager && !(user.roles?.includes('ROLE_MANAGER') || user.roles?.includes('ROLE_ADMIN'))) {
-    return <Navigate to="/orders" />
+    if (requiresManager && !(user.roles?.includes('ROLE_MANAGER') || user.roles?.includes('ROLE_ADMIN'))) {
+      return <Navigate to="/orders" />
+    }
+
+    if (requiresAdmin && !user.roles?.includes('ROLE_ADMIN')) {
+      return <Navigate to="/dashboard" />
+    }
+
+    return children
   }
-
-  return children
-}
 
 export default App
