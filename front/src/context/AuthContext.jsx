@@ -13,6 +13,42 @@ const userManager = new UserManager({
 
 const AuthContext = createContext(null);
 
+// Helper to decode JWT payload (base64url)
+function decodeJwt(token) {
+  try {
+    const payload = token.split('.')[1];
+    // Convert base64url to base64
+    let base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = base64.length % 4;
+    if (pad) base64 += '='.repeat(4 - pad);
+    const decoded = atob(base64);
+    return JSON.parse(decoded);
+  } catch (e) {
+    console.error('JWT decode error:', e);
+    return null;
+  }
+}
+
+function extractRoles(user) {
+  let roles = [];
+  
+  // Try ID token profile first
+  if (user.profile?.realm_access?.roles) {
+    roles = user.profile.realm_access.roles;
+  } 
+  // Fallback: decode access token
+  else if (user.access_token) {
+    const decoded = decodeJwt(user.access_token);
+    if (decoded?.realm_access?.roles) {
+      roles = decoded.realm_access.roles;
+    }
+  }
+  
+  return roles.map(role => 
+    role.startsWith('ROLE_') ? role : `ROLE_${role}`
+  );
+}
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,14 +57,17 @@ export const AuthProvider = ({ children }) => {
     const initAuth = async () => {
       try {
         const storedUser = await userManager.getUser();
+        console.log('Stored user:', storedUser);
         if (storedUser && !storedUser.expired) {
+          const roles = extractRoles(storedUser);
+          console.log('User roles (raw):', storedUser.profile?.realm_access?.roles, '→ transformed:', roles);
+          
           setUser({
             name: storedUser.profile?.name || storedUser.profile?.preferred_username,
             email: storedUser.profile?.email,
-            roles: storedUser.profile?.realm_access?.roles || [],
+            roles: roles,
             accessToken: storedUser.access_token
           });
-          // Сохраняем токен для api.js
           localStorage.setItem('token', storedUser.access_token);
         }
       } catch (err) {
@@ -60,15 +99,17 @@ export const AuthProvider = ({ children }) => {
 
   const handleCallback = async () => {
     try {
-      const user = await userManager.signinRedirectCallback();
+      const oidcUser = await userManager.signinRedirectCallback();
+      console.log('Callback user:', oidcUser);
+      const roles = extractRoles(oidcUser);
+      
       setUser({
-        name: user.profile?.name || user.profile?.preferred_username,
-        email: user.profile?.email,
-        roles: user.profile?.realm_access?.roles || [],
-        accessToken: user.access_token
+        name: oidcUser.profile?.name || oidcUser.profile?.preferred_username,
+        email: oidcUser.profile?.email,
+        roles: roles,
+        accessToken: oidcUser.access_token
       });
-      // Сохраняем токен для api.js
-      localStorage.setItem('token', user.access_token);
+      localStorage.setItem('token', oidcUser.access_token);
     } catch (err) {
       console.error('Callback error:', err);
       throw err;
@@ -98,4 +139,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

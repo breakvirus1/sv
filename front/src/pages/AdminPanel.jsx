@@ -130,16 +130,7 @@ const AdminPanel = () => {
       return response.data.content || [];
     },
     enabled: tab === 3
-  });
-
-  // Set state when data loads
-  useState(() => {
-    if (clientsData) setClients(clientsData);
-  }, [clientsData]);
-  // Similar for others - but I can use useEffect or better directly in rendering.
-
-  // In practice, we can just use the data directly without extra state.
-  // We'll use data from query directly in table.
+   });
 
   // ---- CRUD operations for Clients ----
   const createClientMutation = useMutation({

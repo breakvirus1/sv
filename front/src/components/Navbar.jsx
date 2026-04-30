@@ -13,6 +13,9 @@ const Navbar = () => {
   const openWindow = useWindowsStore((state) => state.openWindow);
   const navigate = useNavigate();
 
+  // Debug logging
+  console.log('Navbar render - user:', user);
+
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -95,7 +98,7 @@ const Navbar = () => {
             </Menu>
 
             <Typography variant="body2">
-              {user?.name} ({user?.roles?.join(', ')})
+              {user?.name} ({user?.roles?.map(r => r.replace(/^ROLE_/, '')).join(', ')})
             </Typography>
             <IconButton onClick={handleMenu} color="inherit" size="small">
               <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>

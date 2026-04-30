@@ -118,6 +118,12 @@
       "attributes": {
         "fullName": ["Бухгалтер Главный"]
       }
+    },
+    {
+      "username": "service-account-order-service",
+      "enabled": true,
+      "serviceAccountClientId": "order-service",
+      "realmRoles": ["ADMIN"]
     }
   ]
 }
