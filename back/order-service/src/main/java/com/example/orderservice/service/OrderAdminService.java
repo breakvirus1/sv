@@ -1,7 +1,7 @@
 package com.example.orderservice.service;
 
 import com.example.common.dto.OrderCreateRequest;
-import com.example.common.dto.OrderItemCreateRequest;
+import com.example.common.dto.OrderMaterialCreateRequest;
 import com.example.common.dto.OrderDto;
 import com.example.common.entity.Order;
 import com.example.orderservice.repository.OrderRepository;
@@ -48,33 +48,45 @@ public class OrderAdminService {
 
         for (int i = 0; i < count; i++) {
             OrderCreateRequest request = new OrderCreateRequest();
-            request.setOrderNumber("З-" + String.format("%03d", i + 1));
+            // Номер заказа генерируется автоматически в OrderService
             request.setClientId(clientIds.get(random.nextInt(clientIds.size())));
             request.setOrderDate(LocalDate.now().minusDays(random.nextInt(30)));
             request.setDueDate(LocalDate.now().plusDays(random.nextInt(60) + 7));
             request.setManagerId(employeeIds.get(random.nextInt(employeeIds.size())));
 
-            // Create 1-3 items
-            java.util.List<OrderItemCreateRequest> items = new ArrayList<>();
+            // Создаем 1-3 позиции заказа (материалы)
+            java.util.List<OrderMaterialCreateRequest> items = new ArrayList<>();
             int itemCount = 1 + random.nextInt(3);
             for (int j = 0; j < itemCount; j++) {
-                OrderItemCreateRequest item = new OrderItemCreateRequest();
                 if (!materials.isEmpty()) {
                     MaterialDto mat = materials.get(random.nextInt(materials.size()));
-                    item.setName(mat.getName());
-                    item.setPrice(mat.getPrice());
-                } else {
-                    item.setName("Изделие " + (j + 1));
-                    item.setPrice(BigDecimal.valueOf(1000 + random.nextInt(9000)));
+                    BigDecimal quantity;
+                    // Определяем количество в зависимости от единицы измерения
+                    if ("м2".equals(mat.getUnit())) {
+                        int dim1 = 500 + random.nextInt(2500); // ширина в мм
+                        int dim2 = 500 + random.nextInt(2500); // высота в мм
+                        // quantity в м2 = (dim1/1000) * (dim2/1000)
+                        quantity = BigDecimal.valueOf(dim1 / 1000.0)
+                                .multiply(BigDecimal.valueOf(dim2 / 1000.0))
+                                .setScale(3, java.math.RoundingMode.HALF_UP);
+                    } else if ("м.п.".equals(mat.getUnit())) {
+                        int dim = 500 + random.nextInt(5000); // длина в мм
+                        quantity = BigDecimal.valueOf(dim / 1000.0).setScale(3, java.math.RoundingMode.HALF_UP);
+                    } else {
+                        // Для других единиц (например, штуки) — случайное целое число
+                        quantity = BigDecimal.valueOf(1 + random.nextInt(20));
+                    }
+                    OrderMaterialCreateRequest om = new OrderMaterialCreateRequest();
+                    om.setMaterialId(mat.getId());
+                    om.setQuantity(quantity);
+                    om.setReadyDate(LocalDate.now().plusDays(random.nextInt(30) + 7));
+                    items.add(om);
                 }
-                item.setQuantity(1 + random.nextInt(5));
-                item.setReadyDate(LocalDate.now().plusDays(random.nextInt(30) + 7));
-                items.add(item);
             }
             request.setItems(items);
 
             OrderDto orderDto = orderService.createOrder(request);
-            // Fetch the saved order entity by ID to return
+            // Получаем сохраненную сущность заказа для возврата
             Order order = orderRepository.findById(orderDto.getId()).orElseThrow();
             orders.add(order);
         }
@@ -96,7 +108,9 @@ public class OrderAdminService {
             this.price = price;
         }
 
+        public Long getId() { return id; }
         public String getName() { return name; }
+        public String getUnit() { return unit; }
         public BigDecimal getPrice() { return price; }
     }
 }

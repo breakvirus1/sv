@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,5 +47,24 @@ public class EmployeeService {
     public void deleteEmployee(Long id) {
         Employee employee = getEmployeeById(id);
         employeeRepository.delete(employee);
+    }
+
+    public Employee syncOrCreateFromKeycloak(Jwt jwt) {
+        String username = jwt.getClaimAsString("preferred_username");
+        if (username == null || username.isEmpty()) {
+            username = jwt.getSubject();
+        }
+        String fullName = jwt.getClaimAsString("name");
+        String email = jwt.getClaimAsString("email");
+
+        Employee employee = employeeRepository.findByUsername(username)
+                .orElseGet(() -> new Employee());
+        
+        employee.setUsername(username);
+        if (fullName != null) employee.setFullName(fullName);
+        if (email != null) employee.setEmail(email);
+        
+        // If new employee, set some defaults? Could leave position/phone null.
+        return employeeRepository.save(employee);
     }
 }

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { UserManager, WebStorageStateStore } from 'oidc-client-ts';
+import api from '../services/api';
 
 const userManager = new UserManager({
   authority: import.meta.env.VITE_KEYCLOAK_ISSUER,
@@ -66,9 +67,14 @@ export const AuthProvider = ({ children }) => {
             name: storedUser.profile?.name || storedUser.profile?.preferred_username,
             email: storedUser.profile?.email,
             roles: roles,
-            accessToken: storedUser.access_token
+            accessToken: storedUser.access_token,
+            username: storedUser.profile?.preferred_username || storedUser.subject
           });
           localStorage.setItem('token', storedUser.access_token);
+          // Sync employee from Keycloak after login
+          api.post('/api/v1/employees/sync').catch(err => 
+            console.error('Employee sync failed:', err)
+          );
         }
       } catch (err) {
         console.error('Auth init error:', err);
@@ -102,14 +108,19 @@ export const AuthProvider = ({ children }) => {
       const oidcUser = await userManager.signinRedirectCallback();
       console.log('Callback user:', oidcUser);
       const roles = extractRoles(oidcUser);
-      
+       
       setUser({
         name: oidcUser.profile?.name || oidcUser.profile?.preferred_username,
         email: oidcUser.profile?.email,
         roles: roles,
-        accessToken: oidcUser.access_token
+        accessToken: oidcUser.access_token,
+        username: oidcUser.profile?.preferred_username || oidcUser.subject
       });
       localStorage.setItem('token', oidcUser.access_token);
+      // Sync employee from Keycloak after login
+      api.post('/api/v1/employees/sync').catch(err => 
+        console.error('Employee sync failed:', err)
+      );
     } catch (err) {
       console.error('Callback error:', err);
       throw err;

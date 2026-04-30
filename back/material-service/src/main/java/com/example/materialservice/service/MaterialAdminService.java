@@ -26,7 +26,7 @@ public class MaterialAdminService {
         "Лазерная резка", "Фрезеровка", "Тиснение фольгой", "Вырубка", "Склейка"
     };
 
-    private static final String[] UNITS = { "м2", "шт", "п.м.", "кг", "л", "час" };
+    private static final String[] UNITS = { "м2", "м.п." };
 
     public List<Material> generateTestMaterials(int count) {
         List<Material> materials = new ArrayList<>();

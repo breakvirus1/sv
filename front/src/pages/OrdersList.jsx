@@ -41,51 +41,51 @@ const OrdersList = () => {
     refetchInterval: 30000, // опрос каждые 30 сек
   });
 
-  const columns = [
-    { field: 'orderNumber', headerName: '№ заказа', width: 130 },
-    { field: 'client.name', headerName: 'Клиент', flex: 1, valueGetter: (value, row) => row.client?.name || '' },
-    { field: 'description', headerName: 'Описание', flex: 2 },
-    {
-      field: 'totalAmount',
-      headerName: 'Сумма',
-      width: 120,
-      type: 'number',
-      valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
-    },
-    {
-      field: 'paidAmount',
-      headerName: 'Оплачено',
-      width: 120,
-      type: 'number',
-      valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
-    },
-    {
-      field: 'debtAmount',
-      headerName: 'Долг',
-      width: 100,
-      type: 'number',
-      valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
-    },
-    {
-      field: 'status',
-      headerName: 'Статус',
-      width: 140,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          color={getStatusColor(params.value)}
-          size="small"
-        />
-      )
-    },
-    {
-      field: 'dueDate',
-      headerName: 'Срок',
-      width: 120,
-      type: 'date',
-      valueFormatter: ({ value }) => value || ''
-    },
-    { field: 'manager.fullName', headerName: 'Менеджер', width: 150, valueGetter: (value, row) => row.manager?.fullName || '' },
+   const columns = [
+     { field: 'orderNumber', headerName: '№ заказа', width: 130 },
+     { field: 'client.name', headerName: 'Клиент', flex: 1, valueGetter: (value, row) => row?.client?.name || '' },
+     { field: 'description', headerName: 'Описание', flex: 2 },
+     {
+       field: 'totalAmount',
+       headerName: 'Сумма',
+       width: 120,
+       type: 'number',
+       valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
+     },
+     {
+       field: 'paidAmount',
+       headerName: 'Оплачено',
+       width: 120,
+       type: 'number',
+       valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
+     },
+     {
+       field: 'debtAmount',
+       headerName: 'Долг',
+       width: 100,
+       type: 'number',
+       valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
+     },
+     {
+       field: 'status',
+       headerName: 'Статус',
+       width: 140,
+       renderCell: (params) => (
+         <Chip
+           label={params.value}
+           color={getStatusColor(params.value)}
+           size="small"
+         />
+       )
+     },
+     {
+       field: 'dueDate',
+       headerName: 'Срок',
+       width: 120,
+       type: 'date',
+       valueFormatter: ({ value }) => value || ''
+     },
+     { field: 'manager.fullName', headerName: 'Менеджер', width: 150, valueGetter: (value, row) => row?.manager?.fullName || '' },
     {
       field: 'actions',
       type: 'actions',

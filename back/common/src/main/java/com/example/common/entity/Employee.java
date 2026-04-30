@@ -1,5 +1,6 @@
 package com.example.common.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -44,5 +45,6 @@ public class Employee extends BaseEntity {
 
     /** Заказы, за которые отвечает этот сотрудник (в качестве менеджера) */
     @OneToMany(mappedBy = "manager", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Order> managedOrders = new ArrayList<>();
 }

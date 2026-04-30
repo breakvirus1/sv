@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -17,31 +17,48 @@ import {
   TableHead,
   TableRow,
   IconButton,
-  Chip,
   Alert,
-  Snackbar
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress
 } from '@mui/material';
 import { Add, Delete, Save } from '@mui/icons-material';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const CreateOrderForm = ({ windowId, closeWindow }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const username = user?.username;
+
+  // Form state (без номера заказа и менеджера)
   const [formData, setFormData] = useState({
-    orderNumber: '',
     clientId: '',
     description: '',
     orderDate: new Date().toISOString().split('T')[0],
     dueDate: '',
-    managerId: '',
     items: []
   });
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch clients for dropdown
+  // Клиентский диалог создания нового клиента
+  const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({
+    name: '',
+    type: 'PRIVATE',
+    contactPerson: '',
+    phone: '',
+    email: ''
+  });
+
+  // Загрузка данных
   const { data: clientsData = [], error: clientsError } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
@@ -50,19 +67,52 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
-  // Fetch employees (managers) for dropdown
-  const { data: employeesData = [], error: employeesError } = useQuery({
-    queryKey: ['employees'],
+  const { data: materialsData = [], error: materialsError } = useQuery({
+    queryKey: ['materials'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/employees?size=100');
+      const response = await api.get('/api/v1/materials?size=100');
       return response.data.content || [];
     },
   });
 
+  // Получение текущего менеджера по username из Keycloak
+  const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
+    queryKey: ['currentEmployee', username],
+    queryFn: async () => {
+      if (!username) return null;
+      const response = await api.get(`/api/v1/employees?size=1&q=${username}`);
+      const data = response.data.content || [];
+      return data.length > 0 ? data[0] : null;
+    },
+    enabled: !!username
+  });
+
+  // Синхронизируем менеджера из Keycloak, если не найден
+  useEffect(() => {
+    if (username && !currentEmployee) {
+      api.post('/api/v1/employees/sync')
+        .then(() => refetchEmployee())
+        .catch(err => console.error('Employee sync failed:', err));
+    }
+  }, [username, currentEmployee, refetchEmployee]);
+
+  // Мутация для создания клиента
+  const createClientMutation = useMutation({
+    mutationFn: (client) => api.post('/api/v1/clients', client),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      setClientDialogOpen(false);
+      setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' });
+      setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
+    },
+    onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
+  });
+
+  // Функции для позиций заказа (материалов)
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { name: '', price: '', quantity: '1', readyDate: '' }]
+      items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '' }]
     }));
   };
 
@@ -84,38 +134,96 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
   };
 
+  const handleClientChange = (e) => {
+    const value = e.target.value;
+    if (value === 'create_new') {
+      setClientDialogOpen(true);
+    } else {
+      setFormData(prev => ({ ...prev, clientId: value }));
+    }
+  };
+
+  const handleNewClientChange = (field) => (e) => {
+    setNewClientForm(prev => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleClientSubmit = () => {
+    if (!newClientForm.name) {
+      setNotification({ open: true, message: 'Введите название клиента', severity: 'error' });
+      return;
+    }
+    createClientMutation.mutate(newClientForm);
+  };
+
   const handleClose = () => {
     if (closeWindow) closeWindow();
     else navigate('/orders');
   };
 
+  // Расчет общей суммы заказа
+  const totalOrderAmount = useMemo(() => {
+    return formData.items.reduce((sum, item) => {
+      const material = materialsData.find(m => m.id === parseInt(item.materialId));
+      if (!material) return sum;
+      const q1 = parseFloat(item.qty1) || 0;
+      const q2 = parseFloat(item.qty2) || 0;
+      let effectiveQty = 0;
+      if (material.unit === 'м2') {
+        effectiveQty = (q1 / 1000) * (q2 / 1000);
+      } else if (material.unit === 'м.п.') {
+        effectiveQty = q1 / 1000;
+      } else {
+        effectiveQty = q1;
+      }
+      const cost = material.price * effectiveQty * (material.wasteCoefficient || 1);
+      return sum + cost;
+    }, 0);
+  }, [formData.items, materialsData]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!currentEmployee) {
+      setNotification({ open: true, message: 'Менеджер не определен. Перелогинитесь.', severity: 'error' });
+      return;
+    }
     setIsSubmitting(true);
     try {
+      const orderMaterials = formData.items.map(item => {
+        const material = materialsData.find(m => m.id === parseInt(item.materialId));
+        if (!material) throw new Error('Материал не выбран');
+        let qty;
+        const q1 = parseFloat(item.qty1) || 0;
+        const q2 = parseFloat(item.qty2) || 0;
+        if (material.unit === 'м2') {
+          qty = (q1 / 1000) * (q2 / 1000);
+        } else if (material.unit === 'м.п.') {
+          qty = q1 / 1000;
+        } else {
+          qty = q1;
+        }
+        return {
+          materialId: parseInt(item.materialId),
+          quantity: qty,
+          readyDate: item.readyDate || null
+        };
+      });
+
       const orderData = {
-        orderNumber: formData.orderNumber,
         clientId: parseInt(formData.clientId),
         description: formData.description,
         orderDate: formData.orderDate,
         dueDate: formData.dueDate || null,
-        managerId: parseInt(formData.managerId),
-        items: formData.items.map(item => ({
-          name: item.name,
-          price: parseFloat(item.price),
-          quantity: parseInt(item.quantity),
-          readyDate: item.readyDate || null
-        }))
+        managerId: currentEmployee.id,
+        items: orderMaterials
       };
 
       await api.post('/api/v1/orders', orderData);
       setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
 
-      // Invalidate queries to refresh data
+      // Invalidate queries
       await queryClient.invalidateQueries({ queryKey: ['orders'] });
       await queryClient.invalidateQueries({ queryKey: ['recentOrders'] });
 
-      // Close window after short delay
       setTimeout(() => {
         if (closeWindow) closeWindow();
       }, 1500);
@@ -130,8 +238,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     }
   };
 
-  // Show error state if data failed to load
-  if (clientsError || employeesError) {
+  if (clientsError || materialsError) {
     return (
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -153,49 +260,24 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
       <Box component="form" onSubmit={handleSubmit} sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-          <TextField
-            fullWidth
-            label="Номер заказа"
-            name="orderNumber"
-            value={formData.orderNumber}
-            onChange={handleChange('orderNumber')}
-            required
-            size="small"
-          />
-
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Клиент</InputLabel>
-              <Select
-                name="clientId"
-                value={formData.clientId}
-                onChange={handleChange('clientId')}
-                required
-              >
-                {clientsData?.map((client) => (
-                  <MenuItem key={client.id} value={client.id}>
-                    {client.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth size="small">
-              <InputLabel>Менеджер</InputLabel>
-              <Select
-                name="managerId"
-                value={formData.managerId}
-                onChange={handleChange('managerId')}
-                required
-              >
-                {employeesData?.map((emp) => (
-                  <MenuItem key={emp.id} value={emp.id}>
-                    {emp.fullName}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Клиент</InputLabel>
+            <Select
+              name="clientId"
+              value={formData.clientId}
+              onChange={handleClientChange}
+              required
+            >
+              <MenuItem value="create_new">Создать нового клиента</MenuItem>
+              {clientsData?.map((client) => (
+                <MenuItem key={client.id} value={client.id}>
+                  {client.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
 
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
@@ -245,93 +327,164 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Наименование</TableCell>
-                    <TableCell width={120}>Цена, ₽</TableCell>
-                    <TableCell width={80}>Кол-во</TableCell>
+                    <TableCell>Материал</TableCell>
+                    <TableCell width={100}>Размер 1 (мм)</TableCell>
+                    <TableCell width={100}>Размер 2 (мм)</TableCell>
                     <TableCell width={130}>Срок готовности</TableCell>
                     <TableCell width={50}>Действия</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {formData.items.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          value={item.name}
-                          onChange={(e) => updateItem(index, 'name', e.target.value)}
-                          placeholder="Наименование изделия"
-                          required
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="number"
-                          value={item.price}
-                          onChange={(e) => updateItem(index, 'price', e.target.value)}
-                          required
-                          inputProps={{ step: 0.01, min: 0 }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                          required
-                          inputProps={{ min: 1 }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="date"
-                          value={item.readyDate}
-                          onChange={(e) => updateItem(index, 'readyDate', e.target.value)}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <IconButton onClick={() => removeItem(index)} color="error" size="small">
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {formData.items.map((item, index) => {
+                    const material = materialsData.find(m => m.id === parseInt(item.materialId));
+                    const showSecond = material && material.unit === 'м2';
+                    return (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <FormControl fullWidth size="small">
+                            <Select
+                              value={item.materialId}
+                              onChange={(e) => updateItem(index, 'materialId', e.target.value)}
+                            >
+                              <MenuItem value="">Выберите материал</MenuItem>
+                              {materialsData.map((mat) => (
+                                <MenuItem key={mat.id} value={mat.id}>
+                                  {mat.name} ({mat.unit})
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            type="number"
+                            value={item.qty1}
+                            onChange={(e) => updateItem(index, 'qty1', e.target.value)}
+                            inputProps={{ min: 0 }}
+                            placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'}
+                          />
+                        </TableCell>
+                        {showSecond ? (
+                          <TableCell>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              type="number"
+                              value={item.qty2}
+                              onChange={(e) => updateItem(index, 'qty2', e.target.value)}
+                              inputProps={{ min: 0 }}
+                              placeholder="Высота"
+                            />
+                          </TableCell>
+                        ) : (
+                          <TableCell></TableCell>
+                        )}
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            type="date"
+                            value={item.readyDate}
+                            onChange={(e) => updateItem(index, 'readyDate', e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <IconButton onClick={() => removeItem(index)} color="error" size="small">
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>
           )}
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 'auto' }}>
-          <Button onClick={handleClose} variant="outlined">
-            Отмена
-          </Button>
-          <Button 
-            onClick={addItem} 
-            variant="outlined" 
-            startIcon={<Add />}
-            disabled={formData.items.length >= 20}
-          >
-            Добавить позицию
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            startIcon={<Save />}
-            disabled={!formData.orderNumber || !formData.clientId || !formData.managerId || formData.items.length === 0 || isSubmitting}
-          >
-            {isSubmitting ? 'Создание...' : 'Создать заказ'}
-          </Button>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
+          <Typography variant="h6">
+            Сумма: {totalOrderAmount.toFixed(2)} ₽
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button onClick={handleClose} variant="outlined">
+              Отмена
+            </Button>
+            <Button
+              onClick={addItem}
+              variant="outlined"
+              startIcon={<Add />}
+              disabled={formData.items.length >= 20}
+            >
+              Добавить позицию
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              startIcon={<Save />}
+              disabled={!formData.clientId || formData.items.length === 0 || isSubmitting || !currentEmployee}
+            >
+              {isSubmitting ? 'Создание...' : 'Создать заказ'}
+            </Button>
+          </Box>
         </Box>
       </Box>
+
+      {/* Диалог создания нового клиента */}
+      <Dialog open={clientDialogOpen} onClose={() => setClientDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Новый клиент</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            margin="dense"
+            label="Название"
+            value={newClientForm.name}
+            onChange={handleNewClientChange('name')}
+          />
+          <FormControl fullWidth margin="dense">
+            <InputLabel>Тип</InputLabel>
+            <Select
+              value={newClientForm.type}
+              label="Тип"
+              onChange={handleNewClientChange('type')}
+            >
+              <MenuItem value="PRIVATE">Частник</MenuItem>
+              <MenuItem value="COMPANY">Компания</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            fullWidth
+            margin="dense"
+            label="Контактное лицо"
+            value={newClientForm.contactPerson}
+            onChange={handleNewClientChange('contactPerson')}
+          />
+          <TextField
+            fullWidth
+            margin="dense"
+            label="Телефон"
+            value={newClientForm.phone}
+            onChange={handleNewClientChange('phone')}
+          />
+          <TextField
+            fullWidth
+            margin="dense"
+            label="Email"
+            value={newClientForm.email}
+            onChange={handleNewClientChange('email')}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClientDialogOpen(false)}>Отмена</Button>
+          <Button onClick={handleClientSubmit} variant="contained" disabled={createClientMutation.isLoading}>
+            {createClientMutation.isLoading ? <CircularProgress size={24} /> : 'Сохранить'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={notification.open}

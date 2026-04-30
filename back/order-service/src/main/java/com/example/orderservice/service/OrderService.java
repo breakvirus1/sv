@@ -6,6 +6,7 @@ import com.example.common.entity.Employee;
 import com.example.common.entity.Material;
 import com.example.common.entity.Order;
 import com.example.common.entity.OrderComment;
+import com.example.common.dto.OrderMaterialCreateRequest;
 import com.example.common.entity.OrderItem;
 import com.example.common.entity.OrderMaterial;
 import com.example.common.entity.OrderStatus;
@@ -96,23 +97,27 @@ public class OrderService {
     }
 
     /**
-     * Создать новый заказ с позициями.
-     * Автоматически рассчитывает общую сумму.
+     * Создать новый заказ с позициями (материалами).
+     * Номер заказа генерируется автоматически.
+     * Общая сумма рассчитывается на основе стоимости материалов с учетом коэффициента отхода.
      */
     public OrderDto createOrder(OrderCreateRequest request) {
+        // Генерация номера заказа
+        String generatedOrderNumber = generateOrderNumber();
+
         Order order = new Order();
-        order.setOrderNumber(request.getOrderNumber());
+        order.setOrderNumber(generatedOrderNumber);
         order.setOrderDate(request.getOrderDate() != null ? request.getOrderDate() : LocalDate.now());
         order.setDueDate(request.getDueDate());
 
-        // Load and set Client
+        // Клиент
         Client client = entityManager.find(Client.class, request.getClientId());
         if (client == null) {
             throw new RuntimeException("Клиент не найден");
         }
         order.setClient(client);
 
-        // Load and set Manager (Employee)
+        // Менеджер
         if (request.getManagerId() != null) {
             Employee manager = entityManager.find(Employee.class, request.getManagerId());
             if (manager == null) {
@@ -122,7 +127,6 @@ public class OrderService {
         }
 
         order.setDescription(request.getDescription());
-
         order.setTotalAmount(BigDecimal.ZERO);
         order.setPaidAmount(BigDecimal.ZERO);
         order.setDebtAmount(BigDecimal.ZERO);
@@ -131,24 +135,44 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
 
-        // If there are items - create them
-        if (request.getItems() != null) {
-            request.getItems().forEach(itemReq -> {
-                OrderItem item = new OrderItem();
-                item.setOrder(saved);
-                item.setName(itemReq.getName());
-                item.setPrice(itemReq.getPrice());
-                item.setQuantity(itemReq.getQuantity());
-                item.setCost(itemReq.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity())));
-                item.setReadyDate(itemReq.getReadyDate());
-                orderItemRepository.save(item);
-            });
+        // Обработка позиций заказа (материалы)
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            BigDecimal total = BigDecimal.ZERO;
+            for (OrderMaterialCreateRequest matReq : request.getItems()) {
+                Material material = entityManager.find(Material.class, matReq.getMaterialId());
+                if (material == null) {
+                    throw new RuntimeException("Материал не найден: " + matReq.getMaterialId());
+                }
 
-            // Recalculate total amount
-            recalculateTotalAmount(saved.getId());
+                OrderMaterial orderMaterial = new OrderMaterial();
+                orderMaterial.setOrder(saved);
+                orderMaterial.setMaterial(material);
+                orderMaterial.setQuantity(matReq.getQuantity());
+                orderMaterial.setWasteCoefficient(material.getWasteCoefficient());
+                orderMaterial.setReadyDate(matReq.getReadyDate());
+                // Расчет стоимости: цена * количество * коэффициент отхода
+                BigDecimal cost = material.getPrice()
+                        .multiply(matReq.getQuantity())
+                        .multiply(material.getWasteCoefficient());
+                orderMaterial.setCost(cost);
+
+                saved.getMaterials().add(orderMaterial);
+                total = total.add(cost);
+            }
+            saved.setTotalAmount(total);
+            // Cascade persist materials
+            orderRepository.save(saved);
         }
 
         return getOrderById(saved.getId());
+    }
+
+    /**
+     * Сгенерировать уникальный номер заказа.
+     * Формат: ORD-{timestamp}
+     */
+    private String generateOrderNumber() {
+        return "ORD-" + System.currentTimeMillis();
     }
 
     /**
@@ -269,6 +293,7 @@ public class OrderService {
                 om.getId(),
                 materialDto,
                 om.getQuantity(),
+                om.getReadyDate(),
                 om.getWasteCoefficient(),
                 om.getCost()
         );

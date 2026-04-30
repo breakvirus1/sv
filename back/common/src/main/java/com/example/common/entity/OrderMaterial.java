@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * Сущность "Материал в заказе" — связь заказа/позиции с материалом.
@@ -40,6 +41,10 @@ public class OrderMaterial extends BaseEntity {
     /** Количество материала в единицах измерения */
     @Column(name = "quantity", precision = 12, scale = 2)
     private BigDecimal quantity = BigDecimal.ZERO;
+
+    /** Планируемая дата готовности этой позиции (материала) */
+    @Column(name = "ready_date")
+    private LocalDate readyDate;
 
     /** Коэффициент отхода (применяется к базовой цене материала) */
     @Column(name = "waste_coefficient", precision = 5, scale = 3)

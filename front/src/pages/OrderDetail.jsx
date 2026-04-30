@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -34,30 +34,45 @@ import {
 import { ArrowBack, Add, Payment, Delete } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const OrderDetail = ({ mode = 'view' }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState(0);
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
+  const { user } = useAuth();
+  const username = user?.username;
+
+  // ==================== Common State ====================
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 
-  // Create mode state
-  const [createForm, setCreateForm] = useState({
-    orderNumber: '',
+  // ==================== Create Mode State ====================
+  const [formData, setFormData] = useState({
     clientId: '',
     description: '',
     orderDate: new Date().toISOString().split('T')[0],
     dueDate: '',
-    managerId: '',
     items: []
   });
+  const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({
+    name: '',
+    type: 'PRIVATE',
+    contactPerson: '',
+    phone: '',
+    email: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch clients for dropdown
-  const { data: clientsData } = useQuery({
+  // ==================== View Mode State ====================
+  const [activeTab, setActiveTab] = useState(0);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState('');
+
+  // ==================== Queries ====================
+  // Clients (fetch when create mode)
+  const { data: clientsData = [] } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
       const response = await api.get('/api/v1/clients?size=100');
@@ -66,16 +81,29 @@ const OrderDetail = ({ mode = 'view' }) => {
     enabled: mode === 'create'
   });
 
-  // Fetch employees (managers) for dropdown
-  const { data: employeesData } = useQuery({
-    queryKey: ['employees'],
+  // Materials (create mode)
+  const { data: materialsData = [] } = useQuery({
+    queryKey: ['materials'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/employees?size=100');
+      const response = await api.get('/api/v1/materials?size=100');
       return response.data.content || [];
     },
     enabled: mode === 'create'
   });
 
+  // Current employee (manager) from Keycloak
+  const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
+    queryKey: ['currentEmployee', username],
+    queryFn: async () => {
+      if (!username) return null;
+      const response = await api.get(`/api/v1/employees?size=1&q=${username}`);
+      const data = response.data.content || [];
+      return data.length > 0 ? data[0] : null;
+    },
+    enabled: mode === 'create' && !!username
+  });
+
+  // Order data (view mode)
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['order', id],
     queryFn: async () => {
@@ -85,6 +113,19 @@ const OrderDetail = ({ mode = 'view' }) => {
     enabled: mode !== 'create'
   });
 
+  // ==================== Mutations ====================
+  const createClientMutation = useMutation({
+    mutationFn: (client) => api.post('/api/v1/clients', client),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      setClientDialogOpen(false);
+      setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' });
+      setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
+    },
+    onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
+  });
+
+  // Used in view mode (historical). Not used in create mode but defined.
   const createOrderMutation = useMutation({
     mutationFn: (data) => api.post('/api/v1/orders', data),
     onSuccess: () => {
@@ -117,46 +158,139 @@ const OrderDetail = ({ mode = 'view' }) => {
     }
   });
 
+  // ==================== Effects ====================
+  // Ensure current employee is synced from Keycloak when in create mode
+  useEffect(() => {
+    if (mode === 'create' && username && !currentEmployee) {
+      api.post('/api/v1/employees/sync')
+        .then(() => refetchEmployee())
+        .catch(err => console.error('Employee sync failed:', err));
+    }
+  }, [mode, username, currentEmployee, refetchEmployee]);
+
+  // ==================== Create Mode Handlers ====================
   const addItem = () => {
-    setCreateForm(prev => ({
+    setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { name: '', price: '', quantity: '1', readyDate: '' }]
+      items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '' }]
     }));
   };
 
   const removeItem = (index) => {
-    setCreateForm(prev => ({
+    setFormData(prev => ({
       ...prev,
       items: prev.items.filter((_, i) => i !== index)
     }));
   };
 
   const updateItem = (index, field, value) => {
-    setCreateForm(prev => ({
+    setFormData(prev => ({
       ...prev,
       items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
     }));
   };
 
-  const handleCreateSubmit = (e) => {
-    e.preventDefault();
-    const orderData = {
-      orderNumber: createForm.orderNumber,
-      clientId: parseInt(createForm.clientId),
-      description: createForm.description,
-      orderDate: createForm.orderDate,
-      dueDate: createForm.dueDate || null,
-      managerId: parseInt(createForm.managerId),
-      items: createForm.items.map(item => ({
-        name: item.name,
-        price: parseFloat(item.price),
-        quantity: parseInt(item.quantity),
-        readyDate: item.readyDate || null
-      }))
-    };
-    createOrderMutation.mutate(orderData);
+  const handleClientChange = (e) => {
+    const value = e.target.value;
+    if (value === 'create_new') {
+      setClientDialogOpen(true);
+    } else {
+      setFormData(prev => ({ ...prev, clientId: value }));
+    }
   };
 
+  const handleNewClientChange = (field) => (e) => {
+    setNewClientForm(prev => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleClientSubmit = () => {
+    if (!newClientForm.name) {
+      setNotification({ open: true, message: 'Введите название клиента', severity: 'error' });
+      return;
+    }
+    createClientMutation.mutate(newClientForm);
+  };
+
+  // Total calculation
+  const totalOrderAmount = useMemo(() => {
+    return formData.items.reduce((sum, item) => {
+      const material = materialsData.find(m => m.id === parseInt(item.materialId));
+      if (!material) return sum;
+      const q1 = parseFloat(item.qty1) || 0;
+      const q2 = parseFloat(item.qty2) || 0;
+      let effectiveQty = 0;
+      if (material.unit === 'м2') {
+        effectiveQty = (q1 / 1000) * (q2 / 1000);
+      } else if (material.unit === 'м.п.') {
+        effectiveQty = q1 / 1000;
+      } else {
+        effectiveQty = q1;
+      }
+      const cost = material.price * effectiveQty * (material.wasteCoefficient || 1);
+      return sum + cost;
+    }, 0);
+  }, [formData.items, materialsData]);
+
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+    if (!currentEmployee) {
+      setNotification({ open: true, message: 'Менеджер не определен. Перелогинитесь.', severity: 'error' });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const orderMaterials = formData.items.map(item => {
+        const material = materialsData.find(m => m.id === parseInt(item.materialId));
+        if (!material) throw new Error('Материал не выбран');
+        let qty;
+        const q1 = parseFloat(item.qty1) || 0;
+        const q2 = parseFloat(item.qty2) || 0;
+        if (material.unit === 'м2') {
+          qty = (q1 / 1000) * (q2 / 1000);
+        } else if (material.unit === 'м.п.') {
+          qty = q1 / 1000;
+        } else {
+          qty = q1;
+        }
+        return {
+          materialId: parseInt(item.materialId),
+          quantity: qty,
+          readyDate: item.readyDate || null
+        };
+      });
+
+      const orderData = {
+        clientId: parseInt(formData.clientId),
+        description: formData.description,
+        orderDate: formData.orderDate,
+        dueDate: formData.dueDate || null,
+        managerId: currentEmployee.id,
+        items: orderMaterials
+      };
+
+      await api.post('/api/v1/orders', orderData);
+      setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
+
+      await queryClient.invalidateQueries({ queryKey: ['orders'] });
+      await queryClient.invalidateQueries({ queryKey: ['recentOrders'] });
+
+      setTimeout(() => navigate('/orders'), 1500);
+    } catch (err) {
+      setNotification({
+        open: true,
+        message: `Ошибка: ${err.response?.data?.message || err.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ==================== View Mode Handlers ====================
+  // They are directly used in JSX (no separate functions except existing)
+  // Status change handler is inline in dialog? Actually in original view they used updateStatusMutation directly; we can keep as is.
+
+  // ==================== Conditional Render ====================
   if (mode === 'create') {
     return (
       <Container maxWidth="xl" sx={{ mt: 4 }}>
@@ -171,25 +305,14 @@ const OrderDetail = ({ mode = 'view' }) => {
           <form onSubmit={handleCreateSubmit}>
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Номер заказа"
-                  name="orderNumber"
-                  value={createForm.orderNumber}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, orderNumber: e.target.value }))}
-                  required
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth margin="normal">
+                <FormControl fullWidth margin="normal" required>
                   <InputLabel>Клиент</InputLabel>
                   <Select
                     name="clientId"
-                    value={createForm.clientId}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, clientId: e.target.value }))}
-                    required
+                    value={formData.clientId}
+                    onChange={handleClientChange}
                   >
+                    <MenuItem value="create_new">Создать нового клиента</MenuItem>
                     {clientsData?.map((client) => (
                       <MenuItem key={client.id} value={client.id}>
                         {client.name}
@@ -198,14 +321,15 @@ const OrderDetail = ({ mode = 'view' }) => {
                   </Select>
                 </FormControl>
               </Grid>
+              <Grid item xs={12} md={6}></Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Дата заказа"
                   name="orderDate"
                   type="date"
-                  value={createForm.orderDate}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, orderDate: e.target.value }))}
+                  value={formData.orderDate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, orderDate: e.target.value }))}
                   required
                   margin="normal"
                   InputLabelProps={{ shrink: true }}
@@ -217,28 +341,11 @@ const OrderDetail = ({ mode = 'view' }) => {
                   label="Срок сдачи"
                   name="dueDate"
                   type="date"
-                  value={createForm.dueDate}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                  value={formData.dueDate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
                   margin="normal"
                   InputLabelProps={{ shrink: true }}
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth margin="normal">
-                  <InputLabel>Менеджер</InputLabel>
-                  <Select
-                    name="managerId"
-                    value={createForm.managerId}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, managerId: e.target.value }))}
-                    required
-                  >
-                    {employeesData?.map((emp) => (
-                      <MenuItem key={emp.id} value={emp.id}>
-                        {emp.fullName}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <TextField
@@ -247,13 +354,13 @@ const OrderDetail = ({ mode = 'view' }) => {
                   name="description"
                   multiline
                   rows={3}
-                  value={createForm.description}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   margin="normal"
                 />
               </Grid>
 
-              {/* Items Section */}
+              {/* Позиции заказа */}
               <Grid item xs={12}>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                   <Typography variant="h6">Позиции заказа</Typography>
@@ -263,73 +370,86 @@ const OrderDetail = ({ mode = 'view' }) => {
                 </Box>
 
                 <TableContainer component={Paper} variant="outlined">
-                  <Table>
+                  <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell>Наименование</TableCell>
-                        <TableCell width="150">Цена, ₽</TableCell>
-                        <TableCell width="100">Кол-во</TableCell>
-                        <TableCell width="150">Срок готовности</TableCell>
-                        <TableCell width="80">Действия</TableCell>
+                        <TableCell>Материал</TableCell>
+                        <TableCell width={100}>Размер 1 (мм)</TableCell>
+                        <TableCell width={100}>Размер 2 (мм)</TableCell>
+                        <TableCell width={130}>Срок готовности</TableCell>
+                        <TableCell width={50}>Действия</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {createForm.items.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              value={item.name}
-                              onChange={(e) => updateItem(index, 'name', e.target.value)}
-                              placeholder="Наименование изделия"
-                              required
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              type="number"
-                              value={item.price}
-                              onChange={(e) => updateItem(index, 'price', e.target.value)}
-                              required
-                              inputProps={{ step: 0.01 }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                              required
-                              inputProps={{ min: 1 }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              type="date"
-                              value={item.readyDate}
-                              onChange={(e) => updateItem(index, 'readyDate', e.target.value)}
-                              InputLabelProps={{ shrink: true }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <IconButton onClick={() => removeItem(index)} color="error" size="small">
-                              <Delete />
-                            </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {formData.items.map((item, index) => {
+                        const material = materialsData.find(m => m.id === parseInt(item.materialId));
+                        const showSecond = material && material.unit === 'м2';
+                        return (
+                          <TableRow key={index}>
+                            <TableCell>
+                              <FormControl fullWidth size="small">
+                                <Select
+                                  value={item.materialId}
+                                  onChange={(e) => updateItem(index, 'materialId', e.target.value)}
+                                >
+                                  <MenuItem value="">Выберите материал</MenuItem>
+                                  {materialsData.map((mat) => (
+                                    <MenuItem key={mat.id} value={mat.id}>
+                                      {mat.name} ({mat.unit})
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                type="number"
+                                value={item.qty1}
+                                onChange={(e) => updateItem(index, 'qty1', e.target.value)}
+                                inputProps={{ min: 0 }}
+                                placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'}
+                              />
+                            </TableCell>
+                            {showSecond ? (
+                              <TableCell>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="number"
+                                  value={item.qty2}
+                                  onChange={(e) => updateItem(index, 'qty2', e.target.value)}
+                                  inputProps={{ min: 0 }}
+                                  placeholder="Высота"
+                                />
+                              </TableCell>
+                            ) : (
+                              <TableCell />
+                            )}
+                            <TableCell>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                type="date"
+                                value={item.readyDate}
+                                onChange={(e) => updateItem(index, 'readyDate', e.target.value)}
+                                InputLabelProps={{ shrink: true }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <IconButton onClick={() => removeItem(index)} color="error" size="small">
+                                <Delete />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </TableContainer>
 
-                {createForm.items.length === 0 && (
+                {formData.items.length === 0 && (
                   <Alert severity="info" sx={{ mt: 2 }}>
                     Добавьте хотя бы одну позицию в заказ
                   </Alert>
@@ -337,16 +457,78 @@ const OrderDetail = ({ mode = 'view' }) => {
               </Grid>
 
               <Grid item xs={12}>
-                <Box display="flex" gap={2} justifyContent="flex-end" mt={2}>
-                  <Button onClick={() => navigate('/orders')}>Отмена</Button>
-                  <Button type="submit" variant="contained" disabled={createForm.items.length === 0}>
-                    Создать заказ
-                  </Button>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+                  <Typography variant="h6">
+                    Сумма: {totalOrderAmount.toFixed(2)} ₽
+                  </Typography>
+                  <Box display="flex" gap={2}>
+                    <Button onClick={() => navigate('/orders')}>Отмена</Button>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      disabled={!formData.clientId || formData.items.length === 0 || isSubmitting || !currentEmployee}
+                    >
+                      {isSubmitting ? 'Создание...' : 'Создать заказ'}
+                    </Button>
+                  </Box>
                 </Box>
               </Grid>
             </Grid>
           </form>
         </Paper>
+
+        {/* Диалог создания нового клиента */}
+        <Dialog open={clientDialogOpen} onClose={() => setClientDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Новый клиент</DialogTitle>
+          <DialogContent>
+            <TextField
+              autoFocus
+              fullWidth
+              margin="dense"
+              label="Название"
+              value={newClientForm.name}
+              onChange={handleNewClientChange('name')}
+            />
+            <FormControl fullWidth margin="dense">
+              <InputLabel>Тип</InputLabel>
+              <Select
+                value={newClientForm.type}
+                label="Тип"
+                onChange={handleNewClientChange('type')}
+              >
+                <MenuItem value="PRIVATE">Частник</MenuItem>
+                <MenuItem value="COMPANY">Компания</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              margin="dense"
+              label="Контактное лицо"
+              value={newClientForm.contactPerson}
+              onChange={handleNewClientChange('contactPerson')}
+            />
+            <TextField
+              fullWidth
+              margin="dense"
+              label="Телефон"
+              value={newClientForm.phone}
+              onChange={handleNewClientChange('phone')}
+            />
+            <TextField
+              fullWidth
+              margin="dense"
+              label="Email"
+              value={newClientForm.email}
+              onChange={handleNewClientChange('email')}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setClientDialogOpen(false)}>Отмена</Button>
+            <Button onClick={handleClientSubmit} variant="contained" disabled={createClientMutation.isLoading}>
+              {createClientMutation.isLoading ? 'Сохранение...' : 'Сохранить'}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Snackbar
           open={notification.open}
@@ -361,7 +543,7 @@ const OrderDetail = ({ mode = 'view' }) => {
     );
   }
 
-  // View mode (existing order details)
+  // ==================== View Mode JSX ====================
   const statusOptions = ['WAITING', 'LAUNCHED', 'IN_PROGRESS', 'READY', 'ACCEPTED', 'CLOSED'];
 
   if (isLoading) {
@@ -456,7 +638,10 @@ const OrderDetail = ({ mode = 'view' }) => {
             <Divider />
             <Box sx={{ p: 3 }}>
               {activeTab === 0 && (
-                <PositionsTab items={order?.items || []} />
+                <PositionsTab 
+                  materials={order?.materials || []} 
+                  items={order?.items || []} 
+                />
               )}
               {activeTab === 1 && (
                 <StagesTab stages={order?.stages || []} />
@@ -536,10 +721,21 @@ const OrderDetail = ({ mode = 'view' }) => {
           <PaymentForm onSubmit={(data) => addPaymentMutation.mutate(data)} />
         </DialogContent>
       </Dialog>
+
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={() => setNotification({ ...notification, open: false })}
+      >
+        <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
 
+// ==================== Helper Components ====================
 const getStatusColor = (status) => {
   const colors = {
     WAITING: 'warning',
@@ -552,32 +748,49 @@ const getStatusColor = (status) => {
   return colors[status] || 'default';
 };
 
-const PositionsTab = ({ items }) => {
-  if (!items?.length) {
+const PositionsTab = ({ materials = [], items = [] }) => {
+  const displayList = (materials && materials.length > 0) ? materials : items;
+
+  if (!displayList?.length) {
     return <Typography>Нет позиций в заказе</Typography>;
   }
 
+  const isMaterial = displayList[0]?.material !== undefined;
+
   return (
     <Box>
-      {items.map((item, index) => (
-        <Paper key={item.id} sx={{ p: 2, mb: 2 }} variant="outlined">
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="subtitle1">{item.name}</Typography>
-            <Typography variant="h6">{item.cost?.toFixed(2)} ₽</Typography>
-          </Box>
-          <Box display="flex" gap={4} mt={1}>
-            <Typography variant="body2" color="text.secondary">
-              Цена: {item.price?.toFixed(2)} ₽
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Кол-во: {item.quantity}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Срок: {item.readyDate || '—'}
-            </Typography>
-          </Box>
-        </Paper>
-      ))}
+      {displayList.map((entry) => {
+        const name = isMaterial ? entry.material?.name : entry.name;
+        const price = isMaterial ? entry.material?.price : entry.price;
+        const quantity = entry.quantity;
+        const cost = entry.cost;
+        const readyDate = entry.readyDate;
+        const unit = isMaterial ? entry.material?.unit : '';
+
+        const qtyDisplay = isMaterial 
+          ? parseFloat(quantity).toFixed(3) 
+          : quantity;
+
+        return (
+          <Paper key={entry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Typography variant="subtitle1">{name}</Typography>
+              <Typography variant="h6">{cost?.toFixed(2)} ₽</Typography>
+            </Box>
+            <Box display="flex" gap={4} mt={1}>
+              <Typography variant="body2" color="text.secondary">
+                Цена за ед.: {price?.toFixed(2)} ₽
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Кол-во: {qtyDisplay} {unit}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Срок: {readyDate || '—'}
+              </Typography>
+            </Box>
+          </Paper>
+        );
+      })}
     </Box>
   );
 };

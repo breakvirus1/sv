@@ -1,5 +1,6 @@
 package com.example.common.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
@@ -102,21 +103,26 @@ public class Order extends BaseEntity {
 
     /** Позиции заказа (изделия) */
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<OrderItem> items = new ArrayList<>();
 
     /** Этапы производства по цехам */
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<OrderStage> stages = new ArrayList<>();
 
     /** Платежи по заказу */
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<Payment> payments = new ArrayList<>();
 
     /** Комментарии и сообщения по заказу */
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<OrderComment> comments = new ArrayList<>();
 
     /** Материалы, использованные в заказе (на уровне заказа) */
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<OrderMaterial> materials = new ArrayList<>();
 }

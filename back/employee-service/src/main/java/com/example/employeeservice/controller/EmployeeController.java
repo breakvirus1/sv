@@ -12,6 +12,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -62,6 +64,14 @@ public class EmployeeController {
             @Parameter(description = "ID сотрудника") @PathVariable Long id,
             @RequestBody Employee employee) {
         return ResponseEntity.ok(employeeService.updateEmployee(id, employee));
+    }
+
+    @Operation(summary = "Синхронизировать текущего пользователя из Keycloak")
+    @PostMapping("/sync")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Employee> syncCurrentEmployee(@AuthenticationPrincipal Jwt jwt) {
+        Employee synced = employeeService.syncOrCreateFromKeycloak(jwt);
+        return ResponseEntity.ok(synced);
     }
 
     @Operation(summary = "Удалить сотрудника")

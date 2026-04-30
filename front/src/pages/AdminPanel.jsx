@@ -25,12 +25,10 @@ import {
   Alert,
   Snackbar,
   Grid,
-  Chip,
   Divider,
-  Tooltip,
   TableContainer
 } from '@mui/material';
-import { Add, Edit, Delete, Refresh, Visibility } from '@mui/icons-material';
+import { Add, Edit, Delete, Refresh } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
@@ -39,8 +37,6 @@ import { useNavigate } from 'react-router-dom';
 const ENTITY_TABS = [
   { label: 'Clients', value: 'clients' },
   { label: 'Materials', value: 'materials' },
-  { label: 'Employees', value: 'employees' },
-  { label: 'Orders', value: 'orders' },
   { label: 'Generate Data', value: 'generate' }
 ];
 
@@ -64,9 +60,7 @@ const AdminPanel = () => {
     type: 'PRIVATE',
     contactPerson: '',
     phone: '',
-    email: '',
-    inn: '',
-    address: ''
+    email: ''
   });
 
   // ---- Materials state ----
@@ -80,20 +74,8 @@ const AdminPanel = () => {
     wasteCoefficient: '1'
   });
 
-  // ---- Employees state ----
-  const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
-  const [employeeDeleteDialogOpen, setEmployeeDeleteDialogOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [employeeForm, setEmployeeForm] = useState({
-    fullName: '',
-    username: '',
-    position: '',
-    phone: '',
-    email: ''
-  });
-
   // ---- Generation state ----
-  const [generating, setGenerating] = useState({ clients: false, materials: false, employees: false, orders: false });
+  const [generating, setGenerating] = useState({ clients: false, materials: false, orders: false });
 
   // Fetch data functions (enabled based on tab)
   const { data: clientsData = [], refetch: refetchClients } = useQuery({
@@ -113,24 +95,6 @@ const AdminPanel = () => {
     },
     enabled: tab === 1
   });
-
-  const { data: employeesData = [], refetch: refetchEmployees } = useQuery({
-    queryKey: ['admin-employees'],
-    queryFn: async () => {
-      const response = await api.get('/api/v1/employees?size=100');
-      return response.data.content || [];
-    },
-    enabled: tab === 2
-  });
-
-  const { data: ordersData = [], refetch: refetchOrders } = useQuery({
-    queryKey: ['admin-orders'],
-    queryFn: async () => {
-      const response = await api.get('/api/v1/orders?size=100');
-      return response.data.content || [];
-    },
-    enabled: tab === 3
-   });
 
   // ---- CRUD operations for Clients ----
   const createClientMutation = useMutation({
@@ -198,49 +162,6 @@ const AdminPanel = () => {
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
-  // ---- Employees ----
-  const createEmployeeMutation = useMutation({
-    mutationFn: (employee) => api.post('/api/v1/employees', employee),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-employees'] });
-      setEmployeeDialogOpen(false);
-      showNotification('Сотрудник создан');
-      resetEmployeeForm();
-    },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
-  });
-
-  const updateEmployeeMutation = useMutation({
-    mutationFn: ({ id, data }) => api.put(`/api/v1/employees/${id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-employees'] });
-      setEmployeeDialogOpen(false);
-      showNotification('Сотрудник обновлен');
-      resetEmployeeForm();
-    },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
-  });
-
-  const deleteEmployeeMutation = useMutation({
-    mutationFn: (id) => api.delete(`/api/v1/employees/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-employees'] });
-      setEmployeeDeleteDialogOpen(false);
-      showNotification('Сотрудник удален');
-    },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
-  });
-
-  // ---- Orders ----
-  const deleteOrderMutation = useMutation({
-    mutationFn: (id) => api.delete(`/api/v1/orders/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-      showNotification('Заказ удален');
-    },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
-  });
-
   // ---- Generate mutations ----
   const generateClientsMutation = useMutation({
     mutationFn: () => api.post('/api/v1/admin/clients/generate'),
@@ -265,19 +186,6 @@ const AdminPanel = () => {
     onError: (err) => {
       showNotification('Ошибка: ' + err.message, 'error');
       setGenerating(prev => ({ ...prev, materials: false }));
-    }
-  });
-
-  const generateEmployeesMutation = useMutation({
-    mutationFn: () => api.post('/api/v1/admin/employees/generate'),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-employees'] });
-      showNotification('Сгенерировано 20 сотрудников');
-      setGenerating(prev => ({ ...prev, employees: false }));
-    },
-    onError: (err) => {
-      showNotification('Ошибка: ' + err.message, 'error');
-      setGenerating(prev => ({ ...prev, employees: false }));
     }
   });
 
@@ -308,9 +216,7 @@ const AdminPanel = () => {
         type: client.type || 'PRIVATE',
         contactPerson: client.contactPerson || '',
         phone: client.phone || '',
-        email: client.email || '',
-        inn: client.inn || '',
-        address: client.address || ''
+        email: client.email || ''
       });
     } else {
       resetClientForm();
@@ -319,7 +225,7 @@ const AdminPanel = () => {
   };
 
   const resetClientForm = () => {
-    setClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '', inn: '', address: '' });
+    setClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' });
     setSelectedClient(null);
   };
 
@@ -397,59 +303,12 @@ const AdminPanel = () => {
     }
   };
 
-  // Employee handlers
-  const openEmployeeDialog = (employee = null) => {
-    if (employee) {
-      setSelectedEmployee(employee);
-      setEmployeeForm({
-        fullName: employee.fullName || '',
-        username: employee.username || '',
-        position: employee.position || '',
-        phone: employee.phone || '',
-        email: employee.email || ''
-      });
-    } else {
-      resetEmployeeForm();
-    }
-    setEmployeeDialogOpen(true);
-  };
-
-  const resetEmployeeForm = () => {
-    setEmployeeForm({ fullName: '', username: '', position: '', phone: '', email: '' });
-    setSelectedEmployee(null);
-  };
-
-  const handleEmployeeSubmit = () => {
-    if (!employeeForm.fullName) {
-      showNotification('Введите ФИО', 'error');
-      return;
-    }
-    const payload = { ...employeeForm };
-    if (selectedEmployee) {
-      updateEmployeeMutation.mutate({ id: selectedEmployee.id, data: payload });
-    } else {
-      createEmployeeMutation.mutate(payload);
-    }
-  };
-
-  const confirmDeleteEmployee = (employee) => {
-    setSelectedEmployee(employee);
-    setEmployeeDeleteDialogOpen(true);
-  };
-
-  const handleDeleteEmployee = () => {
-    if (selectedEmployee) {
-      deleteEmployeeMutation.mutate(selectedEmployee.id);
-    }
-  };
-
   // Generate handlers
   const handleGenerate = (type) => {
     setGenerating(prev => ({ ...prev, [type]: true }));
     switch (type) {
       case 'clients': generateClientsMutation.mutate(); break;
       case 'materials': generateMaterialsMutation.mutate(); break;
-      case 'employees': generateEmployeesMutation.mutate(); break;
       case 'orders': generateOrdersMutation.mutate(); break;
       default: break;
     }
@@ -540,111 +399,6 @@ const AdminPanel = () => {
     </Box>
   );
 
-  const renderEmployeesTab = () => (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Управление сотрудниками</Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => openEmployeeDialog()}>
-          Добавить сотрудника
-        </Button>
-      </Box>
-      {employeesData.length === 0 && <Typography>Нет данных</Typography>}
-      {employeesData.length > 0 && (
-        <TableContainer component={Paper}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>ФИО</TableCell>
-                <TableCell>Логин</TableCell>
-                <TableCell>Должность</TableCell>
-                <TableCell>Телефон</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell align="right">Действия</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {employeesData.map((emp) => (
-                <TableRow key={emp.id}>
-                  <TableCell>{emp.fullName}</TableCell>
-                  <TableCell>{emp.username}</TableCell>
-                  <TableCell>{emp.position || '-'}</TableCell>
-                  <TableCell>{emp.phone || '-'}</TableCell>
-                  <TableCell>{emp.email || '-'}</TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => openEmployeeDialog(emp)}><Edit /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => confirmDeleteEmployee(emp)}><Delete /></IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Box>
-  );
-
-  const renderOrdersTab = () => (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Управление заказами</Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => navigate('/orders/new')}>
-          Создать заказ
-        </Button>
-      </Box>
-      {ordersData.length === 0 && <Typography>Нет данных</Typography>}
-      {ordersData.length > 0 && (
-        <TableContainer component={Paper}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>№ заказа</TableCell>
-                <TableCell>Клиент</TableCell>
-                <TableCell>Статус</TableCell>
-                <TableCell>Сумма</TableCell>
-                <TableCell>Оплачено</TableCell>
-                <TableCell>Менеджер</TableCell>
-                <TableCell align="right">Действия</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {ordersData.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell>{order.orderNumber}</TableCell>
-                  <TableCell>{order.client?.name || order.clientId}</TableCell>
-                  <TableCell>
-                    <Chip label={order.status} size="small" color={
-                      order.status === 'WAITING' ? 'warning' :
-                      order.status === 'LAUNCHED' ? 'info' :
-                      order.status === 'IN_PROGRESS' ? 'primary' :
-                      order.status === 'READY' ? 'success' : 'default'
-                    } />
-                  </TableCell>
-                  <TableCell>{order.totalAmount?.toFixed(2)} ₽</TableCell>
-                  <TableCell>{order.paidAmount?.toFixed(2)} ₽</TableCell>
-                  <TableCell>{order.manager?.fullName || order.managerId || '-'}</TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="Просмотр">
-                      <IconButton size="small" onClick={() => navigate(`/orders/${order.id}`)}>
-                        <Visibility />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Удалить">
-                      <IconButton size="small" color="error" onClick={() => {
-                        if (window.confirm('Удалить заказ?')) deleteOrderMutation.mutate(order.id);
-                      }}>
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Box>
-  );
-
   const renderGenerateTab = () => (
     <Box>
       <Typography variant="h6" gutterBottom>Генерация тестовых данных</Typography>
@@ -669,17 +423,6 @@ const AdminPanel = () => {
             disabled={generating.materials}
           >
             {generating.materials ? 'Генерация...' : 'Сгенерировать материалы (20)'}
-          </Button>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Button
-            variant="contained"
-            fullWidth
-            startIcon={<Refresh />}
-            onClick={() => handleGenerate('employees')}
-            disabled={generating.employees}
-          >
-            {generating.employees ? 'Генерация...' : 'Сгенерировать сотрудников (20)'}
           </Button>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -715,9 +458,7 @@ const AdminPanel = () => {
         <Box sx={{ p: 2 }}>
           {tab === 0 && renderClientsTab()}
           {tab === 1 && renderMaterialsTab()}
-          {tab === 2 && renderEmployeesTab()}
-          {tab === 3 && renderOrdersTab()}
-          {tab === 4 && renderGenerateTab()}
+          {tab === 2 && renderGenerateTab()}
         </Box>
       </Paper>
 
@@ -736,8 +477,6 @@ const AdminPanel = () => {
           <TextField fullWidth margin="dense" label="Контактное лицо" value={clientForm.contactPerson} onChange={(e) => setClientForm({ ...clientForm, contactPerson: e.target.value })} />
           <TextField fullWidth margin="dense" label="Телефон" value={clientForm.phone} onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })} />
           <TextField fullWidth margin="dense" label="Email" value={clientForm.email} onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })} />
-          <TextField fullWidth margin="dense" label="ИНН" value={clientForm.inn} onChange={(e) => setClientForm({ ...clientForm, inn: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Адрес" value={clientForm.address} onChange={(e) => setClientForm({ ...clientForm, address: e.target.value })} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setClientDialogOpen(false)}>Отмена</Button>
@@ -762,7 +501,13 @@ const AdminPanel = () => {
         <DialogTitle>{selectedMaterial ? 'Редактировать материал' : 'Новый материал'}</DialogTitle>
         <DialogContent>
           <TextField autoFocus fullWidth margin="dense" label="Название" value={materialForm.name} onChange={(e) => setMaterialForm({ ...materialForm, name: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Ед. изм." value={materialForm.unit} onChange={(e) => setMaterialForm({ ...materialForm, unit: e.target.value })} />
+          <FormControl fullWidth margin="dense">
+            <InputLabel>Ед. изм.</InputLabel>
+            <Select value={materialForm.unit} label="Ед. изм." onChange={(e) => setMaterialForm({ ...materialForm, unit: e.target.value })}>
+              <MenuItem value="м2">м²</MenuItem>
+              <MenuItem value="м.п.">м.п.</MenuItem>
+            </Select>
+          </FormControl>
           <TextField fullWidth margin="dense" label="Цена" type="number" value={materialForm.price} onChange={(e) => setMaterialForm({ ...materialForm, price: e.target.value })} inputProps={{ step: 0.01 }} />
           <TextField fullWidth margin="dense" label="Коэффициент отхода" type="number" value={materialForm.wasteCoefficient} onChange={(e) => setMaterialForm({ ...materialForm, wasteCoefficient: e.target.value })} inputProps={{ step: 0.1 }} />
         </DialogContent>
@@ -781,34 +526,6 @@ const AdminPanel = () => {
         <DialogActions>
           <Button onClick={() => setMaterialDeleteDialogOpen(false)}>Отмена</Button>
           <Button onClick={handleDeleteMaterial} color="error" variant="contained">Удалить</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Employee Dialog */}
-      <Dialog open={employeeDialogOpen} onClose={() => setEmployeeDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{selectedEmployee ? 'Редактировать сотрудника' : 'Новый сотрудник'}</DialogTitle>
-        <DialogContent>
-          <TextField autoFocus fullWidth margin="dense" label="ФИО" value={employeeForm.fullName} onChange={(e) => setEmployeeForm({ ...employeeForm, fullName: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Логин" value={employeeForm.username} onChange={(e) => setEmployeeForm({ ...employeeForm, username: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Должность" value={employeeForm.position} onChange={(e) => setEmployeeForm({ ...employeeForm, position: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Телефон" value={employeeForm.phone} onChange={(e) => setEmployeeForm({ ...employeeForm, phone: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Email" type="email" value={employeeForm.email} onChange={(e) => setEmployeeForm({ ...employeeForm, email: e.target.value })} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEmployeeDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handleEmployeeSubmit} variant="contained">Сохранить</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Employee Delete Confirmation */}
-      <Dialog open={employeeDeleteDialogOpen} onClose={() => setEmployeeDeleteDialogOpen(false)}>
-        <DialogTitle>Удалить сотрудника?</DialogTitle>
-        <DialogContent>
-          <Typography>Удалить "{selectedEmployee?.fullName}"?</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEmployeeDeleteDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handleDeleteEmployee} color="error" variant="contained">Удалить</Button>
         </DialogActions>
       </Dialog>
 
