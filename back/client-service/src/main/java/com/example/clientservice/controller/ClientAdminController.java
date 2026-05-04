@@ -1,6 +1,6 @@
 package com.example.clientservice.controller;
 
-import com.example.common.entity.Client;
+import com.example.clientservice.entity.Client;
 import com.example.clientservice.service.ClientAdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

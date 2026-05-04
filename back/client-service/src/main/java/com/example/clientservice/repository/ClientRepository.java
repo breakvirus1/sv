@@ -1,6 +1,6 @@
 package com.example.clientservice.repository;
 
-import com.example.common.entity.Client;
+import com.example.clientservice.entity.Client;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 

@@ -1,6 +1,6 @@
 package com.example.materialservice.service;
 
-import com.example.common.entity.Material;
+import com.example.materialservice.entity.Material;
 import com.example.materialservice.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

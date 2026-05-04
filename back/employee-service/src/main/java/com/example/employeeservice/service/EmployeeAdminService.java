@@ -1,6 +1,6 @@
 package com.example.employeeservice.service;
 
-import com.example.common.entity.Employee;
+import com.example.employeeservice.entity.Employee;
 import com.example.employeeservice.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

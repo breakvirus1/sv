@@ -1,6 +1,6 @@
 package com.example.employeeservice.controller;
 
-import com.example.common.entity.Employee;
+import com.example.employeeservice.entity.Employee;
 import com.example.employeeservice.service.EmployeeAdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

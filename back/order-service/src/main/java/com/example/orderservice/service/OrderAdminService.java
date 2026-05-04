@@ -1,9 +1,7 @@
 package com.example.orderservice.service;
 
-import com.example.common.dto.OrderCreateRequest;
-import com.example.common.dto.OrderMaterialCreateRequest;
-import com.example.common.dto.OrderDto;
-import com.example.common.entity.Order;
+import com.example.orderservice.dto.*;
+import com.example.orderservice.entity.Order;
 import com.example.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -30,9 +28,9 @@ public class OrderAdminService {
         // Fetch IDs of existing clients, employees, and materials
         List<Long> clientIds = jdbcTemplate.query("SELECT id FROM clients WHERE deleted = false", (rs, rowNum) -> rs.getLong("id"));
         List<Long> employeeIds = jdbcTemplate.query("SELECT id FROM employees WHERE deleted = false", (rs, rowNum) -> rs.getLong("id"));
-        List<MaterialDto> materials = jdbcTemplate.query(
+        List<MaterialInfo> materials = jdbcTemplate.query(
             "SELECT id, name, unit, price FROM materials WHERE deleted = false",
-            (rs, rowNum) -> new MaterialDto(
+            (rs, rowNum) -> new MaterialInfo(
                 rs.getLong("id"),
                 rs.getString("name"),
                 rs.getString("unit"),
@@ -59,7 +57,7 @@ public class OrderAdminService {
             int itemCount = 1 + random.nextInt(3);
             for (int j = 0; j < itemCount; j++) {
                 if (!materials.isEmpty()) {
-                    MaterialDto mat = materials.get(random.nextInt(materials.size()));
+                    MaterialInfo mat = materials.get(random.nextInt(materials.size()));
                     BigDecimal quantity;
                     // Определяем количество в зависимости от единицы измерения
                     if ("м2".equals(mat.getUnit())) {
@@ -85,7 +83,7 @@ public class OrderAdminService {
             }
             request.setItems(items);
 
-            OrderDto orderDto = orderService.createOrder(request);
+            OrderResponse orderDto = orderService.createOrder(request);
             // Получаем сохраненную сущность заказа для возврата
             Order order = orderRepository.findById(orderDto.getId()).orElseThrow();
             orders.add(order);
@@ -95,13 +93,13 @@ public class OrderAdminService {
     }
 
     // Simple DTO for material data
-    private static class MaterialDto {
+    private static class MaterialInfo {
         private final Long id;
         private final String name;
         private final String unit;
         private final BigDecimal price;
 
-        public MaterialDto(Long id, String name, String unit, BigDecimal price) {
+        public MaterialInfo(Long id, String name, String unit, BigDecimal price) {
             this.id = id;
             this.name = name;
             this.unit = unit;

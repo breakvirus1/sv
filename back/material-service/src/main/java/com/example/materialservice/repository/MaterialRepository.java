@@ -1,6 +1,6 @@
 package com.example.materialservice.repository;
 
-import com.example.common.entity.Material;
+import com.example.materialservice.entity.Material;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 

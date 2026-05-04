@@ -1,6 +1,9 @@
 package com.example.materialservice.controller;
 
-import com.example.common.entity.Material;
+import com.example.materialservice.dto.MaterialCreateRequest;
+import com.example.materialservice.dto.MaterialResponse;
+import com.example.materialservice.dto.MaterialUpdateRequest;
+import com.example.materialservice.entity.Material;
 import com.example.materialservice.service.MaterialService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -25,7 +28,7 @@ public class MaterialController {
     @Operation(summary = "Получить список материалов")
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
-    public ResponseEntity<Page<Material>> getAllMaterials(
+    public ResponseEntity<Page<MaterialResponse>> getAllMaterials(
             @RequestParam(required = false) String q,
             Pageable pageable) {
 
@@ -41,24 +44,24 @@ public class MaterialController {
     @Operation(summary = "Получить материал по ID")
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
-    public ResponseEntity<Material> getMaterial(@Parameter(description = "ID материала") @PathVariable Long id) {
+    public ResponseEntity<MaterialResponse> getMaterial(@Parameter(description = "ID материала") @PathVariable Long id) {
         return ResponseEntity.ok(materialService.getMaterialById(id));
     }
 
     @Operation(summary = "Создать новый материал")
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Material> createMaterial(@RequestBody Material material) {
-        return new ResponseEntity<>(materialService.createMaterial(material), HttpStatus.CREATED);
+    public ResponseEntity<MaterialResponse> createMaterial(@RequestBody MaterialCreateRequest request) {
+        return new ResponseEntity<>(materialService.createMaterial(request), HttpStatus.CREATED);
     }
 
     @Operation(summary = "Обновить материал")
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Material> updateMaterial(
+    public ResponseEntity<MaterialResponse> updateMaterial(
             @Parameter(description = "ID материала") @PathVariable Long id,
-            @RequestBody Material material) {
-        return ResponseEntity.ok(materialService.updateMaterial(id, material));
+            @RequestBody MaterialUpdateRequest request) {
+        return ResponseEntity.ok(materialService.updateMaterial(id, request));
     }
 
     @Operation(summary = "Удалить материал")

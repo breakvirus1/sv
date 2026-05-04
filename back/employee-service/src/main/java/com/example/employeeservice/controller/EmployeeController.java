@@ -1,6 +1,9 @@
 package com.example.employeeservice.controller;
 
-import com.example.common.entity.Employee;
+import com.example.employeeservice.dto.EmployeeCreateRequest;
+import com.example.employeeservice.dto.EmployeeResponse;
+import com.example.employeeservice.dto.EmployeeUpdateRequest;
+import com.example.employeeservice.entity.Employee;
 import com.example.employeeservice.service.EmployeeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,6 +19,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * REST Controller для управления сотрудниками.
+ */
 @RestController
 @RequestMapping("/api/v1/employees")
 @RequiredArgsConstructor
@@ -27,7 +33,7 @@ public class EmployeeController {
     @Operation(summary = "Получить список сотрудников")
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Page<Employee>> getAllEmployees(
+    public ResponseEntity<Page<EmployeeResponse>> getAllEmployees(
             @RequestParam(required = false) String q,
             Pageable pageable) {
 
@@ -46,31 +52,31 @@ public class EmployeeController {
     @Operation(summary = "Получить сотрудника по ID")
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Employee> getEmployee(@Parameter(description = "ID сотрудника") @PathVariable Long id) {
+    public ResponseEntity<EmployeeResponse> getEmployee(@Parameter(description = "ID сотрудника") @PathVariable Long id) {
         return ResponseEntity.ok(employeeService.getEmployeeById(id));
     }
 
     @Operation(summary = "Создать нового сотрудника")
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Employee> createEmployee(@RequestBody Employee employee) {
-        return new ResponseEntity<>(employeeService.createEmployee(employee), HttpStatus.CREATED);
+    public ResponseEntity<EmployeeResponse> createEmployee(@RequestBody EmployeeCreateRequest request) {
+        return new ResponseEntity<>(employeeService.createEmployee(request), HttpStatus.CREATED);
     }
 
     @Operation(summary = "Обновить сотрудника")
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Employee> updateEmployee(
+    public ResponseEntity<EmployeeResponse> updateEmployee(
             @Parameter(description = "ID сотрудника") @PathVariable Long id,
-            @RequestBody Employee employee) {
-        return ResponseEntity.ok(employeeService.updateEmployee(id, employee));
+            @RequestBody EmployeeUpdateRequest request) {
+        return ResponseEntity.ok(employeeService.updateEmployee(id, request));
     }
 
     @Operation(summary = "Синхронизировать текущего пользователя из Keycloak")
     @PostMapping("/sync")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Employee> syncCurrentEmployee(@AuthenticationPrincipal Jwt jwt) {
-        Employee synced = employeeService.syncOrCreateFromKeycloak(jwt);
+    public ResponseEntity<EmployeeResponse> syncCurrentEmployee(@AuthenticationPrincipal Jwt jwt) {
+        EmployeeResponse synced = employeeService.syncOrCreateFromKeycloak(jwt);
         return ResponseEntity.ok(synced);
     }
 

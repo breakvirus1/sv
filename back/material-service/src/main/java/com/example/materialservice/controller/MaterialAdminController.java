@@ -1,6 +1,6 @@
 package com.example.materialservice.controller;
 
-import com.example.common.entity.Material;
+import com.example.materialservice.entity.Material;
 import com.example.materialservice.service.MaterialAdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

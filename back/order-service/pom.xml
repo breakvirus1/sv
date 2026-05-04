@@ -87,10 +87,20 @@
             <version>9.22.3</version>
         </dependency>
 
-        <!-- Common module -->
+        <!-- Dependencies on other services for shared entities and DTOs -->
         <dependency>
             <groupId>com.example.printsv</groupId>
-            <artifactId>common</artifactId>
+            <artifactId>client-service</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.example.printsv</groupId>
+            <artifactId>employee-service</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.example.printsv</groupId>
+            <artifactId>material-service</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
@@ -107,6 +117,7 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                    <classifier>exec</classifier>
                 </configuration>
             </plugin>
             <plugin>

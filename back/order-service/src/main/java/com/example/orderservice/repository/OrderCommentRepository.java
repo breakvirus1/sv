@@ -1,6 +1,6 @@
 package com.example.orderservice.repository;
 
-import com.example.common.entity.OrderComment;
+import com.example.orderservice.entity.OrderComment;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

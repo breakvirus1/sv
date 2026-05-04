@@ -1,11 +1,16 @@
 package com.example.clientservice.service;
 
-import com.example.common.entity.Client;
+import com.example.clientservice.dto.ClientCreateRequest;
+import com.example.clientservice.dto.ClientResponse;
+import com.example.clientservice.dto.ClientUpdateRequest;
+import com.example.clientservice.entity.Client;
+import com.example.clientservice.entity.ClientType;
 import com.example.clientservice.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,56 +26,75 @@ import java.util.List;
 public class ClientService {
 
     private final ClientRepository clientRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     /**
      * Получить список клиентов с пагинацией и фильтрацией.
      */
-    public Page<Client> getAllClients(Specification<Client> spec, Pageable pageable) {
-        return clientRepository.findAll(spec, pageable);
+    public Page<ClientResponse> getAllClients(Specification<Client> spec, Pageable pageable) {
+        return clientRepository.findAll(spec, pageable)
+                .map(this::mapToResponse);
     }
 
     /**
      * Получить клиента по ID.
      */
     @Transactional(readOnly = true)
-    public Client getClientById(Long id) {
-        return clientRepository.findById(id)
+    public ClientResponse getClientById(Long id) {
+        Client client = clientRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Клиент не найден"));
+        return mapToResponse(client);
     }
 
     /**
      * Создать нового клиента.
      * Проверяет уникальность имени.
      */
-    public Client createClient(Client client) {
-        if (clientRepository.findByName(client.getName()).isPresent()) {
+    public ClientResponse createClient(ClientCreateRequest request) {
+        if (clientRepository.findByName(request.getName()).isPresent()) {
             throw new RuntimeException("Клиент с таким названием уже существует");
         }
-        return clientRepository.save(client);
+        Client client = new Client();
+        client.setName(request.getName());
+        client.setType(ClientType.valueOf(request.getType()));
+        client.setContactPerson(request.getContactPerson());
+        client.setPhone(request.getPhone());
+        client.setEmail(request.getEmail());
+        client.setInn(request.getInn());
+        client.setAddress(request.getAddress());
+
+        Client saved = clientRepository.save(client);
+        return mapToResponse(saved);
     }
 
     /**
      * Обновить данные клиента.
      */
-    public Client updateClient(Long id, Client clientDetails) {
-        Client client = getClientById(id);
-        client.setName(clientDetails.getName());
-        client.setType(clientDetails.getType());
-        client.setContactPerson(clientDetails.getContactPerson());
-        client.setPhone(clientDetails.getPhone());
-        client.setEmail(clientDetails.getEmail());
-        client.setInn(clientDetails.getInn());
-        client.setAddress(clientDetails.getAddress());
-        return clientRepository.save(client);
+    public ClientResponse updateClient(Long id, ClientUpdateRequest request) {
+        Client client = getClientEntity(id);
+        client.setName(request.getName());
+        client.setType(ClientType.valueOf(request.getType()));
+        client.setContactPerson(request.getContactPerson());
+        client.setPhone(request.getPhone());
+        client.setEmail(request.getEmail());
+        client.setInn(request.getInn());
+        client.setAddress(request.getAddress());
+        Client saved = clientRepository.save(client);
+        return mapToResponse(saved);
     }
 
     /**
      * Удалить клиента (если у него нет заказов).
      */
     public void deleteClient(Long id) {
-        Client client = getClientById(id);
-        // Проверяем, есть ли у клиента заказы
-        if (client.getOrders() != null && !client.getOrders().isEmpty()) {
+        Client client = getClientEntity(id);
+        // Проверяем, есть ли у клиента заказы через прямую проверку в БД
+        Integer orderCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM orders WHERE client_id = ? AND deleted = false",
+            Integer.class,
+            id
+        );
+        if (orderCount != null && orderCount > 0) {
             throw new RuntimeException("Нельзя удалить клиента с существующими заказами");
         }
         clientRepository.delete(client);
@@ -86,5 +110,25 @@ public class ClientService {
                         cb.like(cb.lower(root.get("name")), "%" + query.toLowerCase() + "%"),
                         cb.like(cb.lower(root.get("contactPerson")), "%" + query.toLowerCase() + "%")
                 ));
+    }
+
+    @Transactional(readOnly = true)
+    private Client getClientEntity(Long id) {
+        return clientRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Клиент не найден"));
+    }
+
+    @Transactional(readOnly = true)
+    private ClientResponse mapToResponse(Client client) {
+        return new ClientResponse(
+                client.getId(),
+                client.getName(),
+                client.getType() != null ? client.getType().name() : null,
+                client.getContactPerson(),
+                client.getPhone(),
+                client.getEmail(),
+                client.getInn(),
+                client.getAddress()
+        );
     }
 }

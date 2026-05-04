@@ -32,13 +32,12 @@
 </properties>
 
     <modules>
-        <module>back/common</module>
         <module>back/discovery-server</module>
         <module>back/client-service</module>
-        <module>back/order-service</module>
-        <module>back/api-gateway</module>
         <module>back/employee-service</module>
         <module>back/material-service</module>
+        <module>back/order-service</module>
+        <module>back/api-gateway</module>
     </modules>
 
     <dependencyManagement>

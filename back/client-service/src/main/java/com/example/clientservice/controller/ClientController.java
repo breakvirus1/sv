@@ -1,6 +1,9 @@
 package com.example.clientservice.controller;
 
-import com.example.common.entity.Client;
+import com.example.clientservice.dto.ClientCreateRequest;
+import com.example.clientservice.dto.ClientResponse;
+import com.example.clientservice.dto.ClientUpdateRequest;
+import com.example.clientservice.entity.Client;
 import com.example.clientservice.service.ClientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,7 +30,7 @@ public class ClientController {
     @Operation(summary = "Получить список клиентов")
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT')")
-    public ResponseEntity<Page<Client>> getAllClients(
+    public ResponseEntity<Page<ClientResponse>> getAllClients(
             @Parameter(description = "Поисковый запрос") @RequestParam(required = false) String q,
             Pageable pageable) {
 
@@ -54,24 +57,24 @@ public class ClientController {
     @Operation(summary = "Получить клиента по ID")
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT')")
-    public ResponseEntity<Client> getClient(@Parameter(description = "ID клиента") @PathVariable Long id) {
+    public ResponseEntity<ClientResponse> getClient(@Parameter(description = "ID клиента") @PathVariable Long id) {
         return ResponseEntity.ok(clientService.getClientById(id));
     }
 
     @Operation(summary = "Создать нового клиента")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Client> createClient(@RequestBody Client client) {
-        return new ResponseEntity<>(clientService.createClient(client), HttpStatus.CREATED);
+    public ResponseEntity<ClientResponse> createClient(@RequestBody ClientCreateRequest request) {
+        return new ResponseEntity<>(clientService.createClient(request), HttpStatus.CREATED);
     }
 
     @Operation(summary = "Обновить клиента")
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Client> updateClient(
+    public ResponseEntity<ClientResponse> updateClient(
             @Parameter(description = "ID клиента") @PathVariable Long id,
-            @RequestBody Client client) {
-        return ResponseEntity.ok(clientService.updateClient(id, client));
+            @RequestBody ClientUpdateRequest request) {
+        return ResponseEntity.ok(clientService.updateClient(id, request));
     }
 
     @Operation(summary = "Удалить клиента")

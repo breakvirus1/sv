@@ -1,6 +1,6 @@
 package com.example.orderservice.controller;
 
-import com.example.common.entity.Order;
+import com.example.orderservice.entity.Order;
 import com.example.orderservice.service.OrderAdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

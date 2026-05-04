@@ -1,9 +1,9 @@
 package com.example.orderservice.controller;
 
-import com.example.common.dto.*;
-import com.example.common.entity.Order;
-import com.example.common.entity.OrderStatus;
-import com.example.common.entity.ProductionStage;
+import com.example.orderservice.dto.*;
+import com.example.orderservice.entity.Order;
+import com.example.orderservice.entity.OrderStatus;
+import com.example.orderservice.entity.ProductionStage;
 import com.example.orderservice.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -38,7 +38,7 @@ public class OrderController {
      @Operation(summary = "Получить список заказов с фильтрами")
      @GetMapping
      @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
-     public ResponseEntity<Page<OrderDto>> getAllOrders(
+     public ResponseEntity<Page<OrderResponse>> getAllOrders(
              @Parameter(description = "Статус заказа") @RequestParam(required = false) String status,
              @Parameter(description = "ID менеджера") @RequestParam(required = false) Long managerId,
              @Parameter(description = "ID клиента") @RequestParam(required = false) Long clientId,
@@ -69,8 +69,8 @@ public class OrderController {
                      cb.lessThanOrEqualTo(root.get("orderDate"), toDate));
          }
 
-          Page<OrderDto> page = orderService.getAllOrders(spec, pageable);
-          return ResponseEntity.ok(page);
+         Page<OrderResponse> page = orderService.getAllOrders(spec, pageable);
+         return ResponseEntity.ok(page);
      }
 
     /**
@@ -80,7 +80,7 @@ public class OrderController {
     @Operation(summary = "Получить детальную информацию о заказе")
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
-    public ResponseEntity<OrderDto> getOrder(@Parameter(description = "ID заказа") @PathVariable Long id) {
+    public ResponseEntity<OrderResponse> getOrder(@Parameter(description = "ID заказа") @PathVariable Long id) {
         return ResponseEntity.ok(orderService.getOrderById(id));
     }
 
@@ -91,8 +91,21 @@ public class OrderController {
     @Operation(summary = "Создать новый заказ")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<OrderDto> createOrder(@RequestBody OrderCreateRequest request) {
+    public ResponseEntity<OrderResponse> createOrder(@RequestBody OrderCreateRequest request) {
         return new ResponseEntity<>(orderService.createOrder(request), HttpStatus.CREATED);
+    }
+
+    /**
+     * Обновить заказ.
+     * Доступно: ADMIN, MANAGER.
+     */
+    @Operation(summary = "Обновить заказ")
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<OrderResponse> updateOrder(
+            @Parameter(description = "ID заказа") @PathVariable Long id,
+            @RequestBody OrderUpdateRequest request) {
+        return ResponseEntity.ok(orderService.updateOrder(id, request));
     }
 
     /**
@@ -102,7 +115,7 @@ public class OrderController {
     @Operation(summary = "Обновить статус заказа")
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<OrderDto> updateStatus(
+    public ResponseEntity<OrderResponse> updateStatus(
             @Parameter(description = "ID заказа") @PathVariable Long id,
             @RequestParam String status) {
         return ResponseEntity.ok(orderService.updateStatus(id, status));
@@ -115,7 +128,7 @@ public class OrderController {
     @Operation(summary = "Обновить стадию производства")
     @PutMapping("/{id}/stage")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRODUCTION')")
-    public ResponseEntity<OrderDto> updateStage(
+    public ResponseEntity<OrderResponse> updateStage(
             @Parameter(description = "ID заказа") @PathVariable Long id,
             @RequestParam String stage) {
         return ResponseEntity.ok(orderService.updateProductionStage(id, stage));
@@ -130,8 +143,23 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<Void> addPayment(
             @Parameter(description = "ID заказа") @PathVariable Long id,
-            @RequestBody PaymentDto payment) {
+            @RequestBody PaymentRequest payment) {
         orderService.addPayment(id, payment);
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    /**
+     * Добавить комментарий к заказу.
+     * Доступно: ADMIN, MANAGER, PRODUCTION.
+     */
+    @Operation(summary = "Добавить комментарий к заказу")
+    @PostMapping("/{id}/comments")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    public ResponseEntity<CommentResponse> addComment(
+            @Parameter(description = "ID заказа") @PathVariable Long id,
+            @RequestBody CommentRequest request) {
+        // Author will be extracted from authentication token in the service
+        CommentResponse comment = orderService.addComment(id, request, null);
+        return new ResponseEntity<>(comment, HttpStatus.CREATED);
     }
 }

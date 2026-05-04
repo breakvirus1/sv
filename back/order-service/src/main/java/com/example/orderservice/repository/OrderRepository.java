@@ -1,6 +1,6 @@
 package com.example.orderservice.repository;
 
-import com.example.common.entity.Order;
+import com.example.orderservice.entity.Order;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;

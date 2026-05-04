@@ -1,7 +1,7 @@
 package com.example.clientservice.service;
 
-import com.example.common.entity.Client;
-import com.example.common.entity.ClientType;
+import com.example.clientservice.entity.Client;
+import com.example.clientservice.entity.ClientType;
 import com.example.clientservice.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

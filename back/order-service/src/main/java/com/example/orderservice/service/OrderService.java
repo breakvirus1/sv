@@ -1,17 +1,18 @@
 package com.example.orderservice.service;
 
-import com.example.common.dto.*;
-import com.example.common.entity.Client;
-import com.example.common.entity.Employee;
-import com.example.common.entity.Material;
-import com.example.common.entity.Order;
-import com.example.common.entity.OrderComment;
-import com.example.common.dto.OrderMaterialCreateRequest;
-import com.example.common.entity.OrderItem;
-import com.example.common.entity.OrderMaterial;
-import com.example.common.entity.OrderStatus;
-import com.example.common.entity.Payment;
-import com.example.common.entity.ProductionStage;
+import com.example.clientservice.entity.Client;
+import com.example.employeeservice.dto.EmployeeResponse;
+import com.example.employeeservice.entity.Employee;
+import com.example.materialservice.dto.MaterialResponse;
+import com.example.materialservice.entity.Material;
+import com.example.orderservice.dto.*;
+import com.example.orderservice.entity.Order;
+import com.example.orderservice.entity.OrderComment;
+import com.example.orderservice.entity.OrderItem;
+import com.example.orderservice.entity.OrderMaterial;
+import com.example.orderservice.entity.OrderStatus;
+import com.example.orderservice.entity.Payment;
+import com.example.orderservice.entity.ProductionStage;
 import com.example.orderservice.mapper.OrderMapper;
 import com.example.orderservice.repository.OrderCommentRepository;
 import com.example.orderservice.repository.OrderItemRepository;
@@ -32,7 +33,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -58,7 +58,7 @@ public class OrderService {
     /**
      * Получить список заказов с фильтрацией и пагинацией.
      */
-    public Page<OrderDto> getAllOrders(Specification<Order> spec, Pageable pageable) {
+    public Page<OrderResponse> getAllOrders(Specification<Order> spec, Pageable pageable) {
         return orderRepository.findAll(spec, pageable)
                 .map(orderMapper::toDto);
     }
@@ -67,33 +67,33 @@ public class OrderService {
      * Получить детальную информацию о заказе со всеми связанными сущностями.
      */
     @Transactional(readOnly = true)
-    public OrderDto getOrderById(Long id) {
+    public OrderResponse getOrderById(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
-        OrderDto dto = orderMapper.toDto(order);
+        OrderResponse response = orderMapper.toDto(order);
 
         // Загружаем связанные сущности
-        dto.setItems(order.getItems().stream()
+        response.setItems(order.getItems().stream()
                 .map(orderMapper::itemToDto)
                 .collect(Collectors.toList()));
 
-        dto.setStages(order.getStages().stream()
+        response.setStages(order.getStages().stream()
                 .map(orderMapper::stageToDto)
                 .collect(Collectors.toList()));
 
-        dto.setPayments(order.getPayments().stream()
+        response.setPayments(order.getPayments().stream()
                 .map(this::mapPayment)
                 .collect(Collectors.toList()));
 
-        dto.setComments(order.getComments().stream()
+        response.setComments(order.getComments().stream()
                 .map(this::mapComment)
                 .collect(Collectors.toList()));
 
-        dto.setMaterials(order.getMaterials().stream()
+        response.setMaterials(order.getMaterials().stream()
                 .map(this::mapOrderMaterial)
                 .collect(Collectors.toList()));
 
-        return dto;
+        return response;
     }
 
     /**
@@ -101,7 +101,7 @@ public class OrderService {
      * Номер заказа генерируется автоматически.
      * Общая сумма рассчитывается на основе стоимости материалов с учетом коэффициента отхода.
      */
-    public OrderDto createOrder(OrderCreateRequest request) {
+    public OrderResponse createOrder(OrderCreateRequest request) {
         // Генерация номера заказа
         String generatedOrderNumber = generateOrderNumber();
 
@@ -179,7 +179,7 @@ public class OrderService {
      * Обновить статус заказа.
      * При смене статуса могут выполняться дополнительные действия (уведомления, триггеры).
      */
-    public OrderDto updateStatus(Long id, String status) {
+    public OrderResponse updateStatus(Long id, String status) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
 
@@ -192,7 +192,7 @@ public class OrderService {
      * Обновить стадию производства.
      * Используется для отслеживания прогресса в цехах.
      */
-    public OrderDto updateProductionStage(Long id, String stage) {
+    public OrderResponse updateProductionStage(Long id, String stage) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
 
@@ -202,25 +202,99 @@ public class OrderService {
     }
 
     /**
+     * Обновить заказ.
+     */
+    public OrderResponse updateOrder(Long id, OrderUpdateRequest request) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+
+        // Update simple fields
+        if (request.getDescription() != null) {
+            order.setDescription(request.getDescription());
+        }
+        if (request.getOrderDate() != null) {
+            order.setOrderDate(request.getOrderDate());
+        }
+        if (request.getDueDate() != null) {
+            order.setDueDate(request.getDueDate());
+        }
+
+        // Update manager if provided
+        if (request.getManagerId() != null) {
+            Employee manager = entityManager.find(Employee.class, request.getManagerId());
+            if (manager == null) {
+                throw new RuntimeException("Менеджер не найден");
+            }
+            order.setManager(manager);
+        }
+
+        Order saved = orderRepository.save(order);
+        return orderMapper.toDto(saved);
+    }
+
+    /**
      * Добавить оплату к заказу.
      * Автоматически пересчитывает paidAmount и debtAmount.
      */
-    public void addPayment(Long orderId, PaymentDto paymentDto) {
+    public void addPayment(Long orderId, PaymentRequest paymentRequest) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
 
-        Payment payment = new Payment();
+        com.example.orderservice.entity.Payment payment = new com.example.orderservice.entity.Payment();
         payment.setOrder(order);
-        payment.setAmount(paymentDto.getAmount());
-        payment.setPaymentDate(paymentDto.getPaymentDate() != null ? paymentDto.getPaymentDate() : LocalDate.now());
-        payment.setPaymentType(paymentDto.getPaymentType());
-        payment.setDetails(paymentDto.getDetails());
-        payment.setIsPartial(paymentDto.getIsPartial() != null ? paymentDto.getIsPartial() : false);
+        payment.setAmount(paymentRequest.getAmount());
+        payment.setPaymentDate(paymentRequest.getPaymentDate() != null ? paymentRequest.getPaymentDate() : LocalDate.now());
+        payment.setPaymentType(paymentRequest.getPaymentType());
+        payment.setDetails(paymentRequest.getDetails());
+        payment.setIsPartial(paymentRequest.getIsPartial() != null ? paymentRequest.getIsPartial() : false);
 
         paymentRepository.save(payment);
 
         // Пересчитаем оплаченную сумму и долг
         recalculatePaidAmount(orderId);
+    }
+
+    /**
+     * Добавить комментарий к заказу.
+     */
+    public CommentResponse addComment(Long orderId, CommentRequest commentRequest, EmployeeResponse author) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+
+        OrderComment comment = new OrderComment();
+        comment.setOrder(order);
+        comment.setMessage(commentRequest.getMessage());
+        comment.setIsInternal(commentRequest.getIsInternal() != null ? commentRequest.getIsInternal() : false);
+        // Author would be set from authentication
+        if (author != null) {
+            Employee authorEntity = entityManager.find(Employee.class, author.getId());
+            comment.setAuthor(authorEntity);
+        }
+        comment.setCreatedAt(LocalDateTime.now());
+
+        OrderComment saved = orderCommentRepository.save(comment);
+        return mapComment(saved);
+    }
+
+    /**
+     * Добавить этап производства.
+     */
+    public OrderStageResponse addStage(Long orderId, OrderStageRequest stageRequest) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+
+        com.example.orderservice.entity.OrderStage stage = new com.example.orderservice.entity.OrderStage();
+        stage.setOrder(order);
+        // Workshop lookup would be needed here
+        // workshopService.findById(stageRequest.getWorkshopId())
+        stage.setWaitPrevious(stageRequest.getWaitPrevious());
+        stage.setDueDate(stageRequest.getDueDate());
+        stage.setNote(stageRequest.getNote());
+        stage.setStatus(stageRequest.getStatus());
+        stage.setSourceFiles(stageRequest.getSourceFiles());
+
+        com.example.orderservice.entity.OrderStage saved = orderStageRepository.save(stage);
+        return orderMapper.stageToDto(saved);
     }
 
     /**
@@ -252,10 +326,10 @@ public class OrderService {
     }
 
     /**
-     * Преобразовать сущность Payment в DTO.
+     * Преобразовать сущность Payment в PaymentResponse.
      */
-    private PaymentDto mapPayment(Payment payment) {
-        return new PaymentDto(
+    private PaymentResponse mapPayment(com.example.orderservice.entity.Payment payment) {
+        return new PaymentResponse(
                 payment.getId(),
                 payment.getAmount(),
                 payment.getPaymentDate(),
@@ -266,15 +340,15 @@ public class OrderService {
     }
 
     /**
-     * Преобразовать сущность OrderComment в CommentDto.
+     * Преобразовать сущность OrderComment в CommentResponse.
      */
-    private CommentDto mapComment(OrderComment comment) {
+    private CommentResponse mapComment(OrderComment comment) {
         Employee author = comment.getAuthor();
-        EmployeeDto authorDto = author != null ?
-                new EmployeeDto(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail()) :
+        EmployeeResponse authorDto = author != null ?
+                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername()) :
                 null;
 
-        return new CommentDto(
+        return new CommentResponse(
                 comment.getId(),
                 comment.getMessage(),
                 authorDto,
@@ -283,13 +357,13 @@ public class OrderService {
         );
     }
 
-    private OrderMaterialDto mapOrderMaterial(OrderMaterial om) {
+    private OrderMaterialResponse mapOrderMaterial(OrderMaterial om) {
         Material material = om.getMaterial();
-        MaterialDto materialDto = material != null ?
-                new MaterialDto(material.getId(), material.getName(), material.getUnit(), material.getPrice(), material.getWasteCoefficient()) :
+        MaterialResponse materialDto = material != null ?
+                new MaterialResponse(material.getId(), material.getName(), material.getUnit(), material.getPrice(), material.getWasteCoefficient()) :
                 null;
 
-        return new OrderMaterialDto(
+        return new OrderMaterialResponse(
                 om.getId(),
                 materialDto,
                 om.getQuantity(),
