@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 @SpringBootApplication
 @EntityScan(basePackages = {
     "com.example.orderservice.entity",
+    "com.example.orderservice.product",
+    "com.example.orderservice.order.entity",
     "com.example.clientservice.entity",
     "com.example.employeeservice.entity",
     "com.example.materialservice.entity"

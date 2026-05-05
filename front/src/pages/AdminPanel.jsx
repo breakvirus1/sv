@@ -21,7 +21,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  CircularProgress,
   Alert,
   Snackbar,
   Grid,
@@ -33,25 +32,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
-// Entity types
-const ENTITY_TABS = [
-  { label: 'Clients', value: 'clients' },
-  { label: 'Materials', value: 'materials' },
-  { label: 'Generate Data', value: 'generate' }
-];
-
 const AdminPanel = () => {
   const [tab, setTab] = useState(0);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Notification state
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const showNotification = (message, severity = 'success') => {
     setNotification({ open: true, message, severity });
   };
 
-  // ---- Clients state ----
+  // Clients
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientDeleteDialogOpen, setClientDeleteDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -63,7 +54,7 @@ const AdminPanel = () => {
     email: ''
   });
 
-  // ---- Materials state ----
+  // Materials
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
   const [materialDeleteDialogOpen, setMaterialDeleteDialogOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
@@ -74,10 +65,26 @@ const AdminPanel = () => {
     wasteCoefficient: '1'
   });
 
-  // ---- Generation state ----
+  // Products
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [productDeleteDialogOpen, setProductDeleteDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productForm, setProductForm] = useState({
+    name: '',
+    article: '',
+    description: '',
+    width: '',
+    height: '',
+    unit: 'шт',
+    basePrice: '',
+    materials: [],
+    operations: []
+  });
+
+  // Generation
   const [generating, setGenerating] = useState({ clients: false, materials: false, orders: false });
 
-  // Fetch data functions (enabled based on tab)
+  // Queries
   const { data: clientsData = [], refetch: refetchClients } = useQuery({
     queryKey: ['admin-clients'],
     queryFn: async () => {
@@ -96,7 +103,16 @@ const AdminPanel = () => {
     enabled: tab === 1
   });
 
-  // ---- CRUD operations for Clients ----
+  const { data: productsData = [], refetch: refetchProducts } = useQuery({
+    queryKey: ['admin-products'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/products?size=100');
+      return response.data || [];
+    },
+    enabled: tab === 2
+  });
+
+  // Mutations for Clients
   const createClientMutation = useMutation({
     mutationFn: (client) => api.post('/api/v1/clients', client),
     onSuccess: () => {
@@ -129,7 +145,7 @@ const AdminPanel = () => {
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
-  // ---- Materials ----
+  // Mutations for Materials
   const createMaterialMutation = useMutation({
     mutationFn: (material) => api.post('/api/v1/materials', material),
     onSuccess: () => {
@@ -162,7 +178,40 @@ const AdminPanel = () => {
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
-  // ---- Generate mutations ----
+  // Mutations for Products
+  const createProductMutation = useMutation({
+    mutationFn: (product) => api.post('/api/v1/products', product),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      setProductDialogOpen(false);
+      showNotification('Продукт создан');
+      resetProductForm();
+    },
+    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+  });
+
+  const updateProductMutation = useMutation({
+    mutationFn: ({ id, data }) => api.put(`/api/v1/products/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      setProductDialogOpen(false);
+      showNotification('Продукт обновлен');
+      resetProductForm();
+    },
+    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+  });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: (id) => api.delete(`/api/v1/products/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      setProductDeleteDialogOpen(false);
+      showNotification('Продукт удален');
+    },
+    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+  });
+
+  // Generate mutations
   const generateClientsMutation = useMutation({
     mutationFn: () => api.post('/api/v1/admin/clients/generate'),
     onSuccess: () => {
@@ -202,7 +251,6 @@ const AdminPanel = () => {
     }
   });
 
-  // Handlers
   const handleTabChange = (event, newValue) => {
     setTab(newValue);
   };
@@ -303,6 +351,157 @@ const AdminPanel = () => {
     }
   };
 
+  // Product handlers
+  const openProductDialog = (product = null) => {
+    if (product) {
+      setSelectedProduct(product);
+      setProductForm({
+        name: product.name || '',
+        article: product.article || '',
+        description: product.description || '',
+        width: product.width ? product.width.toString() : '',
+        height: product.height ? product.height.toString() : '',
+        unit: product.unit || 'шт',
+        basePrice: product.basePrice ? product.basePrice.toString() : '',
+        materials: product.materials ? product.materials.map(m => ({
+          id: m.id || Date.now() + Math.random(),
+          materialId: m.materialId,
+          quantity: m.quantity.toString(),
+          wasteCoefficient: m.wasteCoefficient ? m.wasteCoefficient.toString() : '1',
+          sortOrder: m.sortOrder || 0
+        })) : [],
+        operations: product.operations ? product.operations.map(op => ({
+          id: op.id || Date.now() + Math.random(),
+          name: op.name,
+          pricePerUnit: op.pricePerUnit ? op.pricePerUnit.toString() : '',
+          normTime: op.normTime || '',
+          unit: op.unit || 'шт',
+          sortOrder: op.sortOrder || 0
+        })) : []
+      });
+    } else {
+      resetProductForm();
+    }
+    setProductDialogOpen(true);
+  };
+
+  const resetProductForm = () => {
+    setProductForm({
+      name: '',
+      article: '',
+      description: '',
+      width: '',
+      height: '',
+      unit: 'шт',
+      basePrice: '',
+      materials: [],
+      operations: []
+    });
+    setSelectedProduct(null);
+  };
+
+  const addProductMaterial = () => {
+    setProductForm(prev => ({
+      ...prev,
+      materials: [...prev.materials, {
+        id: Date.now() + Math.random(),
+        materialId: '',
+        quantity: '1',
+        wasteCoefficient: '1',
+        sortOrder: 0
+      }]
+    }));
+  };
+
+  const updateProductMaterial = (index, field, value) => {
+    setProductForm(prev => {
+      const newMaterials = [...prev.materials];
+      newMaterials[index] = { ...newMaterials[index], [field]: value };
+      return { ...prev, materials: newMaterials };
+    });
+  };
+
+  const removeProductMaterial = (index) => {
+    setProductForm(prev => ({
+      ...prev,
+      materials: prev.materials.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addProductOperation = () => {
+    setProductForm(prev => ({
+      ...prev,
+      operations: [...prev.operations, {
+        id: Date.now() + Math.random(),
+        name: '',
+        pricePerUnit: '',
+        normTime: '',
+        unit: 'шт',
+        sortOrder: 0
+      }]
+    }));
+  };
+
+  const updateProductOperation = (index, field, value) => {
+    setProductForm(prev => {
+      const newOps = [...prev.operations];
+      newOps[index] = { ...newOps[index], [field]: value };
+      return { ...prev, operations: newOps };
+    });
+  };
+
+  const removeProductOperation = (index) => {
+    setProductForm(prev => ({
+      ...prev,
+      operations: prev.operations.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleProductSubmit = () => {
+    if (!productForm.name) {
+      showNotification('Введите название продукта', 'error');
+      return;
+    }
+    const payload = {
+      name: productForm.name,
+      article: productForm.article,
+      description: productForm.description,
+      width: productForm.width ? parseFloat(productForm.width) : null,
+      height: productForm.height ? parseFloat(productForm.height) : null,
+      unit: productForm.unit,
+      basePrice: productForm.basePrice ? parseFloat(productForm.basePrice) : 0,
+      materials: productForm.materials.map(m => ({
+        materialId: parseInt(m.materialId),
+        quantity: parseFloat(m.quantity),
+        wasteCoefficient: parseFloat(m.wasteCoefficient) || 1,
+        sortOrder: m.sortOrder
+      })),
+      operations: productForm.operations.map(op => ({
+        name: op.name,
+        pricePerUnit: parseFloat(op.pricePerUnit),
+        normTime: op.normTime || null,
+        unit: op.unit,
+        sortOrder: op.sortOrder
+      }))
+    };
+    if (selectedProduct) {
+      updateProductMutation.mutate({ id: selectedProduct.id, data: payload });
+    } else {
+      createProductMutation.mutate(payload);
+    }
+  };
+
+  const confirmDeleteProduct = (product) => {
+    setSelectedProduct(product);
+    setProductDeleteDialogOpen(true);
+  };
+
+  const handleDeleteProduct = () => {
+    if (selectedProduct) {
+      deleteProductMutation.mutate(selectedProduct.id);
+    }
+  };
+
   // Generate handlers
   const handleGenerate = (type) => {
     setGenerating(prev => ({ ...prev, [type]: true }));
@@ -314,7 +513,7 @@ const AdminPanel = () => {
     }
   };
 
-  // ---- Render helpers ----
+  // Render helpers
   const renderClientsTab = () => (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -399,20 +598,63 @@ const AdminPanel = () => {
     </Box>
   );
 
+  const renderProductsTab = () => (
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h6">Управление продуктами (шаблоны изделий)</Typography>
+        <Button variant="contained" startIcon={<Add />} onClick={() => openProductDialog()}>
+          Добавить продукт
+        </Button>
+      </Box>
+      {productsData.length === 0 && <Typography>Нет данных</Typography>}
+      {productsData.length > 0 && (
+        <TableContainer component={Paper}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Название</TableCell>
+                <TableCell>Артикул</TableCell>
+                <TableCell>Базовая цена</TableCell>
+                <TableCell>Материалов</TableCell>
+                <TableCell>Операций</TableCell>
+                <TableCell align="right">Действия</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {productsData.map((prod) => (
+                <TableRow key={prod.id}>
+                  <TableCell>{prod.name}</TableCell>
+                  <TableCell>{prod.article || '-'}</TableCell>
+                  <TableCell>{(prod.basePrice || 0).toFixed(2)} ₽</TableCell>
+                  <TableCell>{prod.materials ? prod.materials.length : 0}</TableCell>
+                  <TableCell>{prod.operations ? prod.operations.length : 0}</TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" onClick={() => openProductDialog(prod)}><Edit /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => confirmDeleteProduct(prod)}><Delete /></IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
+  );
+
   const renderGenerateTab = () => (
     <Box>
       <Typography variant="h6" gutterBottom>Генерация тестовых данных</Typography>
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} md={3}>
-            <Button
-              variant="contained"
-              fullWidth
-              startIcon={<Refresh />}
-              onClick={() => handleGenerate('clients')}
-              disabled={generating.clients}
-            >
-              {generating.clients ? 'Генерация...' : 'Сгенерировать клиентов (20)'}
-            </Button>
+          <Button
+            variant="contained"
+            fullWidth
+            startIcon={<Refresh />}
+            onClick={() => handleGenerate('clients')}
+            disabled={generating.clients}
+          >
+            {generating.clients ? 'Генерация...' : 'Сгенерировать клиентов (20)'}
+          </Button>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Button
@@ -445,20 +687,20 @@ const AdminPanel = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Admin Panel
-      </Typography>
+      <Typography variant="h4" gutterBottom>Admin Panel</Typography>
       <Paper sx={{ width: '100%', mt: 2 }}>
         <Tabs value={tab} onChange={handleTabChange} indicatorColor="secondary" textColor="secondary" variant="scrollable" scrollButtons="auto">
-          {ENTITY_TABS.map((t, idx) => (
-            <Tab key={t.value} label={t.label} />
-          ))}
+          <Tab label="Clients" />
+          <Tab label="Materials" />
+          <Tab label="Products" />
+          <Tab label="Generate" />
         </Tabs>
         <Divider />
         <Box sx={{ p: 2 }}>
           {tab === 0 && renderClientsTab()}
           {tab === 1 && renderMaterialsTab()}
-          {tab === 2 && renderGenerateTab()}
+          {tab === 2 && renderProductsTab()}
+          {tab === 3 && renderGenerateTab()}
         </Box>
       </Paper>
 
@@ -526,6 +768,80 @@ const AdminPanel = () => {
         <DialogActions>
           <Button onClick={() => setMaterialDeleteDialogOpen(false)}>Отмена</Button>
           <Button onClick={handleDeleteMaterial} color="error" variant="contained">Удалить</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Product Dialog */}
+      <Dialog open={productDialogOpen} onClose={() => setProductDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>{selectedProduct ? 'Редактировать продукт' : 'Новый продукт'}</DialogTitle>
+        <DialogContent>
+          <TextField autoFocus fullWidth margin="dense" label="Название" value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} />
+          <TextField fullWidth margin="dense" label="Артикул" value={productForm.article} onChange={(e) => setProductForm({ ...productForm, article: e.target.value })} />
+          <TextField fullWidth margin="dense" label="Описание" multiline rows={2} value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} />
+          <Box display="flex" gap={2} mt={1}>
+            <TextField label="Ширина" type="number" value={productForm.width} onChange={(e) => setProductForm({ ...productForm, width: e.target.value })} inputProps={{ step: 0.001 }} sx={{ flex: 1 }} />
+            <TextField label="Высота" type="number" value={productForm.height} onChange={(e) => setProductForm({ ...productForm, height: e.target.value })} inputProps={{ step: 0.001 }} sx={{ flex: 1 }} />
+          </Box>
+          <Box display="flex" gap={2} mt={1}>
+            <FormControl sx={{ flex: 1 }}>
+              <InputLabel>Ед. изм.</InputLabel>
+              <Select value={productForm.unit} label="Ед. изм." onChange={(e) => setProductForm({ ...productForm, unit: e.target.value })}>
+                <MenuItem value="шт">шт</MenuItem>
+                <MenuItem value="м2">м²</MenuItem>
+                <MenuItem value="м.п.">м.п.</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField label="Базовая цена" type="number" value={productForm.basePrice} onChange={(e) => setProductForm({ ...productForm, basePrice: e.target.value })} inputProps={{ step: 0.01 }} sx={{ flex: 1 }} />
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle2" gutterBottom>Материалы</Typography>
+          {productForm.materials.map((mat, idx) => (
+            <Box key={idx} sx={{ mb: 1, p: 1, border: '1px dashed #ccc', borderRadius: 1 }}>
+              <Box display="flex" gap={1} alignItems="center">
+                <FormControl fullWidth size="small">
+                  <Select value={mat.materialId} label="Материал" onChange={(e) => updateProductMaterial(idx, 'materialId', e.target.value)}>
+                    <MenuItem value="">Выберите материал</MenuItem>
+                    {materialsData.map(m => <MenuItem key={m.id} value={m.id}>{m.name} ({m.unit})</MenuItem>)}
+                  </Select>
+                </FormControl>
+                <TextField label="Кол-во" type="number" size="small" value={mat.quantity} onChange={(e) => updateProductMaterial(idx, 'quantity', e.target.value)} inputProps={{ step: 0.001 }} sx={{ width: 120 }} />
+                <TextField label="Отход" type="number" size="small" value={mat.wasteCoefficient} onChange={(e) => updateProductMaterial(idx, 'wasteCoefficient', e.target.value)} inputProps={{ step: 0.1 }} sx={{ width: 100 }} />
+                <IconButton size="small" onClick={() => removeProductMaterial(idx)}><Delete /></IconButton>
+              </Box>
+            </Box>
+          ))}
+          <Button size="small" startIcon={<Add />} onClick={addProductMaterial}>Добавить материал</Button>
+
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle2" gutterBottom>Операции</Typography>
+          {productForm.operations.map((op, idx) => (
+            <Box key={idx} sx={{ mb: 1, p: 1, border: '1px dashed #ccc', borderRadius: 1 }}>
+              <Box display="flex" gap={1} alignItems="center">
+                <TextField label="Название" fullWidth size="small" value={op.name} onChange={(e) => updateProductOperation(idx, 'name', e.target.value)} />
+                <TextField label="Цена" type="number" size="small" value={op.pricePerUnit} onChange={(e) => updateProductOperation(idx, 'pricePerUnit', e.target.value)} inputProps={{ step: 0.01 }} sx={{ width: 120 }} />
+                <TextField label="Время (ч:мм:сс)" size="small" value={op.normTime} onChange={(e) => updateProductOperation(idx, 'normTime', e.target.value)} sx={{ width: 140 }} />
+                <IconButton size="small" onClick={() => removeProductOperation(idx)}><Delete /></IconButton>
+              </Box>
+            </Box>
+          ))}
+          <Button size="small" startIcon={<Add />} onClick={addProductOperation}>Добавить операцию</Button>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProductDialogOpen(false)}>Отмена</Button>
+          <Button onClick={handleProductSubmit} variant="contained">Сохранить</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Product Delete Confirmation */}
+      <Dialog open={productDeleteDialogOpen} onClose={() => setProductDeleteDialogOpen(false)}>
+        <DialogTitle>Удалить продукт?</DialogTitle>
+        <DialogContent>
+          <Typography>Удалить "{selectedProduct?.name}"? Это также удалит все связанные материалы и операции.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProductDeleteDialogOpen(false)}>Отмена</Button>
+          <Button onClick={handleDeleteProduct} color="error" variant="contained">Удалить</Button>
         </DialogActions>
       </Dialog>
 

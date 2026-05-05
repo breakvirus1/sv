@@ -26,4 +26,8 @@ public class OrderItemResponse {
     private BigDecimal cost;
     /** Дата готовности позиции */
     private LocalDate readyDate;
+    /** ID продукта-шаблона (если позиция создана из шаблона) */
+    private Long productId;
+    /** Продукт-шаблон (вложенный объект, опционально) */
+    private Object product;
 }

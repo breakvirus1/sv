@@ -31,7 +31,7 @@ import {
   InputLabel,
   Snackbar
 } from '@mui/material';
-import { ArrowBack, Add, Payment, Delete } from '@mui/icons-material';
+import { ArrowBack, Add, Payment, Delete, Edit } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -640,7 +640,8 @@ const OrderDetail = ({ mode = 'view' }) => {
               {activeTab === 0 && (
                 <PositionsTab 
                   materials={order?.materials || []} 
-                  items={order?.items || []} 
+                  items={order?.items || []}
+                  orderId={order?.id}
                 />
               )}
               {activeTab === 1 && (
@@ -748,7 +749,7 @@ const getStatusColor = (status) => {
   return colors[status] || 'default';
 };
 
-const PositionsTab = ({ materials = [], items = [] }) => {
+const PositionsTab = ({ materials = [], items = [], orderId }) => {
   const displayList = (materials && materials.length > 0) ? materials : items;
 
   if (!displayList?.length) {
@@ -756,6 +757,7 @@ const PositionsTab = ({ materials = [], items = [] }) => {
   }
 
   const isMaterial = displayList[0]?.material !== undefined;
+  const navigate = useNavigate();
 
   return (
     <Box>
@@ -767,8 +769,8 @@ const PositionsTab = ({ materials = [], items = [] }) => {
         const readyDate = entry.readyDate;
         const unit = isMaterial ? entry.material?.unit : '';
 
-        const qtyDisplay = isMaterial 
-          ? parseFloat(quantity).toFixed(3) 
+        const qtyDisplay = isMaterial
+          ? parseFloat(quantity).toFixed(3)
           : quantity;
 
         return (
@@ -788,6 +790,18 @@ const PositionsTab = ({ materials = [], items = [] }) => {
                 Срок: {readyDate || '—'}
               </Typography>
             </Box>
+            {!isMaterial && (
+              <Box mt={1}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Edit />}
+                  onClick={() => navigate(`/orders/${orderId}/items/${entry.id}`)}
+                >
+                  Смета
+                </Button>
+              </Box>
+            )}
           </Paper>
         );
       })}

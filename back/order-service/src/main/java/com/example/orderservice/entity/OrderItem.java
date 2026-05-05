@@ -1,11 +1,10 @@
 package com.example.orderservice.entity;
 
+import com.example.orderservice.order.entity.OrderItemMaterial;
+import com.example.orderservice.order.entity.OrderItemOperation;
+import com.example.orderservice.product.Product;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
+import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -14,7 +13,7 @@ import java.util.List;
 /**
  * Сущность "Позиция заказа" — конкретное изделие в заказе.
  * Пример: "Баннер 2,7x1,38м".
- * Связана с заказом и содержит материалы, использованные для этой позиции.
+ * Связана с заказом и содержит материалы и работы, использованные для этой позиции.
  */
 @Entity
 @Table(name = "order_items")
@@ -49,7 +48,18 @@ public class OrderItem extends BaseEntity {
     @Column(name = "ready_date")
     private LocalDate readyDate;
 
-    /** Материалы, использованные для этой позиции */
+    /** Продукт-шаблон, на основе которого создана позиция */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    private Product product;
+
+    /** Материалы, переопределённые для этой позиции (с возможностью отклонения от шаблона) */
     @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<OrderMaterial> materials = new ArrayList<>();
+    @OrderBy("id")
+    private List<OrderItemMaterial> materials = new ArrayList<>();
+
+    /** Операции/работы, переопределённые для этой позиции */
+    @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id")
+    private List<OrderItemOperation> operations = new ArrayList<>();
 }

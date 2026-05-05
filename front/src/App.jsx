@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import Dashboard from './pages/Dashboard'
 import OrdersList from './pages/OrdersList'
 import OrderDetail from './pages/OrderDetail'
+import OrderItemDetail from './pages/OrderItemDetail'
 import CallbackPage from './pages/CallbackPage'
 import AdminPanel from './pages/AdminPanel'
 import { useWindowsStore } from './store/windowsStore'
@@ -62,6 +63,11 @@ function App() {
             <Route path="/orders" element={
               <ProtectedRoute>
                 <OrdersList />
+              </ProtectedRoute>
+            } />
+            <Route path="/orders/:orderId/items/:itemId" element={
+              <ProtectedRoute>
+                <OrderItemDetail />
               </ProtectedRoute>
             } />
             <Route path="/orders/new" element={
