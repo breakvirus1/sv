@@ -145,21 +145,26 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     }));
   };
 
-  const updateItem = (index, field, value) => {
-    if (field === 'materialId') {
-      // If material changes, clear associated operations
-      setFormData(prev => {
-        const items = [...prev.items];
-        items[index] = { ...items[index], [field]: value, operations: [] };
-        return { ...prev, items };
-      });
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
-      }));
-    }
-  };
+   const updateItem = (index, field, value) => {
+     if (field === 'materialId') {
+       // If material changes, clear associated operations
+       setFormData(prev => {
+         const items = [...prev.items];
+         items[index] = { ...items[index], [field]: value, operations: [] };
+         return { ...prev, items };
+       });
+     } else {
+       setFormData(prev => ({
+         ...prev,
+         items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
+       }));
+     }
+   };
+
+   const openOperationDialog = (index) => {
+     setActiveItemIdx(index);
+     setOpDialogOpen(true);
+   };
 
   const handleChange = (field) => (e) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }));

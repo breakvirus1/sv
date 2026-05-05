@@ -9,10 +9,10 @@ spring:
     username: postgres
     password: 12345
   flyway:
-    enabled: false
+    enabled: true
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
   security:
     oauth2:
       resourceserver:

@@ -110,5 +110,6 @@ public interface OrderMapper {
     @Mapping(target = "material", ignore = true)
     @Mapping(target = "wasteCoefficient", ignore = true)
     @Mapping(target = "cost", ignore = true)
+    @Mapping(target = "operations", ignore = true)
     com.example.orderservice.entity.OrderMaterial toOrderMaterialEntity(OrderMaterialCreateRequest request);
 }

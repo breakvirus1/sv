@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Build outputs
+dist
+build
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# Docker files
+Dockerfile
+docker-compose*.yml
+
+# Misc
+README.md
+*.md
+*.log
+*.tmp

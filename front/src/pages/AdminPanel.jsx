@@ -33,18 +33,27 @@ import { Add, Edit, Delete, Refresh } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import ClientsTab from '../components/AdminPanel/ClientsTab';
+import MaterialsTab from '../components/AdminPanel/MaterialsTab';
+import ProductsTab from '../components/AdminPanel/ProductsTab';
+import GenerateTab from '../components/AdminPanel/GenerateTab';
 
 const OPERATION_TYPES = [
-  'PRINT',
-  'LAMINATION',
-  'CUTTING',
-  'WELDING',
-  'EYELETS',
-  'POCKET',
-  'INSTALLATION',
-  'ADDITIONAL_MATERIAL',
-  'CUSTOM'
+  { value: 'PRINT', label: 'Печать' },
+  { value: 'LAMINATION', label: 'Ламинация' },
+  { value: 'CUTTING', label: 'Раскрой' },
+  { value: 'WELDING', label: 'Сварка' },
+  { value: 'EYELETS', label: 'Люверсы' },
+  { value: 'POCKET', label: 'Карман под трубу' },
+  { value: 'INSTALLATION', label: 'Монтаж / оклейка' },
+  { value: 'ADDITIONAL_MATERIAL', label: 'Дополнительные материалы' },
+  { value: 'CUSTOM', label: 'Кастомная операция' }
 ];
+
+const getOperationTypeLabel = (type) => {
+  const found = OPERATION_TYPES.find(t => t.value === type);
+  return found ? found.label : type;
+};
 
 const AdminPanel = () => {
   const [tab, setTab] = useState(0);
@@ -765,181 +774,9 @@ const AdminPanel = () => {
       case 'orders': generateOrdersMutation.mutate(); break;
       default: break;
     }
-  };
+   };
 
-  // Render helpers
-  const renderClientsTab = () => (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Управление клиентами</Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => openClientDialog()}>
-          Добавить клиента
-        </Button>
-      </Box>
-      {clientsData.length === 0 && <Typography>Нет данных</Typography>}
-      {clientsData.length > 0 && (
-        <TableContainer component={Paper}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Имя</TableCell>
-                <TableCell>Тип</TableCell>
-                <TableCell>Контактное лицо</TableCell>
-                <TableCell>Телефон</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell align="right">Действия</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {clientsData.map((client) => (
-                <TableRow key={client.id}>
-                  <TableCell>{client.name}</TableCell>
-                  <TableCell>{client.type}</TableCell>
-                  <TableCell>{client.contactPerson || '-'}</TableCell>
-                  <TableCell>{client.phone || '-'}</TableCell>
-                  <TableCell>{client.email || '-'}</TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => openClientDialog(client)}><Edit /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => confirmDeleteClient(client)}><Delete /></IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Box>
-  );
-
-  const renderMaterialsTab = () => (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Управление материалами</Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => openMaterialDialog()}>
-          Добавить материал
-        </Button>
-      </Box>
-      {materialsData.length === 0 && <Typography>Нет данных</Typography>}
-      {materialsData.length > 0 && (
-        <TableContainer component={Paper}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Название</TableCell>
-                <TableCell>Ед. изм.</TableCell>
-                <TableCell>Цена</TableCell>
-                <TableCell>Коэф. отход</TableCell>
-                <TableCell align="right">Действия</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {materialsData.map((mat) => (
-                <TableRow key={mat.id}>
-                  <TableCell>{mat.name}</TableCell>
-                  <TableCell>{mat.unit}</TableCell>
-                  <TableCell>{mat.price?.toFixed(2)} ₽</TableCell>
-                  <TableCell>{mat.wasteCoefficient?.toString()}</TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => openMaterialDialog(mat)}><Edit /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => confirmDeleteMaterial(mat)}><Delete /></IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Box>
-  );
-
-  const renderProductsTab = () => (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Управление продуктами (шаблоны изделий)</Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => openProductDialog()}>
-          Добавить продукт
-        </Button>
-      </Box>
-      {productsData.length === 0 && <Typography>Нет данных</Typography>}
-      {productsData.length > 0 && (
-        <TableContainer component={Paper}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Название</TableCell>
-                <TableCell>Артикул</TableCell>
-                <TableCell>Базовая цена</TableCell>
-                <TableCell>Материалов</TableCell>
-                <TableCell>Операций</TableCell>
-                <TableCell align="right">Действия</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {productsData.map((prod) => (
-                <TableRow key={prod.id}>
-                  <TableCell>{prod.name}</TableCell>
-                  <TableCell>{prod.article || '-'}</TableCell>
-                  <TableCell>{(prod.basePrice || 0).toFixed(2)} ₽</TableCell>
-                  <TableCell>{prod.materials ? prod.materials.length : 0}</TableCell>
-                  <TableCell>{prod.operations ? prod.operations.length : 0}</TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => openProductDialog(prod)}><Edit /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => confirmDeleteProduct(prod)}><Delete /></IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Box>
-  );
-
-  const renderGenerateTab = () => (
-    <Box>
-      <Typography variant="h6" gutterBottom>Генерация тестовых данных</Typography>
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Button
-            variant="contained"
-            fullWidth
-            startIcon={<Refresh />}
-            onClick={() => handleGenerate('clients')}
-            disabled={generating.clients}
-          >
-            {generating.clients ? 'Генерация...' : 'Сгенерировать клиентов (20)'}
-          </Button>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Button
-            variant="contained"
-            fullWidth
-            startIcon={<Refresh />}
-            onClick={() => handleGenerate('materials')}
-            disabled={generating.materials}
-          >
-            {generating.materials ? 'Генерация...' : 'Сгенерировать материалы (20)'}
-          </Button>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Button
-            variant="contained"
-            fullWidth
-            startIcon={<Refresh />}
-            onClick={() => handleGenerate('orders')}
-            disabled={generating.orders}
-          >
-            {generating.orders ? 'Генерация...' : 'Сгенерировать заказы (20)'}
-          </Button>
-        </Grid>
-      </Grid>
-      <Alert severity="info" sx={{ mt: 3 }}>
-        При генерации заказов необходимо иметь хотя бы одного клиента и сотрудника. Рекомендуется сначала сгенерировать их.
-      </Alert>
-    </Box>
-  );
-
-  return (
+   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>Admin Panel</Typography>
       <Paper sx={{ width: '100%', mt: 2 }}>
@@ -951,10 +788,36 @@ const AdminPanel = () => {
         </Tabs>
         <Divider />
         <Box sx={{ p: 2 }}>
-          {tab === 0 && renderClientsTab()}
-          {tab === 1 && renderMaterialsTab()}
-          {tab === 2 && renderProductsTab()}
-          {tab === 3 && renderGenerateTab()}
+          {tab === 0 && (
+            <ClientsTab
+              clientsData={clientsData}
+              onAddClick={() => openClientDialog()}
+              onEditClick={openClientDialog}
+              onDeleteClick={confirmDeleteClient}
+            />
+          )}
+          {tab === 1 && (
+            <MaterialsTab
+              materialsData={materialsData}
+              onAddClick={() => openMaterialDialog()}
+              onEditClick={openMaterialDialog}
+              onDeleteClick={confirmDeleteMaterial}
+            />
+          )}
+          {tab === 2 && (
+            <ProductsTab
+              productsData={productsData}
+              onAddClick={() => openProductDialog()}
+              onEditClick={openProductDialog}
+              onDeleteClick={confirmDeleteProduct}
+            />
+          )}
+          {tab === 3 && (
+            <GenerateTab
+              generating={generating}
+              onGenerate={handleGenerate}
+            />
+          )}
         </Box>
       </Paper>
 
@@ -1044,7 +907,7 @@ const AdminPanel = () => {
                       <TableBody>
                         {materialOperations.map((op) => (
                           <TableRow key={op.id}>
-                            <TableCell>{op.operationType}</TableCell>
+                            <TableCell>{getOperationTypeLabel(op.operationType)}</TableCell>
                             <TableCell>{op.name}</TableCell>
                             <TableCell>{op.basePrice?.toFixed(2)} ₽</TableCell>
                             <TableCell>{op.unit}</TableCell>
@@ -1069,14 +932,14 @@ const AdminPanel = () => {
                 <TextField label="Описание" fullWidth size="small" multiline rows={2} value={opForm.description || ''} onChange={(e) => handleOpChange('description', e.target.value)} />
 
                 <Box display="flex" gap={2} flexWrap="wrap">
-                  <FormControl sx={{ minWidth: 180 }}>
-                    <InputLabel>Тип операции</InputLabel>
-                    <Select value={opForm.operationType} label="Тип операции" onChange={(e) => handleOpChange('operationType', e.target.value)}>
-                      {OPERATION_TYPES.map(type => (
-                        <MenuItem key={type} value={type}>{type}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                       <FormControl sx={{ minWidth: 180 }}>
+                         <InputLabel>Тип операции</InputLabel>
+                         <Select value={opForm.operationType} label="Тип операции" onChange={(e) => handleOpChange('operationType', e.target.value)}>
+                           {OPERATION_TYPES.map(type => (
+                             <MenuItem key={type.value} value={type.value}>{type.label}</MenuItem>
+                           ))}
+                         </Select>
+                       </FormControl>
                   <TextField label="Базовая цена" type="number" size="small" value={opForm.basePrice} onChange={(e) => handleOpChange('basePrice', e.target.value)} inputProps={{ step: 0.01 }} sx={{ width: 150 }} />
                   <FormControl sx={{ minWidth: 120 }}>
                     <InputLabel>Ед. изм.</InputLabel>

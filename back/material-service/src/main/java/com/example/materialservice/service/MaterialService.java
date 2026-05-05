@@ -4,6 +4,10 @@ import com.example.materialservice.dto.MaterialCreateRequest;
 import com.example.materialservice.dto.MaterialOperationResponse;
 import com.example.materialservice.dto.MaterialResponse;
 import com.example.materialservice.dto.MaterialUpdateRequest;
+import com.example.materialservice.dto.MaterialOperationCreateRequest;
+import com.example.materialservice.dto.MaterialOperationUpdateRequest;
+import com.example.materialservice.dto.OperationParameterDto;
+import com.example.materialservice.dto.AdditionalMaterialDto;
 import com.example.materialservice.entity.Material;
 import com.example.materialservice.entity.MaterialOperation;
 import com.example.materialservice.repository.MaterialOperationRepository;
@@ -34,7 +38,7 @@ public class MaterialService {
         return materialRepository.findAll(spec, pageable)
                 .map(material -> {
                     List<MaterialOperationResponse> ops = material.getOperations().stream()
-                            .filter(MaterialOperation::getActive)
+                            .filter(op -> Boolean.TRUE.equals(op.getActive()))
                             .sorted((a, b) -> {
                                 int cmp = Integer.compare(a.getSortOrder() != null ? a.getSortOrder() : 0,
                                                           b.getSortOrder() != null ? b.getSortOrder() : 0);
@@ -51,15 +55,15 @@ public class MaterialService {
         Material material = materialRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден"));
         // Explicitly fetch operations to avoid lazy issues in DTO
-        List<MaterialOperationResponse> ops = material.getOperations().stream()
-                .filter(MaterialOperation::getActive)
-                .sorted((a, b) -> {
-                    int cmp = Integer.compare(a.getSortOrder() != null ? a.getSortOrder() : 0,
-                                              b.getSortOrder() != null ? b.getSortOrder() : 0);
-                    return cmp != 0 ? cmp : a.getId().compareTo(b.getId());
-                })
-                .map(this::mapOperationToResponse)
-                .collect(Collectors.toList());
+         List<MaterialOperationResponse> ops = material.getOperations().stream()
+                 .filter(op -> Boolean.TRUE.equals(op.getActive()))
+                 .sorted((a, b) -> {
+                     int cmp = Integer.compare(a.getSortOrder() != null ? a.getSortOrder() : 0,
+                                               b.getSortOrder() != null ? b.getSortOrder() : 0);
+                     return cmp != 0 ? cmp : a.getId().compareTo(b.getId());
+                 })
+                 .map(this::mapOperationToResponse)
+                 .collect(Collectors.toList());
         return mapToResponse(material, ops);
     }
 
@@ -80,11 +84,11 @@ public class MaterialService {
                     MaterialOperation op = new MaterialOperation();
                     op.setMaterial(saved);
                     op.setName(opReq.getName());
-                    op.setPricePerUnit(opReq.getPricePerUnit());
-                    op.setNormSeconds(opReq.getNormSeconds());
+                    op.setBasePrice(opReq.getBasePrice());
                     op.setUnit(opReq.getUnit() != null ? opReq.getUnit() : "шт");
                     op.setSortOrder(opReq.getSortOrder() != null ? opReq.getSortOrder() : 0);
                     op.setActive(opReq.getActive() != null ? opReq.getActive() : true);
+                    // Note: additionalMaterials and parameters are set via separate operations or in update
                     return op;
                 })
                 .collect(Collectors.toList());
@@ -163,14 +167,47 @@ public class MaterialService {
 
     @Transactional(readOnly = true)
     private MaterialOperationResponse mapOperationToResponse(MaterialOperation op) {
-        return new MaterialOperationResponse(
-                op.getId(),
-                op.getName(),
-                op.getPricePerUnit(),
-                op.getNormSeconds(),
-                op.getUnit(),
-                op.getSortOrder(),
-                op.getActive()
-        );
+        MaterialOperationResponse response = new MaterialOperationResponse();
+        response.setId(op.getId());
+        response.setMaterialId(op.getMaterial() != null ? op.getMaterial().getId() : null);
+        response.setMaterialName(op.getMaterial() != null ? op.getMaterial().getName() : null);
+        response.setName(op.getName());
+        response.setDescription(op.getDescription());
+        response.setOperationType(op.getOperationType() != null ? op.getOperationType().name() : null);
+        response.setBasePrice(op.getBasePrice());
+        response.setUnit(op.getUnit());
+        response.setWasteCoefficient(op.getWasteCoefficient());
+        response.setRequiresDimensions(op.getRequiresDimensions());
+        response.setAllowsAdditionalMaterials(op.getAllowsAdditionalMaterials());
+        response.setSortOrder(op.getSortOrder());
+        response.setActive(op.getActive());
+        // Lazy loading parameters and additionalMaterials - they might be fetched or not
+        if (op.getParameters() != null) {
+            response.setParameters(op.getParameters().stream()
+                    .map(p -> new com.example.materialservice.dto.OperationParameterDto(
+                            p.getId(),
+                            p.getParamKey(),
+                            p.getDisplayName(),
+                            p.getType(),
+                            p.getUnit(),
+                            p.getDefaultValue(),
+                            p.getRequired(),
+                            p.getSortOrder(),
+                            p.getDescription()
+                    ))
+                    .collect(Collectors.toList()));
+        }
+        if (op.getAdditionalMaterials() != null) {
+            response.setAdditionalMaterials(op.getAdditionalMaterials().stream()
+                    .map(am -> new com.example.materialservice.dto.AdditionalMaterialDto(
+                            am.getMaterial().getId(),
+                            am.getMaterial().getName(),
+                            am.getDefaultQuantity(),
+                            am.getUnit(),
+                            am.getPricePerUnit()
+                    ))
+                    .collect(Collectors.toList()));
+        }
+        return response;
     }
 }

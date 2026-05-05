@@ -53,4 +53,8 @@ public class OperationParameter extends BaseEntity {
     @Column(name = "sort_order")
     @ColumnDefault("0")
     private Integer sortOrder = 0;
+
+    /** Описание параметра (подсказка для пользователя) */
+    @Column(name = "description", length = 500)
+    private String description = "";
 }

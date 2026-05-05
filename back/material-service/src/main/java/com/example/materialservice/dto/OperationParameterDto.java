@@ -26,4 +26,6 @@ public class OperationParameterDto {
     private Boolean required = false;
 
     private Integer sortOrder = 0;
+
+    private String description = "";
 }

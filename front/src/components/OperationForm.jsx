@@ -10,8 +10,13 @@ import {
   Button,
   Grid,
   Divider,
-  Paper
+  Paper,
+  Tooltip,
+  IconButton,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
+import { ArrowBack, Payment, InfoOutlined } from '@mui/icons-material';
 
 const OperationForm = ({
   template,
@@ -125,42 +130,54 @@ const OperationForm = ({
         </Grid>
       )}
 
-      {/* Dynamic Parameters */}
-      {template.parameters && template.parameters.length > 0 && (
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>Параметры</Typography>
-          {template.parameters.map(param => (
-            <Box key={param.paramKey} mb={1} display="flex" alignItems="center" gap={1}>
-              {param.type === 'CHECKBOX' ? (
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={!!parameters[param.paramKey]}
-                      onChange={(e) => handleParamChange(param.paramKey, e.target.checked)}
-                    />
-                  }
-                  label={param.displayName}
-                />
-              ) : (
-                <>
-                  <TextField
-                    label={param.displayName}
-                    type={param.type === 'NUMBER' ? 'number' : 'text'}
-                    size="small"
-                    value={parameters[param.paramKey] || ''}
-                    onChange={(e) => {
-                      const val = param.type === 'NUMBER' ? parseFloat(e.target.value) : e.target.value;
-                      handleParamChange(param.paramKey, val);
-                    }}
-                    sx={{ minWidth: 200 }}
-                  />
-                  {param.unit && <Typography variant="body2">{param.unit}</Typography>}
-                </>
-              )}
-            </Box>
-          ))}
-        </Box>
-      )}
+       {/* Dynamic Parameters */}
+       {template.parameters && template.parameters.length > 0 && (
+         <Box sx={{ mb: 2 }}>
+           <Typography variant="subtitle2" gutterBottom>Параметры</Typography>
+           {template.parameters.map(param => (
+             <Box key={param.paramKey} mb={1} display="flex" alignItems="center" gap={1}>
+               {param.type === 'CHECKBOX' ? (
+                 <>
+                   <FormControlLabel
+                     control={
+                       <Checkbox
+                         checked={!!parameters[param.paramKey]}
+                         onChange={(e) => handleParamChange(param.paramKey, e.target.checked)}
+                       />
+                     }
+                     label={param.displayName}
+                   />
+                   {param.description && (
+                     <Tooltip title={param.description} arrow>
+                       <InfoOutlined sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                     </Tooltip>
+                   )}
+                 </>
+               ) : (
+                 <>
+                   <TextField
+                     label={param.displayName}
+                     type={param.type === 'NUMBER' ? 'number' : 'text'}
+                     size="small"
+                     value={parameters[param.paramKey] || ''}
+                     onChange={(e) => {
+                       const val = param.type === 'NUMBER' ? parseFloat(e.target.value) : e.target.value;
+                       handleParamChange(param.paramKey, val);
+                     }}
+                     sx={{ minWidth: 200 }}
+                   />
+                   {param.unit && <Typography variant="body2">{param.unit}</Typography>}
+                   {param.description && (
+                     <Tooltip title={param.description} arrow>
+                       <InfoOutlined sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                     </Tooltip>
+                   )}
+                 </>
+               )}
+             </Box>
+           ))}
+         </Box>
+       )}
 
       {/* Additional Materials */}
       {template.allowsAdditionalMaterials && (

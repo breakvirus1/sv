@@ -3,6 +3,7 @@ package com.example.materialservice.service;
 import com.example.materialservice.dto.*;
 import com.example.materialservice.entity.Material;
 import com.example.materialservice.entity.MaterialOperation;
+import com.example.materialservice.entity.OperationType;
 import com.example.materialservice.entity.OperationParameter;
 import com.example.materialservice.entity.OperationAdditionalMaterial;
 import com.example.materialservice.repository.MaterialOperationRepository;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,100 +26,155 @@ public class MaterialOperationService {
     private final MaterialOperationRepository operationRepository;
     private final MaterialRepository materialRepository;
 
-    public List<MaterialOperationResponse> getOperationsByMaterialId(Long materialId) {
-        Material material = materialRepository.findById(materialId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден"));
-        return material.getOperations().stream()
-                .filter(MaterialOperation::isActive)
-                .sorted((a, b) -> {
-                    int cmp = Integer.compare(a.getSortOrder() != null ? a.getSortOrder() : 0,
-                                              b.getSortOrder() != null ? b.getSortOrder() : 0);
-                    if (cmp == 0) return a.getId().compareTo(b.getId());
-                    return cmp;
-                })
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
+     public List<MaterialOperationResponse> getOperationsByMaterialId(Long materialId) {
+         Material material = materialRepository.findById(materialId)
+                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден"));
+         return material.getOperations().stream()
+                 .filter(op -> Boolean.TRUE.equals(op.getActive()))
+                 .sorted((a, b) -> {
+                     int cmp = Integer.compare(a.getSortOrder() != null ? a.getSortOrder() : 0,
+                                               b.getSortOrder() != null ? b.getSortOrder() : 0);
+                     if (cmp == 0) return a.getId().compareTo(b.getId());
+                     return cmp;
+                 })
+                 .map(this::mapToResponse)
+                 .collect(Collectors.toList());
+     }
 
-    public MaterialOperationResponse createOperation(Long materialId, MaterialOperationCreateRequest request) {
-        Material material = materialRepository.findById(materialId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден"));
 
-        MaterialOperation operation = new MaterialOperation();
-        operation.setMaterial(material);
-        updateOperationFromDto(operation, request);
+     public MaterialOperationResponse createOperation(Long materialId, MaterialOperationCreateRequest request) {
+         Material material = materialRepository.findById(materialId)
+                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден"));
 
-        MaterialOperation saved = operationRepository.save(operation);
-        return mapToResponse(saved);
-    }
+         MaterialOperation operation = new MaterialOperation();
+         operation.setMaterial(material);
+         applyFromCreateDto(operation, request);
 
-    public MaterialOperationResponse updateOperation(Long materialId, Long operationId, MaterialOperationUpdateRequest request) {
-        Material material = materialRepository.findById(materialId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден"));
+         MaterialOperation saved = operationRepository.save(operation);
+         return mapToResponse(saved);
+     }
 
-        MaterialOperation operation = operationRepository.findById(operationId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Операция не найдена"));
+     public MaterialOperationResponse updateOperation(Long materialId, Long operationId, MaterialOperationUpdateRequest request) {
+         Material material = materialRepository.findById(materialId)
+                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден"));
 
-        if (!operation.getMaterial().getId().equals(material.getId())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Операция не принадлежит материалу");
-        }
+         MaterialOperation operation = operationRepository.findById(operationId)
+                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Операция не найдена"));
 
-        updateOperationFromDto(operation, request);
-        MaterialOperation saved = operationRepository.save(operation);
-        return mapToResponse(saved);
-    }
+         if (!operation.getMaterial().getId().equals(material.getId())) {
+             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Операция не принадлежит материалу");
+         }
 
-    private void updateOperationFromDto(MaterialOperation operation, MaterialOperationCreateRequest request) {
-        operation.setName(request.getName());
-        operation.setDescription(request.getDescription());
-        try {
-            operation.setOperationType(OperationType.valueOf(request.getOperationType()));
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Неверный тип операции: " + request.getOperationType());
-        }
-        operation.setBasePrice(request.getBasePrice());
-        operation.setUnit(request.getUnit() != null ? request.getUnit() : "шт");
-        operation.setWasteCoefficient(request.getWasteCoefficient() != null ? request.getWasteCoefficient() : BigDecimal.ONE);
-        operation.setRequiresDimensions(request.getRequiresDimensions() != null && request.getRequiresDimensions());
-        operation.setAllowsAdditionalMaterials(request.getAllowsAdditionalMaterials() != null && request.getAllowsAdditionalMaterials());
-        operation.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
-        operation.setActive(request.getActive() != null ? request.getActive() : true);
+         applyFromUpdateDto(operation, request);
+         MaterialOperation saved = operationRepository.save(operation);
+         return mapToResponse(saved);
+     }
 
-        // Clear existing parameters & additional materials
-        operation.getParameters().clear();
-        operation.getAdditionalMaterials().clear();
+      private void applyFromCreateDto(MaterialOperation operation, MaterialOperationCreateRequest request) {
+          operation.setName(request.getName());
+          operation.setDescription(request.getDescription());
+          try {
+              operation.setOperationType(OperationType.valueOf(request.getOperationType()));
+          } catch (IllegalArgumentException e) {
+              throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Неверный тип операции: " + request.getOperationType());
+          }
+          operation.setBasePrice(request.getBasePrice());
+          operation.setUnit(request.getUnit() != null ? request.getUnit() : "шт");
+          operation.setWasteCoefficient(request.getWasteCoefficient() != null ? request.getWasteCoefficient() : BigDecimal.ONE);
+          operation.setRequiresDimensions(request.getRequiresDimensions() != null && request.getRequiresDimensions());
+          operation.setAllowsAdditionalMaterials(request.getAllowsAdditionalMaterials() != null && request.getAllowsAdditionalMaterials());
+          operation.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
+          operation.setActive(request.getActive() != null ? request.getActive() : true);
 
-        // Add parameters
-        if (request.getParameters() != null) {
-            for (OperationParameterDto paramDto : request.getParameters()) {
-                OperationParameter param = new OperationParameter();
-                param.setOperation(operation);
-                param.setParamKey(paramDto.getParamKey());
-                param.setDisplayName(paramDto.getDisplayName());
-                param.setType(paramDto.getType());
-                param.setUnit(paramDto.getUnit());
-                param.setDefaultValue(paramDto.getDefaultValue());
-                param.setRequired(Boolean.TRUE.equals(paramDto.getRequired()));
-                param.setSortOrder(paramDto.getSortOrder() != null ? paramDto.getSortOrder() : 0);
-                operation.getParameters().add(param);
-            }
-        }
+          // Clear existing parameters & additional materials
+          operation.getParameters().clear();
+          operation.getAdditionalMaterials().clear();
 
-        // Add additional materials
-        if (request.getAdditionalMaterials() != null) {
-            for (AdditionalMaterialDto matDto : request.getAdditionalMaterials()) {
-                Material additionalMat = materialRepository.findById(matDto.getMaterialId())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден: " + matDto.getMaterialId()));
-                OperationAdditionalMaterial opMat = new OperationAdditionalMaterial();
-                opMat.setOperation(operation);
-                opMat.setMaterial(additionalMat);
-                opMat.setDefaultQuantity(matDto.getDefaultQuantity());
-                opMat.setUnit(matDto.getUnit());
-                opMat.setPricePerUnit(matDto.getPricePerUnit());
-                operation.getAdditionalMaterials().add(opMat);
-            }
-        }
-    }
+          // Add parameters
+          if (request.getParameters() != null) {
+              for (OperationParameterDto paramDto : request.getParameters()) {
+                  OperationParameter param = new OperationParameter();
+                  param.setOperation(operation);
+                  param.setParamKey(paramDto.getParamKey());
+                  param.setDisplayName(paramDto.getDisplayName());
+                  param.setType(paramDto.getType());
+                  param.setUnit(paramDto.getUnit());
+                  param.setDefaultValue(paramDto.getDefaultValue());
+                  param.setRequired(Boolean.TRUE.equals(paramDto.getRequired()));
+                  param.setSortOrder(paramDto.getSortOrder() != null ? paramDto.getSortOrder() : 0);
+                  param.setDescription(paramDto.getDescription());
+                  operation.getParameters().add(param);
+              }
+          }
+
+         // Add additional materials
+         if (request.getAdditionalMaterials() != null) {
+             for (AdditionalMaterialDto matDto : request.getAdditionalMaterials()) {
+                 Material additionalMat = materialRepository.findById(matDto.getMaterialId())
+                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден: " + matDto.getMaterialId()));
+                 OperationAdditionalMaterial opMat = new OperationAdditionalMaterial();
+                 opMat.setOperation(operation);
+                 opMat.setMaterial(additionalMat);
+                 opMat.setDefaultQuantity(matDto.getDefaultQuantity());
+                 opMat.setUnit(matDto.getUnit());
+                 opMat.setPricePerUnit(matDto.getPricePerUnit());
+                 operation.getAdditionalMaterials().add(opMat);
+             }
+         }
+     }
+
+      private void applyFromUpdateDto(MaterialOperation operation, MaterialOperationUpdateRequest request) {
+          operation.setName(request.getName());
+          operation.setDescription(request.getDescription());
+          try {
+              operation.setOperationType(OperationType.valueOf(request.getOperationType()));
+          } catch (IllegalArgumentException e) {
+              throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Неверный тип операции: " + request.getOperationType());
+          }
+          operation.setBasePrice(request.getBasePrice());
+          operation.setUnit(request.getUnit() != null ? request.getUnit() : "шт");
+          operation.setWasteCoefficient(request.getWasteCoefficient() != null ? request.getWasteCoefficient() : BigDecimal.ONE);
+          operation.setRequiresDimensions(request.getRequiresDimensions() != null && request.getRequiresDimensions());
+          operation.setAllowsAdditionalMaterials(request.getAllowsAdditionalMaterials() != null && request.getAllowsAdditionalMaterials());
+          operation.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
+          operation.setActive(request.getActive() != null ? request.getActive() : true);
+
+          // Clear existing parameters & additional materials
+          operation.getParameters().clear();
+          operation.getAdditionalMaterials().clear();
+
+          // Add parameters
+          if (request.getParameters() != null) {
+              for (OperationParameterDto paramDto : request.getParameters()) {
+                  OperationParameter param = new OperationParameter();
+                  param.setOperation(operation);
+                  param.setParamKey(paramDto.getParamKey());
+                  param.setDisplayName(paramDto.getDisplayName());
+                  param.setType(paramDto.getType());
+                  param.setUnit(paramDto.getUnit());
+                  param.setDefaultValue(paramDto.getDefaultValue());
+                  param.setRequired(Boolean.TRUE.equals(paramDto.getRequired()));
+                  param.setSortOrder(paramDto.getSortOrder() != null ? paramDto.getSortOrder() : 0);
+                  param.setDescription(paramDto.getDescription());
+                  operation.getParameters().add(param);
+              }
+          }
+
+         // Add additional materials
+         if (request.getAdditionalMaterials() != null) {
+             for (AdditionalMaterialDto matDto : request.getAdditionalMaterials()) {
+                 Material additionalMat = materialRepository.findById(matDto.getMaterialId())
+                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден: " + matDto.getMaterialId()));
+                 OperationAdditionalMaterial opMat = new OperationAdditionalMaterial();
+                 opMat.setOperation(operation);
+                 opMat.setMaterial(additionalMat);
+                 opMat.setDefaultQuantity(matDto.getDefaultQuantity());
+                 opMat.setUnit(matDto.getUnit());
+                 opMat.setPricePerUnit(matDto.getPricePerUnit());
+                 operation.getAdditionalMaterials().add(opMat);
+             }
+         }
+     }
 
     public void deleteOperation(Long materialId, Long operationId) {
         Material material = materialRepository.findById(materialId)
@@ -143,7 +200,8 @@ public class MaterialOperationService {
                         p.getUnit(),
                         p.getDefaultValue(),
                         p.getRequired(),
-                        p.getSortOrder()
+                        p.getSortOrder(),
+                        p.getDescription()
                 ))
                 .collect(Collectors.toList());
 
