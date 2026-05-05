@@ -6,6 +6,8 @@ import com.example.orderservice.product.ProductMaterial;
 import com.example.orderservice.product.ProductOperation;
 import com.example.orderservice.product.repository.ProductRepository;
 import com.example.orderservice.product.dto.ProductDTO;
+import com.example.orderservice.product.dto.ProductMaterialDTO;
+import com.example.orderservice.product.dto.ProductOperationDTO;
 import com.example.orderservice.product.mapper.ProductMapper;
 import com.example.materialservice.entity.Material;
 import jakarta.persistence.EntityManager;
@@ -54,6 +56,7 @@ public class ProductService {
                 pm.setQuantity(pmDto.getQuantity());
                 pm.setWasteCoefficient(pmDto.getWasteCoefficient() != null ? pmDto.getWasteCoefficient() : BigDecimal.ONE);
                 pm.setSortOrder(pmDto.getSortOrder());
+                pm.setQuantityFormula(pmDto.getQuantityFormula());
                 materialEntities.add(pm);
             }
             product.setMaterials(materialEntities);

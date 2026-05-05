@@ -23,4 +23,14 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     @Transactional
     @Query("UPDATE Order o SET o.debtAmount = o.totalAmount - o.paidAmount WHERE o.id = :id")
     void updateDebtAmount(Long id);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Order o SET o.costPrice = :amount WHERE o.id = :id")
+    void updateCostPrice(Long id, java.math.BigDecimal amount);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Order o SET o.marginPercent = :percent WHERE o.id = :id")
+    void updateMarginPercent(Long id, java.math.BigDecimal percent);
 }

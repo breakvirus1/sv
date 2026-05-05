@@ -61,6 +61,14 @@ public class Order extends BaseEntity {
     @Column(name = "debt_amount", precision = 12, scale = 2)
     private BigDecimal debtAmount = BigDecimal.ZERO;
 
+    /** Себестоимость заказа (расходы на материалы и работы) */
+    @Column(name = "cost_price", precision = 15, scale = 2)
+    private BigDecimal costPrice = BigDecimal.ZERO;
+
+    /** Маржа в процентах */
+    @Column(name = "margin_percent", precision = 8, scale = 2)
+    private BigDecimal marginPercent;
+
     /** Текущий статус заказа */
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 30)

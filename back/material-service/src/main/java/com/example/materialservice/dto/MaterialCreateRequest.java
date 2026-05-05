@@ -1,10 +1,12 @@
 package com.example.materialservice.dto;
 
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * Request DTO для создания нового материала.
@@ -21,4 +23,7 @@ public class MaterialCreateRequest {
     private BigDecimal price;
     /** Коэффициент отхода */
     private BigDecimal wasteCoefficient;
+    /** Список операций (справочник работ) для материала */
+    @Valid
+    private List<MaterialOperationCreateRequest> operations;
 }

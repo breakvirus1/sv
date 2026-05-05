@@ -46,6 +46,9 @@ public interface OrderMapper {
     Order toEntity(OrderResponse orderResponse);
 
     @Mapping(source = "product.id", target = "productId")
+    @Mapping(source = "width", target = "width")
+    @Mapping(source = "height", target = "height")
+    @Mapping(source = "params", target = "params")
     OrderItemResponse itemToDto(OrderItem item);
 
     OrderStageResponse stageToDto(OrderStage stage);

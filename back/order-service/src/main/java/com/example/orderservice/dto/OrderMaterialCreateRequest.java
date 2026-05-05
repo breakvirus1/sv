@@ -6,10 +6,11 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Request для создания позиции заказа в виде материала.
- * Используется при создании заказа для указания материала, его количества и срока готовности.
+ * Может включать операции, связанные с материалом.
  */
 @Data
 @AllArgsConstructor
@@ -17,8 +18,13 @@ import java.time.LocalDate;
 public class OrderMaterialCreateRequest {
     /** ID материала из справочника */
     private Long materialId;
+
     /** Количество в единицах измерения материала (например, метры, квадратные метры) */
     private BigDecimal quantity;
+
     /** Срок готовности позиции (опционально) */
     private LocalDate readyDate;
+
+    /** Список операций, привязанных к этому материалу */
+    private List<OrderOperationCreateRequest> operations;
 }

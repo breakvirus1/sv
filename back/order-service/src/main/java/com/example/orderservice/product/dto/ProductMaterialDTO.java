@@ -11,7 +11,8 @@ public class ProductMaterialDTO {
     private Long id;
     private Long materialId;
     private String materialName;
-    private BigDecimal quantity;
+    private String quantityFormula;  // e.g. "width * height * 1.1"
+    private BigDecimal quantity;     // base quantity (if formula is null)
     private BigDecimal wasteCoefficient;
     private Integer sortOrder;
     private BigDecimal price;

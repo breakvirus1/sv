@@ -5,20 +5,25 @@ import com.example.employeeservice.dto.EmployeeResponse;
 import com.example.employeeservice.entity.Employee;
 import com.example.materialservice.dto.MaterialResponse;
 import com.example.materialservice.entity.Material;
+import com.example.materialservice.entity.MaterialOperation;
 import com.example.orderservice.dto.*;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderComment;
 import com.example.orderservice.entity.OrderItem;
 import com.example.orderservice.entity.OrderMaterial;
+import com.example.orderservice.entity.OrderMaterialOperation;
 import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.entity.Payment;
 import com.example.orderservice.entity.ProductionStage;
 import com.example.orderservice.mapper.OrderMapper;
-import com.example.orderservice.repository.OrderCommentRepository;
-import com.example.orderservice.repository.OrderItemRepository;
-import com.example.orderservice.repository.OrderRepository;
-import com.example.orderservice.repository.OrderStageRepository;
-import com.example.orderservice.repository.PaymentRepository;
+import com.example.orderservice.order.entity.OrderItemMaterial;
+import com.example.orderservice.order.entity.OrderItemOperation;
+import com.example.orderservice.product.Product;
+import com.example.orderservice.product.ProductMaterial;
+import com.example.orderservice.product.ProductOperation;
+import com.example.orderservice.product.repository.ProductRepository;
+import com.example.orderservice.repository.*;
+import com.example.orderservice.service.CalculatorService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +37,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Сервис для управления заказами.
@@ -51,8 +61,13 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final OrderCommentRepository orderCommentRepository;
     private final OrderMapper orderMapper;
+    private final ProductRepository productRepository;
+    private final CalculatorService calculatorService;
+    private final ObjectMapper objectMapper;
+
     @PersistenceContext
     private EntityManager entityManager;
+
     private final JdbcTemplate jdbcTemplate;
 
     /**
@@ -156,11 +171,51 @@ public class OrderService {
                         .multiply(material.getWasteCoefficient());
                 orderMaterial.setCost(cost);
 
+                // Обработка операций для материала
+                if (matReq.getOperations() != null && !matReq.getOperations().isEmpty()) {
+                    for (OrderOperationCreateRequest opReq : matReq.getOperations()) {
+                        MaterialOperation template = null;
+                        if (opReq.getMaterialOperationId() != null) {
+                            template = entityManager.find(MaterialOperation.class, opReq.getMaterialOperationId());
+                            if (template == null) {
+                                throw new RuntimeException("Операция не найдена: " + opReq.getMaterialOperationId());
+                            }
+                        }
+                        OrderMaterialOperation orderOp = new OrderMaterialOperation();
+                        orderOp.setOrder(saved);
+                        orderOp.setOrderMaterial(orderMaterial);
+                        orderOp.setTemplate(template);
+                        orderOp.setName(template != null ? template.getName() : "Операция");
+                        orderOp.setOperationType(template != null ? template.getOperationType().name() : null);
+                        orderOp.setBasePrice(template != null ? template.getBasePrice() : BigDecimal.ZERO);
+                        orderOp.setUnit(template != null ? template.getUnit() : "шт");
+                        orderOp.setWasteCoefficient(
+                                opReq.getWasteCoefficient() != null ? opReq.getWasteCoefficient() :
+                                        (template != null ? template.getWasteCoefficient() : BigDecimal.ONE)
+                        );
+                        orderOp.setQuantity(opReq.getQuantity() != null ? opReq.getQuantity() : BigDecimal.ONE);
+                        BigDecimal opCost = orderOp.getBasePrice().multiply(orderOp.getQuantity()).multiply(orderOp.getWasteCoefficient());
+                        orderOp.setCost(opCost);
+                        total = total.add(opCost);
+
+                        // Стоимость дополнительных материалов
+                        if (opReq.getAdditionalMaterials() != null && !opReq.getAdditionalMaterials().isEmpty()) {
+                            for (Map.Entry<Long, BigDecimal> entry : opReq.getAdditionalMaterials().entrySet()) {
+                                Material addMat = entityManager.find(Material.class, entry.getKey());
+                                if (addMat != null) {
+                                    BigDecimal addMatCost = addMat.getPrice().multiply(entry.getValue());
+                                    total = total.add(addMatCost);
+                                }
+                            }
+                        }
+                    }
+                }
+
                 saved.getMaterials().add(orderMaterial);
                 total = total.add(cost);
             }
             saved.setTotalAmount(total);
-            // Cascade persist materials
+            // Cascade persist materials and their operations
             orderRepository.save(saved);
         }
 
@@ -360,8 +415,14 @@ public class OrderService {
     private OrderMaterialResponse mapOrderMaterial(OrderMaterial om) {
         Material material = om.getMaterial();
         MaterialResponse materialDto = material != null ?
-                new MaterialResponse(material.getId(), material.getName(), material.getUnit(), material.getPrice(), material.getWasteCoefficient()) :
-                null;
+                new MaterialResponse(
+                        material.getId(),
+                        material.getName(),
+                        material.getUnit(),
+                        material.getPrice(),
+                        material.getWasteCoefficient(),
+                        List.of()
+                ) : null;
 
         return new OrderMaterialResponse(
                 om.getId(),
@@ -371,5 +432,143 @@ public class OrderService {
                 om.getWasteCoefficient(),
                 om.getCost()
         );
+    }
+
+    /**
+     * Добавить позицию (изделие) в заказ.
+     * Если указан productId, выполняется динамический расчёт материалов и операций
+     * на основе формулы продукта и переданных параметров (width, height, params).
+     * Допустимо только для заказов в статусе WAITING.
+     */
+    @Transactional
+    public OrderItemResponse addOrderItem(OrderItemCreateRequest request) {
+        Order order = orderRepository.findById(request.getOrderId())
+                .orElseThrow(() -> new RuntimeException("Заказ не найден: " + request.getOrderId()));
+
+        // dynamical calculator only for orders in WAITING status
+        if (order.getStatus() != OrderStatus.WAITING) {
+            throw new IllegalStateException("Добавление позиций возможно только для заказов в статусе 'Ожидание'");
+        }
+
+        OrderItem item = new OrderItem();
+        item.setOrder(order);
+        item.setName(request.getName() != null ? request.getName() : "Изделие");
+        item.setWidth(request.getWidth());
+        item.setHeight(request.getHeight());
+        item.setQuantity(request.getQuantity());
+        if (request.getParams() != null) {
+            try {
+                String paramsJson = objectMapper.writeValueAsString(request.getParams());
+                item.setParams(paramsJson);
+            } catch (Exception e) {
+                throw new RuntimeException("Ошибка сериализации params", e);
+            }
+        }
+        item.setReadyDate(request.getReadyDate());
+
+        if (request.getProductId() != null) {
+            Product product = productRepository.findById(request.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Продукт не найден: " + request.getProductId()));
+            item.setProduct(product);
+
+            // Динамический расчёт через CalculatorService
+            CalculateRequest calcReq = new CalculateRequest(
+                    request.getProductId(),
+                    request.getWidth(),
+                    request.getHeight(),
+                    request.getQuantity(),
+                    request.getParams()
+            );
+            CalculationResult calcResult = calculatorService.calculate(calcReq);
+
+            // Установка цены продажи (за единицу) и общей суммы (цена * количество)
+            BigDecimal unitSellingPrice = calcResult.getSellingPriceRecommended()
+                    .divide(BigDecimal.valueOf(request.getQuantity()), 2, BigDecimal.ROUND_HALF_UP);
+            item.setPrice(unitSellingPrice);
+            item.setCost(calcResult.getSellingPriceRecommended()); // total revenue
+
+            // Сохраняем позицию, чтобы получить ID
+            OrderItem savedItem = orderItemRepository.save(item);
+
+            // Создаём материалы и операции из результата расчёта
+            for (ComponentBreakdown comp : calcResult.getBreakdown()) {
+                if (comp.getMaterialId() != null) {
+                    Material material = entityManager.find(Material.class, comp.getMaterialId());
+                    if (material == null) continue;
+                    OrderItemMaterial oim = new OrderItemMaterial();
+                    oim.setOrderItem(savedItem);
+                    oim.setMaterial(material);
+                    oim.setQuantity(comp.getQuantity());
+                    // Коэффициент отхода берем из ProductMaterial
+                    ProductMaterial pm = product.getMaterials().stream()
+                            .filter(m -> m.getMaterial().getId().equals(comp.getMaterialId()))
+                            .findFirst()
+                            .orElse(null);
+                    oim.setWasteCoefficient(pm != null ? pm.getWasteCoefficient() : BigDecimal.ONE);
+                    oim.setCost(comp.getTotal());
+                    savedItem.getMaterials().add(oim);
+                } else {
+                    // Операция
+                    OrderItemOperation oio = new OrderItemOperation();
+                    oio.setOrderItem(savedItem);
+                    oio.setName(comp.getName());
+                    oio.setPricePerUnit(comp.getUnitPrice());
+                    oio.setQuantity(comp.getQuantity());
+                    oio.setCost(comp.getTotal());
+                    savedItem.getOperations().add(oio);
+                }
+            }
+
+            // Flush to ensure records are visible to JDBC queries
+            orderItemRepository.flush();
+
+            // Пересчитываем totals заказа
+            recalculateTotalAmount(order.getId());
+            recalculateOrderCostAndMargin(order.getId());
+
+            return orderMapper.itemToDto(savedItem);
+        } else {
+            // Без продукта — просто сохраняем позицию
+            OrderItem saved = orderItemRepository.save(item);
+            orderItemRepository.flush();
+            recalculateTotalAmount(order.getId());
+            return orderMapper.itemToDto(saved);
+        }
+    }
+
+    private void recalculateOrderCostAndMargin(Long orderId) {
+        BigDecimal legacyMatCost = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(cost),0) FROM order_materials WHERE order_id = ? AND deleted = false",
+                new Object[]{orderId}, BigDecimal.class);
+        BigDecimal orderMatOpCost = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(cost),0) FROM order_material_operations WHERE order_id = ? AND deleted = false",
+                new Object[]{orderId}, BigDecimal.class);
+        BigDecimal newMatCost = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(om.cost),0) FROM order_item_materials om " +
+                "JOIN order_items oi ON om.order_item_id = oi.id " +
+                "WHERE oi.order_id = ? AND oi.deleted = false",
+                new Object[]{orderId}, BigDecimal.class);
+        BigDecimal opCost = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(oo.cost),0) FROM order_item_operations oo " +
+                "JOIN order_items oi ON oo.order_item_id = oi.id " +
+                "WHERE oi.order_id = ? AND oi.deleted = false",
+                new Object[]{orderId}, BigDecimal.class);
+
+        BigDecimal totalCost = legacyMatCost.add(orderMatOpCost).add(newMatCost).add(opCost);
+        orderRepository.updateCostPrice(orderId, totalCost);
+
+        // Пересчитываем маржу
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order != null && totalCost.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal totalAmount = order.getTotalAmount();
+            // Если totalAmount ещё не установлен, можно вычислить как totalCost * (1+margin) или наоборот.
+            // Здесь просто считаем маржу как (totalAmount - totalCost) / totalCost
+            if (totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal margin = totalAmount.subtract(totalCost)
+                        .divide(totalCost, 4, BigDecimal.ROUND_HALF_UP)
+                        .multiply(BigDecimal.valueOf(100));
+                orderRepository.updateMarginPercent(orderId, margin);
+            }
+        }
     }
 }

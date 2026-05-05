@@ -23,13 +23,17 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemText
 } from '@mui/material';
 import { Add, Delete, Save } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import OperationForm from './OperationForm';
 
 const CreateOrderForm = ({ windowId, closeWindow }) => {
   const navigate = useNavigate();
@@ -48,7 +52,13 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Клиентский диалог создания нового клиента
+   // Operation dialog state
+   const [opDialogOpen, setOpDialogOpen] = useState(false);
+   const [activeItemIdx, setActiveItemIdx] = useState(null);
+   const [materialOpsCache, setMaterialOpsCache] = useState({});
+   const [selectedOpTemplate, setSelectedOpTemplate] = useState(null);
+
+   // Клиентский диалог создания нового клиента
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
   const [newClientForm, setNewClientForm] = useState({
     name: '',
@@ -96,6 +106,18 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     }
   }, [username, currentEmployee, refetchEmployee]);
 
+  // Load material operations when dialog opens
+  const currentMaterialId = formData.items[activeItemIdx]?.materialId;
+  useEffect(() => {
+    if (opDialogOpen && currentMaterialId && !materialOpsCache[currentMaterialId]) {
+      api.get(`/api/v1/materials/${currentMaterialId}/operations`).then(res => {
+        setMaterialOpsCache(prev => ({ ...prev, [currentMaterialId]: res.data || [] }));
+      }).catch(err => {
+        console.error('Failed to load operations', err);
+      });
+    }
+  }, [opDialogOpen, currentMaterialId, materialOpsCache]);
+
   // Мутация для создания клиента
   const createClientMutation = useMutation({
     mutationFn: (client) => api.post('/api/v1/clients', client),
@@ -112,7 +134,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '' }]
+      items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '', operations: [] }]
     }));
   };
 
@@ -124,10 +146,19 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   };
 
   const updateItem = (index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
-    }));
+    if (field === 'materialId') {
+      // If material changes, clear associated operations
+      setFormData(prev => {
+        const items = [...prev.items];
+        items[index] = { ...items[index], [field]: value, operations: [] };
+        return { ...prev, items };
+      });
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
+      }));
+    }
   };
 
   const handleChange = (field) => (e) => {
@@ -162,22 +193,39 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
   // Расчет общей суммы заказа
   const totalOrderAmount = useMemo(() => {
-    return formData.items.reduce((sum, item) => {
+    let total = 0;
+    formData.items.forEach(item => {
       const material = materialsData.find(m => m.id === parseInt(item.materialId));
-      if (!material) return sum;
-      const q1 = parseFloat(item.qty1) || 0;
-      const q2 = parseFloat(item.qty2) || 0;
-      let effectiveQty = 0;
-      if (material.unit === 'м2') {
-        effectiveQty = (q1 / 1000) * (q2 / 1000);
-      } else if (material.unit === 'м.п.') {
-        effectiveQty = q1 / 1000;
-      } else {
-        effectiveQty = q1;
+      if (material) {
+        const q1 = parseFloat(item.qty1) || 0;
+        const q2 = parseFloat(item.qty2) || 0;
+        let effectiveQty = 0;
+        if (material.unit === 'м2') {
+          effectiveQty = (q1 / 1000) * (q2 / 1000);
+        } else if (material.unit === 'м.п.') {
+          effectiveQty = q1 / 1000;
+        } else {
+          effectiveQty = q1;
+        }
+        total += material.price * effectiveQty * (material.wasteCoefficient || 1);
       }
-      const cost = material.price * effectiveQty * (material.wasteCoefficient || 1);
-      return sum + cost;
-    }, 0);
+      // Operations cost
+      if (item.operations && Array.isArray(item.operations)) {
+        item.operations.forEach(op => {
+          total += op.basePrice * op.quantity * (op.wasteCoefficient || 1);
+          // Additional materials cost
+          if (op.additionalMaterials) {
+            Object.entries(op.additionalMaterials).forEach(([matId, qty]) => {
+              const addMat = materialsData.find(m => m.id === parseInt(matId));
+              if (addMat) {
+                total += addMat.price * parseFloat(qty);
+              }
+            });
+          }
+        });
+      }
+    });
+    return total;
   }, [formData.items, materialsData]);
 
   const handleSubmit = async (e) => {
@@ -201,10 +249,19 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         } else {
           qty = q1;
         }
+        // Map operations
+        const ops = (item.operations || []).map(op => ({
+          materialOperationId: op.materialOperationId,
+          quantity: op.quantity,
+          wasteCoefficient: op.wasteCoefficient,
+          parameters: op.parameters,
+          additionalMaterials: op.additionalMaterials
+        }));
         return {
           materialId: parseInt(item.materialId),
           quantity: qty,
-          readyDate: item.readyDate || null
+          readyDate: item.readyDate || null,
+          operations: ops
         };
       });
 
@@ -331,6 +388,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                     <TableCell width={100}>Размер 1 (мм)</TableCell>
                     <TableCell width={100}>Размер 2 (мм)</TableCell>
                     <TableCell width={130}>Срок готовности</TableCell>
+                    <TableCell>Операции</TableCell>
                     <TableCell width={50}>Действия</TableCell>
                   </TableRow>
                 </TableHead>
@@ -390,6 +448,16 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                             onChange={(e) => updateItem(index, 'readyDate', e.target.value)}
                             InputLabelProps={{ shrink: true }}
                           />
+                        </TableCell>
+                        <TableCell>
+                          {item.materialId && (
+                            <Button size="small" startIcon={<Add />} onClick={() => openOperationDialog(index)}>
+                              Операция
+                            </Button>
+                          )}
+                          {item.operations && item.operations.length > 0 && (
+                            <Typography variant="body2">{item.operations.length} оп.</Typography>
+                          )}
                         </TableCell>
                         <TableCell>
                           <IconButton onClick={() => removeItem(index)} color="error" size="small">
@@ -486,10 +554,70 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         </DialogActions>
       </Dialog>
 
+      {/* Operation Selection & Configuration Dialog */}
+      <Dialog open={opDialogOpen} onClose={() => { setOpDialogOpen(false); setSelectedOpTemplate(null); }} maxWidth="md" fullWidth>
+        <DialogTitle>
+          {!selectedOpTemplate ? 'Выберите операцию' : `Настройка: ${selectedOpTemplate.name}`}
+        </DialogTitle>
+        <DialogContent>
+          {!selectedOpTemplate ? (
+            <Box>
+              {!formData.items[activeItemIdx]?.materialId ? (
+                <Typography>Выберите материал для позиции.</Typography>
+              ) : (materialOpsCache[formData.items[activeItemIdx]?.materialId] || []).length === 0 ? (
+                <Typography>Нет операций для этого материала.</Typography>
+              ) : (
+                <List>
+                  {(materialOpsCache[formData.items[activeItemIdx]?.materialId] || []).map(op => (
+                    <ListItem button key={op.id} onClick={() => setSelectedOpTemplate(op)}>
+                      <ListItemText primary={op.name} secondary={`${op.basePrice} ₽ за ${op.unit}`} />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </Box>
+          ) : (
+            <OperationForm
+              template={selectedOpTemplate}
+              initialDimensions={{
+                width: parseFloat(formData.items[activeItemIdx]?.qty1) || 0,
+                height: parseFloat(formData.items[activeItemIdx]?.qty2) || 0
+              }}
+              materials={materialsData}
+              onConfirm={(opData) => {
+                const newOp = {
+                  id: Date.now(),
+                  materialOperationId: selectedOpTemplate.id,
+                  name: selectedOpTemplate.name,
+                  basePrice: selectedOpTemplate.basePrice,
+                  unit: selectedOpTemplate.unit,
+                  wasteCoefficient: selectedOpTemplate.wasteCoefficient || 1,
+                  quantity: opData.quantity,
+                  parameters: opData.parameters,
+                  additionalMaterials: opData.additionalMaterials
+                };
+                newOp.cost = selectedOpTemplate.basePrice * opData.quantity * (selectedOpTemplate.wasteCoefficient || 1);
+                setFormData(prev => {
+                  const items = [...prev.items];
+                  const idx = activeItemIdx;
+                  items[idx].operations = items[idx].operations || [];
+                  items[idx].operations.push(newOp);
+                  return { ...prev, items };
+                });
+                setSelectedOpTemplate(null);
+                setOpDialogOpen(false);
+              }}
+              onCancel={() => setSelectedOpTemplate(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Snackbar
         open={notification.open}
-        autoHideDuration={6000}
+        autoHideDuration={3000}
         onClose={() => setNotification({ ...notification, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
           {notification.message}

@@ -5,6 +5,8 @@ import com.example.orderservice.order.entity.OrderItemOperation;
 import com.example.orderservice.product.Product;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -32,7 +34,15 @@ public class OrderItem extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String name;
 
-    /** Цена за единицу */
+    /** Ширина изделия (в метрах) */
+    @Column(name = "width", precision = 10, scale = 3)
+    private BigDecimal width;
+
+    /** Высота изделия (в метрах) */
+    @Column(name = "height", precision = 10, scale = 3)
+    private BigDecimal height;
+
+    /** Цена за единицу (продажная) */
     @Column(name = "price", precision = 12, scale = 2)
     private BigDecimal price = BigDecimal.ZERO;
 
@@ -52,6 +62,11 @@ public class OrderItem extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
     private Product product;
+
+    /** Параметры изделия в формате JSON (цвет, толщина, тип крепления и т.д.) */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private String params;
 
     /** Материалы, переопределённые для этой позиции (с возможностью отклонения от шаблона) */
     @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)

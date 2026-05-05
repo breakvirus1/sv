@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -25,12 +25,26 @@ import {
   Snackbar,
   Grid,
   Divider,
-  TableContainer
+  TableContainer,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import { Add, Edit, Delete, Refresh } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+
+const OPERATION_TYPES = [
+  'PRINT',
+  'LAMINATION',
+  'CUTTING',
+  'WELDING',
+  'EYELETS',
+  'POCKET',
+  'INSTALLATION',
+  'ADDITIONAL_MATERIAL',
+  'CUSTOM'
+];
 
 const AdminPanel = () => {
   const [tab, setTab] = useState(0);
@@ -54,18 +68,36 @@ const AdminPanel = () => {
     email: ''
   });
 
-  // Materials
-  const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
-  const [materialDeleteDialogOpen, setMaterialDeleteDialogOpen] = useState(false);
-  const [selectedMaterial, setSelectedMaterial] = useState(null);
-  const [materialForm, setMaterialForm] = useState({
-    name: '',
-    unit: '',
-    price: '',
-    wasteCoefficient: '1'
-  });
+   // Materials
+   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
+   const [materialDeleteDialogOpen, setMaterialDeleteDialogOpen] = useState(false);
+   const [selectedMaterial, setSelectedMaterial] = useState(null);
+   const [materialTab, setMaterialTab] = useState(0); // для вкладок диалога материала
+   const [materialForm, setMaterialForm] = useState({
+     name: '',
+     unit: '',
+     price: '',
+     wasteCoefficient: '1'
+   });
+   // Material Operations (reference works for material)
+   const [materialOperations, setMaterialOperations] = useState([]);
+   const [opForm, setOpForm] = useState({
+     name: '',
+     description: '',
+     operationType: 'PRINT',
+     basePrice: '',
+     wasteCoefficient: '1',
+     unit: 'шт',
+     requiresDimensions: false,
+     allowsAdditionalMaterials: false,
+     sortOrder: 0,
+     active: true
+   });
+   const [parameters, setParameters] = useState([]);
+   const [additionalMaterials, setAdditionalMaterials] = useState([]);
+   const [editingOpId, setEditingOpId] = useState(null);
 
-  // Products
+   // Products
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [productDeleteDialogOpen, setProductDeleteDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -103,16 +135,27 @@ const AdminPanel = () => {
     enabled: tab === 1
   });
 
-  const { data: productsData = [], refetch: refetchProducts } = useQuery({
-    queryKey: ['admin-products'],
-    queryFn: async () => {
-      const response = await api.get('/api/v1/products?size=100');
-      return response.data || [];
-    },
-    enabled: tab === 2
-  });
+   const { data: productsData = [], refetch: refetchProducts } = useQuery({
+     queryKey: ['admin-products'],
+     queryFn: async () => {
+       const response = await api.get('/api/v1/products?size=100');
+       return response.data || [];
+     },
+     enabled: tab === 2
+   });
 
-  // Mutations for Clients
+   // Query: Material Operations (for selected material)
+   const { data: materialOpsData = [], refetch: refetchMaterialOps } = useQuery({
+     queryKey: ['material-operations', selectedMaterial?.id],
+     queryFn: async () => {
+       if (!selectedMaterial) return [];
+       const response = await api.get(`/api/v1/materials/${selectedMaterial.id}/operations`);
+       return response.data || [];
+     },
+     enabled: !!selectedMaterial && materialDialogOpen
+   });
+
+   // Mutations for Clients
   const createClientMutation = useMutation({
     mutationFn: (client) => api.post('/api/v1/clients', client),
     onSuccess: () => {
@@ -168,17 +211,216 @@ const AdminPanel = () => {
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
-  const deleteMaterialMutation = useMutation({
-    mutationFn: (id) => api.delete(`/api/v1/materials/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-materials'] });
-      setMaterialDeleteDialogOpen(false);
-      showNotification('Материал удален');
-    },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
-  });
+   const deleteMaterialMutation = useMutation({
+     mutationFn: (id) => api.delete(`/api/v1/materials/${id}`),
+     onSuccess: () => {
+       queryClient.invalidateQueries({ queryKey: ['admin-materials'] });
+       setMaterialDeleteDialogOpen(false);
+       showNotification('Материал удален');
+     },
+     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+   });
 
-  // Mutations for Products
+    // Mutations for Material Operations
+    const createMaterialOpMutation = useMutation({
+      mutationFn: ({ materialId, data }) => api.post(`/api/v1/materials/${materialId}/operations`, data),
+      onSuccess: (_, { materialId }) => {
+        queryClient.invalidateQueries({ queryKey: ['material-operations', materialId] });
+        queryClient.invalidateQueries({ queryKey: ['admin-materials'] });
+        resetOpForm();
+        showNotification('Операция добавлена');
+      },
+      onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    });
+
+    const updateMaterialOpMutation = useMutation({
+      mutationFn: ({ materialId, opId, data }) => api.put(`/api/v1/materials/${materialId}/operations/${opId}`, data),
+      onSuccess: (_, { materialId }) => {
+        queryClient.invalidateQueries({ queryKey: ['material-operations', materialId] });
+        queryClient.invalidateQueries({ queryKey: ['admin-materials'] });
+        resetOpForm();
+        showNotification('Операция обновлена');
+      },
+      onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    });
+
+   const deleteMaterialOpMutation = useMutation({
+     mutationFn: ({ materialId, opId }) => api.delete(`/api/v1/materials/${materialId}/operations/${opId}`),
+     onSuccess: (_, { materialId }) => {
+       queryClient.invalidateQueries({ queryKey: ['material-operations', materialId] });
+       queryClient.invalidateQueries({ queryKey: ['admin-materials'] });
+       showNotification('Операция удалена');
+     },
+     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    });
+
+    // Effect to sync materialOperations from query
+    useEffect(() => {
+      if (materialOpsData) {
+        setMaterialOperations(materialOpsData);
+      }
+    }, [materialOpsData]);
+
+    // Operation form handlers
+    const handleOpChange = (field, value) => {
+      setOpForm(prev => ({ ...prev, [field]: value }));
+    };
+
+    // Parameters handlers
+    const addParameter = () => {
+      setParameters(prev => [...prev, {
+        id: Date.now(),
+        paramKey: '',
+        displayName: '',
+        type: 'NUMBER',
+        unit: '',
+        defaultValue: '',
+        required: false,
+        sortOrder: prev.length
+      }]);
+    };
+
+    const updateParameter = (index, field, value) => {
+      setParameters(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
+    };
+
+    const removeParameter = (index) => {
+      setParameters(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // Additional Materials handlers
+    const addOpAdditionalMaterial = () => {
+      setAdditionalMaterials(prev => [...prev, {
+        id: Date.now(),
+        materialId: '',
+        defaultQuantity: 1,
+        unit: 'шт',
+        pricePerUnit: 0
+      }]);
+    };
+
+    const updateOpAdditionalMaterial = (index, field, value) => {
+      setAdditionalMaterials(prev => prev.map((am, i) => {
+        if (i !== index) return am;
+        const updated = { ...am, [field]: value };
+        // Auto-fill price and unit from material if materialId changes
+        if (field === 'materialId' && value) {
+          const mat = materialsData.find(m => m.id === parseInt(value));
+          if (mat) {
+            updated.pricePerUnit = parseFloat(mat.price) || 0;
+            updated.unit = mat.unit || 'шт';
+          }
+        }
+        return updated;
+      }));
+    };
+
+    const removeOpAdditionalMaterial = (index) => {
+      setAdditionalMaterials(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleSaveOperation = async () => {
+      if (!opForm.name || !opForm.basePrice) {
+        showNotification('Заполните название и цену', 'error');
+        return;
+      }
+      if (!selectedMaterial) return;
+
+      // Filter out empty parameters
+      const validParams = parameters.filter(p => p.paramKey && p.displayName);
+
+      // Filter out empty additional materials
+      const validAddMats = additionalMaterials.filter(am => am.materialId);
+
+      const payload = {
+        name: opForm.name,
+        description: opForm.description,
+        operationType: opForm.operationType,
+        basePrice: parseFloat(opForm.basePrice),
+        wasteCoefficient: parseFloat(opForm.wasteCoefficient) || 1,
+        unit: opForm.unit,
+        requiresDimensions: opForm.requiresDimensions,
+        allowsAdditionalMaterials: opForm.allowsAdditionalMaterials,
+        sortOrder: parseInt(opForm.sortOrder) || 0,
+        active: opForm.active,
+        parameters: validParams,
+        additionalMaterials: validAddMats
+      };
+      if (editingOpId) {
+        updateMaterialOpMutation.mutate({ materialId: selectedMaterial.id, opId: editingOpId, data: payload });
+      } else {
+        createMaterialOpMutation.mutate({ materialId: selectedMaterial.id, data: payload });
+      }
+    };
+
+    const handleEditOperation = (op) => {
+      setOpForm({
+        name: op.name || '',
+        description: op.description || '',
+        operationType: op.operationType || 'PRINT',
+        basePrice: op.basePrice ? op.basePrice.toString() : '',
+        wasteCoefficient: op.wasteCoefficient ? op.wasteCoefficient.toString() : '1',
+        unit: op.unit || 'шт',
+        requiresDimensions: op.requiresDimensions || false,
+        allowsAdditionalMaterials: op.allowsAdditionalMaterials || false,
+        sortOrder: op.sortOrder || 0,
+        active: op.active !== false
+      });
+      // Set parameters
+      if (op.parameters && Array.isArray(op.parameters)) {
+        setParameters(op.parameters.map(p => ({
+          id: p.id || Date.now() + Math.random(),
+          paramKey: p.paramKey || '',
+          displayName: p.displayName || '',
+          type: p.type || 'NUMBER',
+          unit: p.unit || '',
+          defaultValue: p.defaultValue || '',
+          required: p.required || false,
+          sortOrder: p.sortOrder || 0
+        })));
+      } else {
+        setParameters([]);
+      }
+      // Set additional materials
+      if (op.additionalMaterials && Array.isArray(op.additionalMaterials)) {
+        setAdditionalMaterials(op.additionalMaterials.map(am => ({
+          id: am.id || Date.now() + Math.random(),
+          materialId: am.materialId || '',
+          defaultQuantity: am.defaultQuantity || 1,
+          unit: am.unit || 'шт',
+          pricePerUnit: am.pricePerUnit || 0
+        })));
+      } else {
+        setAdditionalMaterials([]);
+      }
+      setEditingOpId(op.id);
+    };
+
+    const handleDeleteOperation = (opId) => {
+      if (selectedMaterial && window.confirm('Удалить операцию?')) {
+        deleteMaterialOpMutation.mutate({ materialId: selectedMaterial.id, opId });
+      }
+    };
+
+    const resetOpForm = () => {
+      setOpForm({
+        name: '',
+        description: '',
+        operationType: 'PRINT',
+        basePrice: '',
+        wasteCoefficient: '1',
+        unit: 'шт',
+        requiresDimensions: false,
+        allowsAdditionalMaterials: false,
+        sortOrder: 0,
+        active: true
+      });
+      setParameters([]);
+      setAdditionalMaterials([]);
+      setEditingOpId(null);
+    };
+
+    // Mutations for Products
   const createProductMutation = useMutation({
     mutationFn: (product) => api.post('/api/v1/products', product),
     onSuccess: () => {
@@ -301,21 +543,22 @@ const AdminPanel = () => {
     }
   };
 
-  // Material handlers
-  const openMaterialDialog = (material = null) => {
-    if (material) {
-      setSelectedMaterial(material);
-      setMaterialForm({
-        name: material.name || '',
-        unit: material.unit || '',
-        price: material.price ? material.price.toString() : '',
-        wasteCoefficient: material.wasteCoefficient ? material.wasteCoefficient.toString() : '1'
-      });
-    } else {
-      resetMaterialForm();
-    }
-    setMaterialDialogOpen(true);
-  };
+   // Material handlers
+   const openMaterialDialog = (material = null) => {
+     if (material) {
+       setSelectedMaterial(material);
+       setMaterialForm({
+         name: material.name || '',
+         unit: material.unit || '',
+         price: material.price ? material.price.toString() : '',
+         wasteCoefficient: material.wasteCoefficient ? material.wasteCoefficient.toString() : '1'
+       });
+     } else {
+       resetMaterialForm();
+     }
+     setMaterialTab(0);
+     setMaterialDialogOpen(true);
+   };
 
   const resetMaterialForm = () => {
     setMaterialForm({ name: '', unit: '', price: '', wasteCoefficient: '1' });
@@ -457,39 +700,50 @@ const AdminPanel = () => {
     }));
   };
 
-  const handleProductSubmit = () => {
-    if (!productForm.name) {
-      showNotification('Введите название продукта', 'error');
-      return;
-    }
-    const payload = {
-      name: productForm.name,
-      article: productForm.article,
-      description: productForm.description,
-      width: productForm.width ? parseFloat(productForm.width) : null,
-      height: productForm.height ? parseFloat(productForm.height) : null,
-      unit: productForm.unit,
-      basePrice: productForm.basePrice ? parseFloat(productForm.basePrice) : 0,
-      materials: productForm.materials.map(m => ({
-        materialId: parseInt(m.materialId),
-        quantity: parseFloat(m.quantity),
-        wasteCoefficient: parseFloat(m.wasteCoefficient) || 1,
-        sortOrder: m.sortOrder
-      })),
-      operations: productForm.operations.map(op => ({
-        name: op.name,
-        pricePerUnit: parseFloat(op.pricePerUnit),
-        normTime: op.normTime || null,
-        unit: op.unit,
-        sortOrder: op.sortOrder
-      }))
-    };
-    if (selectedProduct) {
-      updateProductMutation.mutate({ id: selectedProduct.id, data: payload });
-    } else {
-      createProductMutation.mutate(payload);
-    }
-  };
+   const handleProductSubmit = () => {
+     if (!productForm.name) {
+       showNotification('Введите название продукта', 'error');
+       return;
+     }
+
+     // Filter out invalid materials (no materialId or invalid quantity)
+     const validMaterials = productForm.materials
+       .filter(m => m.materialId && m.quantity)
+       .map(m => ({
+         materialId: parseInt(m.materialId),
+         quantity: parseFloat(m.quantity),
+         wasteCoefficient: parseFloat(m.wasteCoefficient) || 1,
+         sortOrder: m.sortOrder
+       }));
+
+     // Filter out invalid operations (no name or pricePerUnit)
+     const validOperations = productForm.operations
+       .filter(op => op.name && op.pricePerUnit)
+       .map(op => ({
+         name: op.name,
+         pricePerUnit: parseFloat(op.pricePerUnit),
+         normTime: op.normTime || null,
+         unit: op.unit,
+         sortOrder: op.sortOrder
+       }));
+
+     const payload = {
+       name: productForm.name,
+       article: productForm.article,
+       description: productForm.description,
+       width: productForm.width ? parseFloat(productForm.width) : null,
+       height: productForm.height ? parseFloat(productForm.height) : null,
+       unit: productForm.unit,
+       basePrice: productForm.basePrice ? parseFloat(productForm.basePrice) : 0,
+       materials: validMaterials,
+       operations: validOperations
+     };
+     if (selectedProduct) {
+       updateProductMutation.mutate({ id: selectedProduct.id, data: payload });
+     } else {
+       createProductMutation.mutate(payload);
+     }
+   };
 
   const confirmDeleteProduct = (product) => {
     setSelectedProduct(product);
@@ -739,23 +993,177 @@ const AdminPanel = () => {
       </Dialog>
 
       {/* Material Dialog */}
-      <Dialog open={materialDialogOpen} onClose={() => setMaterialDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{selectedMaterial ? 'Редактировать материал' : 'Новый материал'}</DialogTitle>
-        <DialogContent>
-          <TextField autoFocus fullWidth margin="dense" label="Название" value={materialForm.name} onChange={(e) => setMaterialForm({ ...materialForm, name: e.target.value })} />
-          <FormControl fullWidth margin="dense">
-            <InputLabel>Ед. изм.</InputLabel>
-            <Select value={materialForm.unit} label="Ед. изм." onChange={(e) => setMaterialForm({ ...materialForm, unit: e.target.value })}>
-              <MenuItem value="м2">м²</MenuItem>
-              <MenuItem value="м.п.">м.п.</MenuItem>
-            </Select>
-          </FormControl>
-          <TextField fullWidth margin="dense" label="Цена" type="number" value={materialForm.price} onChange={(e) => setMaterialForm({ ...materialForm, price: e.target.value })} inputProps={{ step: 0.01 }} />
-          <TextField fullWidth margin="dense" label="Коэффициент отхода" type="number" value={materialForm.wasteCoefficient} onChange={(e) => setMaterialForm({ ...materialForm, wasteCoefficient: e.target.value })} inputProps={{ step: 0.1 }} />
+      <Dialog open={materialDialogOpen} onClose={() => setMaterialDialogOpen(false)} maxWidth="md" fullWidth scroll="paper">
+        <DialogTitle>
+          <Tabs value={materialTab} onChange={(e, newTab) => setMaterialTab(newTab)} variant="fullWidth">
+            <Tab label="Основное" />
+            <Tab label="Операции" />
+          </Tabs>
+        </DialogTitle>
+        <DialogContent dividers sx={{ maxHeight: '60vh' }}>
+          {materialTab === 0 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+              <TextField autoFocus fullWidth label="Название" value={materialForm.name} onChange={(e) => setMaterialForm({ ...materialForm, name: e.target.value })} />
+              <FormControl fullWidth>
+                <InputLabel>Ед. изм.</InputLabel>
+                <Select value={materialForm.unit} label="Ед. изм." onChange={(e) => setMaterialForm({ ...materialForm, unit: e.target.value })}>
+                  <MenuItem value="м2">м²</MenuItem>
+                  <MenuItem value="м.п.">м.п.</MenuItem>
+                  <MenuItem value="шт">шт</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField fullWidth label="Цена" type="number" value={materialForm.price} onChange={(e) => setMaterialForm({ ...materialForm, price: e.target.value })} inputProps={{ step: 0.01 }} />
+              <TextField fullWidth label="Коэффициент отхода" type="number" value={materialForm.wasteCoefficient} onChange={(e) => setMaterialForm({ ...materialForm, wasteCoefficient: e.target.value })} inputProps={{ step: 0.1 }} />
+            </Box>
+          )}
+          {materialTab === 1 && (
+            <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {materialOperations.length === 0 ? (
+                <Typography color="text.secondary">Нет операций для этого материала. Добавьте ниже.</Typography>
+              ) : (
+                <>
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="subtitle1">Операции материала</Typography>
+                    <Button variant="contained" size="small" startIcon={<Add />} onClick={() => { resetOpForm(); setMaterialTab(1); }}>
+                      Добавить операцию
+                    </Button>
+                  </Box>
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Тип</TableCell>
+                          <TableCell>Название</TableCell>
+                          <TableCell>Базовая цена</TableCell>
+                          <TableCell>Ед.изм.</TableCell>
+                          <TableCell>Размеры</TableCell>
+                          <TableCell>Доп. материалы</TableCell>
+                          <TableCell align="right">Действия</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {materialOperations.map((op) => (
+                          <TableRow key={op.id}>
+                            <TableCell>{op.operationType}</TableCell>
+                            <TableCell>{op.name}</TableCell>
+                            <TableCell>{op.basePrice?.toFixed(2)} ₽</TableCell>
+                            <TableCell>{op.unit}</TableCell>
+                            <TableCell>{op.requiresDimensions ? 'Да' : 'Нет'}</TableCell>
+                            <TableCell>{(op.additionalMaterials || []).length}</TableCell>
+                            <TableCell align="right">
+                              <IconButton size="small" onClick={() => { handleEditOperation(op); setMaterialTab(1); }}><Edit /></IconButton>
+                              <IconButton size="small" color="error" onClick={() => { handleDeleteOperation(op.id); }}><Delete /></IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </>
+              )}
+
+              <Divider />
+              <Typography variant="subtitle1" gutterBottom>{editingOpId ? 'Редактировать операцию' : 'Новая операция'}</Typography>
+              <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField label="Название операции" fullWidth size="small" value={opForm.name} onChange={(e) => handleOpChange('name', e.target.value)} />
+                <TextField label="Описание" fullWidth size="small" multiline rows={2} value={opForm.description || ''} onChange={(e) => handleOpChange('description', e.target.value)} />
+
+                <Box display="flex" gap={2} flexWrap="wrap">
+                  <FormControl sx={{ minWidth: 180 }}>
+                    <InputLabel>Тип операции</InputLabel>
+                    <Select value={opForm.operationType} label="Тип операции" onChange={(e) => handleOpChange('operationType', e.target.value)}>
+                      {OPERATION_TYPES.map(type => (
+                        <MenuItem key={type} value={type}>{type}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <TextField label="Базовая цена" type="number" size="small" value={opForm.basePrice} onChange={(e) => handleOpChange('basePrice', e.target.value)} inputProps={{ step: 0.01 }} sx={{ width: 150 }} />
+                  <FormControl sx={{ minWidth: 120 }}>
+                    <InputLabel>Ед. изм.</InputLabel>
+                    <Select value={opForm.unit} label="Ед. изм." onChange={(e) => handleOpChange('unit', e.target.value)}>
+                      <MenuItem value="шт">шт</MenuItem>
+                      <MenuItem value="м²">м²</MenuItem>
+                      <MenuItem value="пог.м">пог.м</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+
+                <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+                  <TextField label="Коэффициент отходов" type="number" size="small" value={opForm.wasteCoefficient} onChange={(e) => handleOpChange('wasteCoefficient', e.target.value)} inputProps={{ step: 0.1 }} sx={{ width: 200 }} />
+                  <FormControlLabel control={<Checkbox checked={opForm.requiresDimensions} onChange={(e) => handleOpChange('requiresDimensions', e.target.checked)} />} label="Требует размеры" />
+                  <FormControlLabel control={<Checkbox checked={opForm.allowsAdditionalMaterials} onChange={(e) => handleOpChange('allowsAdditionalMaterials', e.target.checked)} />} label="Доп. материалы" />
+                </Box>
+
+                {/* Parameters Section */}
+                <Box>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                    <Typography variant="subtitle2">Параметры операции</Typography>
+                    <Button size="small" startIcon={<Add />} onClick={addParameter}>Добавить параметр</Button>
+                  </Box>
+                  {parameters.map((param, idx) => (
+                    <Box key={param.id} sx={{ mb: 1, p: 1, border: '1px dashed #ccc', borderRadius: 1 }} display="flex" gap={1} alignItems="center" flexWrap="wrap">
+                      <TextField label="Ключ" size="small" value={param.paramKey} onChange={(e) => updateParameter(idx, 'paramKey', e.target.value)} sx={{ width: 120 }} />
+                      <TextField label="Название" size="small" value={param.displayName} onChange={(e) => updateParameter(idx, 'displayName', e.target.value)} sx={{ width: 150 }} />
+                      <FormControl size="small" sx={{ minWidth: 120 }}>
+                        <InputLabel>Тип</InputLabel>
+                        <Select value={param.type} label="Тип" onChange={(e) => updateParameter(idx, 'type', e.target.value)}>
+                          <MenuItem value="NUMBER">Число</MenuItem>
+                          <MenuItem value="TEXT">Текст</MenuItem>
+                          <MenuItem value="SELECT">Выбор</MenuItem>
+                          <MenuItem value="CHECKBOX">Флажок</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <TextField label="Ед.изм." size="small" value={param.unit} onChange={(e) => updateParameter(idx, 'unit', e.target.value)} sx={{ width: 80 }} />
+                      <TextField label="По умолч." size="small" value={param.defaultValue} onChange={(e) => updateParameter(idx, 'defaultValue', e.target.value)} sx={{ width: 100 }} />
+                      <FormControlLabel control={<Checkbox checked={param.required} onChange={(e) => updateParameter(idx, 'required', e.target.checked)} />} label="Обязательное" />
+                      <IconButton size="small" onClick={() => removeParameter(idx)}><Delete /></IconButton>
+                    </Box>
+                  ))}
+                </Box>
+
+                {/* Additional Materials Section */}
+                <Box>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                    <Typography variant="subtitle2">Дополнительные материалы</Typography>
+                    <Button size="small" startIcon={<Add />} onClick={addOpAdditionalMaterial}>Добавить материал</Button>
+                  </Box>
+                  {additionalMaterials.map((am, idx) => (
+                    <Box key={am.id} sx={{ mb: 1, p: 1, border: '1px dashed #ccc', borderRadius: 1 }} display="flex" gap={1} alignItems="center" flexWrap="wrap">
+                      <FormControl size="small" sx={{ minWidth: 200 }}>
+                        <InputLabel>Материал</InputLabel>
+                        <Select value={am.materialId} label="Материал" onChange={(e) => updateOpAdditionalMaterial(idx, 'materialId', e.target.value)}>
+                          <MenuItem value="">Выберите</MenuItem>
+                          {materialsData.map(m => <MenuItem key={m.id} value={m.id}>{m.name} ({m.unit})</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                      <TextField label="Кол-во" type="number" size="small" value={am.defaultQuantity} onChange={(e) => updateOpAdditionalMaterial(idx, 'defaultQuantity', parseFloat(e.target.value) || 1)} sx={{ width: 100 }} />
+                      <TextField label="Ед.изм." size="small" value={am.unit} onChange={(e) => updateOpAdditionalMaterial(idx, 'unit', e.target.value)} sx={{ width: 100 }} />
+                      <Typography variant="body2" sx={{ width: 120 }}>Цена: {(am.pricePerUnit || 0).toFixed(2)} ₽</Typography>
+                      <IconButton size="small" onClick={() => removeOpAdditionalMaterial(idx)}><Delete /></IconButton>
+                    </Box>
+                  ))}
+                </Box>
+
+                <Box display="flex" gap={2} mt={2}>
+                  <Button variant="contained" onClick={handleSaveOperation}>{editingOpId ? 'Обновить операцию' : 'Создать операцию'}</Button>
+                  {editingOpId && (
+                    <Button variant="outlined" onClick={() => { resetOpForm(); }}>Отмена</Button>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setMaterialDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handleMaterialSubmit} variant="contained">Сохранить</Button>
+          {materialTab === 0 && (
+            <>
+              <Button onClick={() => setMaterialDialogOpen(false)}>Отмена</Button>
+              <Button onClick={handleMaterialSubmit} variant="contained">Сохранить</Button>
+            </>
+          )}
+          {materialTab === 1 && (
+            <Button onClick={() => setMaterialDialogOpen(false)}>Закрыть</Button>
+          )}
         </DialogActions>
       </Dialog>
 

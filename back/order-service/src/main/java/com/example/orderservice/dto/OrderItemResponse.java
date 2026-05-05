@@ -18,6 +18,10 @@ public class OrderItemResponse {
     private Long id;
     /** Наименование изделия */
     private String name;
+    /** Ширина изделия (м) */
+    private BigDecimal width;
+    /** Высота изделия (м) */
+    private BigDecimal height;
     /** Цена за единицу */
     private BigDecimal price;
     /** Количество */
@@ -30,4 +34,6 @@ public class OrderItemResponse {
     private Long productId;
     /** Продукт-шаблон (вложенный объект, опционально) */
     private Object product;
+    /** Параметры изделия (JSON) */
+    private String params;
 }

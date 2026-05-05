@@ -9,6 +9,10 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Сущность "Материал в заказе" — связь заказа/позиции с материалом.
@@ -54,4 +58,9 @@ public class OrderMaterial extends BaseEntity {
     /** Фактическая стоимость материала для этого заказа (quantity * price * waste) */
     @Column(name = "cost", precision = 12, scale = 2)
     private BigDecimal cost = BigDecimal.ZERO;
+
+    /** Операции, выполненные над этим материалом в заказе */
+    @OneToMany(mappedBy = "orderMaterial", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderMaterialOperation> operations = new ArrayList<>();
 }
+

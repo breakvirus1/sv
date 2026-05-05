@@ -17,6 +17,9 @@ public class ProductDTO {
     private BigDecimal height;
     private String unit;
     private BigDecimal basePrice;
+    private String category;
+    private Boolean isActive;
+    private String formulaJson;
     private List<ProductMaterialDTO> materials;
     private List<ProductOperationDTO> operations;
 }

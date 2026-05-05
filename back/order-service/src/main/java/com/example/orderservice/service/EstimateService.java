@@ -1,16 +1,21 @@
 package com.example.orderservice.service;
 
-import com.example.orderservice.exception.NotFoundException;
+import com.example.orderservice.dto.CalculateRequest;
+import com.example.orderservice.dto.CalculationResult;
+import com.example.orderservice.dto.OrderEstimateDTO;
+import com.example.orderservice.dto.OrderItemMaterialDTO;
+import com.example.orderservice.dto.OrderItemOperationDTO;
 import com.example.orderservice.entity.OrderItem;
 import com.example.orderservice.order.entity.OrderItemMaterial;
 import com.example.orderservice.order.entity.OrderItemOperation;
 import com.example.orderservice.product.Product;
+import com.example.orderservice.product.ProductMaterial;
+import com.example.orderservice.product.ProductOperation;
 import com.example.orderservice.product.repository.ProductRepository;
-import com.example.orderservice.repository.OrderItemRepository;
 import com.example.materialservice.entity.Material;
-import com.example.orderservice.dto.OrderEstimateDTO;
-import com.example.orderservice.dto.OrderItemMaterialDTO;
-import com.example.orderservice.dto.OrderItemOperationDTO;
+import com.example.materialservice.repository.MaterialRepository;
+import com.example.orderservice.repository.OrderItemRepository;
+import com.example.orderservice.exception.NotFoundException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,34 +36,91 @@ public class EstimateService {
 
     private final ProductRepository productRepository;
     private final OrderItemRepository orderItemRepository;
+    private final CalculatorService calculatorService;
 
     @PersistenceContext
     private EntityManager entityManager;
 
-    // Расчёт из шаблона продукта (без сохранения)
-    public OrderEstimateDTO calculateFromProduct(Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new NotFoundException("Product not found"));
-
-        List<OrderItemMaterialDTO> materials = product.getMaterials().stream()
-                .map(this::convertToOrderMaterialDto)
+    // Преобразование результата расчёта в OrderEstimateDTO
+    private OrderEstimateDTO convertToOrderEstimateDTO(Product product, CalculationResult result) {
+        List<OrderItemMaterialDTO> materialDTOs = result.getBreakdown().stream()
+                .filter(c -> c.getMaterialId() != null)
+                .map(c -> {
+                    // Найти ProductMaterial чтобы взять материал и коэффициент отхода
+                    ProductMaterial productMaterial = product.getMaterials().stream()
+                            .filter(pm -> pm.getMaterial().getId().equals(c.getMaterialId()))
+                            .findFirst()
+                            .orElse(null);
+                    if (productMaterial == null) return null;
+                    Material material = productMaterial.getMaterial();
+                    BigDecimal wasteCoeff = productMaterial.getWasteCoefficient();
+                    return new OrderItemMaterialDTO(
+                            null,
+                            material.getId(),
+                            material.getName(),
+                            c.getQuantity(),
+                            wasteCoeff,
+                            c.getTotal(),
+                            material.getPrice(),
+                            material.getUnit()
+                    );
+                })
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
-        List<OrderItemOperationDTO> operations = product.getOperations().stream()
-                .map(this::convertToOrderOperationDto)
+        List<OrderItemOperationDTO> operationDTOs = result.getBreakdown().stream()
+                .filter(c -> c.getMaterialId() == null)
+                .map(c -> new OrderItemOperationDTO(
+                        null,
+                        c.getName(),
+                        c.getUnitPrice(),
+                        null, // normTime
+                        c.getQuantity(),
+                        c.getTotal()
+                ))
                 .collect(Collectors.toList());
 
-        BigDecimal totalMat = materials.stream()
-                .map(m -> m.getCost() != null ? m.getCost() : BigDecimal.ZERO)
+        BigDecimal totalMat = materialDTOs.stream()
+                .map(OrderItemMaterialDTO::getCost)
+                .filter(c -> c != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalOp = operations.stream()
-                .map(op -> op.getCost() != null ? op.getCost() : BigDecimal.ZERO)
+        BigDecimal totalOp = operationDTOs.stream()
+                .map(OrderItemOperationDTO::getCost)
+                .filter(c -> c != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal grandTotal = totalMat.add(totalOp);
 
-        return new OrderEstimateDTO(null, productId, materials, operations, totalMat, totalOp, grandTotal);
+        return new OrderEstimateDTO(
+                null,
+                product.getId(),
+                materialDTOs,
+                operationDTOs,
+                totalMat,
+                totalOp,
+                grandTotal
+        );
+    }
+
+    /**
+     * Расчёт из шаблона продукта (без сохранения) — динамический по формуле.
+     * Использует широту/высоту из самого продукта как параметры и quantity=1.
+     */
+    @Transactional(readOnly = true)
+    public OrderEstimateDTO calculateFromProduct(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Product not found: " + productId));
+
+        // Параметры по умолчанию: размеры из продукта, если заданы, иначе 1
+        BigDecimal width = product.getWidth() != null ? product.getWidth() : BigDecimal.ONE;
+        BigDecimal height = product.getHeight() != null ? product.getHeight() : BigDecimal.ONE;
+        Integer quantity = 1;
+
+        CalculateRequest req = new CalculateRequest(productId, width, height, quantity, Map.of());
+        CalculationResult result = calculatorService.calculate(req);
+
+        return convertToOrderEstimateDTO(product, result);
     }
 
     // Сохранение сметы в позицию заказа

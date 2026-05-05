@@ -19,10 +19,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 
-/**
- * REST Controller для управления заказами.
- * Предоставляет CRUD операции, а также управление статусами и этапами.
- */
 @RestController
 @RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
@@ -148,18 +144,18 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    /**
-     * Добавить комментарий к заказу.
-     * Доступно: ADMIN, MANAGER, PRODUCTION.
-     */
-    @Operation(summary = "Добавить комментарий к заказу")
-    @PostMapping("/{id}/comments")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
-    public ResponseEntity<CommentResponse> addComment(
-            @Parameter(description = "ID заказа") @PathVariable Long id,
-            @RequestBody CommentRequest request) {
-        // Author will be extracted from authentication token in the service
-        CommentResponse comment = orderService.addComment(id, request, null);
-        return new ResponseEntity<>(comment, HttpStatus.CREATED);
-    }
-}
+     /**
+      * Добавить комментарий к заказу.
+      * Доступно: ADMIN, MANAGER, PRODUCTION.
+      */
+     @Operation(summary = "Добавить комментарий к заказу")
+     @PostMapping("/{id}/comments")
+     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+     public ResponseEntity<CommentResponse> addComment(
+             @Parameter(description = "ID заказа") @PathVariable Long id,
+             @RequestBody CommentRequest request) {
+         // Author will be extracted from authentication token in the service
+         CommentResponse comment = orderService.addComment(id, request, null);
+         return new ResponseEntity<>(comment, HttpStatus.CREATED);
+     }
+ }
