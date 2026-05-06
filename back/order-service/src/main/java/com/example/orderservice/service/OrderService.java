@@ -198,6 +198,9 @@ public class OrderService {
                         orderOp.setCost(opCost);
                         total = total.add(opCost);
 
+                        // Add operation to material's operations list for cascade persist
+                        orderMaterial.getOperations().add(orderOp);
+
                         // Стоимость дополнительных материалов
                         if (opReq.getAdditionalMaterials() != null && !opReq.getAdditionalMaterials().isEmpty()) {
                             for (Map.Entry<Long, BigDecimal> entry : opReq.getAdditionalMaterials().entrySet()) {

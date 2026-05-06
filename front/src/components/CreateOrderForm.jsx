@@ -191,10 +191,95 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     createClientMutation.mutate(newClientForm);
   };
 
-  const handleClose = () => {
+   const handleClose = () => {
     if (closeWindow) closeWindow();
     else navigate('/orders');
   };
+
+  // Отладочное логирование расчёта по позициям в консоль браузера
+  useEffect(() => {
+    // Логируем только в development режиме
+    if (process.env.NODE_ENV !== 'development') return;
+
+    const items = formData.items;
+    if (!items || items.length === 0) return;
+
+    console.group('📊 Расчет по позициям заказа');
+    let grandTotal = 0;
+
+    items.forEach((item, idx) => {
+      const material = materialsData.find(m => m.id === parseInt(item.materialId));
+      if (!material) return;
+
+      const q1 = parseFloat(item.qty1) || 0;
+      const q2 = parseFloat(item.qty2) || 0;
+
+      // Эффективное количество материала с учётом единиц измерения
+      let effectiveQty = 0;
+      if (material.unit === 'м2') {
+        effectiveQty = (q1 / 1000) * (q2 / 1000);
+      } else if (material.unit === 'м.п.') {
+        effectiveQty = q1 / 1000;
+      } else {
+        effectiveQty = q1;
+      }
+
+      const matWasteCoef = material.wasteCoefficient || 1;
+      const matCost = material.price * effectiveQty * matWasteCoef;
+
+      // Обработка операций
+      let opsCost = 0;
+      let pieceCount = 0; // общее количество изделий в штуках по операциям
+      const opsDetails = (item.operations || []).map(op => {
+        const opQty = op.quantity || 0;
+        const opUnit = op.unit || 'шт';
+        const opPrice = op.basePrice || 0;
+        const opWasteCoef = op.wasteCoefficient || 1;
+        const opCost = opPrice * opQty * opWasteCoef;
+        opsCost += opCost;
+
+        // Считаем штучные операции как количество изделий
+        if (opUnit === 'шт') {
+          pieceCount += opQty;
+        }
+
+        return {
+          name: op.name,
+          qty: opQty,
+          unit: opUnit,
+          price: opPrice,
+          cost: opCost
+        };
+      });
+
+      const itemTotal = matCost + opsCost;
+      grandTotal += itemTotal;
+
+      console.log(`Позиция ${idx + 1}: ${material.name}`);
+      console.log(`  Исходные размеры: ${q1} × ${q2} мм`);
+      console.log(`  Материал: ${effectiveQty.toFixed(4)} ${material.unit} × ${material.price} ₽ (коэф.отх. ${matWasteCoef}) = ${matCost.toFixed(2)} ₽`);
+
+      if (opsDetails.length > 0) {
+        console.log(`  Операции:`);
+        opsDetails.forEach(d => {
+          console.log(`    • ${d.name}: ${d.qty} ${d.unit} × ${d.price} ₽ = ${d.cost.toFixed(2)} ₽`);
+        });
+      }
+
+      console.log(`  >>> Итого по позиции: ${itemTotal.toFixed(2)} ₽`);
+
+      // Если есть штучные операции, указываем количество изделий
+      if (pieceCount > 0) {
+        console.log(`  Количество изделий (по операциям в штуках): ${pieceCount} шт.`);
+      }
+
+      console.log('');
+    });
+
+    console.log(`Общая сумма заказа: ${grandTotal.toFixed(2)} ₽`);
+    console.groupEnd();
+
+  }, [formData.items, materialsData]); // Зависимость от изменений в позициях и материалах
 
   // Расчет общей суммы заказа
   const totalOrderAmount = useMemo(() => {

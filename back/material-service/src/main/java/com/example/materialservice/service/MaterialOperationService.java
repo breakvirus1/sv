@@ -8,6 +8,7 @@ import com.example.materialservice.entity.OperationParameter;
 import com.example.materialservice.entity.OperationAdditionalMaterial;
 import com.example.materialservice.repository.MaterialOperationRepository;
 import com.example.materialservice.repository.MaterialRepository;
+import com.example.materialservice.util.TransliterationUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -95,8 +96,16 @@ public class MaterialOperationService {
               for (OperationParameterDto paramDto : request.getParameters()) {
                   OperationParameter param = new OperationParameter();
                   param.setOperation(operation);
-                  param.setParamKey(paramDto.getParamKey());
-                  param.setDisplayName(paramDto.getDisplayName());
+                  
+                  // Auto-generate paramKey from displayName if missing or blank
+                  String displayName = paramDto.getDisplayName();
+                  String paramKey = paramDto.getParamKey();
+                  if ((paramKey == null || paramKey.trim().isEmpty()) && displayName != null && !displayName.trim().isEmpty()) {
+                      paramKey = TransliterationUtils.transliterate(displayName);
+                  }
+                  param.setParamKey(paramKey);
+                  param.setDisplayName(displayName);
+                  
                   param.setType(paramDto.getType());
                   param.setUnit(paramDto.getUnit());
                   param.setDefaultValue(paramDto.getDefaultValue());
@@ -123,7 +132,7 @@ public class MaterialOperationService {
          }
      }
 
-      private void applyFromUpdateDto(MaterialOperation operation, MaterialOperationUpdateRequest request) {
+       private void applyFromUpdateDto(MaterialOperation operation, MaterialOperationUpdateRequest request) {
           operation.setName(request.getName());
           operation.setDescription(request.getDescription());
           try {
@@ -148,8 +157,16 @@ public class MaterialOperationService {
               for (OperationParameterDto paramDto : request.getParameters()) {
                   OperationParameter param = new OperationParameter();
                   param.setOperation(operation);
-                  param.setParamKey(paramDto.getParamKey());
-                  param.setDisplayName(paramDto.getDisplayName());
+                  
+                  // Auto-generate paramKey from displayName if missing or blank
+                  String displayName = paramDto.getDisplayName();
+                  String paramKey = paramDto.getParamKey();
+                  if ((paramKey == null || paramKey.trim().isEmpty()) && displayName != null && !displayName.trim().isEmpty()) {
+                      paramKey = TransliterationUtils.transliterate(displayName);
+                  }
+                  param.setParamKey(paramKey);
+                  param.setDisplayName(displayName);
+                  
                   param.setType(paramDto.getType());
                   param.setUnit(paramDto.getUnit());
                   param.setDefaultValue(paramDto.getDefaultValue());

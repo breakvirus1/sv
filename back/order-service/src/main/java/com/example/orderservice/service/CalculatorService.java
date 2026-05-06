@@ -53,6 +53,17 @@ public class CalculatorService {
             }
         }
 
+        // Устанавливаем параметры по умолчанию для расчёта люверсов, если они не переданы
+        if (context.get("step") == null) {
+            context.set("step", 300);
+        }
+        if (context.get("edgeDistance") == null) {
+            context.set("edgeDistance", 15);
+        }
+
+        // Добавляем вспомогательный объект для кастомных расчётов (например, люверсы)
+        context.set("helper", new CalculationHelper());
+
         List<ComponentBreakdown> breakdown = new ArrayList<>();
         BigDecimal materialTotal = BigDecimal.ZERO;
         BigDecimal operationTotal = BigDecimal.ZERO;
@@ -80,8 +91,15 @@ public class CalculatorService {
 
         // Расчёт операций
         for (ProductOperation po : product.getOperations()) {
-            // Количество операции = quantity (число изделий)
-            BigDecimal operationQty = BigDecimal.valueOf(request.getQuantity());
+            BigDecimal operationQty;
+
+            // Если у операции задана формула количества, вычисляем её
+            if (po.getQuantityFormula() != null && !po.getQuantityFormula().trim().isEmpty()) {
+                operationQty = evaluateQuantity(po.getQuantityFormula(), context, BigDecimal.ONE, BigDecimal.valueOf(request.getQuantity()));
+            } else {
+                // По умолчанию количество операции = количество изделий
+                operationQty = BigDecimal.valueOf(request.getQuantity());
+            }
 
             BigDecimal cost = po.getPricePerUnit().multiply(operationQty);
             operationTotal = operationTotal.add(cost);
@@ -128,7 +146,9 @@ public class CalculatorService {
             try {
                 JexlExpression expr = new JexlBuilder().create().createExpression(formula);
                 Object result = expr.evaluate(context);
-                if (result instanceof Number num) {
+                if (result instanceof BigDecimal) {
+                    baseQty = (BigDecimal) result;
+                } else if (result instanceof Number num) {
                     baseQty = BigDecimal.valueOf(num.doubleValue());
                 } else {
                     baseQty = defaultQuantity != null ? defaultQuantity : BigDecimal.ONE;

@@ -289,8 +289,35 @@ const AdminPanel = () => {
       }]);
     };
 
+    // Auto-generate paramKey from displayName using simple transliteration
+    const generateParamKey = (displayName) => {
+      if (!displayName) return '';
+      return displayName
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '_')           // spaces → underscore
+        .replace(/[а-яё]/g, char => {   // Cyrillic → Latin mapping
+          const map = {
+            'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'shch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya',
+            'А':'A','Б':'B','В':'V','Г':'G','Д':'D','Е':'E','Ё':'Yo','Ж':'Zh','З':'Z','И':'I','Й':'Y','К':'K','Л':'L','М':'M','Н':'N','О':'O','П':'P','Р':'R','С':'S','Т':'T','У':'U','Ф':'F','Х':'Kh','Ц':'Ts','Ч':'Ch','Ш':'Sh','Щ':'Shch','Ъ':'','Ы':'Y','Ь':'','Э':'E','Ю':'Yu','Я':'Ya'
+          };
+          return map[char] || char;
+        })
+        .replace(/[^a-z0-9_]+/g, '_')   // replace non-alphanumeric with underscore
+        .replace(/^_+|_+$/g, '')        // trim underscores
+        .replace(/_+/g, '_');           // collapse multiple underscores
+    };
+
     const updateParameter = (index, field, value) => {
-      setParameters(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
+      setParameters(prev => prev.map((p, i) => {
+        if (i !== index) return p;
+        const updated = { ...p, [field]: value };
+        // Auto-generate key when displayName changes and key is empty
+        if (field === 'displayName' && (!p.paramKey || p.paramKey.trim() === '')) {
+          updated.paramKey = generateParamKey(value);
+        }
+        return updated;
+      }));
     };
 
     const removeParameter = (index) => {
@@ -963,25 +990,25 @@ const AdminPanel = () => {
                     <Typography variant="subtitle2">Параметры операции</Typography>
                     <Button size="small" startIcon={<Add />} onClick={addParameter}>Добавить параметр</Button>
                   </Box>
-                  {parameters.map((param, idx) => (
-                    <Box key={param.id} sx={{ mb: 1, p: 1, border: '1px dashed #ccc', borderRadius: 1 }} display="flex" gap={1} alignItems="center" flexWrap="wrap">
-                      <TextField label="Ключ" size="small" value={param.paramKey} onChange={(e) => updateParameter(idx, 'paramKey', e.target.value)} sx={{ width: 120 }} />
-                      <TextField label="Название" size="small" value={param.displayName} onChange={(e) => updateParameter(idx, 'displayName', e.target.value)} sx={{ width: 150 }} />
-                      <FormControl size="small" sx={{ minWidth: 120 }}>
-                        <InputLabel>Тип</InputLabel>
-                        <Select value={param.type} label="Тип" onChange={(e) => updateParameter(idx, 'type', e.target.value)}>
-                          <MenuItem value="NUMBER">Число</MenuItem>
-                          <MenuItem value="TEXT">Текст</MenuItem>
-                          <MenuItem value="SELECT">Выбор</MenuItem>
-                          <MenuItem value="CHECKBOX">Флажок</MenuItem>
-                        </Select>
-                      </FormControl>
-                      <TextField label="Ед.изм." size="small" value={param.unit} onChange={(e) => updateParameter(idx, 'unit', e.target.value)} sx={{ width: 80 }} />
-                      <TextField label="По умолч." size="small" value={param.defaultValue} onChange={(e) => updateParameter(idx, 'defaultValue', e.target.value)} sx={{ width: 100 }} />
-                      <FormControlLabel control={<Checkbox checked={param.required} onChange={(e) => updateParameter(idx, 'required', e.target.checked)} />} label="Обязательное" />
-                      <IconButton size="small" onClick={() => removeParameter(idx)}><Delete /></IconButton>
-                    </Box>
-                  ))}
+                   {parameters.map((param, idx) => (
+                     <Box key={param.id} sx={{ mb: 1, p: 1, border: '1px dashed #ccc', borderRadius: 1 }} display="flex" gap={1} alignItems="center" flexWrap="wrap">
+                       {/* Ключ не отображается — генерируется автоматически из названия */}
+                       <TextField label="Название" size="small" value={param.displayName} onChange={(e) => updateParameter(idx, 'displayName', e.target.value)} sx={{ minWidth: 180 }} />
+                       <FormControl size="small" sx={{ minWidth: 120 }}>
+                         <InputLabel>Тип</InputLabel>
+                         <Select value={param.type} label="Тип" onChange={(e) => updateParameter(idx, 'type', e.target.value)}>
+                           <MenuItem value="NUMBER">Число</MenuItem>
+                           <MenuItem value="TEXT">Текст</MenuItem>
+                           <MenuItem value="SELECT">Выбор</MenuItem>
+                           <MenuItem value="CHECKBOX">Флажок</MenuItem>
+                         </Select>
+                       </FormControl>
+                       <TextField label="Ед.изм." size="small" value={param.unit} onChange={(e) => updateParameter(idx, 'unit', e.target.value)} sx={{ width: 80 }} />
+                       <TextField label="По умолч." size="small" value={param.defaultValue} onChange={(e) => updateParameter(idx, 'defaultValue', e.target.value)} sx={{ width: 100 }} />
+                       <FormControlLabel control={<Checkbox checked={param.required} onChange={(e) => updateParameter(idx, 'required', e.target.checked)} />} label="Обязательное" />
+                       <IconButton size="small" onClick={() => removeParameter(idx)}><Delete /></IconButton>
+                     </Box>
+                   ))}
                 </Box>
 
                 {/* Additional Materials Section */}

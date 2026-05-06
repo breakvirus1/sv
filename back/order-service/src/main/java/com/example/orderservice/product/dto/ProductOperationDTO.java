@@ -14,4 +14,5 @@ public class ProductOperationDTO {
     private String normTime;
     private String unit;
     private Integer sortOrder;
+    private String quantityFormula;
 }
