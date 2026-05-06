@@ -103,6 +103,9 @@ const OperationForm = ({
       {template.requiresDimensions && (
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={6}>
+            <Typography variant="caption" display="block" sx={{ fontSize: 10, mb: 0.5 }}>
+              Ширина изделия в миллиметрах
+            </Typography>
             <TextField
               label="Ширина (мм)"
               type="number"
@@ -113,6 +116,9 @@ const OperationForm = ({
             />
           </Grid>
           <Grid item xs={6}>
+            <Typography variant="caption" display="block" sx={{ fontSize: 10, mb: 0.5 }}>
+              Высота изделия в миллиметрах
+            </Typography>
             <TextField
               label="Высота (мм)"
               type="number"
@@ -155,17 +161,21 @@ const OperationForm = ({
                  </>
                ) : (
                  <>
-                   <TextField
-                     label={param.displayName}
-                     type={param.type === 'NUMBER' ? 'number' : 'text'}
-                     size="small"
-                     value={parameters[param.paramKey] || ''}
-                     onChange={(e) => {
-                       const val = param.type === 'NUMBER' ? parseFloat(e.target.value) : e.target.value;
-                       handleParamChange(param.paramKey, val);
-                     }}
-                     sx={{ minWidth: 200 }}
-                   />
+                   <Box sx={{ minWidth: 200 }}>
+                     <Typography variant="caption" display="block" sx={{ fontSize: 10, mb: 0.5 }}>
+                       {param.description || param.displayName}
+                     </Typography>
+                     <TextField
+                       label={param.displayName}
+                       type={param.type === 'NUMBER' ? 'number' : 'text'}
+                       size="small"
+                       value={parameters[param.paramKey] || ''}
+                       onChange={(e) => {
+                         const val = param.type === 'NUMBER' ? parseFloat(e.target.value) : e.target.value;
+                         handleParamChange(param.paramKey, val);
+                       }}
+                     />
+                   </Box>
                    {param.unit && <Typography variant="body2">{param.unit}</Typography>}
                    {param.description && (
                      <Tooltip title={param.description} arrow>
@@ -226,28 +236,40 @@ const OperationForm = ({
             );
           })}
           <Box display="flex" gap={1} mt={1}>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Материал</InputLabel>
-              <Select
-                value={newAddMat.materialId}
-                label="Материал"
-                onChange={(e) => setNewAddMat({ ...newAddMat, materialId: e.target.value })}
-              >
-                <MenuItem value="">Выберите</MenuItem>
-                {materials.map(m => (
-                  <MenuItem key={m.id} value={m.id}>{m.name} ({m.unit})</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Кол-во"
-              type="number"
-              size="small"
-              value={newAddMat.quantity}
-              onChange={(e) => setNewAddMat({ ...newAddMat, quantity: parseFloat(e.target.value) || 0 })}
-              sx={{ width: 100 }}
-            />
-            <Button variant="outlined" size="small" onClick={handleAddMaterial}>Добавить</Button>
+            <Box sx={{ minWidth: 200 }}>
+              <Typography variant="caption" display="block" sx={{ fontSize: 10, mb: 0.5 }}>
+                Материал
+              </Typography>
+              <FormControl size="small" fullWidth>
+                <InputLabel>Материал</InputLabel>
+                <Select
+                  value={newAddMat.materialId}
+                  label="Материал"
+                  onChange={(e) => setNewAddMat({ ...newAddMat, materialId: e.target.value })}
+                >
+                  <MenuItem value="">Выберите</MenuItem>
+                  {materials.map(m => (
+                    <MenuItem key={m.id} value={m.id}>{m.name} ({m.unit})</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ width: 100 }}>
+              <Typography variant="caption" display="block" sx={{ fontSize: 10, mb: 0.5 }}>
+                Количество
+              </Typography>
+              <TextField
+                label="Кол-во"
+                type="number"
+                size="small"
+                fullWidth
+                value={newAddMat.quantity}
+                onChange={(e) => setNewAddMat({ ...newAddMat, quantity: parseFloat(e.target.value) || 0 })}
+              />
+            </Box>
+            <Button variant="outlined" size="small" onClick={handleAddMaterial} sx={{ alignSelf: 'flex-end', mb: 1 }}>
+              Добавить
+            </Button>
           </Box>
         </Box>
       )}

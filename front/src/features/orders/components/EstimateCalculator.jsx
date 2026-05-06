@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Paper, Button, Grid, Tabs, Tab, IconButton, Dialog, DialogTitle, DialogContent, Table, TableHead, TableRow, TableCell, TableBody, CircularProgress
+  Box, Typography, Paper, Button, Grid, Tabs, Tab, IconButton, Dialog, DialogTitle, DialogContent, Table, TableHead, TableRow, TableCell, TableBody, CircularProgress, Tooltip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -110,12 +110,77 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
   const grandTotal = totalMaterials + totalOperations;
 
   const columnsMaterials = [
-    { field: 'name', headerName: 'Наименование', flex: 2, editable: true },
-    { field: 'price', headerName: 'Цена', type: 'number', width: 120, editable: true, valueFormatter: params => `${params.value} ₽` },
-    { field: 'quantity', headerName: 'Кол-во', type: 'number', width: 100, editable: true },
-    { field: 'unit', headerName: 'Ед.изм.', width: 80, editable: true },
-    { field: 'wasteCoef', headerName: 'Коэф.отх.', type: 'number', width: 110, editable: true },
-    { field: 'cost', headerName: 'Стоимость', type: 'number', width: 130, valueFormatter: params => `${params.value} ₽` },
+    {
+      field: 'name',
+      headerName: 'Наименование',
+      flex: 2,
+      editable: true,
+      renderHeader: () => (
+        <Tooltip title="Название материала, например: Сталь, Алюминий, Пластик">
+          <span>Наименование</span>
+        </Tooltip>
+      )
+    },
+    {
+      field: 'price',
+      headerName: 'Цена',
+      type: 'number',
+      width: 120,
+      editable: true,
+      valueFormatter: params => `${params.value} ₽`,
+      renderHeader: () => (
+        <Tooltip title="Цена за единицу материала в рублях">
+          <span>Цена</span>
+        </Tooltip>
+      )
+    },
+    {
+      field: 'quantity',
+      headerName: 'Кол-во',
+      type: 'number',
+      width: 100,
+      editable: true,
+      renderHeader: () => (
+        <Tooltip title="Количество материалов, требуется для производства">
+          <span>Кол-во</span>
+        </Tooltip>
+      )
+    },
+    {
+      field: 'unit',
+      headerName: 'Ед.изм.',
+      width: 80,
+      editable: true,
+      renderHeader: () => (
+        <Tooltip title="Единица измерения: шт, м, м2, м.п., кг и т.д.">
+          <span>Ед.изм.</span>
+        </Tooltip>
+      )
+    },
+    {
+      field: 'wasteCoef',
+      headerName: 'Коэф.отх.',
+      type: 'number',
+      width: 110,
+      editable: true,
+      renderHeader: () => (
+        <Tooltip title="Коэффициент отходов: 1 = 0% отходов, 1.1 = 10% отходов. Учитывает потери при раскрое">
+          <span>Коэф.отх.</span>
+        </Tooltip>
+      )
+    },
+    {
+      field: 'cost',
+      headerName: 'Стоимость',
+      type: 'number',
+      width: 130,
+      valueFormatter: params => `${params.value} ₽`,
+      renderHeader: () => (
+        <Tooltip title="Итоговая стоимость: цена × кол-во × коэффициент отходов">
+          <span>Стоимость</span>
+        </Tooltip>
+      )
+    },
     {
       field: 'actions',
       headerName: '',
@@ -129,11 +194,65 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
   ];
 
   const columnsOperations = [
-    { field: 'name', headerName: 'Наименование', flex: 2, editable: true },
-    { field: 'pricePerUnit', headerName: 'Цена за ед.', type: 'number', width: 140, editable: true, valueFormatter: params => `${params.value} ₽` },
-    { field: 'quantity', headerName: 'Кол-во', type: 'number', width: 100, editable: true },
-    { field: 'normTime', headerName: 'Норма времени', width: 120, editable: true },
-    { field: 'cost', headerName: 'Стоимость', type: 'number', width: 130, valueFormatter: params => `${params.value} ₽` },
+    {
+      field: 'name',
+      headerName: 'Наименование',
+      flex: 2,
+      editable: true,
+      renderHeader: () => (
+        <Tooltip title="Название операции или вида работы, например: Резка, гибка, сварка">
+          <span>Наименование</span>
+        </Tooltip>
+      )
+    },
+    {
+      field: 'pricePerUnit',
+      headerName: 'Цена за ед.',
+      type: 'number',
+      width: 140,
+      editable: true,
+      valueFormatter: params => `${params.value} ₽`,
+      renderHeader: () => (
+        <Tooltip title="Стоимость одной единицы работы (например, за метр, за штуку, за час)">
+          <span>Цена за ед.</span>
+        </Tooltip>
+      )
+    },
+    {
+      field: 'quantity',
+      headerName: 'Кол-во',
+      type: 'number',
+      width: 100,
+      editable: true,
+      renderHeader: () => (
+        <Tooltip title="Количество единиц работы (метров, штук, часов)">
+          <span>Кол-во</span>
+        </Tooltip>
+      )
+    },
+    {
+      field: 'normTime',
+      headerName: 'Норма времени',
+      width: 120,
+      editable: true,
+      renderHeader: () => (
+        <Tooltip title="Нормативное время на выполнение операции в часах или минутах">
+          <span>Норма времени</span>
+        </Tooltip>
+      )
+    },
+    {
+      field: 'cost',
+      headerName: 'Стоимость',
+      type: 'number',
+      width: 130,
+      valueFormatter: params => `${params.value} ₽`,
+      renderHeader: () => (
+        <Tooltip title="Общая стоимость работы: цена за ед. × кол-во">
+          <span>Стоимость</span>
+        </Tooltip>
+      )
+    },
     {
       field: 'actions',
       headerName: '',

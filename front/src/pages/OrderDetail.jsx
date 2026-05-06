@@ -11,10 +11,17 @@ import {
   CircularProgress,
   Alert,
   Chip,
+  TextField,
   Divider,
-  Grid
+  Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  MenuItem,
+  Snackbar
 } from '@mui/material';
-import { ArrowBack, Payment } from '@mui/icons-material';
+import { ArrowBack, Payment, Edit } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -486,61 +493,58 @@ const getStatusColor = (status) => {
 };
 
 const PositionsTab = ({ materials = [], items = [], orderId }) => {
-  const displayList = (materials && materials.length > 0) ? materials : items;
-
-  if (!displayList?.length) {
+  if (!items?.length && !materials?.length) {
     return <Typography>Нет позиций в заказе</Typography>;
   }
 
-  const isMaterial = displayList[0]?.material !== undefined;
   const navigate = useNavigate();
 
   return (
     <Box>
-      {displayList.map((entry) => {
-        const name = isMaterial ? entry.material?.name : entry.name;
-        const price = isMaterial ? entry.material?.price : entry.price;
-        const quantity = entry.quantity;
-        const cost = entry.cost;
-        const readyDate = entry.readyDate;
-        const unit = isMaterial ? entry.material?.unit : '';
-
-        const qtyDisplay = isMaterial
-          ? parseFloat(quantity).toFixed(3)
-          : quantity;
-
-        return (
-          <Paper key={entry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="subtitle1">{name}</Typography>
-              <Typography variant="h6">{cost?.toFixed(2)} ₽</Typography>
-            </Box>
-            <Box display="flex" gap={4} mt={1}>
-              <Typography variant="body2" color="text.secondary">
-                Цена за ед.: {price?.toFixed(2)} ₽
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Кол-во: {qtyDisplay} {unit}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Срок: {readyDate || '—'}
-              </Typography>
-            </Box>
-            {!isMaterial && (
-              <Box mt={1}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<Edit />}
-                  onClick={() => navigate(`/orders/${orderId}/items/${entry.id}`)}
-                >
-                  Смета
-                </Button>
-              </Box>
-            )}
-          </Paper>
-        );
-      })}
+      {items.map((item) => (
+        <Paper key={item.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle1">{item.name}</Typography>
+            <Typography variant="h6">{Number(item.cost).toFixed(2)} ₽</Typography>
+          </Box>
+          <Box display="flex" gap={4} mt={1}>
+            <Typography variant="body2" color="text.secondary">
+              Цена за ед.: {Number(item.price).toFixed(2)} ₽
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Кол-во: {item.quantity} шт.
+            </Typography>
+          </Box>
+          <Box mt={1}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Edit />}
+              onClick={() => navigate(`/orders/${orderId}/items/${item.id}`)}
+            >
+              Смета
+            </Button>
+          </Box>
+        </Paper>
+      ))}
+      {materials.map((materialEntry) => (
+        <Paper key={materialEntry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle1">
+              {materialEntry.material?.name || 'Материал'}
+            </Typography>
+            <Typography variant="h6">{Number(materialEntry.cost).toFixed(2)} ₽</Typography>
+          </Box>
+          <Box display="flex" gap={4} mt={1}>
+            <Typography variant="body2" color="text.secondary">
+              Цена за ед.: {Number(materialEntry.material?.price || 0).toFixed(2)} ₽
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Кол-во: {parseFloat(materialEntry.quantity).toFixed(3)} {materialEntry.material?.unit || ''}
+            </Typography>
+          </Box>
+        </Paper>
+      ))}
     </Box>
   );
 };

@@ -15,18 +15,10 @@ const Dashboard = () => {
     },
   });
 
-  const openWindow = useWindowsStore((state) => state.openWindow);
+  const navigate = useNavigate();
 
   const handleCreateOrder = () => {
-    openWindow({
-      title: 'Новый заказ',
-      x: 100,
-      y: 100,
-      width: 800,
-      height: 600,
-      Component: CreateOrderForm,
-      props: {}
-    });
+    navigate('/orders/new');
   };
 
   const stats = {
@@ -44,7 +36,7 @@ const Dashboard = () => {
   ];
 
   return (
-    <Box>
+    <Box sx={{ mt: 4, width: '1900px', mx: 'auto', overflowX: 'auto' }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h4">
           Панель управления

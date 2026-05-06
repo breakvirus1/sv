@@ -2,7 +2,7 @@ import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, Men
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 import { Person, Logout, Add, AdminPanelSettings, ShoppingBag } from '@mui/icons-material';
-import { useWindowsStore } from '../store/windowsStore';
+
 import { useNavigate } from 'react-router-dom';
 import CreateOrderForm from './CreateOrderForm';
 
@@ -10,7 +10,7 @@ const Navbar = () => {
   const { user, login, logout, isAuthenticated } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
   const [createAnchorEl, setCreateAnchorEl] = useState(null);
-  const openWindow = useWindowsStore((state) => state.openWindow);
+
   const navigate = useNavigate();
 
   // Debug logging
@@ -32,18 +32,10 @@ const Navbar = () => {
     setCreateAnchorEl(null);
   };
 
-   const handleCreateOrder = () => {
-     handleCloseCreate();
-     openWindow({
-       title: 'Новый заказ',
-       x: 100,
-       y: 100,
-       width: 800,
-       height: 600,
-       Component: CreateOrderForm,
-       props: {}
-     });
-   };
+    const handleCreateOrder = () => {
+      handleCloseCreate();
+      navigate('/orders/new');
+    };
 
    const handleMyOrders = () => {
      handleClose();

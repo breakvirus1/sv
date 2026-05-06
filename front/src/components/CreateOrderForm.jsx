@@ -284,10 +284,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
       // Invalidate queries
       await queryClient.invalidateQueries({ queryKey: ['orders'] });
-      await queryClient.invalidateQueries({ queryKey: ['recentOrders'] });
+       await queryClient.invalidateQueries({ queryKey: ['recentOrders'] });
 
       setTimeout(() => {
-        if (closeWindow) closeWindow();
+        handleClose();
       }, 1500);
     } catch (err) {
       setNotification({
