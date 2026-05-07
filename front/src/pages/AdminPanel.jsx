@@ -272,7 +272,37 @@ const AdminPanel = () => {
 
     // Operation form handlers
     const handleOpChange = (field, value) => {
-      setOpForm(prev => ({ ...prev, [field]: value }));
+      // Special handling for CUTTING operation type
+      if (field === 'operationType' && value === 'CUTTING') {
+        setOpForm(prev => ({
+          ...prev,
+          operationType: value,
+          requiresDimensions: false,
+          unit: 'шт',
+          basePrice: '0',
+          wasteCoefficient: '1'
+        }));
+        // Add default parameters for cutting if not present
+        setParameters(prev => {
+          const existingKeys = new Set(prev.map(p => p.paramKey));
+          const needed = [
+            { paramKey: 'marginWidth', displayName: 'Припуск по ширине (мм)', type: 'NUMBER', unit: 'мм', defaultValue: 50, required: false, sortOrder: prev.length },
+            { paramKey: 'marginHeight', displayName: 'Припуск по высоте (мм)', type: 'NUMBER', unit: 'мм', defaultValue: 50, required: false, sortOrder: prev.length + 1 },
+            { paramKey: 'sides', displayName: 'Количество сторон', type: 'NUMBER', unit: 'шт', defaultValue: 1, required: false, sortOrder: prev.length + 2 }
+          ];
+          const newParams = [...prev];
+          let added = false;
+          needed.forEach(rp => {
+            if (!existingKeys.has(rp.paramKey)) {
+              newParams.push({ id: Date.now() + Math.random(), ...rp });
+              added = true;
+            }
+          });
+          return added ? newParams : prev;
+        });
+      } else {
+        setOpForm(prev => ({ ...prev, [field]: value }));
+      }
     };
 
     // Parameters handlers
@@ -389,15 +419,16 @@ const AdminPanel = () => {
       }
     };
 
-    const handleEditOperation = (op) => {
-      setOpForm({
+     const handleEditOperation = (op) => {
+       const isCutting = op.operationType === 'CUTTING';
+       setOpForm({
         name: op.name || '',
         description: op.description || '',
         operationType: op.operationType || 'PRINT',
-        basePrice: op.basePrice ? op.basePrice.toString() : '',
-        wasteCoefficient: op.wasteCoefficient ? op.wasteCoefficient.toString() : '1',
-        unit: op.unit || 'шт',
-        requiresDimensions: op.requiresDimensions || false,
+        basePrice: isCutting ? '0' : (op.basePrice ? op.basePrice.toString() : ''),
+        wasteCoefficient: isCutting ? '1' : (op.wasteCoefficient ? op.wasteCoefficient.toString() : '1'),
+        unit: isCutting ? 'шт' : (op.unit || 'шт'),
+        requiresDimensions: isCutting ? false : (op.requiresDimensions || false),
         allowsAdditionalMaterials: op.allowsAdditionalMaterials || false,
         sortOrder: op.sortOrder || 0,
         active: op.active !== false
@@ -967,7 +998,39 @@ const AdminPanel = () => {
                            ))}
                          </Select>
                        </FormControl>
-                  <TextField label="Базовая цена" type="number" size="small" value={opForm.basePrice} onChange={(e) => handleOpChange('basePrice', e.target.value)} inputProps={{ step: 0.01 }} sx={{ width: 150 }} />
+                    {opForm.operationType === 'CUTTING' ? (
+                      <Box sx={{ width: 250 }}>
+                        <Typography variant="caption" display="block" sx={{ fontSize: 10, mb: 0.5 }}>
+                          Базовая цена (включена в материал)
+                        </Typography>
+                        {selectedMaterial?.price ? (
+                          <TextField
+                            value={selectedMaterial.price.toFixed(2) + ' ₽/м²'}
+                            disabled
+                            size="small"
+                            fullWidth
+                          />
+                         ) : (
+                           <TextField
+                             value={`Припуск: ${(parseFloat(parameters.find(p => p.paramKey === 'marginWidth')?.defaultValue) || 50) + (parseFloat(parameters.find(p => p.paramKey === 'marginHeight')?.defaultValue) || 50)} мм`}
+                             disabled
+                             size="small"
+                             fullWidth
+                           />
+                         )}
+                         <input type="hidden" name="basePrice" value="0" />
+                       </Box>
+                     ) : (
+                       <TextField
+                         label="Базовая цена"
+                         type="number"
+                         size="small"
+                         value={opForm.basePrice}
+                         onChange={(e) => handleOpChange('basePrice', e.target.value)}
+                         inputProps={{ step: 0.01 }}
+                         sx={{ width: 150 }}
+                       />
+                     )}
                   <FormControl sx={{ minWidth: 120 }}>
                     <InputLabel>Ед. изм.</InputLabel>
                     <Select value={opForm.unit} label="Ед. изм." onChange={(e) => handleOpChange('unit', e.target.value)}>
@@ -978,11 +1041,20 @@ const AdminPanel = () => {
                   </FormControl>
                 </Box>
 
-                <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-                  <TextField label="Коэффициент отходов" type="number" size="small" value={opForm.wasteCoefficient} onChange={(e) => handleOpChange('wasteCoefficient', e.target.value)} inputProps={{ step: 0.1 }} sx={{ width: 200 }} />
-                  <FormControlLabel control={<Checkbox checked={opForm.requiresDimensions} onChange={(e) => handleOpChange('requiresDimensions', e.target.checked)} />} label="Требует размеры" />
-                  <FormControlLabel control={<Checkbox checked={opForm.allowsAdditionalMaterials} onChange={(e) => handleOpChange('allowsAdditionalMaterials', e.target.checked)} />} label="Доп. материалы" />
-                </Box>
+                 <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+                   {opForm.operationType === 'CUTTING' ? (
+                     <Box sx={{ width: 200 }}>
+                       <Typography variant="caption" display="block" sx={{ fontSize: 10, mb: 0.5 }}>
+                         Коэффициент отходов (не применяется)
+                       </Typography>
+                       <TextField value="1" disabled size="small" fullWidth />
+                     </Box>
+                   ) : (
+                     <TextField label="Коэффициент отходов" type="number" size="small" value={opForm.wasteCoefficient} onChange={(e) => handleOpChange('wasteCoefficient', e.target.value)} inputProps={{ step: 0.1 }} sx={{ width: 200 }} />
+                   )}
+                   <FormControlLabel control={<Checkbox checked={opForm.requiresDimensions} onChange={(e) => handleOpChange('requiresDimensions', e.target.checked)} />} label="Требует размеры" />
+                   <FormControlLabel control={<Checkbox checked={opForm.allowsAdditionalMaterials} onChange={(e) => handleOpChange('allowsAdditionalMaterials', e.target.checked)} />} label="Доп. материалы" />
+                 </Box>
 
                 {/* Parameters Section */}
                 <Box>
