@@ -300,6 +300,22 @@ const AdminPanel = () => {
           });
           return added ? newParams : prev;
         });
+      } else if (field === 'operationType' && value === 'EYELETS') {
+        // Настройки для операции "Люверсы"
+        setOpForm(prev => ({
+          ...prev,
+          operationType: value,
+          requiresDimensions: false,
+          unit: 'шт',
+          basePrice: '15',
+          wasteCoefficient: '1'
+        }));
+        // Заменяем параметры на стандартные для люверсов: step, edgeDistance, diameter
+        setParameters([
+          { id: Date.now(), paramKey: 'step', displayName: 'Шаг установки (мм)', type: 'NUMBER', unit: 'мм', defaultValue: 500, required: false, sortOrder: 0 },
+          { id: Date.now() + 1, paramKey: 'edgeDistance', displayName: 'Отступ от края (мм)', type: 'NUMBER', unit: 'мм', defaultValue: 50, required: false, sortOrder: 1 },
+          { id: Date.now() + 2, paramKey: 'diameter', displayName: 'Диаметр люверса (мм)', type: 'NUMBER', unit: 'мм', defaultValue: 12, required: false, sortOrder: 2 }
+        ]);
       } else {
         setOpForm(prev => ({ ...prev, [field]: value }));
       }
@@ -398,43 +414,81 @@ const AdminPanel = () => {
       // Filter out empty additional materials
       const validAddMats = additionalMaterials.filter(am => am.materialId);
 
-      const payload = {
-        name: opForm.name,
-        description: opForm.description,
-        operationType: opForm.operationType,
-        basePrice: parseFloat(opForm.basePrice),
-        wasteCoefficient: parseFloat(opForm.wasteCoefficient) || 1,
-        unit: opForm.unit,
-        requiresDimensions: opForm.requiresDimensions,
-        allowsAdditionalMaterials: opForm.allowsAdditionalMaterials,
-        sortOrder: parseInt(opForm.sortOrder) || 0,
-        active: opForm.active,
-        parameters: validParams,
-        additionalMaterials: validAddMats
-      };
-      if (editingOpId) {
+       const payload = {
+         name: opForm.name,
+         description: opForm.description,
+         operationType: opForm.operationType,
+         basePrice: parseFloat(opForm.basePrice),
+         wasteCoefficient: parseFloat(opForm.wasteCoefficient) || 1,
+         unit: opForm.unit,
+         requiresDimensions: opForm.requiresDimensions,
+         allowsAdditionalMaterials: opForm.allowsAdditionalMaterials,
+         sortOrder: parseInt(opForm.sortOrder) || 0,
+         active: opForm.active,
+         parameters: validParams,
+         additionalMaterials: validAddMats
+       };
+       // Установка quantityFormula для операции "Люверсы"
+       if (opForm.operationType === 'EYELETS') {
+         payload.quantityFormula = 'helper.eyeletCount(step, edgeDistance, quantity)';
+       }
+       if (editingOpId) {
         updateMaterialOpMutation.mutate({ materialId: selectedMaterial.id, opId: editingOpId, data: payload });
       } else {
         createMaterialOpMutation.mutate({ materialId: selectedMaterial.id, data: payload });
       }
     };
 
-     const handleEditOperation = (op) => {
-       const isCutting = op.operationType === 'CUTTING';
-       setOpForm({
+    const handleEditOperation = (op) => {
+      const isCutting = op.operationType === 'CUTTING';
+      const isEyelets = op.operationType === 'EYELETS';
+      setOpForm({
         name: op.name || '',
         description: op.description || '',
         operationType: op.operationType || 'PRINT',
-        basePrice: isCutting ? '0' : (op.basePrice ? op.basePrice.toString() : ''),
-        wasteCoefficient: isCutting ? '1' : (op.wasteCoefficient ? op.wasteCoefficient.toString() : '1'),
+        basePrice: isCutting ? '0' : (op.basePrice ? op.basePrice.toString() : (isEyelets ? '15' : '')),
+        wasteCoefficient: isCutting ? '1' : (op.wasteCoefficient ? op.wasteCoefficient.toString() : (isEyelets ? '1' : '')),
         unit: isCutting ? 'шт' : (op.unit || 'шт'),
-        requiresDimensions: isCutting ? false : (op.requiresDimensions || false),
+        requiresDimensions: isCutting || isEyelets ? false : (op.requiresDimensions || false),
         allowsAdditionalMaterials: op.allowsAdditionalMaterials || false,
         sortOrder: op.sortOrder || 0,
         active: op.active !== false
       });
-      // Set parameters
-      if (op.parameters && Array.isArray(op.parameters)) {
+      // Set parameters: для EYELETS — только step, edgeDistance, diameter (сохраняем значения из существующих параметров, если есть)
+      if (isEyelets) {
+        const oldParams = op.parameters || [];
+        const findParam = (key, defDisplayName, defUnit, defVal) => {
+          const p = oldParams.find(pp => pp.paramKey === key);
+          if (p) {
+            return {
+              id: p.id || Date.now() + Math.random(),
+              paramKey: p.paramKey,
+              displayName: p.displayName || defDisplayName,
+              type: p.type || 'NUMBER',
+              unit: p.unit || defUnit,
+              defaultValue: p.defaultValue !== undefined ? p.defaultValue : defVal,
+              required: p.required || false,
+              sortOrder: p.sortOrder || 0
+            };
+          } else {
+            return {
+              id: Date.now() + Math.random(),
+              paramKey: key,
+              displayName: defDisplayName,
+              type: 'NUMBER',
+              unit: defUnit,
+              defaultValue: defVal,
+              required: false,
+              sortOrder: 0
+            };
+          }
+        };
+        setParameters([
+          findParam('step', 'Шаг установки (мм)', 'мм', 500),
+          findParam('edgeDistance', 'Отступ от края (мм)', 'мм', 50),
+          findParam('diameter', 'Диаметр люверса (мм)', 'мм', 12)
+        ]);
+      } else if (op.parameters && Array.isArray(op.parameters)) {
         setParameters(op.parameters.map(p => ({
           id: p.id || Date.now() + Math.random(),
           paramKey: p.paramKey || '',

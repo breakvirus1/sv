@@ -7,7 +7,9 @@ import com.example.orderservice.dto.*;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderItem;
 import com.example.orderservice.entity.OrderMaterial;
+import com.example.orderservice.entity.OrderMaterialOperation;
 import com.example.orderservice.entity.OrderStage;
+import com.example.orderservice.order.entity.OrderItemOperation;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -49,7 +51,12 @@ public interface OrderMapper {
     @Mapping(source = "width", target = "width")
     @Mapping(source = "height", target = "height")
     @Mapping(source = "params", target = "params")
+    @Mapping(source = "operations", target = "operations")
+    @Mapping(target = "product", ignore = true)
     OrderItemResponse itemToDto(OrderItem item);
+
+    @Mapping(target = "normTime", expression = "java(op.getNormTime() != null ? op.getNormTime().toString() : null)")
+    OrderItemOperationDTO operationToDto(OrderItemOperation op);
 
     OrderStageResponse stageToDto(OrderStage stage);
 
@@ -59,7 +66,25 @@ public interface OrderMapper {
 
     MaterialResponse materialToDto(com.example.materialservice.entity.Material material);
 
-    OrderMaterialResponse orderMaterialToDto(OrderMaterial orderMaterial);
+    default OrderMaterialResponse orderMaterialToDto(OrderMaterial om) {
+        OrderMaterialResponse res = new OrderMaterialResponse();
+        res.setId(om.getId());
+        if (om.getMaterial() != null) {
+            res.setMaterialId(om.getMaterial().getId());
+            res.setMaterialName(om.getMaterial().getName());
+            res.setPricePerUnit(om.getMaterial().getPrice());
+            res.setUnit(om.getMaterial().getUnit());
+        }
+        res.setQuantity(om.getQuantity());
+        res.setWasteCoefficient(om.getWasteCoefficient());
+        res.setCost(om.getCost());
+        res.setReadyDate(om.getReadyDate());
+        // operations will be set separately in service to avoid circular mapping
+        return res;
+    }
+
+    @Mapping(target = "pricePerUnit", source = "basePrice")
+    OrderMaterialOperationResponse orderMaterialOperationToDto(OrderMaterialOperation op);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "orderNumber", ignore = true)

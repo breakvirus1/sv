@@ -35,6 +35,8 @@ public class MaterialOperationUpdateRequest {
 
     private Boolean allowsAdditionalMaterials;
 
+    private String quantityFormula;
+
     private List<OperationParameterDto> parameters;
 
     private List<AdditionalMaterialDto> additionalMaterials;

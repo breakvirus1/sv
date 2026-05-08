@@ -29,4 +29,5 @@ public class MaterialOperationResponse {
     private Boolean active;
     private List<OperationParameterDto> parameters;
     private List<AdditionalMaterialDto> additionalMaterials;
+    private String quantityFormula;
 }

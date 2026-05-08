@@ -17,10 +17,12 @@ import {
   FormControlLabel
 } from '@mui/material';
 import { ArrowBack, Payment, InfoOutlined } from '@mui/icons-material';
+import api from '../services/api';
 
 const OperationForm = ({
   template,
   initialDimensions = { width: '', height: '' },
+  itemQuantity = 1,
   materials = [],
   onConfirm,
   onCancel
@@ -42,6 +44,41 @@ const OperationForm = ({
     }
   }, [template]);
 
+  // Calculated quantity from backend
+  const [calculatedQty, setCalculatedQty] = useState(1);
+  const [calcLoading, setCalcLoading] = useState(false);
+
+  // Fetch calculated quantity from backend when dimensions or parameters change
+  useEffect(() => {
+    if (!template) return;
+
+    const fetchQuantity = async () => {
+      setCalcLoading(true);
+      try {
+        // Use current width/height from state (may be edited by user)
+        const widthMetres = (parseFloat(width) || 0) / 1000;
+        const heightMetres = (parseFloat(height) || 0) / 1000;
+        const response = await api.post(
+          `/api/v1/materials/${template.materialId}/operations/${template.id}/calculate-quantity`,
+          {
+            width: widthMetres,
+            height: heightMetres,
+            itemCount: itemQuantity,
+            parameters: parameters
+          }
+        );
+        setCalculatedQty(Number(response.data) || 1);
+      } catch (error) {
+        console.error('Failed to calculate operation quantity', error);
+        setCalculatedQty(1);
+      } finally {
+        setCalcLoading(false);
+      }
+    };
+
+    fetchQuantity();
+  }, [template, width, height, itemQuantity, parameters]);
+
   const handleParamChange = (key, value) => {
     setParameters(prev => ({ ...prev, [key]: value }));
   };
@@ -57,35 +94,13 @@ const OperationForm = ({
     setAdditionalMats(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Compute quantity based on dimensions if required, else default to 1
-  const computedQuantity = (() => {
-    if (!template) return 1;
-    if (template.requiresDimensions) {
-      const w = parseFloat(width) || 0;
-      const h = parseFloat(height) || 0;
-      if (template.unit === 'м²' || template.unit === 'м2') {
-        // mm to m^2
-        return (w / 1000) * (h / 1000);
-      } else if (template.unit === 'пог.м' || template.unit === 'м.п.') {
-        // perimeter in meters
-        const perimeterMM = 2 * (w + h);
-        return perimeterMM / 1000;
-      } else {
-        return 1;
-      }
-    } else {
-      // Non-dimension based, quantity is 1 by default; could be provided as parameter?
-      return 1;
-    }
-  })();
-
   const handleConfirm = () => {
     const additionalMaterialsMap = {};
     additionalMats.forEach(am => {
       additionalMaterialsMap[am.materialId] = am.quantity;
     });
     const opData = {
-      quantity: computedQuantity,
+      quantity: calcLoading ? 1 : calculatedQty,
       parameters: { ...parameters },
       additionalMaterials: additionalMaterialsMap
     };
@@ -130,64 +145,64 @@ const OperationForm = ({
           </Grid>
           <Grid item xs={12}>
             <Typography variant="body2">
-              Количество (ед.): <strong>{computedQuantity.toFixed(4)}</strong> {template.unit}
+              Количество (ед.): <strong>{(calcLoading ? 1 : calculatedQty).toFixed(4)}</strong> {template.unit}
             </Typography>
           </Grid>
         </Grid>
       )}
 
-       {/* Dynamic Parameters */}
-       {template.parameters && template.parameters.length > 0 && (
-         <Box sx={{ mb: 2 }}>
-           <Typography variant="subtitle2" gutterBottom>Параметры</Typography>
-           {template.parameters.map(param => (
-             <Box key={param.paramKey} mb={1} display="flex" alignItems="center" gap={1}>
-               {param.type === 'CHECKBOX' ? (
-                 <>
-                   <FormControlLabel
-                     control={
-                       <Checkbox
-                         checked={!!parameters[param.paramKey]}
-                         onChange={(e) => handleParamChange(param.paramKey, e.target.checked)}
-                       />
-                     }
-                     label={param.displayName}
-                   />
-                   {param.description && (
-                     <Tooltip title={param.description} arrow>
-                       <InfoOutlined sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
-                     </Tooltip>
-                   )}
-                 </>
-               ) : (
-                 <>
-                   <Box sx={{ minWidth: 200 }}>
-                     <Typography variant="caption" display="block" sx={{ fontSize: 10, mb: 0.5 }}>
-                       {param.description || param.displayName}
-                     </Typography>
-                     <TextField
-                       label={param.displayName}
-                       type={param.type === 'NUMBER' ? 'number' : 'text'}
-                       size="small"
-                       value={parameters[param.paramKey] || ''}
-                       onChange={(e) => {
-                         const val = param.type === 'NUMBER' ? parseFloat(e.target.value) : e.target.value;
-                         handleParamChange(param.paramKey, val);
-                       }}
-                     />
-                   </Box>
-                   {param.unit && <Typography variant="body2">{param.unit}</Typography>}
-                   {param.description && (
-                     <Tooltip title={param.description} arrow>
-                       <InfoOutlined sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
-                     </Tooltip>
-                   )}
-                 </>
-               )}
-             </Box>
-           ))}
-         </Box>
-       )}
+      {/* Dynamic Parameters */}
+      {template.parameters && template.parameters.length > 0 && (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>Параметры</Typography>
+          {template.parameters.map(param => (
+            <Box key={param.paramKey} mb={1} display="flex" alignItems="center" gap={1}>
+              {param.type === 'CHECKBOX' ? (
+                <>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={!!parameters[param.paramKey]}
+                        onChange={(e) => handleParamChange(param.paramKey, e.target.checked)}
+                      />
+                    }
+                    label={param.displayName}
+                  />
+                  {param.description && (
+                    <Tooltip title={param.description} arrow>
+                      <InfoOutlined sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Box sx={{ minWidth: 200 }}>
+                    <Typography variant="caption" display="block" sx={{ fontSize: 10, mb: 0.5 }}>
+                      {param.description || param.displayName}
+                    </Typography>
+                    <TextField
+                      label={param.displayName}
+                      type={param.type === 'NUMBER' ? 'number' : 'text'}
+                      size="small"
+                      value={parameters[param.paramKey] || ''}
+                      onChange={(e) => {
+                        const val = param.type === 'NUMBER' ? parseFloat(e.target.value) : e.target.value;
+                        handleParamChange(param.paramKey, val);
+                      }}
+                    />
+                  </Box>
+                  {param.unit && <Typography variant="body2">{param.unit}</Typography>}
+                  {param.description && (
+                    <Tooltip title={param.description} arrow>
+                      <InfoOutlined sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                    </Tooltip>
+                  )}
+                </>
+              )}
+            </Box>
+          ))}
+        </Box>
+      )}
 
       {/* Additional Materials */}
       {template.allowsAdditionalMaterials && (
@@ -281,10 +296,10 @@ const OperationForm = ({
             Операция: <strong>{template.basePrice?.toFixed(2)} ₽</strong> за {template.unit}
           </Typography>
           <Typography variant="body2">
-            Кол-во: <strong>{computedQuantity.toFixed(4)}</strong> {template.unit}
+            Кол-во: <strong>{(calcLoading ? 1 : calculatedQty).toFixed(4)}</strong> {template.unit}
           </Typography>
           <Typography variant="h6">
-            Итого: <strong>{(template.basePrice * computedQuantity * (template.wasteCoefficient || 1)).toFixed(2)} ₽</strong>
+            Итого: <strong>{(template.basePrice * (calcLoading ? 1 : calculatedQty) * (template.wasteCoefficient || 1)).toFixed(2)} ₽</strong>
           </Typography>
         </Box>
         <Box>

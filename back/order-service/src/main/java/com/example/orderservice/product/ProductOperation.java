@@ -28,7 +28,7 @@ public class ProductOperation extends BaseEntity {
     private String unit = "шт";
     private Integer sortOrder;
 
-    /** Формула расчёта количества (например "helper.eyeletCount(width, height, step, edgeDistance, quantity)"). Если NULL, используется quantity заказа */
+    /** Формула расчёта количества (например "helper.eyeletCount(step, edgeDistance, quantity)"). Если NULL, используется quantity заказа */
     @Column(name = "quantity_formula", length = 500)
     private String quantityFormula;
 }

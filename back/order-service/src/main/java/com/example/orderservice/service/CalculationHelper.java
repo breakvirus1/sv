@@ -8,18 +8,32 @@ import java.math.BigDecimal;
  */
 public class CalculationHelper {
 
+    /** Ширина изделия в метрах (из контекста расчета) */
+    private final BigDecimal width;
+
+    /** Высота изделия в метрах (из контекста расчета) */
+    private final BigDecimal height;
+
+    /**
+     * Конструктор с размерами изделия.
+     * @param width ширина в метрах
+     * @param height высота в метрах
+     */
+    public CalculationHelper(BigDecimal width, BigDecimal height) {
+        this.width = width;
+        this.height = height;
+    }
+
     /**
      * Расчёт количества люверсов (сооружений крепления) для баннера.
-     * Учитывает шаг размещения, отступ от края и количество изделий.
+     * Ширина и высота берутся из полей позиции заказа.
      *
-     * @param width          ширина изделия в метрах
-     * @param height         высота изделия в метрах
-     * @param step           шаг между люверсами в миллиметрах (может быть null, тогда 500)
-     * @param edgeDistance   отступ от края в миллиметрах (может быть null, тогда 50)
-     * @param orderQuantity  количество изделий в заказе (может быть null, тогда 1)
+     * @param step          шаг между люверсами в миллиметрах (может быть null, тогда 500)
+     * @param edgeDistance  отступ от края в миллиметрах (может быть null, тогда 50)
+     * @param orderQuantity количество изделий в заказе (может быть null, тогда 1)
      * @return общее количество люверсов (с учётом всех изделий)
      */
-    public BigDecimal eyeletCount(BigDecimal width, BigDecimal height, Number step, Number edgeDistance, Number orderQuantity) {
+    public BigDecimal eyeletCount(Number step, Number edgeDistance, Number orderQuantity) {
         // Преобразуем размеры в миллиметры
         int wmm = width.multiply(BigDecimal.valueOf(1000)).intValue();
         int hmm = height.multiply(BigDecimal.valueOf(1000)).intValue();

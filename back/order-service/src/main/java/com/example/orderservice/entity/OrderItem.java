@@ -10,7 +10,9 @@ import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Сущность "Позиция заказа" — конкретное изделие в заказе.
@@ -76,5 +78,5 @@ public class OrderItem extends BaseEntity {
     /** Операции/работы, переопределённые для этой позиции */
     @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id")
-    private List<OrderItemOperation> operations = new ArrayList<>();
+    private Set<OrderItemOperation> operations = new HashSet<>();
 }

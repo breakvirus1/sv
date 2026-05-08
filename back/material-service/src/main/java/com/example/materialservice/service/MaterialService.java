@@ -177,11 +177,12 @@ public class MaterialService {
         response.setBasePrice(op.getBasePrice());
         response.setUnit(op.getUnit());
         response.setWasteCoefficient(op.getWasteCoefficient());
-        response.setRequiresDimensions(op.getRequiresDimensions());
-        response.setAllowsAdditionalMaterials(op.getAllowsAdditionalMaterials());
-        response.setSortOrder(op.getSortOrder());
-        response.setActive(op.getActive());
-        // Lazy loading parameters and additionalMaterials - they might be fetched or not
+         response.setRequiresDimensions(op.getRequiresDimensions());
+         response.setAllowsAdditionalMaterials(op.getAllowsAdditionalMaterials());
+         response.setSortOrder(op.getSortOrder());
+         response.setActive(op.getActive());
+         response.setQuantityFormula(op.getQuantityFormula());
+         // Lazy loading parameters and additionalMaterials - they might be fetched or not
         if (op.getParameters() != null) {
             response.setParameters(op.getParameters().stream()
                     .map(p -> new com.example.materialservice.dto.OperationParameterDto(

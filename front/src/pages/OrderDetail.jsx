@@ -19,7 +19,13 @@ import {
   DialogContent,
   DialogActions,
   MenuItem,
-  Snackbar
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from '@mui/material';
 import { ArrowBack, Payment, Edit } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -525,24 +531,80 @@ const PositionsTab = ({ materials = [], items = [], orderId }) => {
               Смета
             </Button>
           </Box>
+          {/* Operations list */}
+          {item.operations && item.operations.length > 0 && (
+            <Box mt={2}>
+              <Typography variant="subtitle2" gutterBottom>Операции:</Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Название</TableCell>
+                      <TableCell align="right">Цена</TableCell>
+                      <TableCell align="right">Кол-во</TableCell>
+                      <TableCell align="right">Сумма</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {item.operations.map((op) => (
+                      <TableRow key={op.id}>
+                        <TableCell>{op.name}</TableCell>
+                        <TableCell align="right">{Number(op.pricePerUnit).toFixed(2)} ₽</TableCell>
+                        <TableCell align="right">{Number(op.quantity).toFixed(2)}</TableCell>
+                        <TableCell align="right">{Number(op.cost).toFixed(2)} ₽</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
         </Paper>
       ))}
-      {materials.map((materialEntry) => (
-        <Paper key={materialEntry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+      {materials.map((mat) => (
+        <Paper key={mat.id} sx={{ p: 2, mb: 2 }} variant="outlined">
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Typography variant="subtitle1">
-              {materialEntry.material?.name || 'Материал'}
+              {mat.materialName}
             </Typography>
-            <Typography variant="h6">{Number(materialEntry.cost).toFixed(2)} ₽</Typography>
+            <Typography variant="h6">{Number(mat.cost).toFixed(2)} ₽</Typography>
           </Box>
           <Box display="flex" gap={4} mt={1}>
             <Typography variant="body2" color="text.secondary">
-              Цена за ед.: {Number(materialEntry.material?.price || 0).toFixed(2)} ₽
+              Цена за ед.: {Number(mat.pricePerUnit).toFixed(2)} ₽
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Кол-во: {parseFloat(materialEntry.quantity).toFixed(3)} {materialEntry.material?.unit || ''}
+              Кол-во: {parseFloat(mat.quantity).toFixed(3)} {mat.unit}
             </Typography>
           </Box>
+          {/* Operations for material */}
+          {mat.operations && mat.operations.length > 0 && (
+            <Box mt={2}>
+              <Typography variant="subtitle2" gutterBottom>Операции:</Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Название</TableCell>
+                      <TableCell align="right">Цена</TableCell>
+                      <TableCell align="right">Кол-во</TableCell>
+                      <TableCell align="right">Сумма</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {mat.operations.map((op) => (
+                      <TableRow key={op.id}>
+                        <TableCell>{op.name}</TableCell>
+                        <TableCell align="right">{Number(op.pricePerUnit).toFixed(2)} ₽</TableCell>
+                        <TableCell align="right">{Number(op.quantity).toFixed(2)}</TableCell>
+                        <TableCell align="right">{Number(op.cost).toFixed(2)} ₽</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
         </Paper>
       ))}
     </Box>

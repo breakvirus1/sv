@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Response DTO для позиции заказа (читающее представление).
@@ -36,4 +37,6 @@ public class OrderItemResponse {
     private Object product;
     /** Параметры изделия (JSON) */
     private String params;
+    /** Операции, выполненные над этой позицией */
+    private List<OrderItemOperationDTO> operations;
 }

@@ -46,7 +46,7 @@ public class CalculatorService {
         context.set("height", request.getHeight());
         context.set("quantity", request.getQuantity());
 
-        // Дополнительные параметры из формы (цвет, толщина и т.д.)
+        // Дополнительные параметры из формы (цвет, толщина, шаг люверсов, отступ и т.д.)
         if (request.getParams() != null) {
             for (Map.Entry<String, Object> entry : request.getParams().entrySet()) {
                 context.set(entry.getKey(), entry.getValue());
@@ -55,14 +55,15 @@ public class CalculatorService {
 
         // Устанавливаем параметры по умолчанию для расчёта люверсов, если они не переданы
         if (context.get("step") == null) {
-            context.set("step", 300);
+            context.set("step", 500);
         }
         if (context.get("edgeDistance") == null) {
-            context.set("edgeDistance", 15);
+            context.set("edgeDistance", 50);
         }
 
         // Добавляем вспомогательный объект для кастомных расчётов (например, люверсы)
-        context.set("helper", new CalculationHelper());
+        // CalculationHelper теперь получает width и height из позиции заказа
+        context.set("helper", new CalculationHelper(request.getWidth(), request.getHeight()));
 
         List<ComponentBreakdown> breakdown = new ArrayList<>();
         BigDecimal materialTotal = BigDecimal.ZERO;

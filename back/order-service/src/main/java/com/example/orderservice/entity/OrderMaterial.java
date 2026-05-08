@@ -9,10 +9,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Сущность "Материал в заказе" — связь заказа/позиции с материалом.
@@ -61,6 +59,6 @@ public class OrderMaterial extends BaseEntity {
 
     /** Операции, выполненные над этим материалом в заказе */
     @OneToMany(mappedBy = "orderMaterial", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<OrderMaterialOperation> operations = new ArrayList<>();
+    private Set<OrderMaterialOperation> operations = new HashSet<>();
 }
 

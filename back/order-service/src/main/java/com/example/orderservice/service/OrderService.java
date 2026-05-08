@@ -6,6 +6,7 @@ import com.example.employeeservice.entity.Employee;
 import com.example.materialservice.dto.MaterialResponse;
 import com.example.materialservice.entity.Material;
 import com.example.materialservice.entity.MaterialOperation;
+import com.example.materialservice.entity.OperationType;
 import com.example.orderservice.dto.*;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderComment;
@@ -35,6 +36,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -83,29 +85,39 @@ public class OrderService {
      */
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(Long id) {
-        Order order = orderRepository.findById(id)
+        Order order = orderRepository.findByIdWithAllDetails(id)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
         OrderResponse response = orderMapper.toDto(order);
 
-        // Загружаем связанные сущности
+        // Items with operations are mapped automatically via itemToDto (operations included)
         response.setItems(order.getItems().stream()
                 .map(orderMapper::itemToDto)
                 .collect(Collectors.toList()));
 
+        // Stages
         response.setStages(order.getStages().stream()
                 .map(orderMapper::stageToDto)
                 .collect(Collectors.toList()));
 
+        // Payments
         response.setPayments(order.getPayments().stream()
                 .map(this::mapPayment)
                 .collect(Collectors.toList()));
 
+        // Comments
         response.setComments(order.getComments().stream()
                 .map(this::mapComment)
                 .collect(Collectors.toList()));
 
+        // Materials with operations
         response.setMaterials(order.getMaterials().stream()
-                .map(this::mapOrderMaterial)
+                .map(mat -> {
+                    OrderMaterialResponse matRes = orderMapper.orderMaterialToDto(mat);
+                    matRes.setOperations(mat.getOperations().stream()
+                            .map(orderMapper::orderMaterialOperationToDto)
+                            .collect(Collectors.toList()));
+                    return matRes;
+                })
                 .collect(Collectors.toList()));
 
         return response;
@@ -193,8 +205,140 @@ public class OrderService {
                                 opReq.getWasteCoefficient() != null ? opReq.getWasteCoefficient() :
                                         (template != null ? template.getWasteCoefficient() : BigDecimal.ONE)
                         );
-                        orderOp.setQuantity(opReq.getQuantity() != null ? opReq.getQuantity() : BigDecimal.ONE);
-                        BigDecimal opCost = orderOp.getBasePrice().multiply(orderOp.getQuantity()).multiply(orderOp.getWasteCoefficient());
+                        BigDecimal operationQty;
+                        if (template != null) {
+                            BigDecimal width = matReq.getWidth();
+                            BigDecimal height = matReq.getHeight();
+                            Integer itemCnt = matReq.getItemCount();
+                            Map<String, Object> params = opReq.getParameters();
+                            switch (template.getOperationType()) {
+                                case EYELETS:
+                                    if (width == null || height == null) {
+                                        operationQty = BigDecimal.ONE;
+                                    } else {
+                                        CalculationHelper helper = new CalculationHelper(width, height);
+                                        Number step = null, edge = null;
+                                        if (params != null) {
+                                            Object s = params.get("step");
+                                            Object e = params.get("edgeDistance");
+                                            if (s instanceof Number) step = (Number) s;
+                                            if (e instanceof Number) edge = (Number) e;
+                                        }
+                                        BigDecimal baseQty = helper.eyeletCount(step, edge, itemCnt);
+                                        BigDecimal wasteCoef = opReq.getWasteCoefficient() != null ? opReq.getWasteCoefficient() : template.getWasteCoefficient();
+                                        operationQty = baseQty.multiply(wasteCoef);
+                                    }
+                                    break;
+                                case CUTTING:
+                                    if (width == null || height == null) {
+                                        operationQty = BigDecimal.ONE;
+                                    } else {
+                                        Number marginW = null, marginH = null, sidesNum = null;
+                                        if (params != null) {
+                                            if (params.get("marginWidth") instanceof Number) marginW = (Number) params.get("marginWidth");
+                                            if (params.get("marginHeight") instanceof Number) marginH = (Number) params.get("marginHeight");
+                                            if (params.get("sides") instanceof Number) sidesNum = (Number) params.get("sides");
+                                        }
+                                        int mw = marginW != null ? marginW.intValue() : 50;
+                                        int mh = marginH != null ? marginH.intValue() : 50;
+                                        int sides = sidesNum != null ? sidesNum.intValue() : 1;
+                                        BigDecimal widthMm = width.multiply(BigDecimal.valueOf(1000));
+                                        BigDecimal heightMm = height.multiply(BigDecimal.valueOf(1000));
+                                        BigDecimal extraAreaMm2 = BigDecimal.valueOf(mw).multiply(widthMm).multiply(BigDecimal.valueOf(sides))
+                                                .add(BigDecimal.valueOf(mh).multiply(heightMm).multiply(BigDecimal.valueOf(sides)));
+                                        int cnt = itemCnt != null ? itemCnt : 1;
+                                        operationQty = extraAreaMm2.divide(BigDecimal.valueOf(1_000_000), 4, RoundingMode.HALF_UP)
+                                                .multiply(BigDecimal.valueOf(cnt));
+                                    }
+                                    break;
+                                case PRINT:
+                                    if (width == null || height == null) {
+                                        operationQty = BigDecimal.ONE;
+                                    } else {
+                                        BigDecimal areaPerItem = width.multiply(height);
+                                        operationQty = areaPerItem.multiply(BigDecimal.valueOf(itemCnt != null ? itemCnt : 1));
+                                    }
+                                    break;
+                                case LAMINATION:
+                                    if (width == null || height == null) {
+                                        operationQty = BigDecimal.ONE;
+                                    } else {
+                                        Number lamMarginW = null, lamMarginH = null;
+                                        if (params != null) {
+                                            if (params.get("marginWidth") instanceof Number) lamMarginW = (Number) params.get("marginWidth");
+                                            if (params.get("marginHeight") instanceof Number) lamMarginH = (Number) params.get("marginHeight");
+                                        }
+                                        double marginWm = (lamMarginW != null ? lamMarginW.doubleValue() : 20) / 1000.0;
+                                        double marginHm = (lamMarginH != null ? lamMarginH.doubleValue() : 20) / 1000.0;
+                                        BigDecimal effW = width.add(BigDecimal.valueOf(2 * marginWm));
+                                        BigDecimal effH = height.add(BigDecimal.valueOf(2 * marginHm));
+                                        BigDecimal areaLam = effW.multiply(effH);
+                                        operationQty = areaLam.multiply(BigDecimal.valueOf(itemCnt != null ? itemCnt : 1));
+                                    }
+                                    break;
+                                case WELDING:
+                                    if (width == null || height == null) {
+                                        operationQty = BigDecimal.ONE;
+                                    } else {
+                                        BigDecimal perimeter = width.add(height).multiply(BigDecimal.valueOf(2));
+                                        operationQty = perimeter.multiply(BigDecimal.valueOf(itemCnt != null ? itemCnt : 1));
+                                    }
+                                    break;
+                                default:
+                                    operationQty = opReq.getQuantity() != null ? opReq.getQuantity() : BigDecimal.ONE;
+                                    break;
+                            }
+                        } else {
+                            operationQty = opReq.getQuantity() != null ? opReq.getQuantity() : BigDecimal.ONE;
+                        }
+                                    BigDecimal widthEye = matReq.getWidth();
+                                    BigDecimal heightEye = matReq.getHeight();
+                                    if (widthEye == null || heightEye == null) {
+                                        operationQty = BigDecimal.ONE;
+                                    } else {
+                                        CalculationHelper helper = new CalculationHelper(widthEye, heightEye);
+                                        BigDecimal baseQty = helper.eyeletCount(step, edge, matReq.getItemCount());
+                                        BigDecimal wasteCoef = opReq.getWasteCoefficient() != null ? opReq.getWasteCoefficient() : template.getWasteCoefficient();
+                                        operationQty = baseQty.multiply(wasteCoef);
+                                    }
+                                    break;
+                                case CUTTING:
+                                    Number marginWNum = null;
+                                    Number marginHNum = null;
+                                    Number sidesNum = null;
+                                    Map<String, Object> paramsCut = opReq.getParameters();
+                                    if (paramsCut != null) {
+                                        if (paramsCut.get("marginWidth") instanceof Number) marginWNum = (Number) paramsCut.get("marginWidth");
+                                        if (paramsCut.get("marginHeight") instanceof Number) marginHNum = (Number) paramsCut.get("marginHeight");
+                                        if (paramsCut.get("sides") instanceof Number) sidesNum = (Number) paramsCut.get("sides");
+                                    }
+                                    int marginW = marginWNum != null ? marginWNum.intValue() : 50;
+                                    int marginH = marginHNum != null ? marginHNum.intValue() : 50;
+                                    int sides = sidesNum != null ? sidesNum.intValue() : 1;
+                                    BigDecimal widthCut = matReq.getWidth();
+                                    BigDecimal heightCut = matReq.getHeight();
+                                    if (widthCut == null || heightCut == null) {
+                                        operationQty = BigDecimal.ONE;
+                                    } else {
+                                        // Convert to mm
+                                        BigDecimal widthMm = widthCut.multiply(BigDecimal.valueOf(1000));
+                                        BigDecimal heightMm = heightCut.multiply(BigDecimal.valueOf(1000));
+                                        BigDecimal extraAreaMm2 = BigDecimal.valueOf(marginW).multiply(widthMm).multiply(BigDecimal.valueOf(sides))
+                                                .add(BigDecimal.valueOf(marginH).multiply(heightMm).multiply(BigDecimal.valueOf(sides)));
+                                        int itemCount = matReq.getItemCount() != null ? matReq.getItemCount() : 1;
+                                        operationQty = extraAreaMm2.divide(BigDecimal.valueOf(1_000_000), 4, RoundingMode.HALF_UP)
+                                                .multiply(BigDecimal.valueOf(itemCount));
+                                    }
+                                    break;
+                                default:
+                                    operationQty = opReq.getQuantity() != null ? opReq.getQuantity() : BigDecimal.ONE;
+                                    break;
+                            }
+                        } else {
+                            operationQty = opReq.getQuantity() != null ? opReq.getQuantity() : BigDecimal.ONE;
+                        }
+                        orderOp.setQuantity(operationQty);
+                        BigDecimal opCost = orderOp.getBasePrice().multiply(operationQty).multiply(orderOp.getWasteCoefficient());
                         orderOp.setCost(opCost);
                         total = total.add(opCost);
 
@@ -358,7 +502,7 @@ public class OrderService {
     /**
      * Пересчитать общую сумму заказа на основе позиций.
      */
-    private void recalculateTotalAmount(Long orderId) {
+    void recalculateTotalAmount(Long orderId) {
         BigDecimal total = jdbcTemplate.queryForObject(
             "SELECT COALESCE(SUM(cost), 0) FROM order_items WHERE order_id = ? AND deleted = false",
             new Object[]{orderId},
@@ -412,28 +556,6 @@ public class OrderService {
                 authorDto,
                 comment.getIsInternal(),
                 comment.getCreatedAt()
-        );
-    }
-
-    private OrderMaterialResponse mapOrderMaterial(OrderMaterial om) {
-        Material material = om.getMaterial();
-        MaterialResponse materialDto = material != null ?
-                new MaterialResponse(
-                        material.getId(),
-                        material.getName(),
-                        material.getUnit(),
-                        material.getPrice(),
-                        material.getWasteCoefficient(),
-                        List.of()
-                ) : null;
-
-        return new OrderMaterialResponse(
-                om.getId(),
-                materialDto,
-                om.getQuantity(),
-                om.getReadyDate(),
-                om.getWasteCoefficient(),
-                om.getCost()
         );
     }
 
@@ -539,7 +661,7 @@ public class OrderService {
         }
     }
 
-    private void recalculateOrderCostAndMargin(Long orderId) {
+    void recalculateOrderCostAndMargin(Long orderId) {
         BigDecimal legacyMatCost = jdbcTemplate.queryForObject(
                 "SELECT COALESCE(SUM(cost),0) FROM order_materials WHERE order_id = ? AND deleted = false",
                 new Object[]{orderId}, BigDecimal.class);

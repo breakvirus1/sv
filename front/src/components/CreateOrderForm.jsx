@@ -134,7 +134,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '', operations: [] }]
+      items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '', itemCount: 1, operations: [] }]
     }));
   };
 
@@ -472,6 +472,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         return {
           materialId: parseInt(item.materialId),
           quantity: baseQty,
+          width: item.qty1 ? parseFloat(item.qty1) / 1000 : null,
+          height: item.qty2 ? parseFloat(item.qty2) / 1000 : null,
+          itemCount: parseInt(item.itemCount) || 1,
           readyDate: item.readyDate || null,
           operations: ops
         };
@@ -596,16 +599,17 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           ) : (
             <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}>
               <Table size="small">
-                 <TableHead>
-                  <TableRow>
-                    <TableCell>Материал</TableCell>
-                    <TableCell width={150}>Размер 1 (мм)</TableCell>
-                    <TableCell width={150}>Размер 2 (мм)</TableCell>
-                    <TableCell width={150}>Срок готовности</TableCell>
-                    <TableCell>Операции</TableCell>
-                    <TableCell width={50}>Действия</TableCell>
-                  </TableRow>
-                </TableHead>
+                  <TableHead>
+                   <TableRow>
+                     <TableCell>Материал</TableCell>
+                     <TableCell width={150}>Размер 1 (мм)</TableCell>
+                     <TableCell width={150}>Размер 2 (мм)</TableCell>
+                     <TableCell width={80}>Кол-во</TableCell>
+                     <TableCell width={150}>Срок готовности</TableCell>
+                     <TableCell>Операции</TableCell>
+                     <TableCell width={50}>Действия</TableCell>
+                   </TableRow>
+                 </TableHead>
                 <TableBody>
                   {formData.items.map((item, index) => {
                     const material = materialsData.find(m => m.id === parseInt(item.materialId));
@@ -650,19 +654,29 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                               placeholder="Высота"
                             />
                           </TableCell>
-                        ) : (
-                          <TableCell></TableCell>
-                        )}
-                        <TableCell>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            type="date"
-                            value={item.readyDate}
-                            onChange={(e) => updateItem(index, 'readyDate', e.target.value)}
-                            InputLabelProps={{ shrink: true }}
-                          />
-                        </TableCell>
+                         ) : (
+                           <TableCell></TableCell>
+                         )}
+                         <TableCell width={80}>
+                           <TextField
+                             fullWidth
+                             size="small"
+                             type="number"
+                             value={item.itemCount}
+                             onChange={(e) => updateItem(index, 'itemCount', e.target.value)}
+                             inputProps={{ min: 1 }}
+                           />
+                         </TableCell>
+                         <TableCell>
+                           <TextField
+                             fullWidth
+                             size="small"
+                             type="date"
+                             value={item.readyDate}
+                             onChange={(e) => updateItem(index, 'readyDate', e.target.value)}
+                             InputLabelProps={{ shrink: true }}
+                           />
+                         </TableCell>
                         <TableCell>
                           {item.materialId && (
                             <Button size="small" startIcon={<Add />} onClick={() => openOperationDialog(index)}>
@@ -797,6 +811,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                 width: parseFloat(formData.items[activeItemIdx]?.qty1) || 0,
                 height: parseFloat(formData.items[activeItemIdx]?.qty2) || 0
               }}
+              itemQuantity={parseInt(formData.items[activeItemIdx]?.itemCount) || 1}
               materials={materialsData}
               onConfirm={(opData) => {
                 const newOp = {

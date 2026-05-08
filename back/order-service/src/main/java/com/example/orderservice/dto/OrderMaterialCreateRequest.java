@@ -22,6 +22,15 @@ public class OrderMaterialCreateRequest {
     /** Количество в единицах измерения материала (например, метры, квадратные метры) */
     private BigDecimal quantity;
 
+    /** Ширина изделия в метрах (для расчёта операций) */
+    private BigDecimal width;
+
+    /** Высота изделия в метрах (для расчёта операций) */
+    private BigDecimal height;
+
+    /** Количество изделий (для расчёта операций, например, люверсов) */
+    private Integer itemCount;
+
     /** Срок готовности позиции (опционально) */
     private LocalDate readyDate;
 

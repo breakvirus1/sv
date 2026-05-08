@@ -7,30 +7,48 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.Optional;
+
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
 
     @Modifying
     @Transactional
-    @Query("UPDATE Order o SET o.totalAmount = :amount WHERE o.id = :id")
-    void updateTotalAmount(Long id, java.math.BigDecimal amount);
+    @Query("UPDATE Order o SET o.totalAmount = ?2 WHERE o.id = ?1")
+    void updateTotalAmount(Long id, BigDecimal amount);
 
     @Modifying
     @Transactional
-    @Query("UPDATE Order o SET o.paidAmount = :amount WHERE o.id = :id")
-    void updatePaidAmount(Long id, java.math.BigDecimal amount);
+    @Query("UPDATE Order o SET o.paidAmount = ?2 WHERE o.id = ?1")
+    void updatePaidAmount(Long id, BigDecimal amount);
 
     @Modifying
     @Transactional
-    @Query("UPDATE Order o SET o.debtAmount = o.totalAmount - o.paidAmount WHERE o.id = :id")
+    @Query("UPDATE Order o SET o.debtAmount = o.totalAmount - o.paidAmount WHERE o.id = ?1")
     void updateDebtAmount(Long id);
 
     @Modifying
     @Transactional
-    @Query("UPDATE Order o SET o.costPrice = :amount WHERE o.id = :id")
-    void updateCostPrice(Long id, java.math.BigDecimal amount);
+    @Query("UPDATE Order o SET o.costPrice = ?2 WHERE o.id = ?1")
+    void updateCostPrice(Long id, BigDecimal amount);
 
     @Modifying
     @Transactional
-    @Query("UPDATE Order o SET o.marginPercent = :percent WHERE o.id = :id")
-    void updateMarginPercent(Long id, java.math.BigDecimal percent);
+    @Query("UPDATE Order o SET o.marginPercent = ?2 WHERE o.id = ?1")
+    void updateMarginPercent(Long id, BigDecimal percent);
+
+    @Query("SELECT DISTINCT o FROM Order o " +
+           "LEFT JOIN FETCH o.client " +
+           "LEFT JOIN FETCH o.manager " +
+           "LEFT JOIN FETCH o.items i " +
+           "LEFT JOIN FETCH i.product " +
+           "LEFT JOIN FETCH i.operations " +
+           "LEFT JOIN FETCH o.materials m " +
+           "LEFT JOIN FETCH m.material " +
+           "LEFT JOIN FETCH m.operations " +
+           "LEFT JOIN FETCH o.stages " +
+           "LEFT JOIN FETCH o.payments " +
+           "LEFT JOIN FETCH o.comments " +
+           "WHERE o.id = ?1")
+    Optional<Order> findByIdWithAllDetails(Long id);
 }

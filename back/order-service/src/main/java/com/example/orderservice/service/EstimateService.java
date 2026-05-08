@@ -12,6 +12,7 @@ import com.example.orderservice.product.Product;
 import com.example.orderservice.product.ProductMaterial;
 import com.example.orderservice.product.ProductOperation;
 import com.example.orderservice.product.repository.ProductRepository;
+import com.example.orderservice.service.OrderService;
 import com.example.materialservice.entity.Material;
 import com.example.materialservice.repository.MaterialRepository;
 import com.example.orderservice.repository.OrderItemRepository;
@@ -37,6 +38,7 @@ public class EstimateService {
     private final ProductRepository productRepository;
     private final OrderItemRepository orderItemRepository;
     private final CalculatorService calculatorService;
+    private final OrderService orderService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -177,6 +179,29 @@ public class EstimateService {
         }
 
         orderItemRepository.save(orderItem);
+        orderItemRepository.flush();
+
+        // Recalculate order item revenue from current materials + operations
+        BigDecimal totalMat = orderItem.getMaterials().stream()
+                .map(OrderItemMaterial::getCost)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalOp = orderItem.getOperations().stream()
+                .map(OrderItemOperation::getCost)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalExpense = totalMat.add(totalOp);
+        BigDecimal sellingPriceTotal = totalExpense.multiply(BigDecimal.valueOf(1.8));
+        orderItem.setCost(sellingPriceTotal);
+        orderItem.setPrice(sellingPriceTotal.divide(BigDecimal.valueOf(orderItem.getQuantity()), 2, BigDecimal.ROUND_HALF_UP));
+
+        // Flush order item updates before order-level recalculations
+        orderItemRepository.flush();
+
+        // Update order-level aggregates
+        Long orderId = orderItem.getOrder().getId();
+        orderService.recalculateTotalAmount(orderId);
+        orderService.recalculateOrderCostAndMargin(orderId);
 
         return calculateEstimate(orderItemId);
     }

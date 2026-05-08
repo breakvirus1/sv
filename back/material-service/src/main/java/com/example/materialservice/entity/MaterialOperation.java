@@ -41,6 +41,10 @@ public class MaterialOperation extends BaseEntity {
     @Column(name = "operation_type", length = 30, nullable = false)
     private OperationType operationType;
 
+    /** Формула расчёта количества (например "helper.eyeletCount(step, edgeDistance, quantity)"). Если NULL, используется quantity из заказа */
+    @Column(name = "quantity_formula", length = 500)
+    private String quantityFormula;
+
     /** Базовая цена операции (за м², за пог.м, за шт.) */
     @Column(name = "base_price", precision = 12, scale = 2)
     private BigDecimal basePrice = BigDecimal.ZERO;
