@@ -4,6 +4,12 @@ spring:
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:12345}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    schemas: calculator
+  jpa:
+    properties:
+      hibernate:
+        default_schema: calculator
   security:
     oauth2:
       resourceserver:

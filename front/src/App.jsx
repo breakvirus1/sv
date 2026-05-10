@@ -3,10 +3,11 @@ import { useAuth } from './context/AuthContext'
 import Navbar from './components/Navbar'
  import LoginPage from './pages/LoginPage'
  import Dashboard from './pages/Dashboard'
-  import OrdersList from './pages/OrdersList'
-  import OrderDetail from './pages/OrderDetail'
-  import CallbackPage from './pages/CallbackPage'
-  import AdminPanel from './pages/AdminPanel'
+   import OrdersList from './pages/OrdersList'
+   import OrderDetail from './pages/OrderDetail'
+   import CallbackPage from './pages/CallbackPage'
+   import AdminPanel from './pages/AdminPanel'
+ import TestCalculations from './pages/TestCalculations'
 import { useWindowsStore } from './store/windowsStore'
 import Window from './components/Window'
 
@@ -74,12 +75,17 @@ function App() {
                 <OrderDetail />
               </ProtectedRoute>
             } />
-            <Route path="/admin" element={
-              <ProtectedRoute requiresAdmin={true}>
-                <AdminPanel />
-              </ProtectedRoute>
-            } />
-          </Routes>
+             <Route path="/admin" element={
+               <ProtectedRoute requiresAdmin={true}>
+                 <AdminPanel />
+               </ProtectedRoute>
+             } />
+             <Route path="/test-calculations" element={
+               <ProtectedRoute>
+                 <TestCalculations />
+               </ProtectedRoute>
+             } />
+           </Routes>
         </div>
       </div>
     </div>

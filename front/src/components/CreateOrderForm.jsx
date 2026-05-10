@@ -24,7 +24,9 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
-  Menu
+  Menu,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import { Add, Delete, Save } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -47,9 +49,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     items: []
   });
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  // Operations menu state
-  const [operationsMenu, setOperationsMenu] = useState({ anchorEl: null, itemIndex: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Operations dialog state
+  const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
 
   // Клиентский диалог создания нового клиента
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
@@ -75,6 +77,14 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     queryFn: async () => {
       const response = await api.get('/api/v1/materials?size=100');
       return response.data.content || [];
+    },
+  });
+
+  const { data: operationsData = [], error: operationsError } = useQuery({
+    queryKey: ['operations'],
+    queryFn: async () => {
+      const response = await api.get('/api/calculations/operations');
+      return response.data || [];
     },
   });
 
@@ -115,7 +125,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '' }]
+      items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '', operations: [] }]
     }));
   };
 
@@ -130,6 +140,42 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     setFormData(prev => ({
       ...prev,
       items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
+    }));
+  };
+
+  const updateItemOperations = (index, operations) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => i === index ? { ...item, operations } : item)
+    }));
+  };
+
+  const handleOpenOperationsDialog = (itemIndex) => {
+    const item = formData.items[itemIndex];
+    setOperationsDialog({
+      open: true,
+      itemIndex,
+      selectedOps: item.operations.map(op => op.id)
+    });
+  };
+
+  const handleCloseOperationsDialog = () => {
+    setOperationsDialog({ open: false, itemIndex: null, selectedOps: [] });
+  };
+
+  const handleSaveOperations = () => {
+    const { itemIndex, selectedOps } = operationsDialog;
+    const ops = operationsData.filter(op => selectedOps.includes(op.id));
+    updateItemOperations(itemIndex, ops);
+    handleCloseOperationsDialog();
+  };
+
+  const handleToggleOperation = (opId) => {
+    setOperationsDialog(prev => ({
+      ...prev,
+      selectedOps: prev.selectedOps.includes(opId)
+        ? prev.selectedOps.filter(id => id !== opId)
+        : [...prev.selectedOps, opId]
     }));
   };
 
@@ -158,101 +204,62 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     createClientMutation.mutate(newClientForm);
   };
 
-  // Operations handlers
-  const handleOpenOperations = (e, itemIndex) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setOperationsMenu({ anchorEl: e.currentTarget, itemIndex });
-  };
 
-  const handleCloseOperations = () => {
-    setOperationsMenu({ anchorEl: null, itemIndex: null });
-  };
-
-  const handleAddPodvorot = () => {
-    const itemIndex = operationsMenu.itemIndex;
-    if (itemIndex !== null) {
-      const item = formData.items[itemIndex];
-      const material = materialsData.find(m => m.id === parseInt(item.materialId));
-      if (material && material.unit === 'м2') {
-        // Calculate perimeter in millimeters
-        const widthMm = parseFloat(item.qty1) || 0;
-        const heightMm = parseFloat(item.qty2) || 0;
-        const perimeterMm = 2 * (widthMm + heightMm);
-        // Find "Подворот" material
-        const podvorotMat = materialsData.find(m => m.name.toLowerCase().includes('подворот'));
-        if (podvorotMat) {
-          const newItem = {
-            materialId: podvorotMat.id.toString(),
-            qty1: perimeterMm.toString(),
-            qty2: '',
-            readyDate: item.readyDate || ''
-          };
-          setFormData(prev => ({
-            ...prev,
-            items: [...prev.items, newItem]
-          }));
-        }
-      }
-    }
-    handleCloseOperations();
-  };
-
-  const handleAddEyelet = () => {
-    const itemIndex = operationsMenu.itemIndex;
-    if (itemIndex !== null) {
-      const item = formData.items[itemIndex];
-      const material = materialsData.find(m => m.id === parseInt(item.materialId));
-      if (material && material.unit === 'м2') {
-        // Calculate number of eyelets based on perimeter and step
-        const widthMm = parseFloat(item.qty1) || 0;
-        const heightMm = parseFloat(item.qty2) || 0;
-        const perimeterMm = 2 * (widthMm + heightMm);
-        const perimeterCm = perimeterMm / 10;
-        const stepCm = 40; // default step
-        const eyeletCount = Math.ceil(perimeterCm / stepCm);
-        // Find "Установка люверсов" material
-        const eyeletMat = materialsData.find(m => m.name.toLowerCase().includes('люверс') || m.name.toLowerCase().includes('установка'));
-        if (eyeletMat) {
-          const newItem = {
-            materialId: eyeletMat.id.toString(),
-            qty1: eyeletCount.toString(),
-            qty2: '',
-            readyDate: item.readyDate || ''
-          };
-          setFormData(prev => ({
-            ...prev,
-            items: [...prev.items, newItem]
-          }));
-        }
-      }
-    }
-    handleCloseOperations();
-  };
 
   const handleClose = () => {
     if (closeWindow) closeWindow();
     else navigate('/orders');
   };
 
-  // Расчет общей суммы заказа
-  const totalOrderAmount = useMemo(() => {
-    return formData.items.reduce((sum, item) => {
-      const material = materialsData.find(m => m.id === parseInt(item.materialId));
-      if (!material) return sum;
-      const q1 = parseFloat(item.qty1) || 0;
-      const q2 = parseFloat(item.qty2) || 0;
-      let effectiveQty = 0;
-      if (material.unit === 'м2') {
-        effectiveQty = (q1 / 1000) * (q2 / 1000);
-      } else if (material.unit === 'м.п.') {
-        effectiveQty = q1 / 1000;
-      } else {
-        effectiveQty = q1;
+  // State for calculated total
+  const [totalOrderAmount, setTotalOrderAmount] = useState(0);
+
+  // Recalculate total when items change
+  useEffect(() => {
+    const calculateTotal = async () => {
+      let total = 0;
+      for (const item of formData.items) {
+        if (!item.materialId || !item.qty1) continue;
+        const material = materialsData.find(m => m.id === parseInt(item.materialId));
+        if (!material) continue;
+
+        const widthM = parseFloat(item.qty1) / 1000;
+        const heightM = parseFloat(item.qty2) / 1000 || 0;
+
+        // Prepare calculation request
+        const requestData = {
+          materialId: material.id,
+          materialType: material.name.toLowerCase().includes('баннер') ? 'BANNER' : 'PLENKA',
+          widthM,
+          heightM,
+          operationIds: item.operations.map(op => op.id),
+        };
+
+        try {
+          const response = await api.post('/api/calculations', requestData);
+          total += response.data.totalPrice;
+        } catch (error) {
+          console.error('Error calculating item cost:', error);
+          // Fallback to simple calculation
+          let effectiveQty = 0;
+          if (material.unit === 'м2') {
+            effectiveQty = widthM * heightM;
+          } else if (material.unit === 'м.п.') {
+            effectiveQty = widthM;
+          } else {
+            effectiveQty = parseFloat(item.qty1);
+          }
+          total += material.price * effectiveQty * (material.wasteCoefficient || 1);
+        }
       }
-      const cost = material.price * effectiveQty * (material.wasteCoefficient || 1);
-      return sum + cost;
-    }, 0);
+      setTotalOrderAmount(total);
+    };
+
+    if (formData.items.length > 0 && materialsData.length > 0) {
+      calculateTotal();
+    } else {
+      setTotalOrderAmount(0);
+    }
   }, [formData.items, materialsData]);
 
   const handleSubmit = async (e) => {
@@ -266,19 +273,13 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
-        let qty;
-        const q1 = parseFloat(item.qty1) || 0;
-        const q2 = parseFloat(item.qty2) || 0;
-        if (material.unit === 'м2') {
-          qty = (q1 / 1000) * (q2 / 1000);
-        } else if (material.unit === 'м.п.') {
-          qty = q1 / 1000;
-        } else {
-          qty = q1;
-        }
+        const widthM = parseFloat(item.qty1) / 1000;
+        const heightM = parseFloat(item.qty2) / 1000 || 0;
         return {
           materialId: parseInt(item.materialId),
-          quantity: qty,
+          widthM,
+          heightM,
+          operations: item.operations.map(op => ({ operationId: op.id })),
           readyDate: item.readyDate || null
         };
       });
@@ -313,7 +314,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     }
   };
 
-  if (clientsError || materialsError) {
+  if (clientsError || materialsError || operationsError) {
     return (
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -405,7 +406,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                     <TableCell>Материал</TableCell>
                     <TableCell width={100}>Размер 1 (мм)</TableCell>
                     <TableCell width={100}>Размер 2 (мм)</TableCell>
-                    <TableCell width={100}>Операции</TableCell>
+                    <TableCell width={120}>Операции</TableCell>
                     <TableCell width={130}>Срок готовности</TableCell>
                     <TableCell width={50}>Действия</TableCell>
                   </TableRow>
@@ -462,10 +463,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                           <Button
                             variant="outlined"
                             size="small"
-                            onClick={(e) => handleOpenOperations(e, index)}
-                            disabled={!isBanner}
+                            onClick={() => handleOpenOperationsDialog(index)}
+                            disabled={!material}
                           >
-                            Операции
+                            {item.operations.length > 0 ? `${item.operations.length} оп.` : 'Выбрать'}
                           </Button>
                         </TableCell>
                         <TableCell>
@@ -573,25 +574,40 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={6000}
-        onClose={() => setNotification({ ...notification, open: false })}
-      >
-        <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
-          {notification.message}
-        </Alert>
+        <Snackbar
+          open={notification.open}
+          autoHideDuration={6000}
+          onClose={() => setNotification({ ...notification, open: false })}
+        >
+          <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
+            {notification.message}
+          </Alert>
         </Snackbar>
 
-        {/* Operations menu */}
-        <Menu
-          anchorEl={operationsMenu.anchorEl}
-          open={Boolean(operationsMenu.anchorEl)}
-          onClose={handleCloseOperations}
-        >
-          <MenuItem onClick={handleAddPodvorot}>Подворот</MenuItem>
-          <MenuItem onClick={handleAddEyelet}>Люверсы</MenuItem>
-        </Menu>
+        {/* Operations dialog */}
+        <Dialog open={operationsDialog.open} onClose={handleCloseOperationsDialog} maxWidth="md" fullWidth>
+          <DialogTitle>Выбрать операции</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1 }}>
+              {operationsData.map(op => (
+                <FormControlLabel
+                  key={op.id}
+                  control={
+                    <Checkbox
+                      checked={operationsDialog.selectedOps.includes(op.id)}
+                      onChange={() => handleToggleOperation(op.id)}
+                    />
+                  }
+                  label={`${op.name} - ${op.price} руб/${op.unit}`}
+                />
+              ))}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseOperationsDialog}>Отмена</Button>
+            <Button onClick={handleSaveOperations} variant="contained">Сохранить</Button>
+          </DialogActions>
+        </Dialog>
       </Box>
   );
 };

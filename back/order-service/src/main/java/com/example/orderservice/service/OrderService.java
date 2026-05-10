@@ -10,6 +10,7 @@ import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderComment;
 import com.example.orderservice.entity.OrderItem;
 import com.example.orderservice.entity.OrderMaterial;
+import com.example.orderservice.entity.OrderOperation;
 import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.entity.Payment;
 import com.example.orderservice.entity.ProductionStage;
@@ -135,32 +136,61 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
 
-        // Обработка позиций заказа (материалы)
+        // Обработка позиций заказа
         if (request.getItems() != null && !request.getItems().isEmpty()) {
             BigDecimal total = BigDecimal.ZERO;
-            for (OrderMaterialCreateRequest matReq : request.getItems()) {
-                Material material = entityManager.find(Material.class, matReq.getMaterialId());
+            for (OrderMaterialCreateRequest itemReq : request.getItems()) {
+                Material material = entityManager.find(Material.class, itemReq.getMaterialId());
                 if (material == null) {
-                    throw new RuntimeException("Материал не найден: " + matReq.getMaterialId());
+                    throw new RuntimeException("Материал не найден: " + itemReq.getMaterialId());
                 }
 
-                OrderMaterial orderMaterial = new OrderMaterial();
-                orderMaterial.setOrder(saved);
-                orderMaterial.setMaterial(material);
-                orderMaterial.setQuantity(matReq.getQuantity());
-                orderMaterial.setWasteCoefficient(material.getWasteCoefficient());
-                orderMaterial.setReadyDate(matReq.getReadyDate());
-                // Расчет стоимости: цена * количество * коэффициент отхода
-                BigDecimal cost = material.getPrice()
-                        .multiply(matReq.getQuantity())
-                        .multiply(material.getWasteCoefficient());
-                orderMaterial.setCost(cost);
+                // Создаем OrderItem для позиции
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrder(saved);
+                orderItem.setName(material.getName() + " " + itemReq.getWidthM() + "x" + itemReq.getHeightM() + "m");
+                orderItem.setQuantity(1);
+                orderItem.setReadyDate(itemReq.getReadyDate());
 
-                saved.getMaterials().add(orderMaterial);
-                total = total.add(cost);
+                // Создаем OrderMaterial для позиции
+                OrderMaterial orderMaterial = new OrderMaterial();
+                orderMaterial.setOrderItem(orderItem);
+                orderMaterial.setMaterial(material);
+                BigDecimal area = itemReq.getWidthM().multiply(itemReq.getHeightM());
+                orderMaterial.setQuantity(area);
+                orderMaterial.setWasteCoefficient(material.getWasteCoefficient());
+                BigDecimal materialCost = material.getPrice().multiply(area).multiply(material.getWasteCoefficient());
+                orderMaterial.setCost(materialCost);
+
+                orderItem.getMaterials().add(orderMaterial);
+
+                // Обрабатываем операции
+                if (itemReq.getOperations() != null) {
+                    for (OrderOperationRequest opReq : itemReq.getOperations()) {
+                        // Получить данные операции из calculator-service
+                        // TODO: Добавить вызов calculator-service для получения данных операции и расчета
+                        OrderOperation orderOp = new OrderOperation();
+                        orderOp.setOrderItem(orderItem);
+                        orderOp.setOperationId(opReq.getOperationId());
+                        // Заглушки, нужно получить из calculator
+                        orderOp.setOperationName("Operation " + opReq.getOperationId());
+                        orderOp.setPricePerUnit(BigDecimal.ZERO);
+                        orderOp.setCalculatedQuantity(BigDecimal.ONE);
+                        orderOp.setSubtotal(BigDecimal.ZERO);
+
+                        orderItem.getOperations().add(orderOp);
+                    }
+                }
+
+                // Расчет стоимости позиции (материал + операции)
+                BigDecimal itemCost = materialCost; // + операции
+                orderItem.setPrice(itemCost);
+                orderItem.setCost(itemCost);
+
+                saved.getItems().add(orderItem);
+                total = total.add(itemCost);
             }
             saved.setTotalAmount(total);
-            // Cascade persist materials
             orderRepository.save(saved);
         }
 

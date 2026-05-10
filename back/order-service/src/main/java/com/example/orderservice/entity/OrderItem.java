@@ -52,4 +52,8 @@ public class OrderItem extends BaseEntity {
     /** Материалы, использованные для этой позиции */
     @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderMaterial> materials = new ArrayList<>();
+
+    /** Операции для этой позиции */
+    @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderOperation> operations = new ArrayList<>();
 }

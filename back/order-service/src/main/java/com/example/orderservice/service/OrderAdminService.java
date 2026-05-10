@@ -76,7 +76,8 @@ public class OrderAdminService {
                     }
                     OrderMaterialCreateRequest om = new OrderMaterialCreateRequest();
                     om.setMaterialId(mat.getId());
-                    om.setQuantity(quantity);
+                    om.setWidthM(BigDecimal.valueOf(1 + random.nextInt(5)));
+                    om.setHeightM(BigDecimal.valueOf(1 + random.nextInt(5)));
                     om.setReadyDate(LocalDate.now().plusDays(random.nextInt(30) + 7));
                     items.add(om);
                 }

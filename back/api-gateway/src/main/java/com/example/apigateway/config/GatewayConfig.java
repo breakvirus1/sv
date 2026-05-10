@@ -33,7 +33,7 @@ public class GatewayConfig {
                 .uri("http://material-service:8084")
             )
             .route("calculator-service", r -> r
-                .path("/api/v1/calculations/**")
+                .path("/api/calculations/**")
                 .uri("http://calculator-service:8086")
             )
             // Admin endpoints
@@ -49,10 +49,10 @@ public class GatewayConfig {
                  .path("/api/v1/admin/materials/**")
                  .uri("http://material-service:8084")
              )
-             .route("admin-calculator-service", r -> r
-                 .path("/api/v1/admin/operations/**")
-                 .uri("http://calculator-service:8086")
-             )
+              .route("admin-calculator-service", r -> r
+                  .path("/api/admin/operations/**")
+                  .uri("http://calculator-service:8086")
+              )
              .route("admin-order-service", r -> r
                  .path("/api/v1/admin/orders/**")
                  .uri("http://order-service:8081")
