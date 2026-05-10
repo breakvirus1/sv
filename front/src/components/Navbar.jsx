@@ -1,7 +1,7 @@
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
-import { Person, Logout, Add, AdminPanelSettings, ShoppingBag } from '@mui/icons-material';
+ import { Person, Logout, Add, AdminPanelSettings, ShoppingBag } from '@mui/icons-material';
 import { useWindowsStore } from '../store/windowsStore';
 import { useNavigate } from 'react-router-dom';
 import CreateOrderForm from './CreateOrderForm';
@@ -45,10 +45,12 @@ const Navbar = () => {
      });
    };
 
-   const handleMyOrders = () => {
-     handleClose();
-     navigate('/dashboard');
-   };
+    const handleMyOrders = () => {
+      handleClose();
+      navigate('/dashboard');
+    };
+
+
 
   return (
     <AppBar position="static">
@@ -60,18 +62,18 @@ const Navbar = () => {
         {isAuthenticated ? (
           <Box display="flex" alignItems="center" gap={2}>
             {/* My Orders button */}
-            <Button
-              variant="outlined"
-              color="inherit"
-              size="small"
-              onClick={handleMyOrders}
-              startIcon={<ShoppingBag />}
-              sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
-            >
-              Мои заказы
-            </Button>
+             <Button
+               variant="outlined"
+               color="inherit"
+               size="small"
+               onClick={handleMyOrders}
+               startIcon={<ShoppingBag />}
+               sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
+             >
+               Мои заказы
+             </Button>
 
-            {/* Admin Panel button - only for ADMIN role */}
+              {/* Admin Panel button - only for ADMIN role */}
             {user?.roles?.includes('ROLE_ADMIN') && (
               <Button
                 variant="outlined"

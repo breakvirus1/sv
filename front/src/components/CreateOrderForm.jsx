@@ -23,7 +23,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress
+  CircularProgress,
+  Menu
 } from '@mui/material';
 import { Add, Delete, Save } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -46,6 +47,8 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     items: []
   });
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  // Operations menu state
+  const [operationsMenu, setOperationsMenu] = useState({ anchorEl: null, itemIndex: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Клиентский диалог создания нового клиента
@@ -153,6 +156,78 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       return;
     }
     createClientMutation.mutate(newClientForm);
+  };
+
+  // Operations handlers
+  const handleOpenOperations = (e, itemIndex) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOperationsMenu({ anchorEl: e.currentTarget, itemIndex });
+  };
+
+  const handleCloseOperations = () => {
+    setOperationsMenu({ anchorEl: null, itemIndex: null });
+  };
+
+  const handleAddPodvorot = () => {
+    const itemIndex = operationsMenu.itemIndex;
+    if (itemIndex !== null) {
+      const item = formData.items[itemIndex];
+      const material = materialsData.find(m => m.id === parseInt(item.materialId));
+      if (material && material.unit === 'м2') {
+        // Calculate perimeter in millimeters
+        const widthMm = parseFloat(item.qty1) || 0;
+        const heightMm = parseFloat(item.qty2) || 0;
+        const perimeterMm = 2 * (widthMm + heightMm);
+        // Find "Подворот" material
+        const podvorotMat = materialsData.find(m => m.name.toLowerCase().includes('подворот'));
+        if (podvorotMat) {
+          const newItem = {
+            materialId: podvorotMat.id.toString(),
+            qty1: perimeterMm.toString(),
+            qty2: '',
+            readyDate: item.readyDate || ''
+          };
+          setFormData(prev => ({
+            ...prev,
+            items: [...prev.items, newItem]
+          }));
+        }
+      }
+    }
+    handleCloseOperations();
+  };
+
+  const handleAddEyelet = () => {
+    const itemIndex = operationsMenu.itemIndex;
+    if (itemIndex !== null) {
+      const item = formData.items[itemIndex];
+      const material = materialsData.find(m => m.id === parseInt(item.materialId));
+      if (material && material.unit === 'м2') {
+        // Calculate number of eyelets based on perimeter and step
+        const widthMm = parseFloat(item.qty1) || 0;
+        const heightMm = parseFloat(item.qty2) || 0;
+        const perimeterMm = 2 * (widthMm + heightMm);
+        const perimeterCm = perimeterMm / 10;
+        const stepCm = 40; // default step
+        const eyeletCount = Math.ceil(perimeterCm / stepCm);
+        // Find "Установка люверсов" material
+        const eyeletMat = materialsData.find(m => m.name.toLowerCase().includes('люверс') || m.name.toLowerCase().includes('установка'));
+        if (eyeletMat) {
+          const newItem = {
+            materialId: eyeletMat.id.toString(),
+            qty1: eyeletCount.toString(),
+            qty2: '',
+            readyDate: item.readyDate || ''
+          };
+          setFormData(prev => ({
+            ...prev,
+            items: [...prev.items, newItem]
+          }));
+        }
+      }
+    }
+    handleCloseOperations();
   };
 
   const handleClose = () => {
@@ -330,6 +405,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                     <TableCell>Материал</TableCell>
                     <TableCell width={100}>Размер 1 (мм)</TableCell>
                     <TableCell width={100}>Размер 2 (мм)</TableCell>
+                    <TableCell width={100}>Операции</TableCell>
                     <TableCell width={130}>Срок готовности</TableCell>
                     <TableCell width={50}>Действия</TableCell>
                   </TableRow>
@@ -338,6 +414,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                   {formData.items.map((item, index) => {
                     const material = materialsData.find(m => m.id === parseInt(item.materialId));
                     const showSecond = material && material.unit === 'м2';
+                    const isBanner = material && material.name.toLowerCase().includes('баннер');
                     return (
                       <TableRow key={index}>
                         <TableCell>
@@ -381,6 +458,16 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                         ) : (
                           <TableCell></TableCell>
                         )}
+                        <TableCell>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={(e) => handleOpenOperations(e, index)}
+                            disabled={!isBanner}
+                          >
+                            Операции
+                          </Button>
+                        </TableCell>
                         <TableCell>
                           <TextField
                             fullWidth
@@ -494,8 +581,18 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
           {notification.message}
         </Alert>
-      </Snackbar>
-    </Box>
+        </Snackbar>
+
+        {/* Operations menu */}
+        <Menu
+          anchorEl={operationsMenu.anchorEl}
+          open={Boolean(operationsMenu.anchorEl)}
+          onClose={handleCloseOperations}
+        >
+          <MenuItem onClick={handleAddPodvorot}>Подворот</MenuItem>
+          <MenuItem onClick={handleAddEyelet}>Люверсы</MenuItem>
+        </Menu>
+      </Box>
   );
 };
 

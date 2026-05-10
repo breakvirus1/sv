@@ -32,6 +32,10 @@ public class GatewayConfig {
                 .path("/api/v1/materials/**")
                 .uri("http://material-service:8084")
             )
+            .route("calculator-service", r -> r
+                .path("/api/v1/calculations/**")
+                .uri("http://calculator-service:8086")
+            )
             // Admin endpoints
             .route("admin-client-service", r -> r
                 .path("/api/v1/admin/clients/**")
@@ -41,16 +45,20 @@ public class GatewayConfig {
                 .path("/api/v1/admin/employees/**")
                 .uri("http://employee-service:8083")
             )
-            .route("admin-material-service", r -> r
-                .path("/api/v1/admin/materials/**")
-                .uri("http://material-service:8084")
-            )
-            .route("admin-order-service", r -> r
-                .path("/api/v1/admin/orders/**")
-                .uri("http://order-service:8081")
-            )
+             .route("admin-material-service", r -> r
+                 .path("/api/v1/admin/materials/**")
+                 .uri("http://material-service:8084")
+             )
+             .route("admin-calculator-service", r -> r
+                 .path("/api/v1/admin/operations/**")
+                 .uri("http://calculator-service:8086")
+             )
+             .route("admin-order-service", r -> r
+                 .path("/api/v1/admin/orders/**")
+                 .uri("http://order-service:8081")
+             )
             .build();
-        log.info("Custom routes configured: order-service, client-service, employee-service, material-service, and admin endpoints");
+        log.info("Custom routes configured: order-service, client-service, employee-service, material-service, calculator-service, and admin endpoints");
         return routes;
     }
 }
