@@ -5,16 +5,18 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SQLDelete;
 
 import java.math.BigDecimal;
 
 /**
  * Сущность "Материал" — номенклатура материалов и операций.
- * Примеры: "Баннер лит. 450 гр/м2", "Проварка периметра", "Установка люверса".
  * Используется для расчета себестоимости заказов.
+ * Поддерживает мягкое удаление через @SQLDelete.
  */
 @Entity
-@Table(name = "materials")
+@Table(name = "materials", schema = "ordschema")
+@SQLDelete(sql = "UPDATE {table} SET deleted = true WHERE id=?")
 @Getter
 @Setter
 @AllArgsConstructor

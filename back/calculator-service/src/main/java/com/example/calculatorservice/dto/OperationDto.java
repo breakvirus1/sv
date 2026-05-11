@@ -11,4 +11,6 @@ public class OperationDto {
     private String unit;
     private String applicableTo;
     private boolean isDefault;
+    private Integer hemWidthMm;
+    private Integer hemCount;
 }

@@ -14,4 +14,6 @@ public class OperationCreateRequest {
     private UnitType unit;
     private ApplicableType applicableTo;
     private boolean isDefault;
+    private Integer hemWidthMm;
+    private Integer hemCount;
 }

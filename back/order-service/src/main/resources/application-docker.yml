@@ -5,6 +5,10 @@ spring:
     password: ${DB_PASSWORD:12345}
     driver-class-name: org.postgresql.Driver
   flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
     schemas: ordschema
   jpa:
     properties:
@@ -21,3 +25,7 @@ eureka:
   client:
     service-url:
       defaultZone: ${EUREKA_URL:http://discovery-server:8761/eureka/}
+
+calculator:
+  service:
+    url: ${CALCULATOR_SERVICE_URL:http://calculator-service:8086}

@@ -31,14 +31,15 @@
     <spring-cloud.version>2023.0.3</spring-cloud.version>
 </properties>
 
-    <modules>
-        <module>back/discovery-server</module>
-        <module>back/client-service</module>
-        <module>back/employee-service</module>
-        <module>back/material-service</module>
-        <module>back/order-service</module>
-        <module>back/api-gateway</module>
-    </modules>
+     <modules>
+         <module>back/discovery-server</module>
+         <module>back/client-service</module>
+         <module>back/employee-service</module>
+         <module>back/material-service</module>
+         <module>back/order-service</module>
+         <module>back/calculator-service</module>
+         <module>back/api-gateway</module>
+     </modules>
 
     <dependencyManagement>
         <dependencies>

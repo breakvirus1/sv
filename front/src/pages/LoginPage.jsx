@@ -10,7 +10,7 @@ const LoginPage = () => {
 
   if (isAuthenticated) {
     return (
-      <Container maxWidth="sm">
+      <Container maxWidth="sm" sx={{ px: 2.5 }}>
         <Box mt={10}>
           <Card>
             <CardContent>
@@ -33,7 +33,7 @@ const LoginPage = () => {
   }
 
   return (
-    <Container maxWidth="sm">
+    <Container maxWidth="sm" sx={{ px: 2.5 }}>
       <Box mt={10}>
         <Card>
           <CardContent>

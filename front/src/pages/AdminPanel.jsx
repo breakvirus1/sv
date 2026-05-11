@@ -96,22 +96,26 @@ const AdminPanel = () => {
    const [operationDialogOpen, setOperationDialogOpen] = useState(false);
    const [operationDeleteDialogOpen, setOperationDeleteDialogOpen] = useState(false);
    const [selectedOperation, setSelectedOperation] = useState(null);
-   const [operationForm, setOperationForm] = useState({
-     name: '',
-     unit: 'SQUARE_METER',
-     price: '',
-     applicableTo: 'BANNER',
-     isDefault: false
-   });
+    const [operationForm, setOperationForm] = useState({
+      name: '',
+      unit: 'SQUARE_METER',
+      price: '',
+      applicableTo: 'BANNER',
+      isDefault: false,
+      hemWidthMm: '',
+      hemCount: ''
+    });
    // Inline editing state for operations table
    const [editingOperationId, setEditingOperationId] = useState(null);
-   const [editOperationForm, setEditOperationForm] = useState({
-     name: '',
-     unit: 'SQUARE_METER',
-     price: 0,
-     applicableTo: 'BANNER',
-     isDefault: false
-   });
+    const [editOperationForm, setEditOperationForm] = useState({
+      name: '',
+      unit: 'SQUARE_METER',
+      price: 0,
+      applicableTo: 'BANNER',
+      isDefault: false,
+      hemWidthMm: null,
+      hemCount: null
+    });
 
   // ---- Generation state ----
   const [generating, setGenerating] = useState({ clients: false, materials: false, orders: false });
@@ -415,45 +419,49 @@ const AdminPanel = () => {
    };
 
    // Operation handlers
-   const openOperationDialog = (operation = null) => {
-     if (operation) {
-       setSelectedOperation(operation);
-       setOperationForm({
-         name: operation.name || '',
-         unit: operation.unit || 'SQUARE_METER',
-         price: operation.price ? operation.price.toString() : '',
-         applicableTo: operation.applicableTo || 'BANNER',
-         isDefault: operation.isDefault || false
-       });
-     } else {
-       resetOperationForm();
-     }
-     setOperationDialogOpen(true);
-   };
+    const openOperationDialog = (operation = null) => {
+      if (operation) {
+        setSelectedOperation(operation);
+        setOperationForm({
+          name: operation.name || '',
+          unit: operation.unit || 'SQUARE_METER',
+          price: operation.price ? operation.price.toString() : '',
+          applicableTo: operation.applicableTo || 'BANNER',
+          isDefault: operation.isDefault || false,
+          hemWidthMm: operation.hemWidthMm ? operation.hemWidthMm.toString() : '',
+          hemCount: operation.hemCount ? operation.hemCount.toString() : ''
+        });
+      } else {
+        resetOperationForm();
+      }
+      setOperationDialogOpen(true);
+    };
 
-   const resetOperationForm = () => {
-     setOperationForm({ name: '', unit: 'SQUARE_METER', price: '', applicableTo: 'BANNER', isDefault: false });
-     setSelectedOperation(null);
-   };
+    const resetOperationForm = () => {
+      setOperationForm({ name: '', unit: 'SQUARE_METER', price: '', applicableTo: 'BANNER', isDefault: false, hemWidthMm: '', hemCount: '' });
+      setSelectedOperation(null);
+    };
 
-   const handleOperationSubmit = () => {
-     if (!operationForm.name) {
-       showNotification('Введите название', 'error');
-       return;
-     }
-     const payload = {
-       name: operationForm.name,
-       unit: operationForm.unit,
-       price: operationForm.price ? parseFloat(operationForm.price) : 0,
-       applicableTo: operationForm.applicableTo,
-       isDefault: operationForm.isDefault
-     };
-     if (selectedOperation) {
-       updateOperationMutation.mutate({ id: selectedOperation.id, data: payload });
-     } else {
-       createOperationMutation.mutate(payload);
-     }
-   };
+    const handleOperationSubmit = () => {
+      if (!operationForm.name) {
+        showNotification('Введите название', 'error');
+        return;
+      }
+      const payload = {
+        name: operationForm.name,
+        unit: operationForm.unit,
+        price: operationForm.price ? parseFloat(operationForm.price) : 0,
+        applicableTo: operationForm.applicableTo,
+        isDefault: operationForm.isDefault,
+        hemWidthMm: operationForm.hemWidthMm ? parseInt(operationForm.hemWidthMm) : null,
+        hemCount: operationForm.hemCount ? parseInt(operationForm.hemCount) : null
+      };
+      if (selectedOperation) {
+        updateOperationMutation.mutate({ id: selectedOperation.id, data: payload });
+      } else {
+        createOperationMutation.mutate(payload);
+      }
+    };
 
    const confirmDeleteOperation = (operation) => {
      setSelectedOperation(operation);
@@ -467,45 +475,51 @@ const AdminPanel = () => {
    };
 
    // Inline operation editing handlers
-   const startEditOperation = (op) => {
-     setEditingOperationId(op.id);
-     setEditOperationForm({
-       name: op.name,
-       unit: UNIT_DISPLAY_TO_ENUM[op.unit] || op.unit,
-       price: op.price,
-       applicableTo: op.applicableTo,
-       isDefault: op.isDefault
-     });
-   };
+    const startEditOperation = (op) => {
+      setEditingOperationId(op.id);
+      setEditOperationForm({
+        name: op.name,
+        unit: UNIT_DISPLAY_TO_ENUM[op.unit] || op.unit,
+        price: op.price,
+        applicableTo: op.applicableTo,
+        isDefault: op.isDefault,
+        hemWidthMm: op.hemWidthMm,
+        hemCount: op.hemCount
+      });
+    };
 
-   const cancelEditOperation = () => {
-     setEditingOperationId(null);
-     setEditOperationForm({ name: '', unit: 'SQUARE_METER', price: 0, applicableTo: 'BANNER', isDefault: false });
-   };
+    const cancelEditOperation = () => {
+      setEditingOperationId(null);
+      setEditOperationForm({ name: '', unit: 'SQUARE_METER', price: 0, applicableTo: 'BANNER', isDefault: false, hemWidthMm: null, hemCount: null });
+    };
 
-   const saveOperationEdit = (id) => {
-     const payload = {
-       name: editOperationForm.name,
-       unit: editOperationForm.unit,
-       price: editOperationForm.price,
-       applicableTo: editOperationForm.applicableTo,
-       isDefault: editOperationForm.isDefault
-     };
-     updateOperationMutation.mutate({ id, data: payload });
-     setEditingOperationId(null);
-   };
+    const saveOperationEdit = (id) => {
+      const payload = {
+        name: editOperationForm.name,
+        unit: editOperationForm.unit,
+        price: editOperationForm.price,
+        applicableTo: editOperationForm.applicableTo,
+        isDefault: editOperationForm.isDefault,
+        hemWidthMm: editOperationForm.hemWidthMm,
+        hemCount: editOperationForm.hemCount
+      };
+      updateOperationMutation.mutate({ id, data: payload });
+      setEditingOperationId(null);
+    };
 
-   const handleEditOperationChange = (field) => (e) => {
-     let val;
-     if (field === 'price') {
-       val = parseFloat(e.target.value) || 0;
-     } else if (field === 'isDefault') {
-       val = e.target.checked;
-     } else {
-       val = e.target.value;
-     }
-     setEditOperationForm(prev => ({ ...prev, [field]: val }));
-   };
+    const handleEditOperationChange = (field) => (e) => {
+      let val;
+      if (field === 'price') {
+        val = parseFloat(e.target.value) || 0;
+      } else if (field === 'isDefault') {
+        val = e.target.checked;
+      } else if (field === 'hemWidthMm' || field === 'hemCount') {
+        val = e.target.value ? parseInt(e.target.value) : null;
+      } else {
+        val = e.target.value;
+      }
+      setEditOperationForm(prev => ({ ...prev, [field]: val }));
+    };
 
    // Generate handlers
   const handleGenerate = (type) => {
@@ -729,16 +743,18 @@ const AdminPanel = () => {
        {filteredOperations.length > 0 && (
          <TableContainer component={Paper}>
            <Table size="small">
-             <TableHead>
-               <TableRow>
-                 <TableCell>Название</TableCell>
-                 <TableCell>Цена</TableCell>
-                 <TableCell>Ед. изм.</TableCell>
-                 <TableCell>Применимо к</TableCell>
-                 <TableCell>По умолчанию</TableCell>
-                 <TableCell align="right">Действия</TableCell>
-               </TableRow>
-             </TableHead>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Название</TableCell>
+                  <TableCell>Цена</TableCell>
+                  <TableCell>Ед. изм.</TableCell>
+                  <TableCell>Применимо к</TableCell>
+                  <TableCell>По умолчанию</TableCell>
+                  <TableCell>Ширина подворота (мм)</TableCell>
+                  <TableCell>Кол-во подворотов</TableCell>
+                  <TableCell align="right">Действия</TableCell>
+                </TableRow>
+              </TableHead>
              <TableBody>
                {filteredOperations.map((op) => (
                  <TableRow key={op.id}>
@@ -790,7 +806,21 @@ const AdminPanel = () => {
                        op.isDefault ? 'Да' : 'Нет'
                      )}
                    </TableCell>
-                   <TableCell align="right">
+                     <TableCell>
+                       {editingOperationId === op.id ? (
+                         <TextField fullWidth size="small" type="number" value={editOperationForm.hemWidthMm != null ? editOperationForm.hemWidthMm : ''} onChange={handleEditOperationChange('hemWidthMm')} inputProps={{ min: 0 }} />
+                       ) : (
+                         op.hemWidthMm || '-'
+                       )}
+                     </TableCell>
+                     <TableCell>
+                       {editingOperationId === op.id ? (
+                         <TextField fullWidth size="small" type="number" value={editOperationForm.hemCount != null ? editOperationForm.hemCount : ''} onChange={handleEditOperationChange('hemCount')} inputProps={{ min: 0 }} />
+                       ) : (
+                         op.hemCount || '-'
+                       )}
+                     </TableCell>
+                    <TableCell align="right">
                      {editingOperationId === op.id ? (
                        <>
                          <IconButton size="small" color="success" onClick={() => saveOperationEdit(op.id)}>
@@ -929,11 +959,13 @@ const AdminPanel = () => {
               <MenuItem value="PLENKA">Пленка</MenuItem>
               <MenuItem value="BOTH">Оба</MenuItem>
             </Select>
-          </FormControl>
-          <Box display="flex" alignItems="center" mt={1}>
-            <Checkbox checked={operationForm.isDefault} onChange={(e) => setOperationForm({ ...operationForm, isDefault: e.target.checked })} />
-            <Typography>По умолчанию</Typography>
-          </Box>
+           </FormControl>
+           <TextField fullWidth margin="dense" label="Ширина подворота (мм)" type="number" value={operationForm.hemWidthMm} onChange={(e) => setOperationForm({ ...operationForm, hemWidthMm: e.target.value })} inputProps={{ min: 0 }} placeholder="Необязательно" />
+           <TextField fullWidth margin="dense" label="Количество подворотов на сторону" type="number" value={operationForm.hemCount} onChange={(e) => setOperationForm({ ...operationForm, hemCount: e.target.value })} inputProps={{ min: 0 }} placeholder="Необязательно" />
+           <Box display="flex" alignItems="center" mt={1}>
+             <Checkbox checked={operationForm.isDefault} onChange={(e) => setOperationForm({ ...operationForm, isDefault: e.target.checked })} />
+             <Typography>По умолчанию</Typography>
+           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOperationDialogOpen(false)}>Отмена</Button>

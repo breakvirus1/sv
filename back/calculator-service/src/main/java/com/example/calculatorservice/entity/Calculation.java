@@ -28,12 +28,12 @@ public class Calculation extends BaseEntity {
     @JoinColumn(name = "material_id", nullable = false)
     private Material material;
 
-    /** Ширина в метрах */
-    @Column(nullable = false, precision = 10, scale = 4)
+     /** Ширина в метрах */
+    @Column(name = "width_m", nullable = false, precision = 10, scale = 4)
     private BigDecimal widthM;
 
     /** Высота в метрах */
-    @Column(nullable = false, precision = 10, scale = 4)
+    @Column(name = "height_m", nullable = false, precision = 10, scale = 4)
     private BigDecimal heightM;
 
     /** Разрешение печати (DPI) */

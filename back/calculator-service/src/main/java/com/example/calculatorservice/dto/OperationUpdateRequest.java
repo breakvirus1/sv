@@ -14,4 +14,6 @@ public class OperationUpdateRequest {
     private UnitType unit;
     private ApplicableType applicableTo;
     private boolean isDefault;
+    private Integer hemWidthMm;
+    private Integer hemCount;
 }

@@ -113,14 +113,14 @@ const OrdersList = () => {
 
   if (error) {
     return (
-      <Container maxWidth="xl" sx={{ mt: 4 }}>
+      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
         <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4 }}>
+    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Заказы</Typography>
         <Button

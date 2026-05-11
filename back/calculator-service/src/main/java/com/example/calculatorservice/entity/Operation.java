@@ -1,20 +1,20 @@
 package com.example.calculatorservice.entity;
 
- import jakarta.persistence.*;
- import lombok.Getter;
- import lombok.Setter;
- import org.hibernate.annotations.SQLDelete;
- import org.hibernate.annotations.Where;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 
- import java.math.BigDecimal;
+import java.math.BigDecimal;
 
 /**
- * Сущность "Операция" — technological step applied to a material.
- * Examples: printing, cutting, hemming, eyelet installation, welding, lamination.
+ * Сущность "Операция" — технологический шаг, применяемый к материалу.
+ * Примеры: печать, резка, подворот, установка люверсов, сварка, ламинация.
  */
 @Entity
-@Table(name = "calculator_operations")
-@SQLDelete(sql = "UPDATE calculator_operations SET deleted = true WHERE id=?")
+@Table(name = "calculator_operations", schema = "calculator")
+@SQLDelete(sql = "UPDATE {table} SET deleted = true WHERE id=?")
 @Where(clause = "deleted = false")
 @Getter
 @Setter
@@ -38,7 +38,15 @@ public class Operation extends BaseEntity {
     @Column(name = "applicable_to", length = 20)
     private ApplicableType applicableTo;
 
-     /** Флаг, указывающий, является ли операция часто используемой */
-     @Column(name = "is_default")
-     private boolean isDefault = false;
+    /** Флаг, указывающий, является ли операция часто используемой */
+    @Column(name = "is_default")
+    private boolean isDefault = false;
+
+    /** Параметры для операции "Подворот": ширина подворота в мм */
+    @Column(name = "hem_width_mm")
+    private Integer hemWidthMm;
+
+    /** Параметры для операции "Подворот": количество подворотов на сторону */
+    @Column(name = "hem_count")
+    private Integer hemCount;
 }

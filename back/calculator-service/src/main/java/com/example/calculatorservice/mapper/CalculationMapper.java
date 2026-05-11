@@ -22,6 +22,7 @@ public interface CalculationMapper {
     @Mapping(target = "eyelet", ignore = true) // will be set manually
     CalculationResponseDto toResponseDto(Calculation calculation);
 
+    @Mapping(target = "operationId", source = "operation.id")
     @Mapping(target = "operationName", source = "operation.name")
     @Mapping(target = "unit", source = "operation.unit.displayName")
     @Mapping(target = "quantity", source = "quantity")

@@ -75,15 +75,15 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const { data: materialsData = [], error: materialsError } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/materials?size=100');
-      return response.data.content || [];
+      const response = await api.get('/api/v1/calculations/materials');
+      return response.data;
     },
   });
 
   const { data: operationsData = [], error: operationsError } = useQuery({
     queryKey: ['operations'],
     queryFn: async () => {
-      const response = await api.get('/api/calculations/operations');
+      const response = await api.get('/api/v1/calculations/operations');
       return response.data || [];
     },
   });
@@ -215,16 +215,24 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const [totalOrderAmount, setTotalOrderAmount] = useState(0);
 
   // Recalculate total when items change
-  useEffect(() => {
-    const calculateTotal = async () => {
-      let total = 0;
-      for (const item of formData.items) {
-        if (!item.materialId || !item.qty1) continue;
-        const material = materialsData.find(m => m.id === parseInt(item.materialId));
-        if (!material) continue;
+   useEffect(() => {
+     const calculateTotal = async () => {
+       let total = 0;
+       for (const item of formData.items) {
+         if (!item.materialId || !item.qty1 || !item.qty2) {
+           console.warn('Item missing required fields:', item);
+           continue;
+         }
+         const material = materialsData.find(m => m.id === parseInt(item.materialId));
+         if (!material) continue;
 
-        const widthM = parseFloat(item.qty1) / 1000;
-        const heightM = parseFloat(item.qty2) / 1000 || 0;
+         const widthM = parseFloat(item.qty1) / 1000;
+         const heightM = parseFloat(item.qty2) / 1000;
+
+         if (isNaN(widthM) || isNaN(heightM) || widthM <= 0 || heightM <= 0) {
+           console.warn('Invalid dimensions:', item.qty1, item.qty2);
+           continue;
+         }
 
         // Prepare calculation request
         const requestData = {
@@ -236,7 +244,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         };
 
         try {
-          const response = await api.post('/api/calculations', requestData);
+          const response = await api.post('/api/v1/calculations', requestData);
           total += response.data.totalPrice;
         } catch (error) {
           console.error('Error calculating item cost:', error);
@@ -302,6 +310,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
       setTimeout(() => {
         if (closeWindow) closeWindow();
+        else navigate('/orders');
       }, 1500);
     } catch (err) {
       setNotification({
@@ -401,16 +410,16 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           ) : (
             <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}>
               <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Материал</TableCell>
-                    <TableCell width={100}>Размер 1 (мм)</TableCell>
-                    <TableCell width={100}>Размер 2 (мм)</TableCell>
-                    <TableCell width={120}>Операции</TableCell>
-                    <TableCell width={130}>Срок готовности</TableCell>
-                    <TableCell width={50}>Действия</TableCell>
-                  </TableRow>
-                </TableHead>
+                 <TableHead>
+                   <TableRow>
+                     <TableCell>Материал</TableCell>
+                     <TableCell width={400}>Размер 1 (мм)</TableCell>
+                     <TableCell width={400}>Размер 2 (мм)</TableCell>
+                     <TableCell width={120}>Операции</TableCell>
+                     <TableCell width={130}>Срок готовности</TableCell>
+                     <TableCell width={50}>Действия</TableCell>
+                   </TableRow>
+                 </TableHead>
                 <TableBody>
                   {formData.items.map((item, index) => {
                     const material = materialsData.find(m => m.id === parseInt(item.materialId));

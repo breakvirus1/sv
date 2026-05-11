@@ -16,12 +16,20 @@ public class MaterialService {
 
     private final MaterialRepository materialRepository;
 
+    /**
+     * Возвращает только активные материалы (deleted = false).
+     * Используется для справочников и выпадающих списков.
+     */
     public List<Material> getAllMaterials() {
-        return materialRepository.findAll();
+        return materialRepository.findAll().stream()
+                .filter(m -> !m.getDeleted())
+                .collect(Collectors.toList());
     }
 
     public List<Material> getMaterialsByType(MaterialType type) {
-        return materialRepository.findByType(type);
+        return materialRepository.findByType(type).stream()
+                .filter(m -> !m.getDeleted())
+                .collect(Collectors.toList());
     }
 
     public Material getMaterialById(Long id) {

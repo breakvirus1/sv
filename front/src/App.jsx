@@ -1,19 +1,17 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Navbar from './components/Navbar'
- import LoginPage from './pages/LoginPage'
- import Dashboard from './pages/Dashboard'
-   import OrdersList from './pages/OrdersList'
-   import OrderDetail from './pages/OrderDetail'
-   import CallbackPage from './pages/CallbackPage'
-   import AdminPanel from './pages/AdminPanel'
- import TestCalculations from './pages/TestCalculations'
-import { useWindowsStore } from './store/windowsStore'
-import Window from './components/Window'
+import LoginPage from './pages/LoginPage'
+import Dashboard from './pages/Dashboard'
+import OrdersList from './pages/OrdersList'
+import OrderDetail from './pages/OrderDetail'
+import CallbackPage from './pages/CallbackPage'
+import AdminPanel from './pages/AdminPanel'
+import TestCalculations from './pages/TestCalculations'
+import CreateOrderForm from './components/CreateOrderForm'
 
 function App() {
   const { user, loading } = useAuth()
-  const windows = useWindowsStore((state) => state.windows)
 
   if (loading) {
     return <div className="container">Loading...</div>
@@ -30,15 +28,7 @@ function App() {
       <div className="relative min-h-screen">
         {/* Desktop icons area (optional) */}
         
-        {/* Window Manager - renders all open windows */}
-        <div 
-          className="fixed left-0 right-0 bottom-0" 
-          style={{ zIndex: 9999, top: '64px' }}
-        >
-          {windows.map((win) => (
-            <Window key={win.id} windowData={win} />
-          ))}
-        </div>
+
 
         {/* Navbar fixed at top */}
         <div className="relative" style={{ zIndex: 10000 }}>
@@ -67,7 +57,7 @@ function App() {
             } />
             <Route path="/orders/new" element={
               <ProtectedRoute requiresManager={true}>
-                <OrderDetail mode="create" />
+                <CreateOrderForm />
               </ProtectedRoute>
             } />
             <Route path="/orders/:id" element={

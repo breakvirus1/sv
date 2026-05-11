@@ -2,11 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Grid, Paper, Typography, Box, Button, Card, CardContent } from '@mui/material';
 import { People, Inventory, Payments, Assessment, Add } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
-import { useWindowsStore } from '../store/windowsStore';
-import CreateOrderForm from '../components/CreateOrderForm';
 import api from '../services/api';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { data: orders = [] } = useQuery({
     queryKey: ['recentOrders'],
     queryFn: async () => {
@@ -15,18 +14,8 @@ const Dashboard = () => {
     },
   });
 
-  const openWindow = useWindowsStore((state) => state.openWindow);
-
   const handleCreateOrder = () => {
-    openWindow({
-      title: 'Новый заказ',
-      x: 100,
-      y: 100,
-      width: 800,
-      height: 600,
-      Component: CreateOrderForm,
-      props: {}
-    });
+    navigate('/orders/new');
   };
 
   const stats = {

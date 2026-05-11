@@ -23,17 +23,34 @@ import com.example.orderservice.repository.PaymentRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -55,6 +72,10 @@ public class OrderService {
     @PersistenceContext
     private EntityManager entityManager;
     private final JdbcTemplate jdbcTemplate;
+    private final RestTemplate restTemplate;
+
+    @Value("${calculator.service.url}")
+    private String calculatorUrl;
 
     /**
      * Получить список заказов с фильтрацией и пагинацией.
@@ -138,6 +159,13 @@ public class OrderService {
 
         // Обработка позиций заказа
         if (request.getItems() != null && !request.getItems().isEmpty()) {
+            // Get current user's JWT token to propagate to calculator service
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String jwtToken = null;
+            if (auth != null && auth.getPrincipal() instanceof Jwt) {
+                jwtToken = ((Jwt) auth.getPrincipal()).getTokenValue();
+            }
+
             BigDecimal total = BigDecimal.ZERO;
             for (OrderMaterialCreateRequest itemReq : request.getItems()) {
                 Material material = entityManager.find(Material.class, itemReq.getMaterialId());
@@ -145,50 +173,109 @@ public class OrderService {
                     throw new RuntimeException("Материал не найден: " + itemReq.getMaterialId());
                 }
 
-                // Создаем OrderItem для позиции
+                // Build request to calculator service
+                Map<String, Object> calcRequest = new HashMap<>();
+                calcRequest.put("materialId", material.getId());
+                calcRequest.put("widthM", itemReq.getWidthM());
+                calcRequest.put("heightM", itemReq.getHeightM());
+                List<Long> opIds = itemReq.getOperations() == null ? Collections.emptyList() :
+                    itemReq.getOperations().stream()
+                        .map(OrderOperationRequest::getOperationId)
+                        .collect(Collectors.toList());
+                calcRequest.put("operationIds", opIds);
+
+                // Prepare headers with JWT
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                if (jwtToken != null) {
+                    headers.setBearerAuth(jwtToken);
+                }
+                HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(calcRequest, headers);
+
+                // Call calculator service
+                Map<String, Object> calcResponse;
+                try {
+                    ResponseEntity<Map> response = restTemplate.exchange(
+                        calculatorUrl + "/api/v1/calculations/preview",
+                        HttpMethod.POST,
+                        requestEntity,
+                        Map.class
+                    );
+                    calcResponse = response.getBody();
+                } catch (RestClientException e) {
+                    throw new RuntimeException("Ошибка при расчете стоимости позиции: " + e.getMessage(), e);
+                }
+
+                if (calcResponse == null) {
+                    throw new RuntimeException("Пустой ответ от службы расчета");
+                }
+
+                // Parse total price
+                Number totalPriceNum = (Number) calcResponse.get("totalPrice");
+                BigDecimal totalPrice = new BigDecimal(totalPriceNum.toString());
+
+                // Parse operations breakdown
+                List<Map<String, Object>> opsData = (List<Map<String, Object>>) calcResponse.get("operations");
+                BigDecimal operationsSubtotal = BigDecimal.ZERO;
+                List<OrderOperation> orderOps = new ArrayList<>();
+
+                if (opsData != null) {
+                    for (Map<String, Object> opMap : opsData) {
+                        Long opId = ((Number) opMap.get("operationId")).longValue();
+                        String opName = (String) opMap.get("operationName");
+                        Number qtyNum = (Number) opMap.get("quantity");
+                        Number priceNum = (Number) opMap.get("pricePerUnit");
+                        Number subtotalNum = (Number) opMap.get("subtotal");
+                        BigDecimal qty = new BigDecimal(qtyNum.toString());
+                        BigDecimal pricePerUnit = new BigDecimal(priceNum.toString());
+                        BigDecimal subtotal = new BigDecimal(subtotalNum.toString());
+                        operationsSubtotal = operationsSubtotal.add(subtotal);
+
+                        OrderOperation orderOp = new OrderOperation();
+                        orderOp.setOperationId(opId);
+                        orderOp.setOperationName(opName);
+                        orderOp.setPricePerUnit(pricePerUnit);
+                        orderOp.setCalculatedQuantity(qty);
+                        orderOp.setSubtotal(subtotal);
+                        orderOps.add(orderOp);
+                    }
+                }
+
+                // Material cost = total - operations subtotal
+                BigDecimal materialCost = totalPrice.subtract(operationsSubtotal);
+
+                // Compute effective area for material quantity
+                BigDecimal wasteCoeff = material.getWasteCoefficient();
+                if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
+                BigDecimal materialPrice = material.getPrice();
+                BigDecimal effectiveArea = materialCost.divide(materialPrice.multiply(wasteCoeff), 2, RoundingMode.HALF_UP);
+
+                // Create OrderItem
                 OrderItem orderItem = new OrderItem();
                 orderItem.setOrder(saved);
                 orderItem.setName(material.getName() + " " + itemReq.getWidthM() + "x" + itemReq.getHeightM() + "m");
                 orderItem.setQuantity(1);
                 orderItem.setReadyDate(itemReq.getReadyDate());
+                orderItem.setPrice(totalPrice);
+                orderItem.setCost(totalPrice);
 
-                // Создаем OrderMaterial для позиции
+                // Create OrderMaterial
                 OrderMaterial orderMaterial = new OrderMaterial();
                 orderMaterial.setOrderItem(orderItem);
                 orderMaterial.setMaterial(material);
-                BigDecimal area = itemReq.getWidthM().multiply(itemReq.getHeightM());
-                orderMaterial.setQuantity(area);
-                orderMaterial.setWasteCoefficient(material.getWasteCoefficient());
-                BigDecimal materialCost = material.getPrice().multiply(area).multiply(material.getWasteCoefficient());
+                orderMaterial.setQuantity(effectiveArea);
+                orderMaterial.setWasteCoefficient(wasteCoeff);
                 orderMaterial.setCost(materialCost);
-
                 orderItem.getMaterials().add(orderMaterial);
 
-                // Обрабатываем операции
-                if (itemReq.getOperations() != null) {
-                    for (OrderOperationRequest opReq : itemReq.getOperations()) {
-                        // Получить данные операции из calculator-service
-                        // TODO: Добавить вызов calculator-service для получения данных операции и расчета
-                        OrderOperation orderOp = new OrderOperation();
-                        orderOp.setOrderItem(orderItem);
-                        orderOp.setOperationId(opReq.getOperationId());
-                        // Заглушки, нужно получить из calculator
-                        orderOp.setOperationName("Operation " + opReq.getOperationId());
-                        orderOp.setPricePerUnit(BigDecimal.ZERO);
-                        orderOp.setCalculatedQuantity(BigDecimal.ONE);
-                        orderOp.setSubtotal(BigDecimal.ZERO);
-
-                        orderItem.getOperations().add(orderOp);
-                    }
+                // Attach operations
+                for (OrderOperation op : orderOps) {
+                    op.setOrderItem(orderItem);
+                    orderItem.getOperations().add(op);
                 }
 
-                // Расчет стоимости позиции (материал + операции)
-                BigDecimal itemCost = materialCost; // + операции
-                orderItem.setPrice(itemCost);
-                orderItem.setCost(itemCost);
-
                 saved.getItems().add(orderItem);
-                total = total.add(itemCost);
+                total = total.add(totalPrice);
             }
             saved.setTotalAmount(total);
             orderRepository.save(saved);
@@ -199,10 +286,10 @@ public class OrderService {
 
     /**
      * Сгенерировать уникальный номер заказа.
-     * Формат: ORD-{timestamp}
+     * Формат: YYYYMMDDHHMMSS (без тире)
      */
     private String generateOrderNumber() {
-        return "ORD-" + System.currentTimeMillis();
+        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
     }
 
     /**

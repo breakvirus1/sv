@@ -42,20 +42,18 @@ services:
       - sv-network
 
   discovery-server:
-    build:
-      context: .
-      dockerfile: back/discovery-server/Dockerfile
-    ports:
-      - "8762:8761"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - sv-network
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - EUREKA_URL=http://discovery-server:8761/eureka/
-      - DB_HOST=postgres
+     build:
+       context: .
+       dockerfile: back/discovery-server/Dockerfile
+     ports:
+       - "8761:8761"
+     depends_on:
+       postgres:
+         condition: service_healthy
+     networks:
+       - sv-network
+     environment:
+       - SPRING_PROFILES_ACTIVE=docker
 
   order-service:
     build:

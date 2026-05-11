@@ -14,21 +14,19 @@ import java.math.BigDecimal;
  * Цена указывается за 1 м².
  */
 @Entity
-@Table(name = "calculator_materials")
-@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
-@DiscriminatorColumn(name = "material_type", discriminatorType = DiscriminatorType.STRING)
-@SQLDelete(sql = "UPDATE calculator_materials SET deleted = true WHERE id=?")
+@Table(name = "materials", schema = "ordschema")
+@SQLDelete(sql = "UPDATE ordschema.materials SET deleted = true WHERE id=?")
 @Where(clause = "deleted = false")
 @Getter
 @Setter
-public abstract class Material extends BaseEntity {
+public class Material extends BaseEntity {
 
     /** Наименование материала */
     @Column(nullable = false, length = 255)
     private String name;
 
-    /** Цена за 1 м² */
-    @Column(name = "price_per_square_meter", precision = 12, scale = 2)
+    /** Цена за 1 м² (отображение столбца 'price' в общей таблице материалов) */
+    @Column(name = "price", precision = 12, scale = 2)
     private BigDecimal pricePerSquareMeter;
 
     /** Коэффициент отхода (например, 1.10 = 10% отход) */

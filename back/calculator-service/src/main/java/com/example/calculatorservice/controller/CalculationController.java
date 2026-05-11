@@ -1,30 +1,33 @@
 package com.example.calculatorservice.controller;
 
- import com.example.calculatorservice.dto.MaterialDto;
- import com.example.calculatorservice.dto.OperationDto;
- import com.example.calculatorservice.dto.request.CalculationRequestDto;
- import com.example.calculatorservice.dto.response.CalculationResponseDto;
- import com.example.calculatorservice.entity.Banner;
- import com.example.calculatorservice.entity.Eyelet;
- import com.example.calculatorservice.entity.Material;
- import com.example.calculatorservice.entity.MaterialType;
- import com.example.calculatorservice.entity.Plenka;
- import com.example.calculatorservice.service.CalculationService;
- import com.example.calculatorservice.service.EyeletService;
- import com.example.calculatorservice.service.MaterialService;
- import com.example.calculatorservice.service.OperationService;
+import com.example.calculatorservice.dto.MaterialDto;
+import com.example.calculatorservice.dto.OperationDto;
+import com.example.calculatorservice.dto.request.AreaCalculationRequest;
+import com.example.calculatorservice.dto.request.CalculationRequestDto;
+import com.example.calculatorservice.dto.request.ItemCostRequest;
+import com.example.calculatorservice.dto.response.CalculationResponseDto;
+import com.example.calculatorservice.entity.Eyelet;
+import com.example.calculatorservice.entity.Material;
+import com.example.calculatorservice.entity.MaterialType;
+import com.example.calculatorservice.service.CalculationService;
+import com.example.calculatorservice.service.EyeletService;
+import com.example.calculatorservice.service.MaterialService;
+import com.example.calculatorservice.service.OperationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/calculations")
 @RequiredArgsConstructor
+@Slf4j
 public class CalculationController {
 
     private final CalculationService calculationService;
@@ -90,18 +93,69 @@ public class CalculationController {
         );
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
-    @PostMapping
-    public ResponseEntity<CalculationResponseDto> createCalculation(
-            @Valid @RequestBody CalculationRequestDto request) {
-        CalculationResponseDto response = calculationService.createAndCalculate(request);
-        return ResponseEntity.ok(response);
-    }
+     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+     @PostMapping
+     public ResponseEntity<CalculationResponseDto> createCalculation(
+             @Valid @RequestBody CalculationRequestDto request) {
+         log.info("Received calculation request: materialId={}, materialType={}, widthM={}, heightM={}, operationIds={}",
+                 request.getMaterialId(), request.getMaterialType(), request.getWidthM(), request.getHeightM(), request.getOperationIds());
+         CalculationResponseDto response = calculationService.createAndCalculate(request);
+         return ResponseEntity.ok(response);
+     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
     @GetMapping("/{id}")
     public ResponseEntity<CalculationResponseDto> getCalculation(@PathVariable Long id) {
         return ResponseEntity.ok(calculationService.getById(id));
+    }
+
+    /**
+     * Real-time calculation of material area with podvorot (no persistence).
+     * Used by frontend for live price updates when entering dimensions.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PostMapping("/calculate-area")
+    public ResponseEntity<BigDecimal> calculateArea(
+            @Valid @RequestBody AreaCalculationRequest request) {
+        BigDecimal area = calculationService.calculateAreaWithPodvorot(
+                request.getWidthM(),
+                request.getHeightM(),
+                request.getPodvorotMmHorizontal(),
+                request.getPodvorotMmVertical(),
+                request.getPodvorotCountPerSide()
+        );
+        return ResponseEntity.ok(area);
+    }
+
+    /**
+     * Расчет стоимости одной позиции материала с учетом подворотов и операций.
+     * Используется для real-time обновления суммы в интерфейсе создания заказа.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PostMapping("/estimate-item")
+    public ResponseEntity<BigDecimal> estimateItemCost(@Valid @RequestBody ItemCostRequest request) {
+        BigDecimal cost = calculationService.calculateItemCost(
+                request.getMaterialId(),
+                request.getWidthM(),
+                request.getHeightM(),
+                request.getPodvorotMmHorizontal(),
+                request.getPodvorotMmVertical(),
+                request.getPodvorotCountPerSide(),
+                request.getOperationIds()
+        );
+        return ResponseEntity.ok(cost);
+    }
+
+    /**
+     * Предварительный расчет полной стоимости позиции (материал + операции)
+     * без сохранения в базу. Возвращает детализацию по операциям.
+     * Используется order-service для расчета итогов заказа.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PostMapping("/preview")
+    public ResponseEntity<CalculationResponseDto> preview(@Valid @RequestBody CalculationRequestDto request) {
+        CalculationResponseDto dto = calculationService.calculateWithoutSaving(request);
+        return ResponseEntity.ok(dto);
     }
 
     // Helper mapping methods
@@ -111,10 +165,17 @@ public class CalculationController {
         dto.setName(material.getName());
         dto.setPricePerSquareMeter(material.getPricePerSquareMeter());
         dto.setWasteCoefficient(material.getWasteCoefficient());
-        if (material instanceof Banner) {
-            dto.setType("BANNER");
-        } else if (material instanceof Plenka) {
-            dto.setType("PLENKA");
+        // Determine type based on name
+        String name = material.getName();
+        if (name != null) {
+            String lower = name.toLowerCase();
+            if (lower.contains("баннер")) {
+                dto.setType("BANNER");
+            } else if (lower.contains("плёнка") || lower.contains("пленка")) {
+                dto.setType("PLENKA");
+            } else {
+                dto.setType("UNKNOWN");
+            }
         } else {
             dto.setType("UNKNOWN");
         }
@@ -129,6 +190,8 @@ public class CalculationController {
         dto.setUnit(op.getUnit().getDisplayName());
         dto.setApplicableTo(op.getApplicableTo().name());
         dto.setDefault(op.isDefault());
+        dto.setHemWidthMm(op.getHemWidthMm());
+        dto.setHemCount(op.getHemCount());
         return dto;
     }
 }

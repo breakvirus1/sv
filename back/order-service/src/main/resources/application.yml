@@ -37,6 +37,10 @@ eureka:
   instance:
     prefer-ip-address: true
 
+calculator:
+  service:
+    url: ${CALCULATOR_SERVICE_URL:http://localhost:8086}
+
 logging:
   level:
     org.springframework.security: DEBUG

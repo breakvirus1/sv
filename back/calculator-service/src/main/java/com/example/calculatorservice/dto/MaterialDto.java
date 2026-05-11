@@ -10,4 +10,13 @@ public class MaterialDto {
     private BigDecimal pricePerSquareMeter;
     private String type; // BANNER or PLENKA
     private BigDecimal wasteCoefficient;
+
+    // Additional getters for frontend compatibility
+    public String getUnit() {
+        return "м2";
+    }
+
+    public BigDecimal getPrice() {
+        return pricePerSquareMeter;
+    }
 }

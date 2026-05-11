@@ -3,6 +3,9 @@
 -- All tables for microservices shared database
 -- ============================================================
 
+-- Create schema first
+CREATE SCHEMA IF NOT EXISTS ordschema;
+
 -- ----------------------------
 -- 1. Clients table
 -- ----------------------------
