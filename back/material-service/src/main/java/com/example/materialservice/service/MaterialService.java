@@ -25,7 +25,15 @@ public class MaterialService {
     private final MaterialRepository materialRepository;
 
     /**
-     * Получить список активных материалов с пагинацией и фильтрацией.
+     * Получить пагинированный и фильтрованный список активных материалов.
+     * <p>
+     * Метод выполняет поиск материалов с应用ом (applying) указанного {@link Specification}
+     * и преобразует сущности {@link Material} в DTO {@link MaterialResponse} через {@link #mapToResponse(Material)}.
+     * Фильтрация по умолчанию excludes soft-deleted записи благодаря {@link org.hibernate.annotations.Where} на сущности.
+     *
+     * @param spec     спецификация JPA для динамической фильтрации (например, по имени); может быть {@code null}
+     * @param pageable объект пагинации и сортировки (номер страницы, размер, сортировка)
+     * @return страница {@link MaterialResponse} с содержимым материалов и мета-информацией пагинации
      */
     public Page<MaterialResponse> getAllMaterials(Specification<Material> spec, Pageable pageable) {
         return materialRepository.findAll(spec, pageable)
@@ -33,14 +41,27 @@ public class MaterialService {
     }
 
     /**
-     * Получить список материалов по типу (активные только).
+     * Получить список активных материалов определённого типа (MATERIAL или OPERATION).
+     * <p>
+     * Используется для выборки материалов или операций отдельно.
+     * Возвращает только не удалённые записи (soft-deleted excluded).
+     *
+     * @param type тип материала (из enum {@link MaterialType})
+     * @return список активных материалов указанного типа
      */
     public List<Material> getMaterialsByType(MaterialType type) {
         return materialRepository.findByType(type);
     }
 
     /**
-     * Получить материал по ID.
+     * Получить материал по его идентификатору.
+     * <p>
+     * Выполняет поиск по {@code id} среди активных (не удалённых) записей.
+     * Если материал не найден или был soft-deleted, выбрасывается {@link ResourceNotFoundException}.
+     *
+     * @param id идентификатор материала (не {@code null})
+     * @return DTO {@link MaterialResponse} с данными материала
+     * @throws ResourceNotFoundException если материал с указанным {@code id} не существует
      */
     @Transactional(readOnly = true)
     public MaterialResponse getMaterialById(Long id) {
@@ -51,6 +72,14 @@ public class MaterialService {
 
     /**
      * Создать новый материал.
+     * <p>
+     * Валидирует единицу измерения (должна быть "м2" или "м.п.").
+     * Устанавливает цену {@code 0.00} и коэффициент отходов {@code 1.0} если не указаны.
+     * Сохраняет сущность в БД и возвращает DTO созданного материала.
+     *
+     * @param request DTO с данными для создания (имя, единица, цена, коэффициент)
+     * @return DTO {@link MaterialResponse} созданного материала с присвоенным {@code id}
+     * @throws IllegalArgumentException если единица измерения некорректна
      */
     public MaterialResponse createMaterial(MaterialCreateRequest request) {
         validateUnit(request.getUnit());
@@ -65,7 +94,17 @@ public class MaterialService {
     }
 
     /**
-     * Обновить материал.
+     * Обновить существующий материал.
+     * <p>
+     * Частичное обновление: изменяются только те поля, которые присутствуют в {@link MaterialUpdateRequest} (не {@code null}).
+     * При изменении единицы измерения выполняется валидация.
+     * Обновлённая сущность сохраняется и возвращается в виде DTO.
+     *
+     * @param id      идентификатор обновляемого материала
+     * @param request DTO с полями для обновления (может содержать null для пропуска字段)
+     * @return DTO {@link MaterialResponse} обновлённого материала
+     * @throws ResourceNotFoundException если материал с {@code id} не найден
+     * @throws IllegalArgumentException  если новая единица измерения некорректна
      */
     public MaterialResponse updateMaterial(Long id, MaterialUpdateRequest request) {
         Material material = getMaterialEntity(id);
@@ -87,7 +126,13 @@ public class MaterialService {
     }
 
     /**
-     * Удалить материал (мягкое удаление).
+     * Удалить (мягко) материал по ID.
+     * <p>
+     * Выполняет soft delete: устанавливает флаг {@code deleted = true} вместо физического удаления записи.
+     * На сущности используется {@link org.hibernate.annotations.SQLDelete} для генерации UPDATE-запроса.
+     *
+     * @param id идентификатор материала для удаления
+     * @throws ResourceNotFoundException если материал с {@code id} не найден
      */
     public void deleteMaterial(Long id) {
         Material material = getMaterialEntity(id);

@@ -749,7 +749,58 @@ const getStatusColor = (status) => {
 };
 
 const PositionsTab = ({ materials = [], items = [] }) => {
-  const displayList = (materials && materials.length > 0) ? materials : items;
+  // Use materials when available (view mode with joined data), otherwise fallback to items (create mode).
+  // In create mode `items` are user-added lines; in view mode `materials` come from order.materials relationship.
+  const rawList = (materials && materials.length > 0) ? materials : items;
+
+  /**
+   * Дедупликация и агрегация позиций по materialId.
+   * Если в заказе несколько строк referencing один и тот же материал,
+   * их количества и стоимость суммируются, операции объединяются без дублей.
+   */
+  const displayList = useMemo(() => {
+    const map = new Map();
+
+    rawList.forEach((entry) => {
+      // Determine material identifier: from nested material object (view mode) or materialId field (create mode)
+      const materialId = entry.material?.id ?? entry.materialId;
+      if (!materialId) return; // skip entries without material
+
+      const quantity = Number(entry.quantity) || 0;
+      const cost = Number(entry.cost) || 0;
+
+      if (map.has(materialId)) {
+        // Merge into existing: sum quantity and cost, merge operations uniquely
+        const existing = map.get(materialId);
+        existing.quantity += quantity;
+        existing.cost += cost;
+
+        // Merge operations arrays, avoiding duplicates by operationName
+        if (entry.operations && entry.operations.length > 0) {
+          existing.operations = existing.operations || [];
+          entry.operations.forEach(op => {
+            if (!existing.operations.some(e => e.operationName === op.operationName)) {
+              existing.operations.push(op);
+            }
+          });
+        }
+        // readyDate: keep the first encountered (could also become array if needed)
+      } else {
+        // New grouped entry: clone and ensure material object is present
+        map.set(materialId, {
+          ...entry,
+          materialId,
+          quantity: quantity,
+          cost: cost,
+          // Ensure material object is present for rendering name/unit/price
+          material: entry.material || (entry.materialId ? { id: entry.materialId, name: entry.name, unit: entry.unit, price: entry.price } : null),
+          operations: entry.operations || []
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [rawList]);
 
   if (!displayList?.length) {
     return <Typography>Нет позиций в заказе</Typography>;
@@ -776,7 +827,7 @@ const PositionsTab = ({ materials = [], items = [] }) => {
         // But we'll just show material name as is.
 
         return (
-          <Paper key={entry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Paper key={entry.materialId || entry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
             <Box display="flex" justifyContent="space-between" alignItems="center">
               <Typography variant="subtitle1">{name}</Typography>
               <Typography variant="h6">{cost?.toFixed(2)} ₽</Typography>
