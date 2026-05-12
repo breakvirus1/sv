@@ -173,16 +173,24 @@ public class OrderService {
                     throw new RuntimeException("Материал не найден: " + itemReq.getMaterialId());
                 }
 
-                // Build request to calculator service
-                Map<String, Object> calcRequest = new HashMap<>();
-                calcRequest.put("materialId", material.getId());
-                calcRequest.put("widthM", itemReq.getWidthM());
-                calcRequest.put("heightM", itemReq.getHeightM());
-                List<Long> opIds = itemReq.getOperations() == null ? Collections.emptyList() :
-                    itemReq.getOperations().stream()
-                        .map(OrderOperationRequest::getOperationId)
-                        .collect(Collectors.toList());
-                calcRequest.put("operationIds", opIds);
+                 // Build request to calculator service
+                 Map<String, Object> calcRequest = new HashMap<>();
+                 calcRequest.put("materialId", material.getId());
+                 calcRequest.put("widthM", itemReq.getWidthM());
+                 calcRequest.put("heightM", itemReq.getHeightM());
+                 List<Long> opIds = itemReq.getOperations() == null ? Collections.emptyList() :
+                     itemReq.getOperations().stream()
+                         .map(OrderOperationRequest::getOperationId)
+                         .collect(Collectors.toList());
+                 calcRequest.put("operationIds", opIds);
+
+                 // Include eyelet parameters if present
+                 if (itemReq.getEyeletId() != null) {
+                     calcRequest.put("eyeletId", itemReq.getEyeletId());
+                 }
+                 if (itemReq.getEyeletStepCm() != null) {
+                     calcRequest.put("eyeletStepCm", itemReq.getEyeletStepCm());
+                 }
 
                 // Prepare headers with JWT
                 HttpHeaders headers = new HttpHeaders();

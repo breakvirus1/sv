@@ -1,12 +1,20 @@
 package com.example.materialservice.service;
 
+import com.example.materialservice.dto.MaterialCreateRequest;
+import com.example.materialservice.dto.MaterialResponse;
+import com.example.materialservice.dto.MaterialUpdateRequest;
 import com.example.materialservice.entity.Material;
 import com.example.materialservice.entity.MaterialType;
 import com.example.materialservice.exception.ResourceNotFoundException;
 import com.example.materialservice.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -17,34 +25,33 @@ public class MaterialService {
     private final MaterialRepository materialRepository;
 
     /**
-     * Получить список активных материалов (deleted = false).
-     * Для отображения в выпадающих списках и справочниках.
+     * Получить список активных материалов с пагинацией и фильтрацией.
      */
-    public List<Material> getAllMaterials() {
-        return materialRepository.findAll().stream()
-                .filter(m -> !m.getDeleted())
-                .collect(Collectors.toList());
+    public Page<MaterialResponse> getAllMaterials(Specification<Material> spec, Pageable pageable) {
+        return materialRepository.findAll(spec, pageable)
+                .map(this::mapToResponse);
     }
 
+    /**
+     * Получить список материалов по типу (активные только).
+     */
     public List<Material> getMaterialsByType(MaterialType type) {
-        return materialRepository.findByType(type).stream()
-                .filter(m -> !m.getDeleted())
-                .collect(Collectors.toList());
+        return materialRepository.findByType(type);
     }
 
-    public Material getMaterialById(Long id) {
-        return materialRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Материал не найден"));
-    }
-}
-
+    /**
+     * Получить материал по ID.
+     */
     @Transactional(readOnly = true)
     public MaterialResponse getMaterialById(Long id) {
         Material material = materialRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Материал не найден"));
+                .orElseThrow(() -> new ResourceNotFoundException("Материал не найден"));
         return mapToResponse(material);
     }
 
+    /**
+     * Создать новый материал.
+     */
     public MaterialResponse createMaterial(MaterialCreateRequest request) {
         validateUnit(request.getUnit());
         Material material = new Material();
@@ -57,6 +64,9 @@ public class MaterialService {
         return mapToResponse(saved);
     }
 
+    /**
+     * Обновить материал.
+     */
     public MaterialResponse updateMaterial(Long id, MaterialUpdateRequest request) {
         Material material = getMaterialEntity(id);
         if (request.getName() != null) {
@@ -76,12 +86,9 @@ public class MaterialService {
         return mapToResponse(saved);
     }
 
-    private void validateUnit(String unit) {
-        if (unit == null || (!unit.equals("м2") && !unit.equals("м.п."))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Единица измерения должна быть 'м2' или 'м.п.'");
-        }
-    }
-
+    /**
+     * Удалить материал (мягкое удаление).
+     */
     public void deleteMaterial(Long id) {
         Material material = getMaterialEntity(id);
         materialRepository.delete(material);
@@ -90,7 +97,7 @@ public class MaterialService {
     @Transactional(readOnly = true)
     private Material getMaterialEntity(Long id) {
         return materialRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Материал не найден"));
+                .orElseThrow(() -> new ResourceNotFoundException("Материал не найден"));
     }
 
     @Transactional(readOnly = true)
@@ -102,5 +109,11 @@ public class MaterialService {
                 material.getPrice(),
                 material.getWasteCoefficient()
         );
+    }
+
+    private void validateUnit(String unit) {
+        if (unit == null || (!unit.equals("м2") && !unit.equals("м.п."))) {
+            throw new IllegalArgumentException("Единица измерения должна быть 'м2' или 'м.п.'");
+        }
     }
 }

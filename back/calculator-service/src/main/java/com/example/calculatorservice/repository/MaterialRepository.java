@@ -24,4 +24,3 @@ public interface MaterialRepository extends JpaRepository<Material, Long> {
 
     Optional<Material> findByIdAndDeletedFalse(Long id);
 }
-}

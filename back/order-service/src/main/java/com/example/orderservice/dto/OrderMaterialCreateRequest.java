@@ -26,4 +26,8 @@ public class OrderMaterialCreateRequest {
     private List<OrderOperationRequest> operations;
     /** Срок готовности позиции (опционально) */
     private LocalDate readyDate;
+    /** ID люверса (опционально, если операция "Установка люверсов") */
+    private Long eyeletId;
+    /** Шаг установки люверсов в см (опционально) */
+    private Integer eyeletStepCm;
 }
