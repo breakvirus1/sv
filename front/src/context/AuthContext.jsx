@@ -5,8 +5,8 @@ import api from '../services/api';
 const userManager = new UserManager({
   authority: import.meta.env.VITE_KEYCLOAK_ISSUER,
   client_id: import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'frontend',
-  redirect_uri: 'http://localhost:5174/callback',
-  post_logout_redirect_uri: 'http://localhost:5174/',
+  redirect_uri: `${window.location.origin}/callback`,
+  post_logout_redirect_uri: `${window.location.origin}/`,
   response_type: 'code',
   scope: 'openid profile email',
   userStore: new WebStorageStateStore({ store: window.localStorage })
