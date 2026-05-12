@@ -1,18 +1,17 @@
 # Exclude build outputs and temp files
-target/
-**/target/
+**/target/**
+**/*.log
+**/*.tmp
+
+# Exclude specific directories/files
+back/auth-server/
+back/user-service/
+back/zakaz-service/
 .git/
 .gitignore
 README.md
 *.md
 .DS_Store
-*.log
-*.tmp
-back/auth-server/
-back/user-service/
-back/zakaz-service/
-**/*.log
-**/*.tmp
 
 # Re-include built JARs from service targets
 !**/target/*.jar

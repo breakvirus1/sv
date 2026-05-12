@@ -28,6 +28,12 @@ public class OrderMaterialCreateRequest {
     private LocalDate readyDate;
     /** ID люверса (опционально, если операция "Установка люверсов") */
     private Long eyeletId;
-    /** Шаг установки люверсов в см (опционально) */
-    private Integer eyeletStepCm;
+  /** Шаг установки люверсов в см (опционально) */
+  private Integer eyeletStepCm;
+  /** Припуск по горизонтали в миллиметрах (опционально, для подворотов) */
+  private BigDecimal podvorotMmHorizontal;
+  /** Припуск по вертикали в миллиметрах (опционально, для подворотов) */
+  private BigDecimal podvorotMmVertical;
+  /** Количество подворотов на сторону (опционально, по умолчанию 2) */
+  private Integer podvorotCountPerSide;
 }

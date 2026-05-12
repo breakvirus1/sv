@@ -7,7 +7,10 @@ import com.example.orderservice.dto.*;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderItem;
 import com.example.orderservice.entity.OrderMaterial;
+import com.example.orderservice.entity.OrderOperation;
 import com.example.orderservice.entity.OrderStage;
+import com.example.orderservice.entity.OrderStage;
+import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -15,6 +18,9 @@ import org.mapstruct.ReportingPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Collectors;
+import java.util.stream.Collectors;
 
 /**
  * MapStruct mapper для преобразования между сущностями и DTO.
@@ -47,6 +53,23 @@ public interface OrderMapper {
 
     OrderItemResponse itemToDto(OrderItem item);
 
+    @AfterMapping
+    default void afterItemToDto(OrderItem entity, @MappingTarget OrderItemResponse dto) {
+        if (entity.getOperations() != null) {
+            dto.setOperations(entity.getOperations().stream()
+                .map(op -> {
+                    OrderOperationSummary s = new OrderOperationSummary();
+                    s.setOperationId(op.getOperationId());
+                    s.setOperationName(op.getOperationName());
+                    s.setPricePerUnit(op.getPricePerUnit());
+                    s.setCalculatedQuantity(op.getCalculatedQuantity());
+                    s.setSubtotal(op.getSubtotal());
+                    return s;
+                })
+                .collect(Collectors.toList()));
+        }
+    }
+
     OrderStageResponse stageToDto(OrderStage stage);
 
     ClientResponse clientToDto(com.example.clientservice.entity.Client client);
@@ -55,7 +78,14 @@ public interface OrderMapper {
 
     MaterialResponse materialToDto(com.example.materialservice.entity.Material material);
 
+    @Mapping(target = "operations", ignore = true)
     OrderMaterialResponse orderMaterialToDto(OrderMaterial orderMaterial);
+
+    @AfterMapping
+    default void populateItemOperations(@MappingTarget OrderItemResponse dto) {
+        // This method will be called after itemToDto mapping, but we need the source entity.
+        // Instead we'll implement custom mapping via a separate method call.
+    }
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "orderNumber", ignore = true)

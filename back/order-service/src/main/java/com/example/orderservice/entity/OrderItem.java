@@ -54,6 +54,6 @@ public class OrderItem extends BaseEntity {
     private List<OrderMaterial> materials = new ArrayList<>();
 
     /** Операции для этой позиции */
-    @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<OrderOperation> operations = new ArrayList<>();
 }

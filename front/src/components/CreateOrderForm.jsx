@@ -48,14 +48,17 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     dueDate: '',
     items: []
   });
-   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-   const [isSubmitting, setIsSubmitting] = useState(false);
-   // Operations dialog state
-   const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
-   // Pending ops before eyelet config
-   const [pendingOps, setPendingOps] = useState([]);
-   // Eyelet parameters dialog state
-   const [eyeletDialog, setEyeletDialog] = useState({ open: false, itemIndex: null, selectedOpId: null, eyeletId: '', eyeletStepCm: 40 });
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Operations dialog state
+  const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
+  // Unified operation parameters dialog state
+  const [operationParamsDialog, setOperationParamsDialog] = useState({
+    open: false,
+    itemIndex: null,
+    pendingOps: [],
+    params: {}
+  });
 
   // Клиентский диалог создания нового клиента
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
@@ -84,21 +87,21 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
-   const { data: operationsData = [], error: operationsError } = useQuery({
-     queryKey: ['operations'],
-     queryFn: async () => {
-       const response = await api.get('/api/v1/calculations/operations');
-       return response.data || [];
-     },
-   });
+  const { data: operationsData = [], error: operationsError } = useQuery({
+    queryKey: ['operations'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/calculations/operations');
+      return response.data || [];
+    },
+  });
 
-   const { data: eyeletsData = [], error: eyeletsError } = useQuery({
-     queryKey: ['eyelets'],
-     queryFn: async () => {
-       const response = await api.get('/api/v1/calculations/eyelets');
-       return response.data || [];
-     },
-   });
+  const { data: eyeletsData = [], error: eyeletsError } = useQuery({
+    queryKey: ['eyelets'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/calculations/eyelets');
+      return response.data || [];
+    },
+  });
 
   // Получение текущего менеджера по username из Keycloak
   const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
@@ -171,70 +174,135 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     });
   };
 
-   const handleCloseOperationsDialog = () => {
-     setOperationsDialog({ open: false, itemIndex: null, selectedOps: [] });
-   };
+  const handleCloseOperationsDialog = () => {
+    setOperationsDialog({ open: false, itemIndex: null, selectedOps: [] });
+  };
 
-   const handleCloseEyeletDialog = () => {
-     setEyeletDialog({ open: false, itemIndex: null, selectedOpId: null, eyeletId: '', eyeletStepCm: 40 });
-     setPendingOps([]);
-   };
+  const handleCloseOperationParamsDialog = () => {
+    setOperationParamsDialog(prev => ({
+      ...prev,
+      open: false,
+      itemIndex: null,
+      pendingOps: [],
+      params: {}
+    }));
+  };
 
-    const handleSaveEyeletParams = () => {
-      const { itemIndex, selectedOpId, eyeletId, eyeletStepCm } = eyeletDialog;
-      // Build operations array from pendingOps
-      const ops = pendingOps.map(opId => {
-        const op = operationsData.find(o => o.id === opId);
-        if (op.id === selectedOpId) {
-          return { ...op, eyeletId: parseInt(eyeletId), eyeletStepCm: parseInt(eyeletStepCm) };
+  const handleSaveOperationParams = () => {
+    const { itemIndex, pendingOps, params } = operationParamsDialog;
+    // Combine pendingOps with their configured params, converting types as needed
+    const opsWithParams = pendingOps.map(op => {
+      const baseOp = operationsData.find(o => o.id === op.id);
+      const opParams = params[op.id] || {};
+      // Convert eyeletId to number if present
+      if (opParams.eyeletId !== undefined) {
+        opParams.eyeletId = opParams.eyeletId ? parseInt(opParams.eyeletId, 10) : null;
+      }
+      return { ...baseOp, ...opParams };
+    });
+
+    // Get existing operations and update/add the special ones
+    const currentOps = formData.items[itemIndex].operations || [];
+    // Remove any existing special ops with same ids to avoid duplicates
+    const filteredOps = currentOps.filter(cop => !pendingOps.some(pop => pop.id === cop.id));
+    // Combine: existing non-special ops + new special ops with params
+    const finalOps = [...filteredOps, ...opsWithParams];
+
+    updateItemOperations(itemIndex, finalOps);
+    handleCloseOperationParamsDialog();
+  };
+
+  const handleToggleOperation = (opId) => {
+    setOperationsDialog(prev => ({
+      ...prev,
+      selectedOps: prev.selectedOps.includes(opId)
+        ? prev.selectedOps.filter(id => id !== opId)
+        : [...prev.selectedOps, opId]
+    }));
+  };
+
+  const handleSaveOperations = () => {
+    const { itemIndex, selectedOps } = operationsDialog;
+    const selectedOpsData = operationsData.filter(op => selectedOps.includes(op.id));
+    const currentOps = formData.items[itemIndex].operations || [];
+
+    // Check for special operations (hem or eyelet) - case-insensitive
+    const specialOps = selectedOpsData.filter(op =>
+      op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
+    );
+
+    if (specialOps.length > 0) {
+      // Check if any special ops already have params in currentOps
+      const allAlreadyConfigured = specialOps.every(sop => {
+        const existing = currentOps.find(cop => cop.id === sop.id);
+        if (sop.name.toLowerCase().includes('люверс')) {
+          return existing && existing.eyeletId;
         }
-        return op;
+        if (sop.name.toLowerCase().includes('подворот')) {
+          return existing && existing.hemWidthMm;
+        }
+        return false;
       });
-      updateItemOperations(itemIndex, ops);
-      handleCloseEyeletDialog();
-    };
 
-   const handleToggleOperation = (opId) => {
-     setOperationsDialog(prev => ({
-       ...prev,
-       selectedOps: prev.selectedOps.includes(opId)
-         ? prev.selectedOps.filter(id => id !== opId)
-         : [...prev.selectedOps, opId]
-     }));
-   };
+      if (allAlreadyConfigured) {
+        // Preserve existing params for all special ops
+        const ops = selectedOpsData.map(op => {
+          const existing = currentOps.find(cop => cop.id === op.id);
+          return existing ? { ...op, ...existing } : op;
+        });
+        updateItemOperations(itemIndex, ops);
+        handleCloseOperationsDialog();
+        return;
+      }
 
-   const handleSaveOperations = () => {
-     const { itemIndex, selectedOps } = operationsDialog;
-     const selectedOpsData = operationsData.filter(op => selectedOps.includes(op.id));
-     const currentOps = formData.items[itemIndex].operations || [];
-     const eyeletOp = selectedOpsData.find(op => op.name.toLowerCase().includes('люверс'));
+      // Initialize params for all special ops, preserving existing if available
+      const initialParams = {};
+      const newPendingOps = [];
 
-     if (eyeletOp) {
-       // Check if already configured with eyelet params
-       const existingEyelet = currentOps.find(eop => eop.id === eyeletOp.id && eop.eyeletId);
-       if (existingEyelet) {
-         // Preserve existing params
-         const ops = selectedOpsData.map(op => op.id === existingEyelet.id ? existingEyelet : op);
-         updateItemOperations(itemIndex, ops);
-         handleCloseOperationsDialog();
-         return;
-       }
-       // Need to configure eyelet
-       setPendingOps(selectedOps);
-       setEyeletDialog(prev => ({
-         ...prev,
-         open: true,
-         itemIndex,
-         selectedOpId: eyeletOp.id,
-         eyeletId: '',
-         eyeletStepCm: 40
-       }));
-       handleCloseOperationsDialog();
-     } else {
-       updateItemOperations(itemIndex, selectedOpsData);
-       handleCloseOperationsDialog();
-     }
-   };
+      specialOps.forEach(op => {
+        const opId = op.id;
+        newPendingOps.push(op);
+        const existing = currentOps.find(cop => cop.id === opId);
+        if (op.name.toLowerCase().includes('подворот')) {
+          if (existing && existing.hemWidthMm) {
+            // Preserve existing parameters for this item
+            initialParams[opId] = { 
+              hemWidthMm: existing.hemWidthMm, 
+              hemCount: existing.hemCount || 2 
+            };
+          } else {
+            // Use operation's own defaults from backend, or fallback
+            const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
+            const defaultCount = op.hemCount != null ? op.hemCount : 2;
+            initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount };
+          }
+        } else if (op.name.toLowerCase().includes('люверс')) {
+          if (existing && existing.eyeletId) {
+            initialParams[opId] = { 
+              eyeletId: existing.eyeletId, 
+              eyeletStepCm: existing.eyeletStepCm || 40 
+            };
+          } else {
+            initialParams[opId] = { eyeletId: '', eyeletStepCm: 40 };
+          }
+        }
+      });
+
+      setOperationParamsDialog(prev => ({
+        ...prev,
+        open: true,
+        itemIndex,
+        pendingOps: newPendingOps,
+        params: initialParams
+      }));
+
+      handleCloseOperationsDialog();
+    } else {
+      // No special operations, save directly
+      updateItemOperations(itemIndex, selectedOpsData);
+      handleCloseOperationsDialog();
+    }
+  };
 
   const handleChange = (field) => (e) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
@@ -261,8 +329,6 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     createClientMutation.mutate(newClientForm);
   };
 
-
-
   const handleClose = () => {
     if (closeWindow) closeWindow();
     else navigate('/orders');
@@ -272,24 +338,24 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const [totalOrderAmount, setTotalOrderAmount] = useState(0);
 
   // Recalculate total when items change
-   useEffect(() => {
-     const calculateTotal = async () => {
-       let total = 0;
-       for (const item of formData.items) {
-         if (!item.materialId || !item.qty1 || !item.qty2) {
-           console.warn('Item missing required fields:', item);
-           continue;
-         }
-         const material = materialsData.find(m => m.id === parseInt(item.materialId));
-         if (!material) continue;
+  useEffect(() => {
+    const calculateTotal = async () => {
+      let total = 0;
+      for (const item of formData.items) {
+        if (!item.materialId || !item.qty1 || !item.qty2) {
+          console.warn('Item missing required fields:', item);
+          continue;
+        }
+        const material = materialsData.find(m => m.id === parseInt(item.materialId));
+        if (!material) continue;
 
-         const widthM = parseFloat(item.qty1) / 1000;
-         const heightM = parseFloat(item.qty2) / 1000;
+        const widthM = parseFloat(item.qty1) / 1000;
+        const heightM = parseFloat(item.qty2) / 1000;
 
-         if (isNaN(widthM) || isNaN(heightM) || widthM <= 0 || heightM <= 0) {
-           console.warn('Invalid dimensions:', item.qty1, item.qty2);
-           continue;
-         }
+        if (isNaN(widthM) || isNaN(heightM) || widthM <= 0 || heightM <= 0) {
+          console.warn('Invalid dimensions:', item.qty1, item.qty2);
+          continue;
+        }
 
         // Prepare calculation request
         const requestData = {
@@ -305,6 +371,14 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         if (eyeletOp) {
           requestData.eyeletId = eyeletOp.eyeletId;
           requestData.eyeletStepCm = eyeletOp.eyeletStepCm;
+        }
+
+        // Add hem parameters if present (take first hem operation)
+        const hemOp = item.operations.find(op => op.hemWidthMm && op.hemCount);
+        if (hemOp) {
+          requestData.podvorotMmHorizontal = hemOp.hemWidthMm;
+          requestData.podvorotMmVertical = hemOp.hemWidthMm;
+          requestData.podvorotCountPerSide = hemOp.hemCount;
         }
 
         try {
@@ -353,6 +427,12 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         const eyeletId = eyeletOp?.eyeletId || null;
         const eyeletStepCm = eyeletOp?.eyeletStepCm || null;
 
+        // Find hem operation if any
+        const hemOp = item.operations.find(op => op.hemWidthMm && op.hemCount);
+        const podvorotMmHorizontal = hemOp?.hemWidthMm || null;
+        const podvorotMmVertical = hemOp?.hemWidthMm || null;
+        const podvorotCountPerSide = hemOp?.hemCount || null;
+
         return {
           materialId: parseInt(item.materialId),
           widthM,
@@ -360,7 +440,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           operations: item.operations.map(op => ({ operationId: op.id })),
           readyDate: item.readyDate || null,
           ...(eyeletId !== null && { eyeletId }),
-          ...(eyeletStepCm !== null && { eyeletStepCm })
+          ...(eyeletStepCm !== null && { eyeletStepCm }),
+          ...(podvorotMmHorizontal !== null && { podvorotMmHorizontal }),
+          ...(podvorotMmVertical !== null && { podvorotMmVertical }),
+          ...(podvorotCountPerSide !== null && { podvorotCountPerSide })
         };
       });
 
@@ -395,18 +478,18 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     }
   };
 
-   if (clientsError || materialsError || operationsError || eyeletsError) {
-     return (
-       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-         <Alert severity="error" sx={{ mb: 2 }}>
-           Не удалось загрузить данные. Пожалуйста, проверьте подключение к серверу.
-         </Alert>
-         <Button onClick={handleClose} variant="outlined">
-           Закрыть
-         </Button>
-       </Box>
-     );
-   }
+  if (clientsError || materialsError || operationsError || eyeletsError) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Не удалось загрузить данные. Пожалуйста, проверьте подключение к серверу.
+        </Alert>
+        <Button onClick={handleClose} variant="outlined">
+          Закрыть
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
@@ -655,78 +738,177 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         </DialogActions>
       </Dialog>
 
-        <Snackbar
-          open={notification.open}
-          autoHideDuration={6000}
-          onClose={() => setNotification({ ...notification, open: false })}
-        >
-          <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
-            {notification.message}
-          </Alert>
-        </Snackbar>
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={() => setNotification({ ...notification, open: false })}
+      >
+        <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
+          {notification.message}
+        </Alert>
+      </Snackbar>
 
-        {/* Operations dialog */}
-        <Dialog open={operationsDialog.open} onClose={handleCloseOperationsDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>Выбрать операции</DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, alignItems: 'flex-start' }}>
-              {operationsData.map(op => (
-                <FormControlLabel
-                  key={op.id}
-                  control={
-                    <Checkbox
-                      checked={operationsDialog.selectedOps.includes(op.id)}
-                      onChange={() => handleToggleOperation(op.id)}
+      {/* Operations dialog */}
+      <Dialog open={operationsDialog.open} onClose={handleCloseOperationsDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Выбрать операции</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, alignItems: 'flex-start' }}>
+            {operationsData.map(op => (
+              <FormControlLabel
+                key={op.id}
+                control={
+                  <Checkbox
+                    checked={operationsDialog.selectedOps.includes(op.id)}
+                    onChange={() => handleToggleOperation(op.id)}
+                  />
+                }
+                label={op.name}
+              />
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseOperationsDialog}>Отмена</Button>
+          <Button onClick={handleSaveOperations} variant="contained">Сохранить</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Unified operation parameters dialog */}
+      <Dialog open={operationParamsDialog.open} onClose={handleCloseOperationParamsDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>Параметры операций</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {operationParamsDialog.pendingOps.map(op => {
+              const opName = op.name.toLowerCase();
+              if (opName.includes('подворот')) {
+                const params = operationParamsDialog.params[op.id] || { hemWidthMm: 20, hemCount: 2 };
+                return (
+                  <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom color="primary">
+                      {op.name}
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      margin="dense"
+                      label="Ширина подворота (мм)"
+                      type="number"
+                      value={params.hemWidthMm}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev,
+                        params: {
+                          ...prev.params,
+                          [op.id]: {
+                            ...prev.params[op.id],
+                            hemWidthMm: parseInt(e.target.value) || 0
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 1 }}
+                      required
                     />
-                  }
-                  label={op.name}
-                />
-              ))}
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseOperationsDialog}>Отмена</Button>
-            <Button onClick={handleSaveOperations} variant="contained">Сохранить</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Eyelet parameters dialog */}
-        <Dialog open={eyeletDialog.open} onClose={handleCloseEyeletDialog} maxWidth="xs" fullWidth>
-          <DialogTitle>Параметры люверсов</DialogTitle>
-          <DialogContent>
-            <TextField
-              select
-              fullWidth
-              margin="dense"
-              label="Размер люверса"
-              value={eyeletDialog.eyeletId}
-              onChange={(e) => setEyeletDialog(prev => ({ ...prev, eyeletId: e.target.value }))}
-              required
-            >
-              <MenuItem value="">Выберите размер</MenuItem>
-              {eyeletsData.map(eyelet => (
-                <MenuItem key={eyelet.id} value={eyelet.id}>
-                  {eyelet.name} — {eyelet.pricePerPiece} ₽/шт
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              fullWidth
-              margin="dense"
-              label="Шаг установки (см)"
-              type="number"
-              value={eyeletDialog.eyeletStepCm}
-              onChange={(e) => setEyeletDialog(prev => ({ ...prev, eyeletStepCm: e.target.value }))}
-              inputProps={{ min: 10 }}
-              required
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseEyeletDialog}>Отмена</Button>
-            <Button onClick={handleSaveEyeletParams} variant="contained" disabled={!eyeletDialog.eyeletId}>Сохранить</Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
+                    <TextField
+                      fullWidth
+                      margin="dense"
+                      label="Количество подворотов на сторону"
+                      type="number"
+                      value={params.hemCount}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev,
+                        params: {
+                          ...prev.params,
+                          [op.id]: {
+                            ...prev.params[op.id],
+                            hemCount: parseInt(e.target.value) || 0
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 1 }}
+                      required
+                    />
+                  </Box>
+                );
+              } else if (opName.includes('люверс')) {
+                const params = operationParamsDialog.params[op.id] || { eyeletId: '', eyeletStepCm: 40 };
+                return (
+                  <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom color="primary">
+                      {op.name}
+                    </Typography>
+                    <TextField
+                      select
+                      fullWidth
+                      margin="dense"
+                      label="Размер люверса"
+                      value={params.eyeletId}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev,
+                        params: {
+                          ...prev.params,
+                          [op.id]: {
+                            ...prev.params[op.id],
+                            eyeletId: e.target.value
+                          }
+                        }
+                      }))}
+                      required
+                    >
+                      <MenuItem value="">Выберите размер</MenuItem>
+                      {eyeletsData.map(eyelet => (
+                        <MenuItem key={eyelet.id} value={eyelet.id}>
+                          {eyelet.name} — {eyelet.pricePerPiece} ₽/шт
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      fullWidth
+                      margin="dense"
+                      label="Шаг установки (см)"
+                      type="number"
+                      value={params.eyeletStepCm}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev,
+                        params: {
+                          ...prev.params,
+                          [op.id]: {
+                            ...prev.params[op.id],
+                            eyeletStepCm: parseInt(e.target.value) || 0
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 10 }}
+                      required
+                    />
+                  </Box>
+                );
+              }
+              return null;
+            })}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseOperationParamsDialog}>Отмена</Button>
+          <Button
+            onClick={handleSaveOperationParams}
+            variant="contained"
+            disabled={
+              !operationParamsDialog.pendingOps.every(op => {
+                const opName = op.name.toLowerCase();
+                if (opName.includes('подворот')) {
+                  const p = operationParamsDialog.params[op.id];
+                  return p && p.hemWidthMm > 0 && p.hemCount > 0;
+                } else if (opName.includes('люверс')) {
+                  const p = operationParamsDialog.params[op.id];
+                  return p && p.eyeletId;
+                }
+                return true;
+              })
+            }
+          >
+            Сохранить
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 

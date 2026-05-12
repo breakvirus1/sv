@@ -29,6 +29,11 @@ public class Material extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String name;
 
+    /** Тип записи — материал или операция */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", length = 20)
+    private MaterialType type;
+
     /** Единица измерения: "м2", "шт", "п.м." и т.д. */
     @Column(name = "unit", length = 20)
     private String unit;

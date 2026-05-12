@@ -1,12 +1,14 @@
 package com.example.orderservice.dto;
 
 import com.example.materialservice.dto.MaterialResponse;
+import com.example.orderservice.dto.OrderOperationSummary;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Response DTO для материала, использованного в заказе.
@@ -28,4 +30,6 @@ public class OrderMaterialResponse {
     private BigDecimal wasteCoefficient;
     /** Стоимость материала для этой позиции/заказа */
     private BigDecimal cost;
+    /** Операции, применённые к этой позиции (берутся из связанного OrderItem) */
+    private List<OrderOperationSummary> operations;
 }

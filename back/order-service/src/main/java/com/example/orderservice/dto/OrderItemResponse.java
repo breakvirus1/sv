@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Response DTO для позиции заказа (читающее представление).
@@ -26,4 +27,6 @@ public class OrderItemResponse {
     private BigDecimal cost;
     /** Дата готовности позиции */
     private LocalDate readyDate;
+    /** Операции, применённые к этой позиции */
+    private List<OrderOperationSummary> operations;
 }

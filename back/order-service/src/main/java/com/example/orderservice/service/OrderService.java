@@ -11,6 +11,7 @@ import com.example.orderservice.entity.OrderComment;
 import com.example.orderservice.entity.OrderItem;
 import com.example.orderservice.entity.OrderMaterial;
 import com.example.orderservice.entity.OrderOperation;
+import com.example.orderservice.entity.OrderStage;
 import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.entity.Payment;
 import com.example.orderservice.entity.ProductionStage;
@@ -24,17 +25,19 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
@@ -111,7 +114,12 @@ public class OrderService {
                 .map(this::mapComment)
                 .collect(Collectors.toList()));
 
-        response.setMaterials(order.getMaterials().stream()
+        // Collect materials from order items (and from order's direct materials if any)
+        List<OrderMaterial> allMaterials = new ArrayList<>(order.getMaterials());
+        order.getItems().stream()
+                .flatMap(item -> item.getMaterials().stream())
+                .forEach(allMaterials::add);
+        response.setMaterials(allMaterials.stream()
                 .map(this::mapOrderMaterial)
                 .collect(Collectors.toList()));
 
@@ -184,13 +192,24 @@ public class OrderService {
                          .collect(Collectors.toList());
                  calcRequest.put("operationIds", opIds);
 
-                 // Include eyelet parameters if present
-                 if (itemReq.getEyeletId() != null) {
-                     calcRequest.put("eyeletId", itemReq.getEyeletId());
-                 }
-                 if (itemReq.getEyeletStepCm() != null) {
-                     calcRequest.put("eyeletStepCm", itemReq.getEyeletStepCm());
-                 }
+                  // Include eyelet parameters if present
+                  if (itemReq.getEyeletId() != null) {
+                      calcRequest.put("eyeletId", itemReq.getEyeletId());
+                  }
+                  if (itemReq.getEyeletStepCm() != null) {
+                      calcRequest.put("eyeletStepCm", itemReq.getEyeletStepCm());
+                  }
+
+                  // Include podvorot parameters if present
+                  if (itemReq.getPodvorotMmHorizontal() != null) {
+                      calcRequest.put("podvorotMmHorizontal", itemReq.getPodvorotMmHorizontal());
+                  }
+                  if (itemReq.getPodvorotMmVertical() != null) {
+                      calcRequest.put("podvorotMmVertical", itemReq.getPodvorotMmVertical());
+                  }
+                  if (itemReq.getPodvorotCountPerSide() != null) {
+                      calcRequest.put("podvorotCountPerSide", itemReq.getPodvorotCountPerSide());
+                  }
 
                 // Prepare headers with JWT
                 HttpHeaders headers = new HttpHeaders();
@@ -269,11 +288,13 @@ public class OrderService {
 
                 // Create OrderMaterial
                 OrderMaterial orderMaterial = new OrderMaterial();
+                orderMaterial.setOrder(order);
                 orderMaterial.setOrderItem(orderItem);
                 orderMaterial.setMaterial(material);
                 orderMaterial.setQuantity(effectiveArea);
                 orderMaterial.setWasteCoefficient(wasteCoeff);
                 orderMaterial.setCost(materialCost);
+                order.getMaterials().add(orderMaterial);
                 orderItem.getMaterials().add(orderMaterial);
 
                 // Attach operations
@@ -488,13 +509,29 @@ public class OrderService {
                 new MaterialResponse(material.getId(), material.getName(), material.getUnit(), material.getPrice(), material.getWasteCoefficient()) :
                 null;
 
+        // Populate operations from the linked order item (if any)
+        List<OrderOperationSummary> opSummaries = List.of();
+        OrderItem orderItem = om.getOrderItem();
+        if (orderItem != null && orderItem.getOperations() != null) {
+            opSummaries = orderItem.getOperations().stream()
+                    .map(op -> new OrderOperationSummary(
+                            op.getOperationId(),
+                            op.getOperationName(),
+                            op.getPricePerUnit(),
+                            op.getCalculatedQuantity(),
+                            op.getSubtotal()
+                    ))
+                    .collect(Collectors.toList());
+        }
+
         return new OrderMaterialResponse(
                 om.getId(),
                 materialDto,
                 om.getQuantity(),
                 om.getReadyDate(),
                 om.getWasteCoefficient(),
-                om.getCost()
+                om.getCost(),
+                opSummaries
         );
     }
 }

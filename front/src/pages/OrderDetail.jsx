@@ -771,6 +771,10 @@ const PositionsTab = ({ materials = [], items = [] }) => {
           ? parseFloat(quantity).toFixed(3) 
           : quantity;
 
+        // Extract size from material name if available (for materials)
+        // Expected format: "БАНЕР 1.111x1.111m" from item name
+        // But we'll just show material name as is.
+
         return (
           <Paper key={entry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
             <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -788,6 +792,24 @@ const PositionsTab = ({ materials = [], items = [] }) => {
                 Срок: {readyDate || '—'}
               </Typography>
             </Box>
+            {/* Operations list with indentation */}
+            {((entry.operations && entry.operations.length > 0) || (entry.operations && entry.operations.length > 0)) && (
+              <Box sx={{ mt: 2, pl: 2, borderLeft: '3px solid #e0e0e0' }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Операции:
+                </Typography>
+                {(entry.operations || []).map((op, idx) => (
+                  <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', pl: 1 }}>
+                    <Typography variant="body2">
+                      {op.operationName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {op.calculatedQuantity?.toFixed(2)} × {op.pricePerUnit?.toFixed(2)} ₽ = {op.subtotal?.toFixed(2)} ₽
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
           </Paper>
         );
       })}
