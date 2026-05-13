@@ -14,7 +14,7 @@ import java.math.BigDecimal;
  */
 @Entity
 @Table(name = "calculator_operations", schema = "calculator")
-@SQLDelete(sql = "UPDATE {table} SET deleted = true WHERE id=?")
+@SQLDelete(sql = "UPDATE calculator.calculator_operations SET deleted = true WHERE id=?")
 @Where(clause = "deleted = false")
 @Getter
 @Setter

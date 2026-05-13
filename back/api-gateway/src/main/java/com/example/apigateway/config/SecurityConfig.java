@@ -19,33 +19,11 @@ import com.example.apigateway.config.KeycloakJwtAuthenticationConverter;
 @EnableReactiveMethodSecurity
 public class SecurityConfig {
 
-    @Value("${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/print-sv}")
-    private String issuerUri;
-
-    @Bean
-    public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
-        http
-            .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .authorizeExchange(exchanges -> exchanges
-                .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .pathMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
-                .pathMatchers("/api/auth/token").permitAll()
-                .anyExchange().authenticated()
-            )
-            .oauth2ResourceServer(oauth2 -> oauth2
-                .jwt(jwt -> jwt
-                    .jwtDecoder(jwtDecoder())
-                    .jwtAuthenticationConverter(new KeycloakJwtAuthenticationConverter())
-                )
-            );
-
-        return http.build();
-    }
+    @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri:http://keycloak:8080/realms/print-sv/protocol/openid-connect/certs}")
+    private String jwkSetUri;
 
     @Bean
     public ReactiveJwtDecoder jwtDecoder() {
-        String jwkSetUri = issuerUri + "/protocol/openid-connect/certs";
         return NimbusReactiveJwtDecoder.withJwkSetUri(jwkSetUri).build();
     }
 

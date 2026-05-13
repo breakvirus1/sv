@@ -88,6 +88,7 @@ public class MaterialService {
         material.setUnit(request.getUnit());
         material.setPrice(request.getPrice() != null ? request.getPrice() : BigDecimal.ZERO);
         material.setWasteCoefficient(request.getWasteCoefficient() != null ? request.getWasteCoefficient() : BigDecimal.ONE);
+        material.setType(MaterialType.MATERIAL); // Default type for regular materials
 
         Material saved = materialRepository.save(material);
         return mapToResponse(saved);

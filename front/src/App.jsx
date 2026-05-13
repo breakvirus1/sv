@@ -65,6 +65,11 @@ function App() {
                 <OrderDetail />
               </ProtectedRoute>
             } />
+            <Route path="/orders/:id/edit" element={
+              <ProtectedRoute requiresManager={true}>
+                <OrderDetail mode="edit" />
+              </ProtectedRoute>
+            } />
              <Route path="/admin" element={
                <ProtectedRoute requiresAdmin={true}>
                  <AdminPanel />

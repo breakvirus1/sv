@@ -31,7 +31,7 @@ import {
   InputLabel,
   Snackbar
 } from '@mui/material';
-import { ArrowBack, Add, Payment, Delete } from '@mui/icons-material';
+import { ArrowBack, Add, Payment, Delete, Edit } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -64,11 +64,19 @@ const OrderDetail = ({ mode = 'view' }) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ==================== View Mode State ====================
-  const [activeTab, setActiveTab] = useState(0);
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
+   // ==================== View Mode State ====================
+   const [activeTab, setActiveTab] = useState(0);
+   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+   const [newStatus, setNewStatus] = useState('');
+
+   // ==================== Edit Mode State ====================
+   const [editForm, setEditForm] = useState({
+     description: '',
+     orderDate: '',
+     dueDate: '',
+     managerId: null
+   });
 
   // ==================== Queries ====================
   // Clients (fetch when create mode)
@@ -91,17 +99,27 @@ const OrderDetail = ({ mode = 'view' }) => {
     enabled: mode === 'create'
   });
 
-  // Current employee (manager) from Keycloak
-  const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
-    queryKey: ['currentEmployee', username],
-    queryFn: async () => {
-      if (!username) return null;
-      const response = await api.get(`/api/v1/employees?size=1&q=${username}`);
-      const data = response.data.content || [];
-      return data.length > 0 ? data[0] : null;
-    },
-    enabled: mode === 'create' && !!username
-  });
+   // Current employee (manager) from Keycloak
+   const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
+     queryKey: ['currentEmployee', username],
+     queryFn: async () => {
+       if (!username) return null;
+       const response = await api.get(`/api/v1/employees?size=1&q=${username}`);
+       const data = response.data.content || [];
+       return data.length > 0 ? data[0] : null;
+     },
+     enabled: mode === 'create' && !!username
+   });
+
+   // Employees list (for edit mode manager selection)
+   const { data: employeesData = [] } = useQuery({
+     queryKey: ['employees'],
+     queryFn: async () => {
+       const response = await api.get('/api/v1/employees?size=100');
+       return response.data.content || [];
+     },
+     enabled: mode === 'edit'
+   });
 
   // Order data (view mode)
   const { data: order, isLoading, error } = useQuery({
@@ -148,25 +166,54 @@ const OrderDetail = ({ mode = 'view' }) => {
     }
   });
 
-  const addPaymentMutation = useMutation({
-    mutationFn: (payment) => api.post(`/api/v1/orders/${id}/payments`, payment),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['order', id] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      setPaymentDialogOpen(false);
-      setNotification({ open: true, message: 'Оплата добавлена', severity: 'success' });
-    }
-  });
+   const addPaymentMutation = useMutation({
+     mutationFn: (payment) => api.post(`/api/v1/orders/${id}/payments`, payment),
+     onSuccess: () => {
+       queryClient.invalidateQueries({ queryKey: ['order', id] });
+       queryClient.invalidateQueries({ queryKey: ['orders'] });
+       setPaymentDialogOpen(false);
+       setNotification({ open: true, message: 'Оплата добавлена', severity: 'success' });
+     }
+   });
 
-  // ==================== Effects ====================
-  // Ensure current employee is synced from Keycloak when in create mode
-  useEffect(() => {
-    if (mode === 'create' && username && !currentEmployee) {
-      api.post('/api/v1/employees/sync')
-        .then(() => refetchEmployee())
-        .catch(err => console.error('Employee sync failed:', err));
-    }
-  }, [mode, username, currentEmployee, refetchEmployee]);
+   const updateOrderMutation = useMutation({
+     mutationFn: (data) => api.put(`/api/v1/orders/${id}`, data),
+     onSuccess: () => {
+       queryClient.invalidateQueries({ queryKey: ['order', id] });
+       queryClient.invalidateQueries({ queryKey: ['orders'] });
+       setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
+       setTimeout(() => navigate(`/orders/${id}`), 1500);
+     },
+     onError: (err) => {
+       setNotification({ open: true, message: `Ошибка: ${err.response?.data?.message || err.message}`, severity: 'error' });
+     }
+   });
+
+   // ==================== Effects ====================
+   // Ensure current employee is synced from Keycloak when in create mode
+   useEffect(() => {
+     if (mode === 'create' && username && !currentEmployee) {
+       api.post('/api/v1/employees/sync')
+         .then(() => refetchEmployee())
+         .catch(err => console.error('Employee sync failed:', err));
+     }
+   }, [mode, username, currentEmployee, refetchEmployee]);
+
+   // Populate edit form when order is loaded in edit mode
+   useEffect(() => {
+     if (mode === 'edit' && order) {
+       const formatDate = (dateStr) => {
+         if (!dateStr) return '';
+         return dateStr.split('T')[0];
+       };
+       setEditForm({
+         description: order.description || '',
+         orderDate: formatDate(order.orderDate),
+         dueDate: formatDate(order.dueDate),
+         managerId: order.manager?.id ? String(order.manager.id) : ''
+       });
+     }
+   }, [mode, order]);
 
   // ==================== Create Mode Handlers ====================
   const addItem = () => {
@@ -231,60 +278,92 @@ const OrderDetail = ({ mode = 'view' }) => {
     }, 0);
   }, [formData.items, materialsData]);
 
-  const handleCreateSubmit = async (e) => {
-    e.preventDefault();
-    if (!currentEmployee) {
-      setNotification({ open: true, message: 'Менеджер не определен. Перелогинитесь.', severity: 'error' });
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const orderMaterials = formData.items.map(item => {
-        const material = materialsData.find(m => m.id === parseInt(item.materialId));
-        if (!material) throw new Error('Материал не выбран');
-        let qty;
-        const q1 = parseFloat(item.qty1) || 0;
-        const q2 = parseFloat(item.qty2) || 0;
-        if (material.unit === 'м2') {
-          qty = (q1 / 1000) * (q2 / 1000);
-        } else if (material.unit === 'м.п.') {
-          qty = q1 / 1000;
-        } else {
-          qty = q1;
-        }
-        return {
-          materialId: parseInt(item.materialId),
-          quantity: qty,
-          readyDate: item.readyDate || null
-        };
-      });
+   const handleCreateSubmit = async (e) => {
+     e.preventDefault();
+     if (!currentEmployee) {
+       setNotification({ open: true, message: 'Менеджер не определен. Перелогинитесь.', severity: 'error' });
+       return;
+     }
+     setIsSubmitting(true);
+     try {
+       const orderMaterials = formData.items.map(item => {
+         const material = materialsData.find(m => m.id === parseInt(item.materialId));
+         if (!material) throw new Error('Материал не выбран');
+         const widthM = parseFloat(item.qty1) / 1000;
+         const heightM = parseFloat(item.qty2) / 1000 || 0;
 
-      const orderData = {
-        clientId: parseInt(formData.clientId),
-        description: formData.description,
-        orderDate: formData.orderDate,
-        dueDate: formData.dueDate || null,
-        managerId: currentEmployee.id,
-        items: orderMaterials
-      };
+         // Find eyelet operation if any
+         const eyeletOp = item.operations.find(op => op.eyeletId);
+         const eyeletId = eyeletOp?.eyeletId || null;
+         const eyeletStepCm = eyeletOp?.eyeletStepCm || null;
 
-      await api.post('/api/v1/orders', orderData);
-      setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
+         // Find hem operation if any
+         const hemOp = item.operations.find(op => op.hemWidthMm && op.hemCount);
+         const podvorotMmHorizontal = hemOp?.hemWidthMm || null;
+         const podvorotMmVertical = hemOp?.hemWidthMm || null;
+         const podvorotCountPerSide = hemOp?.hemCount || null;
 
-      await queryClient.invalidateQueries({ queryKey: ['orders'] });
-      await queryClient.invalidateQueries({ queryKey: ['recentOrders'] });
+         return {
+           materialId: parseInt(item.materialId),
+           widthM,
+           heightM,
+           operations: item.operations.map(op => ({ operationId: op.id })),
+           readyDate: item.readyDate || null,
+           ...(eyeletId !== null && { eyeletId }),
+           ...(eyeletStepCm !== null && { eyeletStepCm }),
+           ...(podvorotMmHorizontal !== null && { podvorotMmHorizontal }),
+           ...(podvorotMmVertical !== null && { podvorotMmVertical }),
+           ...(podvorotCountPerSide !== null && { podvorotCountPerSide })
+         };
+       });
 
-      setTimeout(() => navigate('/orders'), 1500);
-    } catch (err) {
-      setNotification({
-        open: true,
-        message: `Ошибка: ${err.response?.data?.message || err.message}`,
-        severity: 'error'
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+       const orderData = {
+         clientId: parseInt(formData.clientId),
+         description: formData.description,
+         orderDate: formData.orderDate,
+         dueDate: formData.dueDate || null,
+         managerId: currentEmployee.id,
+         items: orderMaterials
+       };
+
+       await api.post('/api/v1/orders', orderData);
+       setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
+
+       // Invalidate queries
+       await queryClient.invalidateQueries({ queryKey: ['orders'] });
+       await queryClient.invalidateQueries({ queryKey: ['recentOrders'] });
+
+       setTimeout(() => {
+         if (closeWindow) closeWindow();
+         else navigate('/orders');
+       }, 1500);
+     } catch (err) {
+       setNotification({
+         open: true,
+         message: `Ошибка: ${err.response?.data?.message || err.message}`,
+         severity: 'error'
+       });
+     } finally {
+       setIsSubmitting(false);
+     }
+   };
+
+   // ==================== Edit Mode Handlers ====================
+   const handleEditChange = (e) => {
+     const { name, value } = e.target;
+     setEditForm(prev => ({ ...prev, [name]: value }));
+   };
+
+   const handleEditSubmit = (e) => {
+     e.preventDefault();
+     const payload = {
+       description: editForm.description,
+       orderDate: editForm.orderDate,
+       dueDate: editForm.dueDate || null,
+       managerId: editForm.managerId ? parseInt(editForm.managerId) : null
+     };
+     updateOrderMutation.mutate(payload);
+   };
 
   // ==================== View Mode Handlers ====================
   // They are directly used in JSX (no separate functions except existing)
@@ -554,13 +633,120 @@ const OrderDetail = ({ mode = 'view' }) => {
     );
   }
 
-  if (error) {
-    return (
-      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
-        <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
-      </Container>
-    );
-  }
+   if (error) {
+     return (
+       <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+         <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
+       </Container>
+     );
+   }
+
+   if (mode === 'edit') {
+     return (
+       <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+         <Box display="flex" alignItems="center" gap={2} mb={3}>
+           <Button startIcon={<ArrowBack />} onClick={() => navigate(`/orders/${id}`)}>
+             Назад
+           </Button>
+           <Typography variant="h4">
+             Редактировать заказ #{order?.orderNumber}
+           </Typography>
+         </Box>
+
+         <Paper sx={{ p: 4 }}>
+           <form onSubmit={handleEditSubmit}>
+             <Grid container spacing={3}>
+               <Grid item xs={12} md={6}>
+                 <TextField
+                   fullWidth
+                   label="Клиент"
+                   value={order?.client?.name || ''}
+                   margin="normal"
+                   disabled
+                 />
+               </Grid>
+               <Grid item xs={12} md={6}>
+                 <TextField
+                   fullWidth
+                   label="Дата заказа"
+                   name="orderDate"
+                   type="date"
+                   value={editForm.orderDate}
+                   onChange={handleEditChange}
+                   required
+                   margin="normal"
+                   InputLabelProps={{ shrink: true }}
+                 />
+               </Grid>
+               <Grid item xs={12} md={6}>
+                 <TextField
+                   fullWidth
+                   label="Срок сдачи"
+                   name="dueDate"
+                   type="date"
+                   value={editForm.dueDate}
+                   onChange={handleEditChange}
+                   margin="normal"
+                   InputLabelProps={{ shrink: true }}
+                 />
+               </Grid>
+               <Grid item xs={12} md={6}>
+                 <FormControl fullWidth margin="normal">
+                   <InputLabel>Менеджер</InputLabel>
+                   <Select
+                     name="managerId"
+                     value={editForm.managerId || ''}
+                     onChange={handleEditChange}
+                   >
+                     <MenuItem value="">Не назначен</MenuItem>
+                     {employeesData?.map((emp) => (
+                       <MenuItem key={emp.id} value={String(emp.id)}>
+                         {emp.fullName}
+                       </MenuItem>
+                     ))}
+                   </Select>
+                 </FormControl>
+               </Grid>
+               <Grid item xs={12}>
+                 <TextField
+                   fullWidth
+                   label="Описание"
+                   name="description"
+                   multiline
+                   rows={3}
+                   value={editForm.description}
+                   onChange={handleEditChange}
+                   margin="normal"
+                 />
+               </Grid>
+               <Grid item xs={12}>
+                 <Box display="flex" justifyContent="flex-end" gap={2}>
+                   <Button onClick={() => navigate(`/orders/${id}`)}>Отмена</Button>
+                   <Button
+                     type="submit"
+                     variant="contained"
+                     disabled={updateOrderMutation.isLoading}
+                   >
+                     {updateOrderMutation.isLoading ? 'Сохранение...' : 'Сохранить'}
+                   </Button>
+                 </Box>
+               </Grid>
+             </Grid>
+           </form>
+         </Paper>
+
+         <Snackbar
+           open={notification.open}
+           autoHideDuration={6000}
+           onClose={() => setNotification({ ...notification, open: false })}
+         >
+           <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
+             {notification.message}
+           </Alert>
+         </Snackbar>
+       </Container>
+     );
+   }
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
@@ -579,6 +765,15 @@ const OrderDetail = ({ mode = 'view' }) => {
           />
         </Box>
         <Box display="flex" gap={1}>
+          {(user?.roles?.some(r => r === 'ROLE_ADMIN' || r === 'ROLE_MANAGER')) && (
+            <Button
+              variant="outlined"
+              startIcon={<Edit />}
+              onClick={() => navigate(`/orders/${id}/edit`)}
+            >
+              Редактировать
+            </Button>
+          )}
           <Button
             variant="outlined"
             onClick={() => {

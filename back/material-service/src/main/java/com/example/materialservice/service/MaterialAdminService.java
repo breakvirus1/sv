@@ -1,6 +1,7 @@
 package com.example.materialservice.service;
 
 import com.example.materialservice.entity.Material;
+import com.example.materialservice.entity.MaterialType;
 import com.example.materialservice.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,8 @@ public class MaterialAdminService {
 
     private static final String[] UNITS = { "м2", "м.п." };
 
+    private static final MaterialType[] TYPES = { MaterialType.MATERIAL, MaterialType.OPERATION };
+
     /**
      * Сгенерировать тестовые материалы для разработки и тестирования.
      * <p>
@@ -48,6 +51,7 @@ public class MaterialAdminService {
             material.setUnit(UNITS[random.nextInt(UNITS.length)]);
             material.setPrice(BigDecimal.valueOf(100 + random.nextInt(9000), 0));
             material.setWasteCoefficient(BigDecimal.ONE.add(BigDecimal.valueOf(random.nextInt(50) / 100.0)));
+            material.setType(TYPES[random.nextInt(TYPES.length)]);
 
             materials.add(materialRepository.save(material));
         }

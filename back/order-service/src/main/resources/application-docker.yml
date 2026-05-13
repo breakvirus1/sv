@@ -16,9 +16,10 @@ spring:
         default_schema: ordschema
   security:
     oauth2:
-       resourceserver:
-         jwt:
-           jwk-set-uri: http://keycloak:8080/realms/print-sv/protocol/openid-connect/certs
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/print-sv
+          jwk-set-uri: http://keycloak:8080/realms/print-sv/protocol/openid-connect/certs
 
 eureka:
   client:
