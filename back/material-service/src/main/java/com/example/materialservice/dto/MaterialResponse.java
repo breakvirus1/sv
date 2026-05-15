@@ -23,4 +23,8 @@ public class MaterialResponse {
     private BigDecimal price;
     /** Коэффициент отхода */
     private BigDecimal wasteCoefficient;
+    /** Ширина по умолчанию в миллиметрах */
+    private BigDecimal defaultWidthMm;
+    /** Высота по умолчанию в миллиметрах */
+    private BigDecimal defaultHeightMm;
 }

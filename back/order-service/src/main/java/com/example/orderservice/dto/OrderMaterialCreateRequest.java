@@ -16,6 +16,8 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class OrderMaterialCreateRequest {
+    /** ID записи материала в заказе (null при создании) */
+    private Long id;
     /** ID материала из справочника */
     private Long materialId;
     /** Ширина в метрах (для расчета площади) */

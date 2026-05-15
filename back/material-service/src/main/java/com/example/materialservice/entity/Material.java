@@ -45,4 +45,12 @@ public class Material extends BaseEntity {
     /** Коэффициент отхода (например, 1.2 = 20% отход) */
     @Column(name = "waste_coefficient", precision = 5, scale = 3)
     private BigDecimal wasteCoefficient = BigDecimal.ONE;
+
+    /** Ширина по умолчанию в миллиметрах (используется при добавлении позиции в заказ) */
+    @Column(name = "default_width_mm", precision = 10, scale = 2)
+    private BigDecimal defaultWidthMm = BigDecimal.ZERO;
+
+    /** Высота по умолчанию в миллиметрах (используется при добавлении позиции в заказ) */
+    @Column(name = "default_height_mm", precision = 10, scale = 2)
+    private BigDecimal defaultHeightMm = BigDecimal.ZERO;
 }

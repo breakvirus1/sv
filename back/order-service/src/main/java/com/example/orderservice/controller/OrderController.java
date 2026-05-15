@@ -85,6 +85,19 @@ public class OrderController {
     }
 
     /**
+     * Получить заказ по номеру заказа (orderNumber).
+     * Формат номера: YYYYMMDDHHmmss (14 цифр).
+     * Доступно: ADMIN, MANAGER, PRODUCTION, ACCOUNTANT.
+     */
+    @Operation(summary = "Получить заказ по номеру")
+    @GetMapping("/number/{orderNumber}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+    public ResponseEntity<OrderResponse> getOrderByNumber(
+            @Parameter(description = "Номер заказа") @PathVariable String orderNumber) {
+        return ResponseEntity.ok(orderService.getOrderByOrderNumber(orderNumber));
+    }
+
+    /**
      * Создать новый заказ.
      * Доступно: ADMIN, MANAGER.
      */
@@ -161,5 +174,39 @@ public class OrderController {
         // Author will be extracted from authentication token in the service
         CommentResponse comment = orderService.addComment(id, request, null);
         return new ResponseEntity<>(comment, HttpStatus.CREATED);
+    }
+
+
+    // ===================== POSITION HELPERS (frontend EditOrder.jsx) =====================
+
+    /**
+     * Получить информацию о существующей позиции заказа (материал в заказе).
+     * Подтягивает ширину и высоту: если в заказе не заданы, берёт defaultWidthMm/defaultHeightMm из справочника.
+     *
+     * Пример: GET /api/v1/orders/1/positions/7/default
+     */
+    @Operation(summary = "Получить информацию о существующей позиции заказа")
+    @GetMapping("/{id}/positions/{orderMaterialId}/default")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    public ResponseEntity<ItemPositionInfo> getItemPositionInfo(
+            @Parameter(description = "ID заказа") @PathVariable Long id,
+            @Parameter(description = "ID записи материала в заказе") @PathVariable Long orderMaterialId) {
+        ItemPositionInfo info = orderService.getItemPositionInfo(id, orderMaterialId);
+        return ResponseEntity.ok(info);
+    }
+
+    /**
+     * Рассчитать общую стоимость отрытого редактором заказа по существующим материалам.
+     * Используется для отображения суммы пока заказ не сохранён.
+     *
+     * Пример: GET /api/v1/orders/1/total-open
+     */
+    @Operation(summary = "Получить открытую сумму отредактированного заказа")
+    @GetMapping("/{id}/total-open")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+    public ResponseEntity<java.math.BigDecimal> getTotalOpen(
+            @Parameter(description = "ID заказа") @PathVariable Long id) {
+        java.math.BigDecimal total = orderService.calculateOpenOrderTotal(id);
+        return ResponseEntity.ok(total);
     }
 }

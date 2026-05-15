@@ -54,6 +54,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -88,13 +89,29 @@ public class OrderService {
                 .map(orderMapper::toDto);
     }
 
-    /**
-     * Получить детальную информацию о заказе со всеми связанными сущностями.
-     */
+     /**
+      * Получить детальную информацию о заказе со всеми связанными сущностями.
+      */
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+        return mapOrderResponse(order);
+    }
+
+    /**
+     * Получить заказ по его номеру (orderNumber).
+     */
+    @Transactional(readOnly = true)
+    public OrderResponse getOrderByOrderNumber(String orderNumber) {
+        Order order = orderRepository.findByOrderNumber(orderNumber);
+        if (order == null) {
+            throw new RuntimeException("Заказ не найден");
+        }
+        return mapOrderResponse(order);
+    }
+
+    private OrderResponse mapOrderResponse(Order order) {
         OrderResponse response = orderMapper.toDto(order);
 
         // Загружаем связанные сущности
@@ -354,7 +371,6 @@ public class OrderService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
 
-        // Update simple fields
         if (request.getDescription() != null) {
             order.setDescription(request.getDescription());
         }
@@ -365,7 +381,6 @@ public class OrderService {
             order.setDueDate(request.getDueDate());
         }
 
-        // Update manager if provided
         if (request.getManagerId() != null) {
             Employee manager = entityManager.find(Employee.class, request.getManagerId());
             if (manager == null) {
@@ -374,8 +389,55 @@ public class OrderService {
             order.setManager(manager);
         }
 
+        List<OrderMaterialCreateRequest> itemRequests = request.getItems();
+        if (itemRequests != null) {
+            List<OrderMaterial> existingMaterials = new ArrayList<>(order.getMaterials());
+            Map<Long, OrderMaterial> existingById = existingMaterials.stream()
+                    .collect(Collectors.toMap(com.example.orderservice.entity.BaseEntity::getId, m -> m));
+
+            for (OrderMaterialCreateRequest itemReq : itemRequests) {
+                Material material = entityManager.find(Material.class, itemReq.getMaterialId());
+                if (material == null) {
+                    throw new RuntimeException("Материал не найден: " + itemReq.getMaterialId());
+                }
+
+                BigDecimal widthM = itemReq.getWidthM();
+                BigDecimal heightM = itemReq.getHeightM();
+                BigDecimal widthMm = widthM != null ? widthM.multiply(BigDecimal.valueOf(1000)) : BigDecimal.ZERO;
+                BigDecimal heightMm = heightM != null ? heightM.multiply(BigDecimal.valueOf(1000)) : BigDecimal.ZERO;
+
+                if (itemReq.getId() != null) {
+                    OrderMaterial om = existingById.get(itemReq.getId());
+                    if (om != null) {
+                        om.setMaterial(material);
+                        om.setReadyDate(itemReq.getReadyDate());
+                        om.setWidthMm(widthMm);
+                        om.setHeightMm(heightMm);
+                    }
+                } else {
+                    OrderMaterial om = new OrderMaterial();
+                    om.setOrder(order);
+                    om.setMaterial(material);
+                    om.setReadyDate(itemReq.getReadyDate());
+                    om.setWidthMm(widthMm);
+                    om.setHeightMm(heightMm);
+                    om.setWasteCoefficient(material.getWasteCoefficient());
+                    order.getMaterials().add(om);
+                }
+            }
+
+            // Remove order materials that are no longer in the submitted list
+            Set<Long> updatedIds = itemRequests.stream()
+                    .filter(r -> r.getId() != null)
+                    .map(OrderMaterialCreateRequest::getId)
+                    .collect(Collectors.toSet());
+            existingMaterials.stream()
+                    .filter(m -> !updatedIds.contains(m.getId()))
+                    .forEach(order.getMaterials()::remove);
+        }
+
         Order saved = orderRepository.save(order);
-        return orderMapper.toDto(saved);
+        return mapOrderResponse(saved);
     }
 
     /**
@@ -506,7 +568,7 @@ public class OrderService {
     private OrderMaterialResponse mapOrderMaterial(OrderMaterial om) {
         Material material = om.getMaterial();
         MaterialResponse materialDto = material != null ?
-                new MaterialResponse(material.getId(), material.getName(), material.getUnit(), material.getPrice(), material.getWasteCoefficient()) :
+                new MaterialResponse(material.getId(), material.getName(), material.getUnit(), material.getPrice(), material.getWasteCoefficient(), material.getDefaultWidthMm(), material.getDefaultHeightMm()) :
                 null;
 
         // Populate operations from the linked order item (if any)
@@ -528,10 +590,76 @@ public class OrderService {
                 om.getId(),
                 materialDto,
                 om.getQuantity(),
+                om.getWidthMm(),
+                om.getHeightMm(),
                 om.getReadyDate(),
                 om.getWasteCoefficient(),
                 om.getCost(),
                 opSummaries
         );
     }
+
+    /**
+     * Получить информацию о существующей позиции заказа (материал в заказе).
+     * Подтягивает ширину и высоту: если в заказе не заданы, берёт defaultWidthMm/defaultHeightMm из справочника.
+     * Используется фронтендом при редактировании линии заказа для подтягивания размеров из БД.
+     */
+    public ItemPositionInfo getItemPositionInfo(Long orderId, Long orderMaterialId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+
+        OrderMaterial om = order.getMaterials().stream()
+                .filter(m -> m.getId().equals(orderMaterialId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Позиция в заказе не найдена: " + orderMaterialId));
+
+        BigDecimal widthMm  = om.getWidthMm()  != null ? om.getWidthMm()  : om.getMaterial().getDefaultWidthMm();
+        BigDecimal heightMm = om.getHeightMm() != null ? om.getHeightMm() : om.getMaterial().getDefaultHeightMm();
+
+        MaterialResponse matResp = new MaterialResponse(
+                om.getMaterial().getId(),
+                om.getMaterial().getName(),
+                om.getMaterial().getUnit(),
+                om.getMaterial().getPrice(),
+                om.getMaterial().getWasteCoefficient(),
+                om.getMaterial().getDefaultWidthMm(),
+                om.getMaterial().getDefaultHeightMm()
+        );
+
+        return new ItemPositionInfo(om.getId(), matResp, widthMm, heightMm);
+    }
+
+    /**
+     * Рассчитать общую стоимость заказа без сохранения в БД.
+     * Используется фронтендом для отображения суммы в реальном времени.
+     */
+    @Transactional(readOnly = true)
+    public BigDecimal calculateOpenOrderTotal(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+        return order.getMaterials().stream()
+                .map(om -> {
+                    Material mat = om.getMaterial();
+                    BigDecimal price = mat.getPrice() != null ? mat.getPrice() : BigDecimal.ZERO;
+                    BigDecimal waste  = mat.getWasteCoefficient() != null ? mat.getWasteCoefficient() : BigDecimal.ONE;
+
+                    BigDecimal q1 = om.getWidthMm()  != null ? om.getWidthMm()  : mat.getDefaultWidthMm();
+                    BigDecimal q2 = om.getHeightMm() != null ? om.getHeightMm() : mat.getDefaultHeightMm();
+                    q1 = q1 != null ? q1 : BigDecimal.ZERO;
+                    q2 = q2 != null ? q2 : BigDecimal.ZERO;
+
+                    BigDecimal effectiveQty;
+                    if ("м2".equals(mat.getUnit())) {
+                        effectiveQty = (q1.divide(BigDecimal.valueOf(1000), 4, RoundingMode.HALF_UP))
+                                 .multiply(q2.divide(BigDecimal.valueOf(1000), 4, RoundingMode.HALF_UP));
+                    } else if ("м.п.".equals(mat.getUnit())) {
+                        effectiveQty = q1.divide(BigDecimal.valueOf(1000), 4, RoundingMode.HALF_UP);
+                    } else {
+                        effectiveQty = q1;
+                    }
+                    return price.multiply(effectiveQty).multiply(waste);
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
 }

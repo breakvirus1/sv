@@ -54,4 +54,12 @@ public class OrderMaterial extends BaseEntity {
     /** Фактическая стоимость материала для этого заказа (quantity * price * waste) */
     @Column(name = "cost", precision = 12, scale = 2)
     private BigDecimal cost = BigDecimal.ZERO;
+
+    /** Ширина изделия в миллиметрах (для формирования таблицы при редактировании заказа) */
+    @Column(name = "width_mm", precision = 10, scale = 2)
+    private BigDecimal widthMm;
+
+    /** Высота изделия в миллиметрах (для формирования таблицы при редактировании заказа) */
+    @Column(name = "height_mm", precision = 10, scale = 2)
+    private BigDecimal heightMm;
 }

@@ -153,7 +153,9 @@ public class MaterialService {
                 material.getName(),
                 material.getUnit(),
                 material.getPrice(),
-                material.getWasteCoefficient()
+                material.getWasteCoefficient(),
+                material.getDefaultWidthMm(),
+                material.getDefaultHeightMm()
         );
     }
 

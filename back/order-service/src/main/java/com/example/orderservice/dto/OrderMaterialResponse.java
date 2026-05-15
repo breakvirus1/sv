@@ -24,6 +24,10 @@ public class OrderMaterialResponse {
     private MaterialResponse material;
     /** Количество материала */
     private BigDecimal quantity;
+    /** Ширина изделия в миллиметрах */
+    private BigDecimal widthMm;
+    /** Высота изделия в миллиметрах */
+    private BigDecimal heightMm;
     /** Планируемая дата готовности */
     private LocalDate readyDate;
     /** Коэффициент отхода */

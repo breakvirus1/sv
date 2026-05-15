@@ -55,26 +55,21 @@ const OrderDetail = ({ mode = 'view' }) => {
     items: []
   });
 
-  // State
-  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  const [activeTab, setActiveTab] = useState(0);
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
-  const [clientDialogOpen, setClientDialogOpen] = useState(false);
-  const [newClientForm, setNewClientForm] = useState({
-    name: '',
-    type: 'PRIVATE',
-    contactPerson: '',
-    phone: '',
-    email: ''
-  });
+  // Helper to determine endpoint based on identifier
+  const getOrderEndpoint = (identifier) => {
+    // If identifier is exactly 14 digits, treat as orderNumber (format: YYYYMMDDHHmmss)
+    if (/^\d{14}$/.test(identifier)) {
+      return `/api/v1/orders/number/${identifier}`;
+    }
+    return `/api/v1/orders/${identifier}`;
+  };
 
   // ==================== Queries ====================
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['order', id],
     queryFn: async () => {
-      const response = await api.get(`/api/v1/orders/${id}`);
+      const endpoint = getOrderEndpoint(id);
+      const response = await api.get(endpoint);
       return response.data;
     },
     enabled: mode !== 'create'
@@ -109,16 +104,31 @@ const OrderDetail = ({ mode = 'view' }) => {
     enabled: mode === 'create' && !!username
   });
 
-  const { data: employeesData = [] } = useQuery({
-    queryKey: ['employees'],
-    queryFn: async () => {
-      const response = await api.get('/api/v1/employees?size=100');
-      return response.data.content || [];
-    },
-    enabled: mode === 'edit'
-  });
+   const { data: employeesData = [] } = useQuery({
+     queryKey: ['employees'],
+     queryFn: async () => {
+       const response = await api.get('/api/v1/employees?size=100');
+       return response.data.content || [];
+     },
+     enabled: mode === 'edit'
+   });
 
-  // ==================== Mutations ====================
+   // ==================== State ====================
+   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+   const [activeTab, setActiveTab] = useState(0);
+   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+   const [newStatus, setNewStatus] = useState('');
+   const [clientDialogOpen, setClientDialogOpen] = useState(false);
+   const [newClientForm, setNewClientForm] = useState({
+     name: '',
+     type: 'PRIVATE',
+     contactPerson: '',
+     phone: '',
+     email: ''
+   });
+
+   // ==================== Mutations ====================
   const createClientMutation = useMutation({
     mutationFn: (client) => api.post('/api/v1/clients', client),
     onSuccess: (response) => {
@@ -417,7 +427,7 @@ const OrderDetail = ({ mode = 'view' }) => {
   }
 
   if (mode === 'edit') {
-    return <EditOrder order={order} onSuccess={() => {}} />;
+    return <EditOrder orderNumber={order?.orderNumber} onSuccess={() => {}} />;
   }
 
   return (

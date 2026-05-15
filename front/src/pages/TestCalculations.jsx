@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import api from '../services/api';
 import MaterialSelector from '../components/MaterialSelector';
 import DimensionsInput from '../components/DimensionsInput';
 import OperationsSelector from '../components/OperationsSelector';
@@ -26,8 +27,7 @@ const TestCalculations = () => {
 
   const fetchMaterials = async () => {
     try {
-      const response = await fetch('/api/calculations/materials');
-      const data = await response.json();
+      const { data } = await api.get('/api/v1/calculations/materials');
       setMaterials(data);
     } catch (error) {
       console.error('Error fetching materials:', error);
@@ -38,9 +38,8 @@ const TestCalculations = () => {
   const fetchOperations = async () => {
     setLoadingOperations(true);
     try {
-      const response = await fetch('/api/calculations/operations');
-      const data = await response.json();
-      setOperations(data);
+      const { data } = await api.get('/api/v1/calculations/operations');
+      setOperations(data || []);
     } catch (error) {
       console.error('Error fetching operations:', error);
       setError('Failed to load operations. Please try again.');
@@ -51,9 +50,8 @@ const TestCalculations = () => {
 
   const fetchEyelets = async () => {
     try {
-      const response = await fetch('/api/eyelets');
-      const data = await response.json();
-      setEyelets(data);
+      const { data } = await api.get('/api/v1/calculations/eyelets');
+      setEyelets(data || []);
     } catch (error) {
       console.error('Error fetching eyelets:', error);
       setError('Failed to load eyelets. Please try again.');
@@ -111,13 +109,8 @@ const TestCalculations = () => {
     };
 
     try {
-      const response = await fetch('/api/calculations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData),
-      });
-      const result = await response.json();
-      setCalculationResult(result);
+      const { data } = await api.post('/api/v1/calculations', requestData);
+      setCalculationResult(data);
     } catch (error) {
       console.error('Error calculating:', error);
       setError('Failed to calculate. Please check your inputs and try again.');
