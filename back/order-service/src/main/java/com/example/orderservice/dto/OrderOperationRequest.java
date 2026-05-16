@@ -4,13 +4,15 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Request для операции в позиции заказа.
- */
+import java.math.BigDecimal;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class OrderOperationRequest {
-    /** ID операции из calculator-service */
     private Long operationId;
+    /** Ширина в метрах (опционально) */
+    private BigDecimal widthM;
+    /** Высота в метрах (опционально) */
+    private BigDecimal heightM;
 }

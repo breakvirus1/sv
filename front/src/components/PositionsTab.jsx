@@ -62,19 +62,32 @@ const PositionsTab = ({ materials = [], items = [] }) => {
           ? parseFloat(quantity).toFixed(3)
           : quantity;
 
+        const widthM = entry.widthM != null ? entry.widthM : (entry.widthMm != null ? entry.widthMm / 1000 : null);
+        const heightM = entry.heightM != null ? entry.heightM : (entry.heightMm != null ? entry.heightMm / 1000 : null);
+
         return (
           <Paper key={entry.materialId || entry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
             <Box display="flex" justifyContent="space-between" alignItems="center">
               <Typography variant="subtitle1">{name}</Typography>
               <Typography variant="h6">{cost?.toFixed(2)} ₽</Typography>
             </Box>
-            <Box display="flex" gap={4} mt={1}>
+            <Box display="flex" gap={4} mt={1} flexWrap="wrap">
               <Typography variant="body2" color="text.secondary">
                 Цена за ед.: {price?.toFixed(2)} ₽
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Кол-во: {qtyDisplay} {unit}
               </Typography>
+              {widthM != null && (
+                <Typography variant="body2" color="text.secondary">
+                  Ширина: {widthM} м
+                </Typography>
+              )}
+              {heightM != null && (
+                <Typography variant="body2" color="text.secondary">
+                  Высота: {heightM} м
+                </Typography>
+              )}
               <Typography variant="body2" color="text.secondary">
                 Срок: {readyDate || '—'}
               </Typography>
@@ -85,9 +98,14 @@ const PositionsTab = ({ materials = [], items = [] }) => {
                   Операции:
                 </Typography>
                 {(entry.operations || []).map((op, idx) => (
-                  <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', pl: 1 }}>
+                  <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', pl: 1, flexWrap: 'wrap' }}>
                     <Typography variant="body2">
                       {op.operationName}
+                      {(op.widthM != null || op.heightM != null) && (
+                        <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                          ({op.widthM || 0}×{op.heightM || 0} м)
+                        </Typography>
+                      )}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       {op.calculatedQuantity?.toFixed(2)} × {op.pricePerUnit?.toFixed(2)} ₽ = {op.subtotal?.toFixed(2)} ₽

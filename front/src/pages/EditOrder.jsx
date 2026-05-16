@@ -118,14 +118,18 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
         if (!dateStr) return '';
         return dateStr.split('T')[0];
       };
-      const items = (orderData.materials ?? []).map((mat) => ({
-        id: mat.id,
-        materialId: String(mat.material?.id || ''),
-        qty1: mat.widthMm != null ? (mat.widthMm / 1000).toString() : '',
-        qty2: mat.heightMm != null ? (mat.heightMm / 1000).toString() : '',
-        readyDate: mat.readyDate || '',
-        operations: (mat.operations ?? []).map((op) => ({ id: op.operationId, operationId: op.operationId }))
-      }));
+      const items = (orderData.materials ?? [])
+        .filter((mat, idx, arr) => arr.findIndex(m => m.id === mat.id) === idx)
+        .map((mat) => ({
+          id: mat.id,
+          materialId: String(mat.material?.id || ''),
+          qty1value: mat.widthM != null ? mat.widthM.toString() : '',
+          qty1unit: 'м',
+          qty2value: mat.heightM != null ? mat.heightM.toString() : '',
+          qty2unit: 'м',
+          readyDate: mat.readyDate || '',
+          operations: (mat.operations ?? []).map((op) => ({ id: op.operationId, operationId: op.operationId, widthM: op.widthM, heightM: op.heightMm }))
+        }));
       setFormData({
         description: orderData.description || '',
         orderDate: formatDate(orderData.orderDate),
@@ -142,13 +146,13 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     return formData.items.reduce((sum, item) => {
       const material = materialsData.find(m => m.id === parseInt(item.materialId));
       if (!material) return sum;
-      const q1 = parseFloat(item.qty1) || 0;
-      const q2 = parseFloat(item.qty2) || 0;
+      const q1 = (parseFloat(item.qty1value) || 0) * (item.qty1unit === 'мм' ? 0.001 : 1);
+      const q2 = (parseFloat(item.qty2value) || 0) * (item.qty2unit === 'мм' ? 0.001 : 1);
       let effectiveQty = 0;
       if (material.unit === 'м2') {
-        effectiveQty = (q1 / 1000) * (q2 / 1000);
+        effectiveQty = q1 * q2;
       } else if (material.unit === 'м.п.') {
-        effectiveQty = q1 / 1000;
+        effectiveQty = q1;
       } else {
         effectiveQty = q1;
       }
@@ -161,9 +165,9 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   useEffect(() => {
     if (!orderData || !materialsData.length) return;
     formData.items.forEach((item, index) => {
-      if (!item.id || item.qty1 && item.qty2) return; // already have dimensions or it's a new item
+      if (!item.id || item.qty1value && item.qty2value) return;
       const mat = materialsData.find(m => m.id === parseInt(item.materialId));
-      const needsFetch = mat && (mat.defaultWidthMm != null || mat.defaultHeightMm != null);
+      const needsFetch = mat && (mat.defaultWidthM != null || mat.defaultHeightM != null);
       if (!needsFetch) return;
 
       pendingDimRef.current.set(index, item.materialId);
@@ -171,21 +175,20 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
       api.get(`/api/v1/orders/${orderData.id}/positions/${item.id}/default`)
         .then(r => {
           const d = r.data;
-          const matResp = d.material;
-          const wMm = d.widthMm != null ? parseFloat(d.widthMm) : 0;
-          const hMm = d.heightMm != null ? parseFloat(d.heightMm) : 0;
+          const wM = d.widthM != null ? parseFloat(d.widthM) : 0;
+          const hM = d.heightM != null ? parseFloat(d.heightM) : 0;
           setFormData(prev => {
             const curr = prev.items[index];
-            if (!curr || curr.materialId !== item.materialId || (curr.qty1 && curr.qty2)) {
-              return prev; // skipped or already updated
+            if (!curr || curr.materialId !== item.materialId || (curr.qty1value && curr.qty2value)) {
+              return prev;
             }
             return {
               ...prev,
               items: prev.items.map((it, i) =>
                 i === index ? {
                   ...it,
-                  qty1: wMm != null ? (wMm / 1000).toString() : '',
-                  qty2: hMm != null ? (hMm / 1000).toString() : ''
+                  qty1value: wM != null ? wM.toString() : '',
+                  qty2value: hM != null ? hM.toString() : ''
                 } : it
               )
             };
@@ -201,7 +204,6 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const addItem = () => {
     setFormData(prev => {
       const newIndex = prev.items.length;
-      // Check if this new row introduces a duplicate
       const anyMaterial = prev.items.find(item => item.materialId);
       if (anyMaterial && materialsData.length > 0) {
         const candidateId = String(materialsData[0].id);
@@ -214,21 +216,20 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
           });
           return prev;
         }
-        // Auto-select candidate and fetch defaults from service
-        const nextItems = [...prev.items, { materialId: candidateId, qty1: '', qty2: '', readyDate: '', operations: [] }];
+        const nextItems = [...prev.items, { materialId: candidateId, qty1value: '', qty1unit: 'м', qty2value: '', qty2unit: 'м', readyDate: '', operations: [] }];
         pendingDimRef.current.set(newIndex, candidateId);
         api.get(`/api/v1/materials/${candidateId}`)
           .then(r => {
             const m = r.data;
-            const wMm = m.defaultWidthMm != null ? parseFloat(m.defaultWidthMm) : null;
-            const hMm = m.defaultHeightMm != null ? parseFloat(m.defaultHeightMm) : null;
+            const wM = m.defaultWidthM != null ? parseFloat(m.defaultWidthM) : null;
+            const hM = m.defaultHeightM != null ? parseFloat(m.defaultHeightM) : null;
             setFormData(pd => {
               const curr = pd.items[newIndex];
               if (!curr || curr.materialId !== candidateId) return pd;
               return {
                 ...pd,
                 items: pd.items.map((it, i) =>
-                  i === newIndex ? { ...it, qty1: wMm != null ? (wMm / 1000).toString() : '', qty2: hMm != null ? (hMm / 1000).toString() : '' } : it
+                  i === newIndex ? { ...it, qty1value: wM != null ? wM.toString() : '', qty2value: hM != null ? hM.toString() : '' } : it
                 )
               };
             });
@@ -237,7 +238,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
           .finally(() => pendingDimRef.current.delete(newIndex));
         return { ...prev, items: nextItems };
       }
-      return { ...prev, items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '', operations: [] }] };
+      return { ...prev, items: [...prev.items, { materialId: '', qty1value: '', qty1unit: 'м', qty2value: '', qty2unit: 'м', readyDate: '', operations: [] }] };
     });
   };
 
@@ -248,9 +249,31 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     }));
   };
 
+  const convertUnit = (value, fromUnit, toUnit) => {
+    if (fromUnit === toUnit) return value;
+    const num = parseFloat(value) || 0;
+    if (fromUnit === 'м' && toUnit === 'мм') return (num * 1000).toString();
+    if (fromUnit === 'мм' && toUnit === 'м') return (num / 1000).toString();
+    return value;
+  };
+
+  const handleUnitChange = (index, field, newValue, valueField) => {
+    setFormData(prev => {
+      const item = prev.items[index];
+      const oldValue = item[valueField];
+      const oldUnit = item[field];
+      const convertedValue = convertUnit(oldValue, oldUnit, newValue);
+      return {
+        ...prev,
+        items: prev.items.map((it, i) =>
+          i === index ? { ...it, [field]: newValue, [valueField]: convertedValue } : it
+        )
+      };
+    });
+  };
+
   const updateItem = (index, field, value) => {
     setFormData(prev => {
-      // When changing material: block duplicates, fetch defaults from backend
       if (field === 'materialId' && value) {
         const dup = prev.items.find((item, i) => i !== index && item.materialId === value);
         if (dup) {
@@ -263,32 +286,29 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
           return prev;
         }
 
-        // Immediately clear qty/readyDate/operations when material changes
         const next = prev.items.map((item, i) =>
-          i === index ? { ...item, materialId: value, qty1: '', qty2: '', readyDate: '', operations: [] } : item
+          i === index ? { ...item, materialId: value, qty1value: '', qty1unit: 'м', qty2value: '', qty2unit: 'м', readyDate: '', operations: [] } : item
         );
 
-        // Fetch defaults from backend; apply only if row hasn't changed yet
         pendingDimRef.current.set(index, value);
 
         api.get(`/api/v1/orders/${orderData?.id}/positions/${prev.items[index]?.id || ''}/default`)
           .then(r => {
             const d = r.data;
-            const wMm = d.widthMm != null ? parseFloat(d.widthMm) : null;
-            const hMm = d.heightMm != null ? parseFloat(d.heightMm) : null;
-            // Get defaults from material response if position record had no stored sizes
+            const wM = d.widthM != null ? parseFloat(d.widthM) : null;
+            const hM = d.heightM != null ? parseFloat(d.heightM) : null;
             const matResp = d.material || materialsData.find(m => m.id === parseInt(value));
-            const dwMm = wMm != null ? wMm : (matResp?.defaultWidthMm != null ? parseFloat(matResp.defaultWidthMm) : null);
-            const dhMm = hMm != null ? hMm : (matResp?.defaultHeightMm != null ? parseFloat(matResp.defaultHeightMm) : null);
+            const dwM = wM != null ? wM : (matResp?.defaultWidthM != null ? parseFloat(matResp.defaultWidthM) : null);
+            const dhM = hM != null ? hM : (matResp?.defaultHeightM != null ? parseFloat(matResp.defaultHeightM) : null);
 
             setFormData(pd => {
               const currMatId = pd.items[index]?.materialId;
-              if (currMatId !== value) return pd; // user changed material again
-              if (dwMm == null && dhMm == null) return pd;      // no defaults available
+              if (currMatId !== value) return pd;
+              if (dwM == null && dhM == null) return pd;
               return {
                 ...pd,
                 items: pd.items.map((it, i) =>
-                  i === index ? { ...it, qty1: dwMm != null ? (dwMm / 1000).toString() : '', qty2: dhMm != null ? (dhMm / 1000).toString() : '' } : it
+                  i === index ? { ...it, qty1value: dwM != null ? dwM.toString() : '', qty2value: dhM != null ? dhM.toString() : '' } : it
                 )
               };
             });
@@ -402,17 +422,17 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
         const existing = currentOps.find(cop => cop.id === opId);
         if (op.name.toLowerCase().includes('подворот')) {
           if (existing && existing.hemWidthMm) {
-            initialParams[opId] = { hemWidthMm: existing.hemWidthMm, hemCount: existing.hemCount || 2 };
+            initialParams[opId] = { hemWidthMm: existing.hemWidthMm, hemCount: existing.hemCount || 2, widthMm: existing.widthMm, heightMm: existing.heightMm };
           } else {
             const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
             const defaultCount = op.hemCount != null ? op.hemCount : 2;
-            initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount };
+            initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
           }
         } else if (op.name.toLowerCase().includes('люверс')) {
           if (existing && existing.eyeletId) {
-            initialParams[opId] = { eyeletId: existing.eyeletId, eyeletStepCm: existing.eyeletStepCm || 40 };
+            initialParams[opId] = { eyeletId: existing.eyeletId, eyeletStepCm: existing.eyeletStepCm || 40, widthMm: existing.widthMm, heightMm: existing.heightMm };
           } else {
-            initialParams[opId] = { eyeletId: '', eyeletStepCm: 40 };
+            initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
           }
         }
       });
@@ -426,7 +446,11 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
       }));
       handleCloseOperationsDialog();
     } else {
-      updateItemOperations(itemIndex, selectedOpsData);
+      const opsWithDimensions = selectedOpsData.map(op => {
+        const existing = currentOps.find(cop => cop.id === op.id);
+        return existing ? { ...op, ...existing } : { ...op, widthMm: null, heightMm: null };
+      });
+      updateItemOperations(itemIndex, opsWithDimensions);
       handleCloseOperationsDialog();
     }
   };
@@ -440,18 +464,28 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      const toMeters = (value, unit) => {
+        const v = parseFloat(value) || 0;
+        return unit === 'мм' ? v / 1000 : v;
+      };
+
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
-        const widthM = parseFloat(item.qty1) / 1000;
-        const heightM = parseFloat(item.qty2) / 1000 || 0;
+        const widthM = toMeters(item.qty1value, item.qty1unit);
+        const heightM = toMeters(item.qty2value, item.qty2unit);
 
         return {
           ...(item.id ? { id: item.id } : {}),
           materialId: parseInt(item.materialId),
           widthM,
           heightM,
-          readyDate: item.readyDate || null
+          readyDate: item.readyDate || null,
+          operations: (item.operations || []).map(op => ({
+            operationId: op.id,
+            widthM: op.widthM != null ? op.widthM : null,
+            heightM: op.heightM != null ? op.heightM : null
+          }))
         };
       });
 
@@ -591,8 +625,8 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
                   <TableHead>
                     <TableRow>
                       <TableCell>Материал</TableCell>
-                      <TableCell width={100}>Размер 1 (мм)</TableCell>
-                      <TableCell width={100}>Размер 2 (мм)</TableCell>
+                      <TableCell width={180}>Размер 1</TableCell>
+                      <TableCell width={180}>Размер 2</TableCell>
                       <TableCell width={120}>Операции</TableCell>
                       <TableCell width={130}>Срок готовности</TableCell>
                       <TableCell width={50}>Действия</TableCell>
@@ -620,27 +654,49 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
                             </FormControl>
                           </TableCell>
                           <TableCell>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              type="number"
-                              value={item.qty1}
-                              onChange={(e) => updateItem(index, 'qty1', e.target.value)}
-                              inputProps={{ min: 0 }}
-                              placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'}
-                            />
+                            <Box display="flex" gap={0.5} alignItems="center">
+                              <TextField
+                                size="small"
+                                type="number"
+                                value={item.qty1value}
+                                onChange={(e) => updateItem(index, 'qty1value', e.target.value)}
+                                inputProps={{ min: 0, step: 0.001 }}
+                                placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'}
+                                sx={{ width: 100 }}
+                              />
+                              <Select
+                                size="small"
+                                value={item.qty1unit || 'м'}
+                                onChange={(e) => handleUnitChange(index, 'qty1unit', e.target.value, 'qty1value')}
+                                sx={{ width: 70 }}
+                              >
+                                <MenuItem value="м">м</MenuItem>
+                                <MenuItem value="мм">мм</MenuItem>
+                              </Select>
+                            </Box>
                           </TableCell>
                           {showSecond ? (
                             <TableCell>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                type="number"
-                                value={item.qty2}
-                                onChange={(e) => updateItem(index, 'qty2', e.target.value)}
-                                inputProps={{ min: 0 }}
-                                placeholder="Высота"
-                              />
+                              <Box display="flex" gap={0.5} alignItems="center">
+                                <TextField
+                                  size="small"
+                                  type="number"
+                                  value={item.qty2value}
+                                  onChange={(e) => updateItem(index, 'qty2value', e.target.value)}
+                                  inputProps={{ min: 0, step: 0.001 }}
+                                  placeholder="Высота"
+                                  sx={{ width: 100 }}
+                                />
+                                <Select
+                                  size="small"
+                                  value={item.qty2unit || 'м'}
+                                  onChange={(e) => handleUnitChange(index, 'qty2unit', e.target.value, 'qty2value')}
+                                  sx={{ width: 70 }}
+                                >
+                                  <MenuItem value="м">м</MenuItem>
+                                  <MenuItem value="мм">мм</MenuItem>
+                                </Select>
+                              </Box>
                             </TableCell>
                           ) : (
                             <TableCell />
@@ -654,6 +710,21 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
                             >
                               {item.operations.length > 0 ? `${item.operations.length} оп.` : 'Выбрать'}
                             </Button>
+                            {item.operations.length > 0 && (
+                              <Box sx={{ mt: 0.5, fontSize: '0.75rem', color: 'text.secondary' }}>
+                                {item.operations.map((op, opIdx) => (
+                                  <span key={op.id}>
+                                    {opIdx > 0 && ', '}
+                                    {op.name}
+                                    {(op.widthMm != null || op.heightMm != null) && (
+                                      <span>
+                                        {' '}({op.widthMm || 0}×{op.heightMm || 0} мм)
+                                      </span>
+                                    )}
+                                  </span>
+                                ))}
+                              </Box>
+                            )}
                           </TableCell>
                           <TableCell>
                             <TextField
@@ -731,7 +802,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
         </DialogActions>
       </Dialog>
 
-      {/* Operation parameters dialog (podvorot, eyelets) */}
+      {/* Operation parameters dialog (podvorot, eyelets, dimensions) */}
       <Dialog open={operationParamsDialog.open} onClose={handleCloseOperationParamsDialog} maxWidth="xs" fullWidth>
         <DialogTitle>Параметры операций</DialogTitle>
         <DialogContent>
@@ -766,6 +837,30 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
                         }
                       }))}
                       inputProps={{ min: 1 }} required
+                    />
+                    <TextField
+                      fullWidth margin="dense" label="Ширина (мм)" type="number"
+                      value={params.widthMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], widthMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
+                    />
+                    <TextField
+                      fullWidth margin="dense" label="Высота (мм)" type="number"
+                      value={params.heightMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], heightMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
                     />
                   </Box>
                 );
@@ -804,10 +899,63 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
                       }))}
                       inputProps={{ min: 10 }} required
                     />
+                    <TextField
+                      fullWidth margin="dense" label="Ширина (мм)" type="number"
+                      value={params.widthMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], widthMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
+                    />
+                    <TextField
+                      fullWidth margin="dense" label="Высота (мм)" type="number"
+                      value={params.heightMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], heightMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
+                    />
                   </Box>
                 );
               }
-              return null;
+              const params = operationParamsDialog.params[op.id] || {};
+              return (
+                <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom color="primary">{op.name}</Typography>
+                  <TextField
+                    fullWidth margin="dense" label="Ширина (мм)" type="number"
+                    value={params.widthMm || ''}
+                    onChange={(e) => setOperationParamsDialog(prev => ({
+                      ...prev, params: {
+                        ...prev.params, [op.id]: {
+                          ...prev.params[op.id], widthMm: e.target.value ? parseFloat(e.target.value) : null
+                        }
+                      }
+                    }))}
+                    inputProps={{ min: 0 }}
+                  />
+                  <TextField
+                    fullWidth margin="dense" label="Высота (мм)" type="number"
+                    value={params.heightMm || ''}
+                    onChange={(e) => setOperationParamsDialog(prev => ({
+                      ...prev, params: {
+                        ...prev.params, [op.id]: {
+                          ...prev.params[op.id], heightMm: e.target.value ? parseFloat(e.target.value) : null
+                        }
+                      }
+                    }))}
+                    inputProps={{ min: 0 }}
+                  />
+                </Box>
+              );
             })}
           </Box>
         </DialogContent>

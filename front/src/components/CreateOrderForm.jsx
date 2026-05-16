@@ -265,25 +265,27 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         const existing = currentOps.find(cop => cop.id === opId);
         if (op.name.toLowerCase().includes('подворот')) {
           if (existing && existing.hemWidthMm) {
-            // Preserve existing parameters for this item
             initialParams[opId] = { 
               hemWidthMm: existing.hemWidthMm, 
-              hemCount: existing.hemCount || 2 
+              hemCount: existing.hemCount || 2,
+              widthMm: existing.widthMm,
+              heightMm: existing.heightMm
             };
           } else {
-            // Use operation's own defaults from backend, or fallback
             const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
             const defaultCount = op.hemCount != null ? op.hemCount : 2;
-            initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount };
+            initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: null, heightMm: null };
           }
         } else if (op.name.toLowerCase().includes('люверс')) {
           if (existing && existing.eyeletId) {
             initialParams[opId] = { 
               eyeletId: existing.eyeletId, 
-              eyeletStepCm: existing.eyeletStepCm || 40 
+              eyeletStepCm: existing.eyeletStepCm || 40,
+              widthMm: existing.widthMm,
+              heightMm: existing.heightMm
             };
           } else {
-            initialParams[opId] = { eyeletId: '', eyeletStepCm: 40 };
+            initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: null, heightMm: null };
           }
         }
       });
@@ -433,12 +435,16 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         const podvorotMmVertical = hemOp?.hemWidthMm || null;
         const podvorotCountPerSide = hemOp?.hemCount || null;
 
-        return {
-          materialId: parseInt(item.materialId),
-          widthM,
-          heightM,
-          operations: item.operations.map(op => ({ operationId: op.id })),
-          readyDate: item.readyDate || null,
+         return {
+           materialId: parseInt(item.materialId),
+           widthM,
+           heightM,
+           operations: item.operations.map(op => ({
+             operationId: op.id,
+             widthMm: op.widthMm != null ? op.widthMm : null,
+             heightMm: op.heightMm != null ? op.heightMm : null
+           })),
+           readyDate: item.readyDate || null,
           ...(eyeletId !== null && { eyeletId }),
           ...(eyeletStepCm !== null && { eyeletStepCm }),
           ...(podvorotMmHorizontal !== null && { podvorotMmHorizontal }),
@@ -632,6 +638,21 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                           >
                             {item.operations.length > 0 ? `${item.operations.length} оп.` : 'Выбрать'}
                           </Button>
+                          {item.operations.length > 0 && (
+                            <Box sx={{ mt: 0.5, fontSize: '0.75rem', color: 'text.secondary' }}>
+                              {item.operations.map((op, opIdx) => (
+                                <span key={op.id}>
+                                  {opIdx > 0 && ', '}
+                                  {op.name}
+                                  {(op.widthMm != null || op.heightMm != null) && (
+                                    <span>
+                                      {' '}({op.widthMm || 0}×{op.heightMm || 0} мм)
+                                    </span>
+                                  )}
+                                </span>
+                              ))}
+                            </Box>
+                          )}
                         </TableCell>
                         <TableCell>
                           <TextField
@@ -825,6 +846,30 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                       inputProps={{ min: 1 }}
                       required
                     />
+                    <TextField
+                      fullWidth margin="dense" label="Ширина (мм)" type="number"
+                      value={params.widthMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], widthMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
+                    />
+                    <TextField
+                      fullWidth margin="dense" label="Высота (мм)" type="number"
+                      value={params.heightMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], heightMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
+                    />
                   </Box>
                 );
               } else if (opName.includes('люверс')) {
@@ -878,10 +923,63 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                       inputProps={{ min: 10 }}
                       required
                     />
+                    <TextField
+                      fullWidth margin="dense" label="Ширина (мм)" type="number"
+                      value={params.widthMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], widthMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
+                    />
+                    <TextField
+                      fullWidth margin="dense" label="Высота (мм)" type="number"
+                      value={params.heightMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], heightMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
+                    />
                   </Box>
                 );
               }
-              return null;
+              const params = operationParamsDialog.params[op.id] || {};
+              return (
+                <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom color="primary">{op.name}</Typography>
+                  <TextField
+                    fullWidth margin="dense" label="Ширина (мм)" type="number"
+                    value={params.widthMm || ''}
+                    onChange={(e) => setOperationParamsDialog(prev => ({
+                      ...prev, params: {
+                        ...prev.params, [op.id]: {
+                          ...prev.params[op.id], widthMm: e.target.value ? parseFloat(e.target.value) : null
+                        }
+                      }
+                    }))}
+                    inputProps={{ min: 0 }}
+                  />
+                  <TextField
+                    fullWidth margin="dense" label="Высота (мм)" type="number"
+                    value={params.heightMm || ''}
+                    onChange={(e) => setOperationParamsDialog(prev => ({
+                      ...prev, params: {
+                        ...prev.params, [op.id]: {
+                          ...prev.params[op.id], heightMm: e.target.value ? parseFloat(e.target.value) : null
+                        }
+                      }
+                    }))}
+                    inputProps={{ min: 0 }}
+                  />
+                </Box>
+              );
             })}
           </Box>
         </DialogContent>

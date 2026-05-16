@@ -46,11 +46,11 @@ public class Material extends BaseEntity {
     @Column(name = "waste_coefficient", precision = 5, scale = 3)
     private BigDecimal wasteCoefficient = BigDecimal.ONE;
 
-    /** Ширина по умолчанию в миллиметрах (используется при добавлении позиции в заказ) */
-    @Column(name = "default_width_mm", precision = 10, scale = 2)
-    private BigDecimal defaultWidthMm = BigDecimal.ZERO;
+    /** Ширина по умолчанию в метрах */
+    @Column(name = "default_width_m", precision = 10, scale = 4)
+    private BigDecimal defaultWidthM = BigDecimal.ZERO;
 
-    /** Высота по умолчанию в миллиметрах (используется при добавлении позиции в заказ) */
-    @Column(name = "default_height_mm", precision = 10, scale = 2)
-    private BigDecimal defaultHeightMm = BigDecimal.ZERO;
+    /** Высота по умолчанию в метрах */
+    @Column(name = "default_height_m", precision = 10, scale = 4)
+    private BigDecimal defaultHeightM = BigDecimal.ZERO;
 }

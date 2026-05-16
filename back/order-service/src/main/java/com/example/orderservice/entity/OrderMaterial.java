@@ -55,11 +55,11 @@ public class OrderMaterial extends BaseEntity {
     @Column(name = "cost", precision = 12, scale = 2)
     private BigDecimal cost = BigDecimal.ZERO;
 
-    /** Ширина изделия в миллиметрах (для формирования таблицы при редактировании заказа) */
-    @Column(name = "width_mm", precision = 10, scale = 2)
-    private BigDecimal widthMm;
+    /** Ширина изделия в метрах */
+    @Column(name = "width_m", precision = 10, scale = 4)
+    private BigDecimal widthM;
 
-    /** Высота изделия в миллиметрах (для формирования таблицы при редактировании заказа) */
-    @Column(name = "height_mm", precision = 10, scale = 2)
-    private BigDecimal heightMm;
+    /** Высота изделия в метрах */
+    @Column(name = "height_m", precision = 10, scale = 4)
+    private BigDecimal heightM;
 }

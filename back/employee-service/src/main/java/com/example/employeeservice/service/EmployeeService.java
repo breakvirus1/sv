@@ -4,6 +4,7 @@ import com.example.employeeservice.dto.EmployeeCreateRequest;
 import com.example.employeeservice.dto.EmployeeResponse;
 import com.example.employeeservice.dto.EmployeeUpdateRequest;
 import com.example.employeeservice.entity.Employee;
+import com.example.employeeservice.mapper.EmployeeMapper;
 import com.example.employeeservice.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -16,52 +17,40 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Сервис для управления сотрудниками.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
+    private final EmployeeMapper employeeMapper;
 
     public Page<EmployeeResponse> getAllEmployees(Specification<Employee> spec, Pageable pageable) {
         return employeeRepository.findAll(spec, pageable)
-                .map(this::mapToResponse);
+                .map(employeeMapper::toDto);
     }
 
     @Transactional(readOnly = true)
     public EmployeeResponse getEmployeeById(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
-        return mapToResponse(employee);
+        return employeeMapper.toDto(employee);
     }
 
     public EmployeeResponse createEmployee(EmployeeCreateRequest request) {
         if (employeeRepository.findByUsername(request.getUsername()).isPresent()) {
             throw new RuntimeException("Сотрудник с таким логином уже существует");
         }
-        Employee employee = new Employee();
-        employee.setFullName(request.getFullName());
-        employee.setUsername(request.getUsername());
-        employee.setPosition(request.getPosition());
-        employee.setPhone(request.getPhone());
-        employee.setEmail(request.getEmail());
-
+        Employee employee = employeeMapper.toEntity(request);
         Employee saved = employeeRepository.save(employee);
-        return mapToResponse(saved);
+        return employeeMapper.toDto(saved);
     }
 
     public EmployeeResponse updateEmployee(Long id, EmployeeUpdateRequest request) {
         Employee employee = getEmployeeEntity(id);
-        employee.setFullName(request.getFullName());
-        employee.setUsername(request.getUsername());
-        employee.setPosition(request.getPosition());
-        employee.setPhone(request.getPhone());
-        employee.setEmail(request.getEmail());
+        employeeMapper.updateEntityFromRequest(request, employee);
         Employee saved = employeeRepository.save(employee);
-        return mapToResponse(saved);
+        return employeeMapper.toDto(saved);
     }
 
     public void deleteEmployee(Long id) {
@@ -85,24 +74,12 @@ public class EmployeeService {
         if (email != null) employee.setEmail(email);
 
         Employee saved = employeeRepository.save(employee);
-        return mapToResponse(saved);
+        return employeeMapper.toDto(saved);
     }
 
     @Transactional(readOnly = true)
     private Employee getEmployeeEntity(Long id) {
         return employeeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
-    }
-
-    @Transactional(readOnly = true)
-    private EmployeeResponse mapToResponse(Employee employee) {
-        return new EmployeeResponse(
-                employee.getId(),
-                employee.getFullName(),
-                employee.getPosition(),
-                employee.getPhone(),
-                employee.getEmail(),
-                employee.getUsername()
-        );
     }
 }

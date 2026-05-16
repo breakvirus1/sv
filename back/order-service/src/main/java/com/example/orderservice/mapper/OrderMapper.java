@@ -4,27 +4,16 @@ import com.example.clientservice.dto.ClientResponse;
 import com.example.employeeservice.dto.EmployeeResponse;
 import com.example.materialservice.dto.MaterialResponse;
 import com.example.orderservice.dto.*;
-import com.example.orderservice.entity.Order;
-import com.example.orderservice.entity.OrderItem;
-import com.example.orderservice.entity.OrderMaterial;
-import com.example.orderservice.entity.OrderOperation;
-import com.example.orderservice.entity.OrderStage;
-import com.example.orderservice.entity.OrderStage;
+import com.example.orderservice.entity.*;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Collectors;
-import java.util.stream.Collectors;
 
-/**
- * MapStruct mapper для преобразования между сущностями и DTO.
- */
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface OrderMapper {
 
@@ -51,26 +40,37 @@ public interface OrderMapper {
     @Mapping(target = "materials", ignore = true)
     Order toEntity(OrderResponse orderResponse);
 
+    @Mapping(target = "operations", ignore = true)
     OrderItemResponse itemToDto(OrderItem item);
 
     @AfterMapping
     default void afterItemToDto(OrderItem entity, @MappingTarget OrderItemResponse dto) {
         if (entity.getOperations() != null) {
             dto.setOperations(entity.getOperations().stream()
-                .map(op -> {
-                    OrderOperationSummary s = new OrderOperationSummary();
-                    s.setOperationId(op.getOperationId());
-                    s.setOperationName(op.getOperationName());
-                    s.setPricePerUnit(op.getPricePerUnit());
-                    s.setCalculatedQuantity(op.getCalculatedQuantity());
-                    s.setSubtotal(op.getSubtotal());
-                    return s;
-                })
+                .map(op -> new OrderOperationSummary(
+                    op.getOperationId(),
+                    op.getOperationName(),
+                    op.getPricePerUnit(),
+                    op.getCalculatedQuantity(),
+                    op.getSubtotal(),
+                    op.getWidthM(),
+                    op.getHeightM()))
                 .collect(Collectors.toList()));
         }
     }
 
+    @Mapping(target = "workshop", ignore = true)
     OrderStageResponse stageToDto(OrderStage stage);
+
+    @AfterMapping
+    default void afterStageToDto(OrderStage entity, @MappingTarget OrderStageResponse dto) {
+        if (entity.getWorkshop() != null) {
+            dto.setWorkshop(new WorkshopResponse(
+                entity.getWorkshop().getId(),
+                entity.getWorkshop().getName(),
+                entity.getWorkshop().getSortOrder()));
+        }
+    }
 
     ClientResponse clientToDto(com.example.clientservice.entity.Client client);
 
@@ -82,9 +82,19 @@ public interface OrderMapper {
     OrderMaterialResponse orderMaterialToDto(OrderMaterial orderMaterial);
 
     @AfterMapping
-    default void populateItemOperations(@MappingTarget OrderItemResponse dto) {
-        // This method will be called after itemToDto mapping, but we need the source entity.
-        // Instead we'll implement custom mapping via a separate method call.
+    default void afterOrderMaterialToDto(OrderMaterial entity, @MappingTarget OrderMaterialResponse dto) {
+        if (entity.getOrderItem() != null && entity.getOrderItem().getOperations() != null) {
+            dto.setOperations(entity.getOrderItem().getOperations().stream()
+                .map(op -> new OrderOperationSummary(
+                    op.getOperationId(),
+                    op.getOperationName(),
+                    op.getPricePerUnit(),
+                    op.getCalculatedQuantity(),
+                    op.getSubtotal(),
+                    op.getWidthM(),
+                    op.getHeightM()))
+                .collect(Collectors.toList()));
+        }
     }
 
     @Mapping(target = "id", ignore = true)
@@ -129,12 +139,45 @@ public interface OrderMapper {
     @Mapping(target = "order", ignore = true)
     @Mapping(target = "paymentDate", expression = "java(request.getPaymentDate() != null ? request.getPaymentDate() : java.time.LocalDate.now())")
     @Mapping(target = "isPartial", expression = "java(request.getIsPartial() != null ? request.getIsPartial() : false)")
-    com.example.orderservice.entity.Payment toPaymentEntity(PaymentRequest request);
+    Payment toPaymentEntity(PaymentRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "order", ignore = true)
     @Mapping(target = "material", ignore = true)
     @Mapping(target = "wasteCoefficient", ignore = true)
     @Mapping(target = "cost", ignore = true)
-    com.example.orderservice.entity.OrderMaterial toOrderMaterialEntity(OrderMaterialCreateRequest request);
+    OrderMaterial toOrderMaterialEntity(OrderMaterialCreateRequest request);
+
+    PaymentResponse paymentToDto(Payment payment);
+
+    @Mapping(target = "author", ignore = true)
+    CommentResponse commentToDto(OrderComment comment);
+
+    @AfterMapping
+    default void afterCommentToDto(OrderComment entity, @MappingTarget CommentResponse dto) {
+        if (entity.getAuthor() != null) {
+            dto.setAuthor(new EmployeeResponse(
+                entity.getAuthor().getId(),
+                entity.getAuthor().getFullName(),
+                entity.getAuthor().getPosition(),
+                entity.getAuthor().getPhone(),
+                entity.getAuthor().getEmail(),
+                entity.getAuthor().getUsername()));
+        }
+    }
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "order", ignore = true)
+    @Mapping(target = "author", ignore = true)
+    @Mapping(target = "isInternal", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    OrderComment commentToEntity(CommentRequest request);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "order", ignore = true)
+    @Mapping(target = "workshop", ignore = true)
+    @Mapping(target = "waitPrevious", ignore = true)
+    @Mapping(target = "status", ignore = true)
+    @Mapping(target = "sourceFiles", ignore = true)
+    OrderStage stageToEntity(OrderStageRequest request);
 }

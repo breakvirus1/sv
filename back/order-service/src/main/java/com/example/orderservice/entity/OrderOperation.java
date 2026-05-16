@@ -43,4 +43,12 @@ public class OrderOperation extends BaseEntity {
     /** Стоимость операции */
     @Column(name = "subtotal", precision = 12, scale = 2)
     private BigDecimal subtotal;
+
+    /** Ширина в метрах (опционально, для операций с размерами) */
+    @Column(name = "width_m", precision = 10, scale = 4)
+    private BigDecimal widthM;
+
+    /** Высота в метрах (опционально, для операций с размерами) */
+    @Column(name = "height_m", precision = 10, scale = 4)
+    private BigDecimal heightM;
 }

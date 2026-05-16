@@ -21,4 +21,8 @@ public class MaterialCreateRequest {
     private BigDecimal price;
     /** Коэффициент отхода */
     private BigDecimal wasteCoefficient;
+    /** Ширина по умолчанию в метрах */
+    private BigDecimal defaultWidthM;
+    /** Высота по умолчанию в метрах */
+    private BigDecimal defaultHeightM;
 }

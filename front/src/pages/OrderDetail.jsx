@@ -145,11 +145,15 @@ const OrderDetail = ({ mode = 'view' }) => {
       if (!currentEmployee) {
         throw new Error('Менеджер не определен. Перелогинитесь.');
       }
+      const toMeters = (value, unit) => {
+        const v = parseFloat(value) || 0;
+        return unit === 'мм' ? v / 1000 : v;
+      };
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
-        const widthM = parseFloat(item.qty1) / 1000;
-        const heightM = parseFloat(item.qty2) / 1000 || 0;
+        const widthM = toMeters(item.qty1value, item.qty1unit);
+        const heightM = toMeters(item.qty2value, item.qty2unit);
         return {
           materialId: parseInt(item.materialId),
           widthM,
@@ -213,7 +217,7 @@ const OrderDetail = ({ mode = 'view' }) => {
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '', operations: [] }]
+      items: [...prev.items, { materialId: '', qty1value: '', qty1unit: 'м', qty2value: '', qty2unit: 'м', readyDate: '', operations: [] }]
     }));
   };
 
@@ -262,13 +266,13 @@ const OrderDetail = ({ mode = 'view' }) => {
     return formData.items.reduce((sum, item) => {
       const material = materialsData.find(m => m.id === parseInt(item.materialId));
       if (!material) return sum;
-      const q1 = parseFloat(item.qty1) || 0;
-      const q2 = parseFloat(item.qty2) || 0;
+      const q1 = (parseFloat(item.qty1value) || 0) * (item.qty1unit === 'мм' ? 0.001 : 1);
+      const q2 = (parseFloat(item.qty2value) || 0) * (item.qty2unit === 'мм' ? 0.001 : 1);
       let effectiveQty = 0;
       if (material.unit === 'м2') {
-        effectiveQty = (q1 / 1000) * (q2 / 1000);
+        effectiveQty = q1 * q2;
       } else if (material.unit === 'м.п.') {
-        effectiveQty = q1 / 1000;
+        effectiveQty = q1;
       } else {
         effectiveQty = q1;
       }
@@ -326,8 +330,8 @@ const OrderDetail = ({ mode = 'view' }) => {
                     <TableHead>
                       <TableRow>
                         <TableCell>Материал</TableCell>
-                        <TableCell width={100}>Размер 1 (мм)</TableCell>
-                        <TableCell width={100}>Размер 2 (мм)</TableCell>
+                        <TableCell width={180}>Размер 1</TableCell>
+                        <TableCell width={180}>Размер 2</TableCell>
                         <TableCell width={130}>Срок готовности</TableCell>
                         <TableCell width={50}>Действия</TableCell>
                       </TableRow>
@@ -351,11 +355,23 @@ const OrderDetail = ({ mode = 'view' }) => {
                               </FormControl>
                             </TableCell>
                             <TableCell>
-                              <TextField fullWidth size="small" type="number" value={item.qty1} onChange={(e) => updateItem(index, 'qty1', e.target.value)} inputProps={{ min: 0 }} placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'} />
+                              <Box display="flex" gap={0.5} alignItems="center">
+                                <TextField size="small" type="number" value={item.qty1value} onChange={(e) => updateItem(index, 'qty1value', e.target.value)} inputProps={{ min: 0, step: 0.001 }} placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'} sx={{ width: 100 }} />
+                                <Select size="small" value={item.qty1unit || 'м'} onChange={(e) => updateItem(index, 'qty1unit', e.target.value)} sx={{ width: 70 }}>
+                                  <MenuItem value="м">м</MenuItem>
+                                  <MenuItem value="мм">мм</MenuItem>
+                                </Select>
+                              </Box>
                             </TableCell>
                             {showSecond ? (
                               <TableCell>
-                                <TextField fullWidth size="small" type="number" value={item.qty2} onChange={(e) => updateItem(index, 'qty2', e.target.value)} inputProps={{ min: 0 }} placeholder="Высота" />
+                                <Box display="flex" gap={0.5} alignItems="center">
+                                  <TextField size="small" type="number" value={item.qty2value} onChange={(e) => updateItem(index, 'qty2value', e.target.value)} inputProps={{ min: 0, step: 0.001 }} placeholder="Высота" sx={{ width: 100 }} />
+                                  <Select size="small" value={item.qty2unit || 'м'} onChange={(e) => updateItem(index, 'qty2unit', e.target.value)} sx={{ width: 70 }}>
+                                    <MenuItem value="м">м</MenuItem>
+                                    <MenuItem value="мм">мм</MenuItem>
+                                  </Select>
+                                </Box>
                               </TableCell>
                             ) : (
                               <TableCell />

@@ -124,20 +124,19 @@ public class OrderService {
                 .collect(Collectors.toList()));
 
         response.setPayments(order.getPayments().stream()
-                .map(this::mapPayment)
+                .map(orderMapper::paymentToDto)
                 .collect(Collectors.toList()));
 
         response.setComments(order.getComments().stream()
-                .map(this::mapComment)
+                .map(orderMapper::commentToDto)
                 .collect(Collectors.toList()));
 
-        // Collect materials from order items (and from order's direct materials if any)
-        List<OrderMaterial> allMaterials = new ArrayList<>(order.getMaterials());
-        order.getItems().stream()
+        // Collect materials from order items only (each OrderMaterial is linked to an OrderItem)
+        List<OrderMaterial> allMaterials = order.getItems().stream()
                 .flatMap(item -> item.getMaterials().stream())
-                .forEach(allMaterials::add);
+                .collect(Collectors.toList());
         response.setMaterials(allMaterials.stream()
-                .map(this::mapOrderMaterial)
+                .map(orderMapper::orderMaterialToDto)
                 .collect(Collectors.toList()));
 
         return response;
@@ -263,6 +262,14 @@ public class OrderService {
                 BigDecimal operationsSubtotal = BigDecimal.ZERO;
                 List<OrderOperation> orderOps = new ArrayList<>();
 
+                // Build a map from operationId -> request operation for width/height lookup
+                Map<Long, OrderOperationRequest> reqOpMap = new HashMap<>();
+                if (itemReq.getOperations() != null) {
+                    for (OrderOperationRequest reqOp : itemReq.getOperations()) {
+                        reqOpMap.put(reqOp.getOperationId(), reqOp);
+                    }
+                }
+
                 if (opsData != null) {
                     for (Map<String, Object> opMap : opsData) {
                         Long opId = ((Number) opMap.get("operationId")).longValue();
@@ -281,6 +288,14 @@ public class OrderService {
                         orderOp.setPricePerUnit(pricePerUnit);
                         orderOp.setCalculatedQuantity(qty);
                         orderOp.setSubtotal(subtotal);
+
+                        // Attach width/height from request if provided
+                        OrderOperationRequest reqOp = reqOpMap.get(opId);
+                        if (reqOp != null) {
+                            orderOp.setWidthM(reqOp.getWidthM());
+                            orderOp.setHeightM(reqOp.getHeightM());
+                        }
+
                         orderOps.add(orderOp);
                     }
                 }
@@ -311,6 +326,8 @@ public class OrderService {
                 orderMaterial.setQuantity(effectiveArea);
                 orderMaterial.setWasteCoefficient(wasteCoeff);
                 orderMaterial.setCost(materialCost);
+                orderMaterial.setWidthM(itemReq.getWidthM());
+                orderMaterial.setHeightM(itemReq.getHeightM());
                 order.getMaterials().add(orderMaterial);
                 orderItem.getMaterials().add(orderMaterial);
 
@@ -367,6 +384,7 @@ public class OrderService {
     /**
      * Обновить заказ.
      */
+    @Transactional
     public OrderResponse updateOrder(Long id, OrderUpdateRequest request) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
@@ -395,6 +413,21 @@ public class OrderService {
             Map<Long, OrderMaterial> existingById = existingMaterials.stream()
                     .collect(Collectors.toMap(com.example.orderservice.entity.BaseEntity::getId, m -> m));
 
+            // Get JWT token for calculator service
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String jwtToken = null;
+            if (auth != null && auth.getPrincipal() instanceof Jwt) {
+                jwtToken = ((Jwt) auth.getPrincipal()).getTokenValue();
+            }
+
+            // Collect old operations for cleanup
+            List<OrderOperation> oldOps = new ArrayList<>();
+            for (OrderItem item : order.getItems()) {
+                oldOps.addAll(item.getOperations());
+            }
+
+            BigDecimal total = BigDecimal.ZERO;
+
             for (OrderMaterialCreateRequest itemReq : itemRequests) {
                 Material material = entityManager.find(Material.class, itemReq.getMaterialId());
                 if (material == null) {
@@ -403,30 +436,169 @@ public class OrderService {
 
                 BigDecimal widthM = itemReq.getWidthM();
                 BigDecimal heightM = itemReq.getHeightM();
-                BigDecimal widthMm = widthM != null ? widthM.multiply(BigDecimal.valueOf(1000)) : BigDecimal.ZERO;
-                BigDecimal heightMm = heightM != null ? heightM.multiply(BigDecimal.valueOf(1000)) : BigDecimal.ZERO;
+
+                // Build calculator request
+                Map<String, Object> calcRequest = new HashMap<>();
+                calcRequest.put("materialId", material.getId());
+                calcRequest.put("widthM", widthM);
+                calcRequest.put("heightM", heightM);
+                List<Long> opIds = itemReq.getOperations() == null ? Collections.emptyList() :
+                    itemReq.getOperations().stream()
+                        .map(OrderOperationRequest::getOperationId)
+                        .collect(Collectors.toList());
+                calcRequest.put("operationIds", opIds);
+
+                // Include eyelet parameters
+                if (itemReq.getEyeletId() != null) {
+                    calcRequest.put("eyeletId", itemReq.getEyeletId());
+                }
+                if (itemReq.getEyeletStepCm() != null) {
+                    calcRequest.put("eyeletStepCm", itemReq.getEyeletStepCm());
+                }
+
+                // Include podvorot parameters
+                if (itemReq.getPodvorotMmHorizontal() != null) {
+                    calcRequest.put("podvorotMmHorizontal", itemReq.getPodvorotMmHorizontal());
+                }
+                if (itemReq.getPodvorotMmVertical() != null) {
+                    calcRequest.put("podvorotMmVertical", itemReq.getPodvorotMmVertical());
+                }
+                if (itemReq.getPodvorotCountPerSide() != null) {
+                    calcRequest.put("podvorotCountPerSide", itemReq.getPodvorotCountPerSide());
+                }
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                if (jwtToken != null) {
+                    headers.setBearerAuth(jwtToken);
+                }
+                HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(calcRequest, headers);
+
+                Map<String, Object> calcResponse;
+                try {
+                    ResponseEntity<Map> response = restTemplate.exchange(
+                        calculatorUrl + "/api/v1/calculations/preview",
+                        HttpMethod.POST,
+                        requestEntity,
+                        Map.class
+                    );
+                    calcResponse = response.getBody();
+                } catch (RestClientException e) {
+                    throw new RuntimeException("Ошибка при расчете стоимости позиции: " + e.getMessage(), e);
+                }
+
+                if (calcResponse == null) {
+                    throw new RuntimeException("Пустой ответ от службы расчета");
+                }
+
+                Number totalPriceNum = (Number) calcResponse.get("totalPrice");
+                BigDecimal totalPrice = new BigDecimal(totalPriceNum.toString());
+
+                // Parse operations breakdown
+                List<Map<String, Object>> opsData = (List<Map<String, Object>>) calcResponse.get("operations");
+                BigDecimal operationsSubtotal = BigDecimal.ZERO;
+                List<OrderOperation> orderOps = new ArrayList<>();
+
+                // Build map from operationId -> request operation for width/height lookup
+                Map<Long, OrderOperationRequest> reqOpMap = new HashMap<>();
+                if (itemReq.getOperations() != null) {
+                    for (OrderOperationRequest reqOp : itemReq.getOperations()) {
+                        reqOpMap.put(reqOp.getOperationId(), reqOp);
+                    }
+                }
+
+                if (opsData != null) {
+                    for (Map<String, Object> opMap : opsData) {
+                        Long opId = ((Number) opMap.get("operationId")).longValue();
+                        String opName = (String) opMap.get("operationName");
+                        Number qtyNum = (Number) opMap.get("quantity");
+                        Number priceNum = (Number) opMap.get("pricePerUnit");
+                        Number subtotalNum = (Number) opMap.get("subtotal");
+                        BigDecimal qty = new BigDecimal(qtyNum.toString());
+                        BigDecimal pricePerUnit = new BigDecimal(priceNum.toString());
+                        BigDecimal subtotal = new BigDecimal(subtotalNum.toString());
+                        operationsSubtotal = operationsSubtotal.add(subtotal);
+
+                        OrderOperation orderOp = new OrderOperation();
+                        orderOp.setOperationId(opId);
+                        orderOp.setOperationName(opName);
+                        orderOp.setPricePerUnit(pricePerUnit);
+                        orderOp.setCalculatedQuantity(qty);
+                        orderOp.setSubtotal(subtotal);
+
+                        OrderOperationRequest reqOp = reqOpMap.get(opId);
+                        if (reqOp != null) {
+                            orderOp.setWidthM(reqOp.getWidthM());
+                            orderOp.setHeightM(reqOp.getHeightM());
+                        }
+
+                        orderOps.add(orderOp);
+                    }
+                }
+
+                BigDecimal materialCost = totalPrice.subtract(operationsSubtotal);
+                BigDecimal wasteCoeff = material.getWasteCoefficient();
+                if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
+                BigDecimal materialPrice = material.getPrice();
+                BigDecimal effectiveArea = materialCost.divide(materialPrice.multiply(wasteCoeff), 2, RoundingMode.HALF_UP);
 
                 if (itemReq.getId() != null) {
                     OrderMaterial om = existingById.get(itemReq.getId());
                     if (om != null) {
                         om.setMaterial(material);
                         om.setReadyDate(itemReq.getReadyDate());
-                        om.setWidthMm(widthMm);
-                        om.setHeightMm(heightMm);
+                        om.setWidthM(widthM);
+                        om.setHeightM(heightM);
+                        om.setQuantity(effectiveArea);
+                        om.setWasteCoefficient(wasteCoeff);
+                        om.setCost(materialCost);
+
+                        // Update operations for the linked order item
+                        OrderItem orderItem = om.getOrderItem();
+                        if (orderItem != null) {
+                            orderItem.getOperations().clear();
+                            for (OrderOperation op : orderOps) {
+                                op.setOrderItem(orderItem);
+                                orderItem.getOperations().add(op);
+                            }
+                            orderItem.setPrice(totalPrice);
+                            orderItem.setCost(totalPrice);
+                        }
                     }
                 } else {
+                    OrderItem orderItem = new OrderItem();
+                    orderItem.setOrder(order);
+                    orderItem.setName(material.getName() + " " + widthM + "x" + heightM + "m");
+                    orderItem.setQuantity(1);
+                    orderItem.setReadyDate(itemReq.getReadyDate());
+                    orderItem.setPrice(totalPrice);
+                    orderItem.setCost(totalPrice);
+
+                    for (OrderOperation op : orderOps) {
+                        op.setOrderItem(orderItem);
+                        orderItem.getOperations().add(op);
+                    }
+
                     OrderMaterial om = new OrderMaterial();
                     om.setOrder(order);
+                    om.setOrderItem(orderItem);
                     om.setMaterial(material);
+                    om.setQuantity(effectiveArea);
+                    om.setWasteCoefficient(wasteCoeff);
+                    om.setCost(materialCost);
+                    om.setWidthM(widthM);
+                    om.setHeightM(heightM);
                     om.setReadyDate(itemReq.getReadyDate());
-                    om.setWidthMm(widthMm);
-                    om.setHeightMm(heightMm);
-                    om.setWasteCoefficient(material.getWasteCoefficient());
                     order.getMaterials().add(om);
+                    orderItem.getMaterials().add(om);
+
+                    order.getItems().add(orderItem);
                 }
+
+                total = total.add(totalPrice);
             }
 
-            // Remove order materials that are no longer in the submitted list
+            // Remove materials no longer in the submitted list
             Set<Long> updatedIds = itemRequests.stream()
                     .filter(r -> r.getId() != null)
                     .map(OrderMaterialCreateRequest::getId)
@@ -434,32 +606,30 @@ public class OrderService {
             existingMaterials.stream()
                     .filter(m -> !updatedIds.contains(m.getId()))
                     .forEach(order.getMaterials()::remove);
+
+            order.setTotalAmount(total);
+            orderRepository.save(order);
         }
 
-        Order saved = orderRepository.save(order);
-        return mapOrderResponse(saved);
+        return mapOrderResponse(order);
     }
 
     /**
      * Добавить оплату к заказу.
      * Автоматически пересчитывает paidAmount и debtAmount.
      */
-    public void addPayment(Long orderId, PaymentRequest paymentRequest) {
+    public PaymentResponse addPayment(Long orderId, PaymentRequest paymentRequest) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
 
-        com.example.orderservice.entity.Payment payment = new com.example.orderservice.entity.Payment();
+        com.example.orderservice.entity.Payment payment = orderMapper.toPaymentEntity(paymentRequest);
         payment.setOrder(order);
-        payment.setAmount(paymentRequest.getAmount());
-        payment.setPaymentDate(paymentRequest.getPaymentDate() != null ? paymentRequest.getPaymentDate() : LocalDate.now());
-        payment.setPaymentType(paymentRequest.getPaymentType());
-        payment.setDetails(paymentRequest.getDetails());
-        payment.setIsPartial(paymentRequest.getIsPartial() != null ? paymentRequest.getIsPartial() : false);
 
-        paymentRepository.save(payment);
+        Payment saved = paymentRepository.save(payment);
 
         // Пересчитаем оплаченную сумму и долг
         recalculatePaidAmount(orderId);
+        return orderMapper.paymentToDto(saved);
     }
 
     /**
@@ -469,11 +639,11 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
 
-        OrderComment comment = new OrderComment();
+        OrderComment comment = orderMapper.commentToEntity(commentRequest);
         comment.setOrder(order);
-        comment.setMessage(commentRequest.getMessage());
-        comment.setIsInternal(commentRequest.getIsInternal() != null ? commentRequest.getIsInternal() : false);
-        // Author would be set from authentication
+        if (commentRequest.getIsInternal() != null) {
+            comment.setIsInternal(commentRequest.getIsInternal());
+        }
         if (author != null) {
             Employee authorEntity = entityManager.find(Employee.class, author.getId());
             comment.setAuthor(authorEntity);
@@ -481,7 +651,7 @@ public class OrderService {
         comment.setCreatedAt(LocalDateTime.now());
 
         OrderComment saved = orderCommentRepository.save(comment);
-        return mapComment(saved);
+        return orderMapper.commentToDto(saved);
     }
 
     /**
@@ -491,15 +661,8 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
 
-        com.example.orderservice.entity.OrderStage stage = new com.example.orderservice.entity.OrderStage();
+        com.example.orderservice.entity.OrderStage stage = orderMapper.stageToEntity(stageRequest);
         stage.setOrder(order);
-        // Workshop lookup would be needed here
-        // workshopService.findById(stageRequest.getWorkshopId())
-        stage.setWaitPrevious(stageRequest.getWaitPrevious());
-        stage.setDueDate(stageRequest.getDueDate());
-        stage.setNote(stageRequest.getNote());
-        stage.setStatus(stageRequest.getStatus());
-        stage.setSourceFiles(stageRequest.getSourceFiles());
 
         com.example.orderservice.entity.OrderStage saved = orderStageRepository.save(stage);
         return orderMapper.stageToDto(saved);
@@ -567,8 +730,8 @@ public class OrderService {
 
     private OrderMaterialResponse mapOrderMaterial(OrderMaterial om) {
         Material material = om.getMaterial();
-        MaterialResponse materialDto = material != null ?
-                new MaterialResponse(material.getId(), material.getName(), material.getUnit(), material.getPrice(), material.getWasteCoefficient(), material.getDefaultWidthMm(), material.getDefaultHeightMm()) :
+        MaterialResponse materialDto = om.getMaterial() != null ?
+                orderMapper.materialToDto(om.getMaterial()) :
                 null;
 
         // Populate operations from the linked order item (if any)
@@ -576,22 +739,23 @@ public class OrderService {
         OrderItem orderItem = om.getOrderItem();
         if (orderItem != null && orderItem.getOperations() != null) {
             opSummaries = orderItem.getOperations().stream()
-                    .map(op -> new OrderOperationSummary(
-                            op.getOperationId(),
-                            op.getOperationName(),
-                            op.getPricePerUnit(),
-                            op.getCalculatedQuantity(),
-                            op.getSubtotal()
-                    ))
-                    .collect(Collectors.toList());
+                .map(op -> new OrderOperationSummary(
+                    op.getOperationId(),
+                    op.getOperationName(),
+                    op.getPricePerUnit(),
+                    op.getCalculatedQuantity(),
+                    op.getSubtotal(),
+                    op.getWidthM(),
+                    op.getHeightM()))
+                .collect(Collectors.toList());
         }
 
         return new OrderMaterialResponse(
                 om.getId(),
                 materialDto,
                 om.getQuantity(),
-                om.getWidthMm(),
-                om.getHeightMm(),
+                om.getWidthM(),
+                om.getHeightM(),
                 om.getReadyDate(),
                 om.getWasteCoefficient(),
                 om.getCost(),
@@ -613,20 +777,12 @@ public class OrderService {
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Позиция в заказе не найдена: " + orderMaterialId));
 
-        BigDecimal widthMm  = om.getWidthMm()  != null ? om.getWidthMm()  : om.getMaterial().getDefaultWidthMm();
-        BigDecimal heightMm = om.getHeightMm() != null ? om.getHeightMm() : om.getMaterial().getDefaultHeightMm();
+        BigDecimal widthM = om.getWidthM() != null ? om.getWidthM() : om.getMaterial().getDefaultWidthM();
+        BigDecimal heightM = om.getHeightM() != null ? om.getHeightM() : om.getMaterial().getDefaultHeightM();
 
-        MaterialResponse matResp = new MaterialResponse(
-                om.getMaterial().getId(),
-                om.getMaterial().getName(),
-                om.getMaterial().getUnit(),
-                om.getMaterial().getPrice(),
-                om.getMaterial().getWasteCoefficient(),
-                om.getMaterial().getDefaultWidthMm(),
-                om.getMaterial().getDefaultHeightMm()
-        );
+        MaterialResponse matResp = orderMapper.materialToDto(om.getMaterial());
 
-        return new ItemPositionInfo(om.getId(), matResp, widthMm, heightMm);
+        return new ItemPositionInfo(om.getId(), matResp, widthM, heightM);
     }
 
     /**
@@ -643,17 +799,16 @@ public class OrderService {
                     BigDecimal price = mat.getPrice() != null ? mat.getPrice() : BigDecimal.ZERO;
                     BigDecimal waste  = mat.getWasteCoefficient() != null ? mat.getWasteCoefficient() : BigDecimal.ONE;
 
-                    BigDecimal q1 = om.getWidthMm()  != null ? om.getWidthMm()  : mat.getDefaultWidthMm();
-                    BigDecimal q2 = om.getHeightMm() != null ? om.getHeightMm() : mat.getDefaultHeightMm();
+                    BigDecimal q1 = om.getWidthM()  != null ? om.getWidthM()  : mat.getDefaultWidthM();
+                    BigDecimal q2 = om.getHeightM() != null ? om.getHeightM() : mat.getDefaultHeightM();
                     q1 = q1 != null ? q1 : BigDecimal.ZERO;
                     q2 = q2 != null ? q2 : BigDecimal.ZERO;
 
                     BigDecimal effectiveQty;
                     if ("м2".equals(mat.getUnit())) {
-                        effectiveQty = (q1.divide(BigDecimal.valueOf(1000), 4, RoundingMode.HALF_UP))
-                                 .multiply(q2.divide(BigDecimal.valueOf(1000), 4, RoundingMode.HALF_UP));
+                        effectiveQty = q1.multiply(q2);
                     } else if ("м.п.".equals(mat.getUnit())) {
-                        effectiveQty = q1.divide(BigDecimal.valueOf(1000), 4, RoundingMode.HALF_UP);
+                        effectiveQty = q1;
                     } else {
                         effectiveQty = q1;
                     }
