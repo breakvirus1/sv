@@ -64,7 +64,7 @@ public class Order extends BaseEntity {
     /** Текущий статус заказа */
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 30)
-    private OrderStatus status = OrderStatus.WAITING;
+    private OrderStatus status = OrderStatus.DRAFT;
 
     /** Текущая стадия производства */
     @Enumerated(EnumType.STRING)

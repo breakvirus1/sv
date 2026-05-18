@@ -1,17 +1,36 @@
-import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery, ListItemIcon, ListItemText, Chip, Divider } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
-import { Person, Logout, Add, AdminPanelSettings, ShoppingBag } from '@mui/icons-material';
+import { Person, Logout, Add, AdminPanelSettings, ShoppingBag, ArrowDropDown, Assignment } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import api from '../services/api';
+import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
+
+const statusGroups = [
+  { key: 'DRAFT', label: 'Черновики' },
+  { key: 'APPROVAL', label: 'На согласовании' },
+  { key: 'IN_PROGRESS', label: 'В работе' },
+  { key: 'READY', label: 'Готовы' },
+];
 
 const Navbar = () => {
   const { user, login, logout, isAuthenticated } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
   const [createAnchorEl, setCreateAnchorEl] = useState(null);
+  const [ordersAnchorEl, setOrdersAnchorEl] = useState(null);
   const navigate = useNavigate();
 
-  // Debug logging
-  console.log('Navbar render - user:', user);
+  const { data: orders = [] } = useQuery({
+    queryKey: ['navbarOrders'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/orders?size=50');
+      return response.data.content || [];
+    },
+    enabled: isAuthenticated,
+    retry: 1,
+    retryDelay: 1000,
+  });
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -29,17 +48,33 @@ const Navbar = () => {
     setCreateAnchorEl(null);
   };
 
+  const handleOrdersMenu = (event) => {
+    setOrdersAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseOrders = () => {
+    setOrdersAnchorEl(null);
+  };
+
   const handleCreateOrder = () => {
     handleCloseCreate();
     navigate('/orders/new');
   };
 
-    const handleMyOrders = () => {
-      handleClose();
-      navigate('/dashboard');
-    };
+  const handleStatusClick = (status) => {
+    handleCloseOrders();
+    navigate(`/orders?status=${status}`);
+  };
 
+  const handleMyOrders = () => {
+    handleCloseOrders();
+    navigate('/orders?my=true');
+  };
 
+  const handleAllOrders = () => {
+    handleCloseOrders();
+    navigate('/orders');
+  };
 
   return (
     <AppBar position="static">
@@ -50,19 +85,54 @@ const Navbar = () => {
 
         {isAuthenticated ? (
           <Box display="flex" alignItems="center" gap={2}>
-            {/* My Orders button */}
-             <Button
-               variant="outlined"
-               color="inherit"
-               size="small"
-               onClick={handleMyOrders}
-               startIcon={<ShoppingBag />}
-               sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
-             >
-               Мои заказы
-             </Button>
+            {/* Orders dropdown button */}
+            <Button
+              variant="outlined"
+              color="inherit"
+              size="small"
+              onClick={handleOrdersMenu}
+              startIcon={<ShoppingBag />}
+              endIcon={<ArrowDropDown />}
+              sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
+            >
+              Заказы
+            </Button>
+            <Menu
+              anchorEl={ordersAnchorEl}
+              open={Boolean(ordersAnchorEl)}
+              onClose={handleCloseOrders}
+              PaperProps={{ sx: { minWidth: 280 } }}
+            >
+              <MenuItem onClick={handleAllOrders}>
+                <ListItemIcon>
+                  <ShoppingBag fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary="Все заказы" />
+              </MenuItem>
+              <Divider />
+              {statusGroups.map((group) => (
+                <MenuItem
+                  key={group.key}
+                  onClick={() => handleStatusClick(group.key)}
+                >
+                  <ListItemIcon sx={{ color: getStatusColor(group.key) }}>
+                    <Assignment fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText primary={group.label} />
+                </MenuItem>
+              ))}
+              <Divider />
+              <MenuItem onClick={handleMyOrders}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <ListItemIcon>
+                    <Person fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText primary="Мои заказы" />
+                </Box>
+              </MenuItem>
+            </Menu>
 
-              {/* Admin Panel button - only for ADMIN role */}
+            {/* Admin Panel button - only for ADMIN role */}
             {user?.roles?.includes('ROLE_ADMIN') && (
               <Button
                 variant="outlined"

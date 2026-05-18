@@ -84,6 +84,7 @@ public class OrderService {
     /**
      * Получить список заказов с фильтрацией и пагинацией.
      */
+    @Transactional(readOnly = true)
     public Page<OrderResponse> getAllOrders(Specification<Order> spec, Pageable pageable) {
         return orderRepository.findAll(spec, pageable)
                 .map(orderMapper::toDto);
@@ -176,7 +177,7 @@ public class OrderService {
         order.setTotalAmount(BigDecimal.ZERO);
         order.setPaidAmount(BigDecimal.ZERO);
         order.setDebtAmount(BigDecimal.ZERO);
-        order.setStatus(OrderStatus.WAITING);
+        order.setStatus(OrderStatus.DRAFT);
         order.setProductionStage(ProductionStage.NOT_STARTED);
 
         Order saved = orderRepository.save(order);

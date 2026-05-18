@@ -8,7 +8,12 @@ import {
   Button
 } from '@mui/material';
 
-const statusOptions = ['WAITING', 'LAUNCHED', 'IN_PROGRESS', 'READY', 'ACCEPTED', 'CLOSED'];
+const statusOptions = [
+  { value: 'DRAFT', label: 'Черновик' },
+  { value: 'APPROVAL', label: 'Согласование' },
+  { value: 'IN_PROGRESS', label: 'В работе' },
+  { value: 'READY', label: 'Готов' }
+];
 
 const StatusChangeDialog = ({ open, onClose, onSave, currentStatus }) => {
   return (
@@ -23,9 +28,9 @@ const StatusChangeDialog = ({ open, onClose, onSave, currentStatus }) => {
           defaultValue={currentStatus}
           onChange={(e) => onSave(e.target.value)}
         >
-          {statusOptions.map((status) => (
-            <MenuItem key={status} value={status}>
-              {status}
+          {statusOptions.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
             </MenuItem>
           ))}
         </TextField>

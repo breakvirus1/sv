@@ -100,7 +100,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     }
   });
 
-  // Load order total from backend
+  // Load order total from backend (only for initial value)
   const { data: backendTotal } = useQuery({
     queryKey: ['order-total', orderData?.id],
     queryFn: async () => {
@@ -110,6 +110,9 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     },
     enabled: !!orderData?.id
   });
+
+  // Track if user has modified any item
+  const [isModified, setIsModified] = useState(false);
 
   // Initialize form data when order is loaded
   useEffect(() => {
@@ -124,9 +127,8 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
           id: mat.id,
           materialId: String(mat.material?.id || ''),
           qty1value: mat.widthM != null ? mat.widthM.toString() : '',
-          qty1unit: 'м',
+          unit: 'м',
           qty2value: mat.heightM != null ? mat.heightM.toString() : '',
-          qty2unit: 'м',
           readyDate: mat.readyDate || '',
           operations: (mat.operations ?? []).map((op) => ({ id: op.operationId, operationId: op.operationId, widthM: op.widthM, heightM: op.heightMm }))
         }));
@@ -140,14 +142,16 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     }
   }, [orderData, mode]);
 
-  // Calculate total using backend value when available, otherwise fallback to local
+  // Calculate total in real-time when items change
   const totalOrderAmount = useMemo(() => {
-    if (backendTotal != null) return backendTotal;
+    // Use backend total only for initial display before any modifications
+    if (!isModified && backendTotal != null) return backendTotal;
+    
     return formData.items.reduce((sum, item) => {
       const material = materialsData.find(m => m.id === parseInt(item.materialId));
       if (!material) return sum;
-      const q1 = (parseFloat(item.qty1value) || 0) * (item.qty1unit === 'мм' ? 0.001 : 1);
-      const q2 = (parseFloat(item.qty2value) || 0) * (item.qty2unit === 'мм' ? 0.001 : 1);
+      const q1 = (parseFloat(item.qty1value) || 0) * (item.unit === 'мм' ? 0.001 : 1);
+      const q2 = (parseFloat(item.qty2value) || 0) * (item.unit === 'мм' ? 0.001 : 1);
       let effectiveQty = 0;
       if (material.unit === 'м2') {
         effectiveQty = q1 * q2;
@@ -159,7 +163,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
       const cost = material.price * effectiveQty * (material.wasteCoefficient || 1);
       return sum + cost;
     }, 0);
-  }, [formData.items, materialsData, backendTotal]);
+  }, [formData.items, materialsData, backendTotal, isModified]);
 
   // Fetch default dimensions for an existing item from backend (on mount and when orderData changes)
   useEffect(() => {
@@ -202,6 +206,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   // ── CRUD ──
 
   const addItem = () => {
+    setIsModified(true);
     setFormData(prev => {
       const newIndex = prev.items.length;
       const anyMaterial = prev.items.find(item => item.materialId);
@@ -216,7 +221,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
           });
           return prev;
         }
-        const nextItems = [...prev.items, { materialId: candidateId, qty1value: '', qty1unit: 'м', qty2value: '', qty2unit: 'м', readyDate: '', operations: [] }];
+        const nextItems = [...prev.items, { materialId: candidateId, qty1value: '', unit: 'м', qty2value: '', readyDate: '', operations: [] }];
         pendingDimRef.current.set(newIndex, candidateId);
         api.get(`/api/v1/materials/${candidateId}`)
           .then(r => {
@@ -238,11 +243,12 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
           .finally(() => pendingDimRef.current.delete(newIndex));
         return { ...prev, items: nextItems };
       }
-      return { ...prev, items: [...prev.items, { materialId: '', qty1value: '', qty1unit: 'м', qty2value: '', qty2unit: 'м', readyDate: '', operations: [] }] };
+        return { ...prev, items: [...prev.items, { materialId: '', qty1value: '', unit: 'м', qty2value: '', readyDate: '', operations: [] }] };
     });
   };
 
   const removeItem = (index) => {
+    setIsModified(true);
     setFormData(prev => ({
       ...prev,
       items: prev.items.filter((_, i) => i !== index)
@@ -257,16 +263,27 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     return value;
   };
 
-  const handleUnitChange = (index, field, newValue, valueField) => {
+  const handleUnitChange = (index, newUnit) => {
     setFormData(prev => {
       const item = prev.items[index];
-      const oldValue = item[valueField];
-      const oldUnit = item[field];
-      const convertedValue = convertUnit(oldValue, oldUnit, newValue);
+      const convertUnit = (value, fromUnit, toUnit) => {
+        if (fromUnit === toUnit) return value;
+        const num = parseFloat(value) || 0;
+        if (fromUnit === 'м' && toUnit === 'мм') return (num * 1000).toString();
+        if (fromUnit === 'мм' && toUnit === 'м') return (num / 1000).toString();
+        return value;
+      };
+      const oldUnit = item.unit || 'м';
+      setIsModified(true);
       return {
         ...prev,
         items: prev.items.map((it, i) =>
-          i === index ? { ...it, [field]: newValue, [valueField]: convertedValue } : it
+          i === index ? {
+            ...it,
+            unit: newUnit,
+            qty1value: convertUnit(it.qty1value, oldUnit, newUnit),
+            qty2value: convertUnit(it.qty2value, oldUnit, newUnit)
+          } : it
         )
       };
     });
@@ -275,6 +292,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const updateItem = (index, field, value) => {
     setFormData(prev => {
       if (field === 'materialId' && value) {
+        setIsModified(true);
         const dup = prev.items.find((item, i) => i !== index && item.materialId === value);
         if (dup) {
           const mat = materialsData.find(m => m.id === parseInt(value));
@@ -319,6 +337,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
         return { ...prev, items: next };
       }
 
+      setIsModified(true);
       return {
         ...prev,
         items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
@@ -327,6 +346,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   };
 
   const updateItemOperations = (index, operations) => {
+    setIsModified(true);
     setFormData(prev => ({
       ...prev,
       items: prev.items.map((item, i) => i === index ? { ...item, operations } : item)
@@ -472,8 +492,8 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
-        const widthM = toMeters(item.qty1value, item.qty1unit);
-        const heightM = toMeters(item.qty2value, item.qty2unit);
+        const widthM = toMeters(item.qty1value, item.unit);
+        const heightM = toMeters(item.qty2value, item.unit);
 
         return {
           ...(item.id ? { id: item.id } : {}),
@@ -666,8 +686,8 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
                               />
                               <Select
                                 size="small"
-                                value={item.qty1unit || 'м'}
-                                onChange={(e) => handleUnitChange(index, 'qty1unit', e.target.value, 'qty1value')}
+                                value={item.unit || 'м'}
+                                onChange={(e) => handleUnitChange(index, e.target.value)}
                                 sx={{ width: 70 }}
                               >
                                 <MenuItem value="м">м</MenuItem>
@@ -677,26 +697,15 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
                           </TableCell>
                           {showSecond ? (
                             <TableCell>
-                              <Box display="flex" gap={0.5} alignItems="center">
-                                <TextField
-                                  size="small"
-                                  type="number"
-                                  value={item.qty2value}
-                                  onChange={(e) => updateItem(index, 'qty2value', e.target.value)}
-                                  inputProps={{ min: 0, step: 0.001 }}
-                                  placeholder="Высота"
-                                  sx={{ width: 100 }}
-                                />
-                                <Select
-                                  size="small"
-                                  value={item.qty2unit || 'м'}
-                                  onChange={(e) => handleUnitChange(index, 'qty2unit', e.target.value, 'qty2value')}
-                                  sx={{ width: 70 }}
-                                >
-                                  <MenuItem value="м">м</MenuItem>
-                                  <MenuItem value="мм">мм</MenuItem>
-                                </Select>
-                              </Box>
+                              <TextField
+                                size="small"
+                                type="number"
+                                value={item.qty2value}
+                                onChange={(e) => updateItem(index, 'qty2value', e.target.value)}
+                                inputProps={{ min: 0, step: 0.001 }}
+                                placeholder="Высота"
+                                sx={{ width: 100 }}
+                              />
                             </TableCell>
                           ) : (
                             <TableCell />

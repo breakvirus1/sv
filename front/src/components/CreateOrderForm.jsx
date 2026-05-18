@@ -136,11 +136,36 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
   });
 
+  const handleUnitChange = (index, newUnit) => {
+    setFormData(prev => {
+      const item = prev.items[index];
+      const convertUnit = (value, fromUnit, toUnit) => {
+        if (fromUnit === toUnit) return value;
+        const num = parseFloat(value) || 0;
+        if (fromUnit === 'м' && toUnit === 'мм') return (num * 1000).toString();
+        if (fromUnit === 'мм' && toUnit === 'м') return (num / 1000).toString();
+        return value;
+      };
+      const oldUnit = item.unit || 'мм';
+      return {
+        ...prev,
+        items: prev.items.map((it, i) =>
+          i === index ? {
+            ...it,
+            unit: newUnit,
+            qty1value: convertUnit(it.qty1value, oldUnit, newUnit),
+            qty2value: convertUnit(it.qty2value, oldUnit, newUnit)
+          } : it
+        )
+      };
+    });
+  };
+
   // Функции для позиций заказа (материалов)
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '', operations: [] }]
+      items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [] }]
     }));
   };
 
@@ -344,18 +369,23 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     const calculateTotal = async () => {
       let total = 0;
       for (const item of formData.items) {
-        if (!item.materialId || !item.qty1 || !item.qty2) {
+        if (!item.materialId || !item.qty1value || !item.qty2value) {
           console.warn('Item missing required fields:', item);
           continue;
         }
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) continue;
 
-        const widthM = parseFloat(item.qty1) / 1000;
-        const heightM = parseFloat(item.qty2) / 1000;
+        const toMeters = (value, unit) => {
+          const v = parseFloat(value) || 0;
+          return unit === 'мм' ? v / 1000 : v;
+        };
+
+        const widthM = toMeters(item.qty1value, item.unit);
+        const heightM = toMeters(item.qty2value, item.unit);
 
         if (isNaN(widthM) || isNaN(heightM) || widthM <= 0 || heightM <= 0) {
-          console.warn('Invalid dimensions:', item.qty1, item.qty2);
+          console.warn('Invalid dimensions:', item.qty1value, item.unit, item.qty2value);
           continue;
         }
 
@@ -395,7 +425,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           } else if (material.unit === 'м.п.') {
             effectiveQty = widthM;
           } else {
-            effectiveQty = parseFloat(item.qty1);
+            effectiveQty = widthM;
           }
           total += material.price * effectiveQty * (material.wasteCoefficient || 1);
         }
@@ -418,11 +448,16 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     }
     setIsSubmitting(true);
     try {
+      const toMeters = (value, unit) => {
+        const v = parseFloat(value) || 0;
+        return unit === 'мм' ? v / 1000 : v;
+      };
+
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
-        const widthM = parseFloat(item.qty1) / 1000;
-        const heightM = parseFloat(item.qty2) / 1000 || 0;
+        const widthM = toMeters(item.qty1value, item.unit);
+        const heightM = toMeters(item.qty2value, item.unit) || 0;
 
         // Find eyelet operation if any
         const eyeletOp = item.operations.find(op => op.eyeletId);
@@ -573,9 +608,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
               <Table size="small">
                  <TableHead>
                    <TableRow>
-                     <TableCell>Материал</TableCell>
-                     <TableCell width={400}>Размер 1 (мм)</TableCell>
-                     <TableCell width={400}>Размер 2 (мм)</TableCell>
+                      <TableCell>Материал</TableCell>
+                      <TableCell width={180}>Размер 1</TableCell>
+                      <TableCell width={180}>Размер 2</TableCell>
                      <TableCell width={120}>Операции</TableCell>
                      <TableCell width={130}>Срок готовности</TableCell>
                      <TableCell width={50}>Действия</TableCell>
@@ -604,26 +639,37 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                           </FormControl>
                         </TableCell>
                         <TableCell>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            type="number"
-                            value={item.qty1}
-                            onChange={(e) => updateItem(index, 'qty1', e.target.value)}
-                            inputProps={{ min: 0 }}
-                            placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'}
-                          />
+                          <Box display="flex" gap={0.5} alignItems="center">
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={item.qty1value}
+                              onChange={(e) => updateItem(index, 'qty1value', e.target.value)}
+                              inputProps={{ min: 0 }}
+                              placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'}
+                              sx={{ width: 100 }}
+                            />
+                            <Select
+                              size="small"
+                              value={item.unit || 'мм'}
+                              onChange={(e) => handleUnitChange(index, e.target.value)}
+                              sx={{ width: 70 }}
+                            >
+                              <MenuItem value="мм">мм</MenuItem>
+                              <MenuItem value="м">м</MenuItem>
+                            </Select>
+                          </Box>
                         </TableCell>
                         {showSecond ? (
                           <TableCell>
                             <TextField
-                              fullWidth
                               size="small"
                               type="number"
-                              value={item.qty2}
-                              onChange={(e) => updateItem(index, 'qty2', e.target.value)}
+                              value={item.qty2value}
+                              onChange={(e) => updateItem(index, 'qty2value', e.target.value)}
                               inputProps={{ min: 0 }}
                               placeholder="Высота"
+                              sx={{ width: 100 }}
                             />
                           </TableCell>
                         ) : (

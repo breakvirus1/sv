@@ -23,7 +23,7 @@ import {
 } from '@mui/material';
 import { ArrowBack, Edit, Payment, Delete, Add } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getStatusColor } from '../utils/orderUtils';
+import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -456,7 +456,7 @@ const OrderDetail = ({ mode = 'view' }) => {
           <Typography variant="h4">
             Заказ #{order?.orderNumber}
           </Typography>
-          <Chip label={order?.status} color={getStatusColor(order?.status)} size="medium" />
+          <Chip label={getStatusLabel(order?.status)} color={getStatusColor(order?.status)} size="medium" />
         </Box>
         <Box display="flex" gap={1}>
           {(user?.roles?.some(r => r === 'ROLE_ADMIN' || r === 'ROLE_MANAGER')) && (

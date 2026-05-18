@@ -1,10 +1,14 @@
 package com.example.orderservice.repository;
 
 import com.example.orderservice.entity.Order;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
@@ -25,4 +29,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     void updateDebtAmount(Long id);
 
     Order findByOrderNumber(String orderNumber);
+
+    @EntityGraph(attributePaths = {"client", "manager"})
+    Page<Order> findAll(Specification<Order> spec, Pageable pageable);
 }

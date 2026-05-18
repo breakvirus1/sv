@@ -17,19 +17,24 @@ import java.util.stream.Collectors;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface OrderMapper {
 
-    @Mapping(source = "client.id", target = "client.id")
-    @Mapping(source = "client.name", target = "client.name")
-    @Mapping(source = "client.type", target = "client.type")
-    @Mapping(source = "client.contactPerson", target = "client.contactPerson")
-    @Mapping(source = "client.phone", target = "client.phone")
-    @Mapping(source = "client.email", target = "client.email")
-    @Mapping(source = "manager.id", target = "manager.id")
-    @Mapping(source = "manager.fullName", target = "manager.fullName")
-    @Mapping(source = "manager.position", target = "manager.position")
+    @Mapping(target = "client", ignore = true)
+    @Mapping(target = "manager", ignore = true)
+    @Mapping(target = "items", ignore = true)
+    @Mapping(target = "stages", ignore = true)
     @Mapping(target = "payments", ignore = true)
     @Mapping(target = "comments", ignore = true)
     @Mapping(target = "materials", ignore = true)
     OrderResponse toDto(Order order);
+
+    @AfterMapping
+    default void afterToDto(Order order, @MappingTarget OrderResponse dto) {
+        if (order.getClient() != null) {
+            dto.setClient(clientToDto(order.getClient()));
+        }
+        if (order.getManager() != null) {
+            dto.setManager(employeeToDto(order.getManager()));
+        }
+    }
 
     @Mapping(target = "client", ignore = true)
     @Mapping(target = "manager", ignore = true)
@@ -109,7 +114,7 @@ public interface OrderMapper {
     @Mapping(target = "totalAmount", constant = "0")
     @Mapping(target = "paidAmount", constant = "0")
     @Mapping(target = "debtAmount", constant = "0")
-    @Mapping(target = "status", constant = "WAITING")
+    @Mapping(target = "status", constant = "DRAFT")
     @Mapping(target = "productionStage", constant = "NOT_STARTED")
     @Mapping(target = "hasDocuments", constant = "false")
     @Mapping(target = "createdAt", ignore = true)
