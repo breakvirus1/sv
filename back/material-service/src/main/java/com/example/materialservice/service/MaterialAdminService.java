@@ -46,9 +46,10 @@ public class MaterialAdminService {
         List<Material> materials = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
+            String unit = UNITS[random.nextInt(UNITS.length)];
             Material material = new Material();
-            material.setName(MATERIALS[random.nextInt(MATERIALS.length)] + " " + (i + 1));
-            material.setUnit(UNITS[random.nextInt(UNITS.length)]);
+            material.setName(MATERIALS[random.nextInt(MATERIALS.length)] + " " + (i + 1) + " (" + unit + ")");
+            material.setUnit(unit);
             material.setPrice(BigDecimal.valueOf(100 + random.nextInt(9000), 0));
             material.setWasteCoefficient(BigDecimal.ONE.add(BigDecimal.valueOf(random.nextInt(50) / 100.0)));
             material.setType(TYPES[random.nextInt(TYPES.length)]);

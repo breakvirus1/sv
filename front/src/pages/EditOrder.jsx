@@ -142,21 +142,24 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     }
   }, [orderData, mode]);
 
+  const isM2 = (mat) => {
+    if (!mat || !mat.unit) return false;
+    const u = mat.unit.trim().toLowerCase().replace(/[.]/g, '');
+    return u === 'м2' || u === 'm2';
+  };
+
   // Calculate total in real-time when items change
   const totalOrderAmount = useMemo(() => {
-    // Use backend total only for initial display before any modifications
     if (!isModified && backendTotal != null) return backendTotal;
-    
+
     return formData.items.reduce((sum, item) => {
       const material = materialsData.find(m => m.id === parseInt(item.materialId));
       if (!material) return sum;
       const q1 = (parseFloat(item.qty1value) || 0) * (item.unit === 'мм' ? 0.001 : 1);
       const q2 = (parseFloat(item.qty2value) || 0) * (item.unit === 'мм' ? 0.001 : 1);
       let effectiveQty = 0;
-      if (material.unit === 'м2') {
+      if (isM2(material)) {
         effectiveQty = q1 * q2;
-      } else if (material.unit === 'м.п.') {
-        effectiveQty = q1;
       } else {
         effectiveQty = q1;
       }
@@ -655,7 +658,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
                   <TableBody>
                     {formData.items.map((item, index) => {
                       const material = materialsData.find(m => m.id === parseInt(item.materialId));
-                      const showSecond = material && material.unit === 'м2';
+                      const showSecond = isM2(material);
                       return (
                         <TableRow key={item.id || index}>
                           <TableCell>

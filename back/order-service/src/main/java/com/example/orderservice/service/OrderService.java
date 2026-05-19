@@ -54,6 +54,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -348,12 +349,21 @@ public class OrderService {
         return getOrderById(saved.getId());
     }
 
+    private static final AtomicInteger sequence = new AtomicInteger(0);
+
     /**
      * Сгенерировать уникальный номер заказа.
-     * Формат: YYYYMMDDHHMMSS (без тире)
+     * Формат: YYYYMMDDHHmmssSSS (где SSS - последовательный номер для уникальности)
      */
     private String generateOrderNumber() {
-        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        while (true) {
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+            int seq = sequence.getAndIncrement() % 1000;
+            String orderNumber = timestamp + String.format("%03d", seq);
+            if (orderRepository.findByOrderNumber(orderNumber) == null) {
+                return orderNumber;
+            }
+        }
     }
 
     /**
