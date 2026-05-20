@@ -175,7 +175,9 @@ public class OrderService {
         }
 
         order.setDescription(request.getDescription());
-        order.setTotalAmount(BigDecimal.ZERO);
+        // Use provided total amount if available, otherwise calculate from items
+        BigDecimal providedTotal = request.getTotalAmount() != null ? request.getTotalAmount() : BigDecimal.ZERO;
+        order.setTotalAmount(providedTotal);
         order.setPaidAmount(BigDecimal.ZERO);
         order.setDebtAmount(BigDecimal.ZERO);
         order.setStatus(OrderStatus.DRAFT);
@@ -340,9 +342,15 @@ public class OrderService {
                 }
 
                 saved.getItems().add(orderItem);
-                total = total.add(totalPrice);
+                // Only add to total if we need to calculate it (not provided)
+                if (request.getTotalAmount() == null) {
+                    total = total.add(totalPrice);
+                }
             }
-            saved.setTotalAmount(total);
+            // Only update total if we calculated it ourselves
+            if (request.getTotalAmount() == null) {
+                saved.setTotalAmount(total);
+            }
             orderRepository.save(saved);
         }
 

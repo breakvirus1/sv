@@ -27,6 +27,10 @@ public interface ClientMapper {
         if (request.getType() != null) {
             client.setType(ClientType.valueOf(request.getType()));
         }
+        // Explicitly handle priceplus for MapStruct
+        if (request.getPriceplus() != null) {
+            client.setPriceplus(request.getPriceplus());
+        }
         return client;
     }
 

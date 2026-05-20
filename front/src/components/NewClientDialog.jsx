@@ -18,7 +18,8 @@ const NewClientDialog = ({ open, onClose, onSubmit, isLoading }) => {
     type: 'PRIVATE',
     contactPerson: '',
     phone: '',
-    email: ''
+    email: '',
+    priceplus: ''
   });
 
   const handleChange = (field) => (e) => {
@@ -35,7 +36,8 @@ const NewClientDialog = ({ open, onClose, onSubmit, isLoading }) => {
       type: 'PRIVATE',
       contactPerson: '',
       phone: '',
-      email: ''
+      email: '',
+      priceplus: ''
     });
     onClose();
   };
@@ -83,6 +85,15 @@ const NewClientDialog = ({ open, onClose, onSubmit, isLoading }) => {
           label="Email"
           value={formData.email}
           onChange={handleChange('email')}
+        />
+        <TextField
+          fullWidth
+          margin="dense"
+          label="Процент добавки (priceplus)"
+          type="number"
+          value={formData.priceplus}
+          onChange={handleChange('priceplus')}
+          inputProps={{ min: 0, step: 0.01 }}
         />
       </DialogContent>
       <DialogActions>

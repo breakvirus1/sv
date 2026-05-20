@@ -19,13 +19,18 @@ import {
   FormControl,
   InputLabel,
   Select,
-  IconButton
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
-import { ArrowBack, Edit, Payment, Delete, Add } from '@mui/icons-material';
+import { ArrowBack, Edit, Payment, Delete, Add, Info } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import ClientInfo from '../components/ClientInfo';
 
 // Components
 import OrderInfoCard from '../components/OrderInfoCard';
@@ -113,20 +118,21 @@ const OrderDetail = ({ mode = 'view' }) => {
      enabled: mode === 'edit'
    });
 
-   // ==================== State ====================
-   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-   const [activeTab, setActiveTab] = useState(0);
-   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-   const [newStatus, setNewStatus] = useState('');
-   const [clientDialogOpen, setClientDialogOpen] = useState(false);
-   const [newClientForm, setNewClientForm] = useState({
-     name: '',
-     type: 'PRIVATE',
-     contactPerson: '',
-     phone: '',
-     email: ''
-   });
+// ==================== State ====================
+    const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+    const [activeTab, setActiveTab] = useState(0);
+    const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+    const [newStatus, setNewStatus] = useState('');
+    const [clientDialogOpen, setClientDialogOpen] = useState(false);
+    const [newClientForm, setNewClientForm] = useState({
+      name: '',
+      type: 'PRIVATE',
+      contactPerson: '',
+      phone: '',
+      email: ''
+    });
+    const [clientInfoDialog, setClientInfoDialog] = useState({ open: false, clientId: null });
 
    // ==================== Mutations ====================
   const createClientMutation = useMutation({
@@ -475,7 +481,7 @@ const OrderDetail = ({ mode = 'view' }) => {
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          <OrderInfoCard order={order} />
+          <OrderInfoCard order={order} onClientInfoClick={(clientId) => setClientInfoDialog({ open: true, clientId })} />
           <Paper sx={{ mt: 3 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
@@ -510,6 +516,18 @@ const OrderDetail = ({ mode = 'view' }) => {
         onClose={() => setPaymentDialogOpen(false)}
         onSubmit={(data) => addPaymentMutation.mutate(data)}
       />
+
+      <Dialog open={clientInfoDialog.open} onClose={() => setClientInfoDialog({ open: false, clientId: null })} maxWidth="sm" fullWidth>
+        <DialogTitle>Информация о клиенте</DialogTitle>
+        <DialogContent>
+          <ClientInfo clientId={clientInfoDialog.clientId} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClientInfoDialog({ open: false, clientId: null })}>
+            Закрыть
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar open={notification.open} autoHideDuration={6000} onClose={() => setNotification({ ...notification, open: false })}>
         <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>

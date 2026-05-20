@@ -1,13 +1,26 @@
-import { Box, Typography, Divider, Paper } from '@mui/material';
+import { useState } from 'react';
+import { Box, Typography, Divider, Paper, IconButton } from '@mui/material';
+import { Info } from '@mui/icons-material';
 
-const OrderInfoCard = ({ order }) => {
+const OrderInfoCard = ({ order, onClientInfoClick }) => {
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" gutterBottom>Информация о заказе</Typography>
       <Box display="flex" flexDirection="column" gap={2}>
-        <Box>
-          <Typography variant="body2" color="text.secondary">Клиент</Typography>
-          <Typography variant="body1">{order?.client?.name}</Typography>
+        <Box display="flex" alignItems="center" gap={1}>
+          <Box flex={1}>
+            <Typography variant="body2" color="text.secondary">Клиент</Typography>
+            <Typography variant="body1">{order?.client?.name}</Typography>
+          </Box>
+          {onClientInfoClick && order?.client?.id && (
+            <IconButton
+              size="small"
+              onClick={() => onClientInfoClick(order.client.id)}
+              sx={{ mt: 1.5 }}
+            >
+              <Info fontSize="small" />
+            </IconButton>
+          )}
         </Box>
         <Box>
           <Typography variant="body2" color="text.secondary">Описание</Typography>

@@ -26,7 +26,8 @@ import {
   CircularProgress,
   Menu,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  InputAdornment
 } from '@mui/material';
 import { Add, Delete, Save } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -67,8 +68,11 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     type: 'PRIVATE',
     contactPerson: '',
     phone: '',
-    email: ''
+    email: '',
+    priceplus: null
   });
+  // Диалог редактирования суммы заказа
+  const [orderAmountDialog, setOrderAmountDialog] = useState({ open: false, sumorder: 0 });
 
   // Загрузка данных
   const { data: clientsData = [], error: clientsError } = useQuery({
@@ -103,6 +107,17 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
+  // Получение данных выбранного клиента для получения priceplus
+  const { data: selectedClient } = useQuery({
+    queryKey: ['client', formData.clientId],
+    queryFn: async () => {
+      if (!formData.clientId) return null;
+      const response = await api.get(`/api/v1/clients/${formData.clientId}`);
+      return response.data;
+    },
+    enabled: !!formData.clientId
+  });
+
   // Получение текущего менеджера по username из Keycloak
   const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
     queryKey: ['currentEmployee', username],
@@ -130,7 +145,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       setClientDialogOpen(false);
-      setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' });
+      setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '', priceplus: null });
       setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
     },
     onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
@@ -430,6 +445,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           total += material.price * effectiveQty * (material.wasteCoefficient || 1);
         }
       }
+      // Применяем наценку priceplus клиента: sumorder = сумма + (priceplus/100 * сумма)
+      if (selectedClient?.priceplus != null && selectedClient.priceplus > 0) {
+        total = total * (1 + selectedClient.priceplus / 100);
+      }
       setTotalOrderAmount(total);
     };
 
@@ -438,7 +457,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     } else {
       setTotalOrderAmount(0);
     }
-  }, [formData.items, materialsData]);
+  }, [formData.items, materialsData, selectedClient]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -494,7 +513,8 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         orderDate: formData.orderDate,
         dueDate: formData.dueDate || null,
         managerId: currentEmployee.id,
-        items: orderMaterials
+        items: orderMaterials,
+        totalAmount: totalOrderAmount
       };
 
       await api.post('/api/v1/orders', orderData);
@@ -725,9 +745,13 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
-          <Typography variant="h6">
+          <Button
+            variant="outlined"
+            onClick={() => setOrderAmountDialog({ open: true, sumorder: totalOrderAmount })}
+            sx={{ fontSize: '1.25rem', fontWeight: 600 }}
+          >
             Сумма: {totalOrderAmount.toFixed(2)} ₽
-          </Typography>
+          </Button>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button onClick={handleClose} variant="outlined">
               Отмена
@@ -751,6 +775,36 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           </Box>
         </Box>
       </Box>
+
+      <Dialog open={orderAmountDialog.open} onClose={() => setOrderAmountDialog({ open: false, sumorder: totalOrderAmount })} maxWidth="xs" fullWidth>
+        <DialogTitle>Итоговая сумма заказа</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            margin="dense"
+            label="Сумма с учетом наценки (sumorder)"
+            type="number"
+            value={orderAmountDialog.sumorder}
+            onChange={(e) => {
+              const newSumorder = parseFloat(e.target.value) || 0;
+              setOrderAmountDialog(prev => ({ ...prev, sumorder: newSumorder }));
+              setTotalOrderAmount(newSumorder);
+            }}
+            InputProps={{
+              endAdornment: <InputAdornment position="end">₽</InputAdornment>
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOrderAmountDialog({ open: false, sumorder: totalOrderAmount })}>
+            Отмена
+          </Button>
+          <Button onClick={() => setOrderAmountDialog({ open: false })} variant="contained">
+            ОК
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Диалог создания нового клиента */}
       <Dialog open={clientDialogOpen} onClose={() => setClientDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -795,6 +849,15 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
             label="Email"
             value={newClientForm.email}
             onChange={handleNewClientChange('email')}
+          />
+          <TextField
+            fullWidth
+            margin="dense"
+            label="Процент добавки (priceplus)"
+            type="number"
+            value={newClientForm.priceplus || ''}
+            onChange={handleNewClientChange('priceplus')}
+            inputProps={{ min: 0, step: 0.01 }}
           />
         </DialogContent>
         <DialogActions>

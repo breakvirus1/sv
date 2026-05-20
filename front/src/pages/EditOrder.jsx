@@ -28,10 +28,11 @@ import {
   Checkbox,
   FormControlLabel
 } from '@mui/material';
-import { ArrowBack, Add, Delete, Save } from '@mui/icons-material';
+import { ArrowBack, Add, Delete, Save, Info } from '@mui/icons-material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import ClientInfo from '../components/ClientInfo';
 
 const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const navigate = useNavigate();
@@ -75,6 +76,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     pendingOps: [],
     params: {}
   });
+  const [clientInfoDialog, setClientInfoDialog] = useState({ open: false, clientId: null });
 
   const { data: employeesData = [], isLoading: isLoadingEmployees } = useQuery({
     queryKey: ['employees'],
@@ -570,15 +572,26 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
       <Paper sx={{ p: 4 }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
-             <Grid item xs={12} md={6}>
-               <TextField
-                 fullWidth
-                 label="Клиент"
-                 value={orderData?.client?.name || orderData?.clientName || ''}
-                 margin="normal"
-                 disabled
-               />
-             </Grid>
+<Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Клиент"
+                  value={orderData?.client?.name || orderData?.clientName || ''}
+                  margin="normal"
+                  disabled
+                  InputProps={{
+                    endAdornment: orderData?.client?.id && (
+                      <IconButton
+                        size="small"
+                        onClick={() => setClientInfoDialog({ open: true, clientId: orderData.client.id })}
+                        sx={{ p: 0.5 }}
+                      >
+                        <Info fontSize="small" />
+                      </IconButton>
+                    )
+                  }}
+                />
+              </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -991,6 +1004,18 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
             }
           >
             Сохранить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={clientInfoDialog.open} onClose={() => setClientInfoDialog({ open: false, clientId: null })} maxWidth="sm" fullWidth>
+        <DialogTitle>Информация о клиенте</DialogTitle>
+        <DialogContent>
+          <ClientInfo clientId={clientInfoDialog.clientId} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClientInfoDialog({ open: false, clientId: null })}>
+            Закрыть
           </Button>
         </DialogActions>
       </Dialog>

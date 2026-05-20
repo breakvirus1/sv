@@ -42,6 +42,10 @@ public class ClientService {
             throw new RuntimeException("Клиент с таким названием уже существует");
         }
         Client client = clientMapper.createFromRequest(request);
+        // Explicitly set priceplus as MapStruct may not map it correctly
+        if (request.getPriceplus() != null) {
+            client.setPriceplus(request.getPriceplus());
+        }
         Client saved = clientRepository.save(client);
         return clientMapper.toDto(saved);
     }
@@ -49,6 +53,10 @@ public class ClientService {
     public ClientResponse updateClient(Long id, ClientUpdateRequest request) {
         Client client = getClientEntity(id);
         clientMapper.updateFromRequest(request, client);
+        // Explicitly set priceplus as MapStruct may not map it correctly
+        if (request.getPriceplus() != null) {
+            client.setPriceplus(request.getPriceplus());
+        }
         Client saved = clientRepository.save(client);
         return clientMapper.toDto(saved);
     }

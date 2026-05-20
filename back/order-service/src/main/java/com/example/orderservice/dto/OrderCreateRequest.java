@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -27,4 +28,6 @@ public class OrderCreateRequest {
     private Long managerId;
     /** Список позиций заказа (материалы) */
     private List<OrderMaterialCreateRequest> items;
+    /** Итоговая сумма заказа (с учетом наценки priceplus) */
+    private BigDecimal totalAmount;
 }

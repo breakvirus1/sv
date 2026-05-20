@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 /**
  * Request DTO для обновления клиента.
  */
@@ -25,4 +27,6 @@ public class ClientUpdateRequest {
     private String inn;
     /** Адрес */
     private String address;
+    /** Процент добавки к сумме заказа */
+    private BigDecimal priceplus;
 }

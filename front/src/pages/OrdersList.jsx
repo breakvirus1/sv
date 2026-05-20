@@ -1,5 +1,6 @@
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
+import { useState } from 'react';
 import {
   Box,
   Button,
@@ -10,7 +11,11 @@ import {
   Container,
   Paper,
   CircularProgress,
-  Alert
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { Visibility, Add, Person } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -27,7 +32,7 @@ const fetchOrders = async (params) => {
   return response.data.content || [];
 };
 
-const OrdersList = () => {
+const orders = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -47,12 +52,12 @@ const OrdersList = () => {
 
   const columns = [
     { field: 'orderNumber', headerName: '№ заказа', width: 130 },
-    { 
+{ 
       field: 'clientName', 
       headerName: 'Клиент', 
       width: 200,
       renderCell: (params) => (
-        <Typography variant="body2">{params.row?.client?.contactPerson || '—'}</Typography>
+        <Typography variant="body2">{params.row?.client?.name || '—'}</Typography>
       )
     },
     {
