@@ -441,9 +441,10 @@ const OrderDetail = ({ mode = 'view' }) => {
   }
 
   if (error) {
+    const isNotFound = error.response?.status === 404;
     return (
       <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
-        <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
+        <Alert severity="error">{isNotFound ? 'Заказ не найден' : `Ошибка загрузки заказа: ${error.message}`}</Alert>
       </Container>
     );
   }

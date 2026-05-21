@@ -2,15 +2,11 @@ server:
   port: 8085
 
 spring:
-  application:
-    name: api-gateway
-  main:
-    web-application-type: reactive
   cloud:
     gateway:
       discovery:
         locator:
-          enabled: false
+          enabled: true
 
 eureka:
   client:

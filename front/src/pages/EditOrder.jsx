@@ -41,11 +41,11 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const identifier = orderNumber || order?.id;
   const isOrderNumber = !!orderNumber && !order;
 
-  const { data: fetchedOrder, isLoading: isLoadingOrder } = useQuery({
+  const { data: fetchedOrder, isLoading: isLoadingOrder, isError } = useQuery({
     queryKey: ['order', identifier],
     queryFn: async () => {
       if (order) return order;
-      const endpoint = isOrderNumber && /^\d{14}$/.test(identifier)
+      const endpoint = isOrderNumber && /^\d{17}$/.test(identifier)
         ? `/api/v1/orders/number/${identifier}`
         : `/api/v1/orders/${identifier}`;
       const response = await api.get(endpoint);
@@ -544,7 +544,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
 
   const isLoading = isLoadingMaterials || isLoadingEmployees || isLoadingOrder;
 
-  if (!isLoading && !orderData) {
+  if (isError) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
         <Alert severity="error">Заказ не найден</Alert>

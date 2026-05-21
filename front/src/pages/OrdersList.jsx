@@ -32,7 +32,7 @@ const fetchOrders = async (params) => {
   return response.data.content || [];
 };
 
-const orders = () => {
+const OrdersList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();

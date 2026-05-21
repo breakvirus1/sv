@@ -44,6 +44,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import com.example.orderservice.exception.NotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -97,7 +98,7 @@ public class OrderService {
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(Long id) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
         return mapOrderResponse(order);
     }
 
@@ -108,7 +109,7 @@ public class OrderService {
     public OrderResponse getOrderByOrderNumber(String orderNumber) {
         Order order = orderRepository.findByOrderNumber(orderNumber);
         if (order == null) {
-            throw new RuntimeException("Заказ не найден");
+            throw new NotFoundException("Заказ не найден");
         }
         return mapOrderResponse(order);
     }
@@ -380,7 +381,7 @@ public class OrderService {
      */
     public OrderResponse updateStatus(Long id, String status) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
         order.setStatus(OrderStatus.valueOf(status));
         Order saved = orderRepository.save(order);
@@ -393,7 +394,7 @@ public class OrderService {
      */
     public OrderResponse updateProductionStage(Long id, String stage) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
         order.setProductionStage(ProductionStage.valueOf(stage));
         Order saved = orderRepository.save(order);
@@ -406,7 +407,7 @@ public class OrderService {
     @Transactional
     public OrderResponse updateOrder(Long id, OrderUpdateRequest request) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
         if (request.getDescription() != null) {
             order.setDescription(request.getDescription());
@@ -639,7 +640,7 @@ public class OrderService {
      */
     public PaymentResponse addPayment(Long orderId, PaymentRequest paymentRequest) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
         com.example.orderservice.entity.Payment payment = orderMapper.toPaymentEntity(paymentRequest);
         payment.setOrder(order);
@@ -656,7 +657,7 @@ public class OrderService {
      */
     public CommentResponse addComment(Long orderId, CommentRequest commentRequest, EmployeeResponse author) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
         OrderComment comment = orderMapper.commentToEntity(commentRequest);
         comment.setOrder(order);
@@ -678,7 +679,7 @@ public class OrderService {
      */
     public OrderStageResponse addStage(Long orderId, OrderStageRequest stageRequest) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
         com.example.orderservice.entity.OrderStage stage = orderMapper.stageToEntity(stageRequest);
         stage.setOrder(order);
@@ -789,12 +790,12 @@ public class OrderService {
      */
     public ItemPositionInfo getItemPositionInfo(Long orderId, Long orderMaterialId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
         OrderMaterial om = order.getMaterials().stream()
                 .filter(m -> m.getId().equals(orderMaterialId))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Позиция в заказе не найдена: " + orderMaterialId));
+                .orElseThrow(() -> new NotFoundException("Позиция в заказе не найдена: " + orderMaterialId));
 
         BigDecimal widthM = om.getWidthM() != null ? om.getWidthM() : om.getMaterial().getDefaultWidthM();
         BigDecimal heightM = om.getHeightM() != null ? om.getHeightM() : om.getMaterial().getDefaultHeightM();
@@ -811,7 +812,7 @@ public class OrderService {
     @Transactional(readOnly = true)
     public BigDecimal calculateOpenOrderTotal(Long orderId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
         return order.getMaterials().stream()
                 .map(om -> {
                     Material mat = om.getMaterial();

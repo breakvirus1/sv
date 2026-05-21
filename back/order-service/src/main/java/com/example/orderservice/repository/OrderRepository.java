@@ -11,6 +11,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.repository.query.Param;
+
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
 
     @Modifying
@@ -28,7 +30,9 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     @Query("UPDATE Order o SET o.debtAmount = o.totalAmount - o.paidAmount WHERE o.id = :id")
     void updateDebtAmount(Long id);
 
-    Order findByOrderNumber(String orderNumber);
+    @EntityGraph(attributePaths = {"client", "manager"})
+    @Query("SELECT o FROM Order o WHERE o.orderNumber = :orderNumber AND o.deleted = false")
+    Order findByOrderNumber(@Param("orderNumber") String orderNumber);
 
     @EntityGraph(attributePaths = {"client", "manager"})
     Page<Order> findAll(Specification<Order> spec, Pageable pageable);
