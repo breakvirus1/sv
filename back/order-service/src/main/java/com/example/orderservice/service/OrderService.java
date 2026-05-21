@@ -627,7 +627,12 @@ public class OrderService {
                     .filter(m -> !updatedIds.contains(m.getId()))
                     .forEach(order.getMaterials()::remove);
 
-            order.setTotalAmount(total);
+            // Use provided totalAmount or calculate from items
+            if (request.getTotalAmount() != null) {
+                order.setTotalAmount(request.getTotalAmount());
+            } else {
+                order.setTotalAmount(total);
+            }
             orderRepository.save(order);
         }
 

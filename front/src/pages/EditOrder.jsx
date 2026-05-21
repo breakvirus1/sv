@@ -26,7 +26,8 @@ import {
   DialogContent,
   DialogActions,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  InputAdornment
 } from '@mui/material';
 import { ArrowBack, Add, Delete, Save, Info } from '@mui/icons-material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -63,20 +64,23 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     managerId: null,
     items: []
   });
-  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+const [isSubmitting, setIsSubmitting] = useState(false);
+// Track pending dimension-fetch requests per row index so late responses are ignored
+const pendingDimRef = useRef(new Map()); // index -> materialId
 
-  // Track pending dimension-fetch requests per row index so late responses are ignored
-  const pendingDimRef = useRef(new Map()); // index -> materialId
-
-  const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
-  const [operationParamsDialog, setOperationParamsDialog] = useState({
-    open: false,
-    itemIndex: null,
-    pendingOps: [],
-    params: {}
-  });
-  const [clientInfoDialog, setClientInfoDialog] = useState({ open: false, clientId: null });
+const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
+const [operationParamsDialog, setOperationParamsDialog] = useState({
+  open: false,
+  itemIndex: null,
+  pendingOps: [],
+  params: {}
+});
+const [clientInfoDialog, setClientInfoDialog] = useState({ open: false, clientId: null });
+// Диалог редактирования суммы заказа
+const [orderAmountDialog, setOrderAmountDialog] = useState({ open: false, sumorder: 0 });
+// State for calculated total
+const [totalOrderAmount, setTotalOrderAmount] = useState(0);
 
   const { data: employeesData = [], isLoading: isLoadingEmployees } = useQuery({
     queryKey: ['employees'],
@@ -102,16 +106,12 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     }
   });
 
-  // Load order total from backend (only for initial value)
-  const { data: backendTotal } = useQuery({
-    queryKey: ['order-total', orderData?.id],
-    queryFn: async () => {
-      if (!orderData?.id) return 0;
-      const r = await api.get(`/api/v1/orders/${orderData.id}/total-open`);
-      return r.data || 0;
-    },
-    enabled: !!orderData?.id
-  });
+// Initialize totalOrderAmount from order's saved total on mount
+   useEffect(() => {
+     if (orderData?.totalAmount != null) {
+       setTotalOrderAmount(orderData.totalAmount);
+     }
+   }, [orderData?.id]);
 
   // Track if user has modified any item
   const [isModified, setIsModified] = useState(false);
@@ -150,25 +150,94 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     return u === 'м2' || u === 'm2';
   };
 
-  // Calculate total in real-time when items change
-  const totalOrderAmount = useMemo(() => {
-    if (!isModified && backendTotal != null) return backendTotal;
+// Track if items were modified to avoid recalculating on initial load
+   const initialItemsRef = useRef(null);
 
-    return formData.items.reduce((sum, item) => {
-      const material = materialsData.find(m => m.id === parseInt(item.materialId));
-      if (!material) return sum;
-      const q1 = (parseFloat(item.qty1value) || 0) * (item.unit === 'мм' ? 0.001 : 1);
-      const q2 = (parseFloat(item.qty2value) || 0) * (item.unit === 'мм' ? 0.001 : 1);
-      let effectiveQty = 0;
-      if (isM2(material)) {
-        effectiveQty = q1 * q2;
-      } else {
-        effectiveQty = q1;
-      }
-      const cost = material.price * effectiveQty * (material.wasteCoefficient || 1);
-      return sum + cost;
-    }, 0);
-  }, [formData.items, materialsData, backendTotal, isModified]);
+   // Recalculate total when items change
+   useEffect(() => {
+     const calculateTotal = async () => {
+       let total = 0;
+       for (const item of formData.items) {
+         if (!item.materialId || !item.qty1value || !item.qty2value) {
+           continue;
+         }
+         const material = materialsData.find(m => m.id === parseInt(item.materialId));
+         if (!material) continue;
+
+         const toMeters = (value, unit) => {
+           const v = parseFloat(value) || 0;
+           return unit === 'мм' ? v / 1000 : v;
+         };
+
+         const widthM = toMeters(item.qty1value, item.unit);
+         const heightM = toMeters(item.qty2value, item.unit);
+
+         if (isNaN(widthM) || isNaN(heightM) || widthM <= 0 || heightM <= 0) {
+           continue;
+         }
+
+         // Prepare calculation request
+         const requestData = {
+           materialId: material.id,
+           materialType: material.name.toLowerCase().includes('баннер') ? 'BANNER' : 'PLENKA',
+           widthM,
+           heightM,
+           operationIds: item.operations.map(op => op.id),
+         };
+
+         // Add eyelet parameters if present
+         const eyeletOp = item.operations.find(op => op.eyeletId);
+         if (eyeletOp) {
+           requestData.eyeletId = eyeletOp.eyeletId;
+           requestData.eyeletStepCm = eyeletOp.eyeletStepCm;
+         }
+
+         // Add hem parameters if present (take first hem operation)
+         const hemOp = item.operations.find(op => op.hemWidthMm && op.hemCount);
+         if (hemOp) {
+           requestData.podvorotMmHorizontal = hemOp.hemWidthMm;
+           requestData.podvorotMmVertical = hemOp.hemWidthMm;
+           requestData.podvorotCountPerSide = hemOp.hemCount;
+         }
+
+         try {
+           const response = await api.post('/api/v1/calculations', requestData);
+           total += response.data.totalPrice;
+         } catch (error) {
+           console.error('Error calculating item cost:', error);
+           // Fallback to simple calculation
+           let effectiveQty = 0;
+           if (material.unit === 'м2') {
+             effectiveQty = widthM * heightM;
+           } else if (material.unit === 'м.п.') {
+             effectiveQty = widthM;
+           } else {
+             effectiveQty = widthM;
+           }
+           total += material.price * effectiveQty * (material.wasteCoefficient || 1);
+         }
+       }
+
+       // Apply client markup (priceplus)
+       if (orderData?.client?.priceplus != null && orderData.client.priceplus > 0) {
+         total = total * (1 + orderData.client.priceplus / 100);
+       }
+
+       setTotalOrderAmount(total);
+     };
+
+     // Skip calculation on initial load - use saved totalAmount from order
+     if (initialItemsRef.current === null) {
+       initialItemsRef.current = JSON.stringify(formData.items);
+       return;
+     }
+
+     if (formData.items.length > 0 && materialsData.length > 0) {
+       calculateTotal();
+     } else {
+       setTotalOrderAmount(0);
+     }
+   }, [formData.items, materialsData, orderData?.client?.priceplus]);
 
   // Fetch default dimensions for an existing item from backend (on mount and when orderData changes)
   useEffect(() => {
@@ -519,7 +588,8 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
         orderDate: formData.orderDate,
         dueDate: formData.dueDate || null,
         managerId: formData.managerId ? parseInt(formData.managerId) : null,
-        items: orderMaterials
+        items: orderMaterials,
+        totalAmount: totalOrderAmount
       };
 
       await api.put(`/api/v1/orders/${orderData.id}`, orderDataPayload);
@@ -781,10 +851,14 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
             </Grid>
 
             <Grid item xs={12}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-                <Typography variant="h6">
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => setOrderAmountDialog({ open: true, sumorder: totalOrderAmount })}
+                  sx={{ fontSize: '1.25rem', fontWeight: 600 }}
+                >
                   Сумма: {totalOrderAmount.toFixed(2)} ₽
-                </Typography>
+                </Button>
                 <Box display="flex" gap={2}>
                   <Button onClick={() => navigate(`/orders/${orderData.id}`)}>Отмена</Button>
                   <Button
@@ -1004,6 +1078,37 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
             }
           >
             Сохранить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog for editing order amount */}
+      <Dialog open={orderAmountDialog.open} onClose={() => setOrderAmountDialog({ open: false, sumorder: totalOrderAmount })} maxWidth="xs" fullWidth>
+        <DialogTitle>Итоговая сумма заказа</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            margin="dense"
+            label="Сумма с учетом наценки (sumorder)"
+            type="number"
+            value={orderAmountDialog.sumorder}
+            onChange={(e) => {
+              const newSumorder = parseFloat(e.target.value) || 0;
+              setOrderAmountDialog(prev => ({ ...prev, sumorder: newSumorder }));
+              setTotalOrderAmount(newSumorder);
+            }}
+            InputProps={{
+              endAdornment: <InputAdornment position="end">₽</InputAdornment>
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOrderAmountDialog({ open: false, sumorder: totalOrderAmount })}>
+            Отмена
+          </Button>
+          <Button onClick={() => setOrderAmountDialog({ open: false })} variant="contained">
+            ОК
           </Button>
         </DialogActions>
       </Dialog>

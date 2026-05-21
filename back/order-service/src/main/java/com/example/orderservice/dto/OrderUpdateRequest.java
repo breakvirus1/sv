@@ -25,4 +25,6 @@ public class OrderUpdateRequest {
     private Long managerId;
     /** Позиции заказа (материалы, ширина и высота в метрах) */
     private List<OrderMaterialCreateRequest> items;
+    /** Итоговая сумма заказа (с учетом наценки priceplus) */
+    private BigDecimal totalAmount;
 }
