@@ -52,18 +52,8 @@ const PositionsTab = ({ materials = [], items = [] }) => {
     <Box>
       {displayList.map((entry) => {
         const name = isMaterial ? entry.material?.name : entry.name;
-        const price = isMaterial ? entry.material?.price : entry.price;
-        const quantity = entry.quantity;
         const cost = entry.cost;
         const readyDate = entry.readyDate;
-        const unit = isMaterial ? entry.material?.unit : '';
-
-        const qtyDisplay = isMaterial
-          ? parseFloat(quantity).toFixed(3)
-          : quantity;
-
-        const widthM = entry.widthM != null ? entry.widthM : (entry.widthMm != null ? entry.widthMm / 1000 : null);
-        const heightM = entry.heightM != null ? entry.heightM : (entry.heightMm != null ? entry.heightMm / 1000 : null);
 
         return (
           <Paper key={entry.materialId || entry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
@@ -71,27 +61,9 @@ const PositionsTab = ({ materials = [], items = [] }) => {
               <Typography variant="subtitle1">{name}</Typography>
               <Typography variant="h6">{cost?.toFixed(2)} ₽</Typography>
             </Box>
-            <Box display="flex" gap={4} mt={1} flexWrap="wrap">
-              <Typography variant="body2" color="text.secondary">
-                Цена за ед.: {price?.toFixed(2)} ₽
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Кол-во: {qtyDisplay} {unit}
-              </Typography>
-              {widthM != null && (
-                <Typography variant="body2" color="text.secondary">
-                  Ширина: {widthM} м
-                </Typography>
-              )}
-              {heightM != null && (
-                <Typography variant="body2" color="text.secondary">
-                  Высота: {heightM} м
-                </Typography>
-              )}
-              <Typography variant="body2" color="text.secondary">
-                Срок: {readyDate || '—'}
-              </Typography>
-            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Срок: {readyDate || '—'}
+            </Typography>
             {((entry.operations && entry.operations.length > 0) || (entry.operations && entry.operations.length > 0)) && (
               <Box sx={{ mt: 2, pl: 2, borderLeft: '3px solid #e0e0e0' }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -101,14 +73,9 @@ const PositionsTab = ({ materials = [], items = [] }) => {
                   <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', pl: 1, flexWrap: 'wrap' }}>
                     <Typography variant="body2">
                       {op.operationName}
-                      {(op.widthM != null || op.heightM != null) && (
-                        <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                          ({op.widthM || 0}×{op.heightM || 0} м)
-                        </Typography>
-                      )}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {op.calculatedQuantity?.toFixed(2)} × {op.pricePerUnit?.toFixed(2)} ₽ = {op.subtotal?.toFixed(2)} ₽
+                      {op.subtotal?.toFixed(2)} ₽
                     </Typography>
                   </Box>
                 ))}

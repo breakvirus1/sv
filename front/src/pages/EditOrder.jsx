@@ -64,6 +64,8 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     managerId: null,
     items: []
   });
+  const [priceplus, setPriceplus] = useState(order?.priceplus || 0);
+  const [calculatedItems, setCalculatedItems] = useState([]);
 const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 const [isSubmitting, setIsSubmitting] = useState(false);
 // Track pending dimension-fetch requests per row index so late responses are ignored
@@ -583,14 +585,15 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
         };
       });
 
-      const orderDataPayload = {
-        description: formData.description,
-        orderDate: formData.orderDate,
-        dueDate: formData.dueDate || null,
-        managerId: formData.managerId ? parseInt(formData.managerId) : null,
-        items: orderMaterials,
-        totalAmount: totalOrderAmount
-      };
+const orderDataPayload = {
+         description: formData.description,
+         orderDate: formData.orderDate,
+         dueDate: formData.dueDate || null,
+         managerId: formData.managerId ? parseInt(formData.managerId) : null,
+         priceplus: priceplus,
+         items: orderMaterials,
+         totalAmount: totalOrderAmount
+       };
 
       await api.put(`/api/v1/orders/${orderData.id}`, orderDataPayload);
       setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
@@ -687,23 +690,57 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Менеджер</InputLabel>
-                <Select
-                  name="managerId"
-                  value={formData.managerId || ''}
-                  onChange={handleChange}
-                >
-                  <MenuItem value="">Не назначен</MenuItem>
-                  {employeesData?.map((emp) => (
-                    <MenuItem key={emp.id} value={String(emp.id)}>
-                      {emp.fullName}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+<Grid item xs={12} md={6}>
+               <FormControl fullWidth margin="normal">
+                 <InputLabel>Менеджер</InputLabel>
+                 <Select
+                   name="managerId"
+                   value={formData.managerId || ''}
+                   onChange={handleChange}
+                 >
+                   <MenuItem value="">Не назначен</MenuItem>
+                   {employeesData?.map((emp) => (
+                     <MenuItem key={emp.id} value={String(emp.id)}>
+                       {emp.fullName}
+                     </MenuItem>
+                   ))}
+                 </Select>
+               </FormControl>
+             </Grid>
+             <Grid item xs={12} md={6}>
+               <TextField
+                 fullWidth
+                 label="Процент добавки (priceplus)"
+                 type="number"
+                 value={priceplus}
+                 onChange={(e) => setPriceplus(parseFloat(e.target.value) || 0)}
+                 margin="normal"
+                 inputProps={{ min: -100, max: 100, step: 0.1 }}
+               />
+             </Grid>
+             <Grid item xs={12} md={6}>
+               <Button variant="contained" onClick={() => {
+                 const calculated = formData.items.map(item => {
+                   const material = materialsData.find(m => m.id === parseInt(item.materialId));
+                   if (!material) return { ...item, calculatedCost: 0 };
+                   const toMeters = (value, unit) => {
+                     const v = parseFloat(value) || 0;
+                     return unit === 'мм' ? v / 1000 : v;
+                   };
+                   const widthM = toMeters(item.qty1value, item.unit);
+                   const heightM = material.unit === 'м2' ? toMeters(item.qty2value, item.unit) : 0;
+                   let effectiveQty = material.unit === 'м2' ? widthM * heightM : widthM;
+                   const baseCost = material.price * effectiveQty * (material.wasteCoefficient || 1);
+                   const calculatedCost = baseCost * (1 + priceplus / 100);
+                   return { ...item, calculatedCost };
+                 });
+                 setCalculatedItems(calculated);
+                 const total = calculated.reduce((sum, item) => sum + (item.calculatedCost || 0), 0);
+                 setTotalOrderAmount(total);
+               }} sx={{ mt: 3 }}>
+                 Рассчитать
+               </Button>
+             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth

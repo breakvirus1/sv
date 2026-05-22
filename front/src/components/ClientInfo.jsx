@@ -90,14 +90,6 @@ const ClientInfo = ({ clientId }) => {
           </Typography>
           <Typography variant="body1">{client.address || '-'}</Typography>
         </Grid>
-        <Grid item xs={12} sm={6}>
-          <Typography variant="body2" color="text.secondary">
-            Процент добавки (priceplus)
-          </Typography>
-          <Typography variant="body1">
-            {client.priceplus != null ? `${client.priceplus}%` : '-'}
-          </Typography>
-        </Grid>
       </Grid>
     </Paper>
   );

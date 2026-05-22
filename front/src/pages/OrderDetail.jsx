@@ -59,6 +59,10 @@ const OrderDetail = ({ mode = 'view' }) => {
     dueDate: '',
     items: []
   });
+  const [priceplus, setPriceplus] = useState(0);
+  const [calculatedItems, setCalculatedItems] = useState([]);
+
+  // Calculate order total with priceplus percentage
 
   // Helper to determine endpoint based on identifier
   const getOrderEndpoint = (identifier) => {
@@ -109,14 +113,22 @@ const OrderDetail = ({ mode = 'view' }) => {
     enabled: mode === 'create' && !!username
   });
 
-   const { data: employeesData = [] } = useQuery({
-     queryKey: ['employees'],
-     queryFn: async () => {
-       const response = await api.get('/api/v1/employees?size=100');
-       return response.data.content || [];
-     },
-     enabled: mode === 'edit'
-   });
+const { data: employeesData = [] } = useQuery({
+    queryKey: ['employees'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/employees?size=100');
+      return response.data.content || [];
+    },
+    enabled: mode === 'edit'
+  });
+
+  // Calculate total with priceplus
+  const totalOrderAmount = useMemo(() => {
+    if (calculatedItems.length > 0) {
+      return calculatedItems.reduce((sum, item) => sum + (item.calculatedCost || 0), 0);
+    }
+    return 0;
+  }, [calculatedItems]);
 
 // ==================== State ====================
     const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -174,7 +186,16 @@ const OrderDetail = ({ mode = 'view' }) => {
         orderDate: formData.orderDate,
         dueDate: formData.dueDate || null,
         managerId: currentEmployee.id,
-        items: orderMaterials
+        priceplus: priceplus,
+        items: calculatedItems.length > 0 
+          ? calculatedItems.map(item => ({
+              materialId: parseInt(item.materialId),
+              widthM: item.widthM,
+              heightM: item.heightM,
+              readyDate: item.readyDate || null,
+              calculatedCost: item.calculatedCost
+            }))
+          : orderMaterials
       };
 
       await api.post('/api/v1/orders', orderData);
@@ -267,26 +288,6 @@ const OrderDetail = ({ mode = 'view' }) => {
     createOrderMutation.mutate();
   };
 
-  // Calculate total for create mode
-  const totalOrderAmount = useMemo(() => {
-    return formData.items.reduce((sum, item) => {
-      const material = materialsData.find(m => m.id === parseInt(item.materialId));
-      if (!material) return sum;
-      const q1 = (parseFloat(item.qty1value) || 0) * (item.qty1unit === 'мм' ? 0.001 : 1);
-      const q2 = (parseFloat(item.qty2value) || 0) * (item.qty2unit === 'мм' ? 0.001 : 1);
-      let effectiveQty = 0;
-      if (material.unit === 'м2') {
-        effectiveQty = q1 * q2;
-      } else if (material.unit === 'м.п.') {
-        effectiveQty = q1;
-      } else {
-        effectiveQty = q1;
-      }
-      const cost = material.price * effectiveQty * (material.wasteCoefficient || 1);
-      return sum + cost;
-    }, 0);
-  }, [formData.items, materialsData]);
-
   // ==================== Render ====================
   if (mode === 'create') {
     return (
@@ -315,6 +316,37 @@ const OrderDetail = ({ mode = 'view' }) => {
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}></Grid>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth label="Процент добавки (priceplus)" type="number" value={priceplus} onChange={(e) => setPriceplus(parseFloat(e.target.value) || 0)} margin="normal" inputProps={{ min: -100, max: 100, step: 0.1 }} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Button variant="contained" onClick={() => {
+                  const calculated = formData.items.map(item => {
+                    const material = materialsData.find(m => m.id === parseInt(item.materialId));
+                    if (!material) return { ...item, calculatedCost: 0 };
+                    const toMeters = (value, unit) => {
+                      const v = parseFloat(value) || 0;
+                      return unit === 'мм' ? v / 1000 : v;
+                    };
+                    const widthM = toMeters(item.qty1value, item.qty1unit);
+                    const heightM = material.unit === 'м2' ? toMeters(item.qty2value, item.qty2unit) : 0;
+                    let effectiveQty = 0;
+                    if (material.unit === 'м2') {
+                      effectiveQty = widthM * heightM;
+                    } else if (material.unit === 'м.п.') {
+                      effectiveQty = widthM;
+                    } else {
+                      effectiveQty = widthM;
+                    }
+                    const baseCost = material.price * effectiveQty * (material.wasteCoefficient || 1);
+                    const calculatedCost = baseCost * (1 + priceplus / 100);
+                    return { ...item, calculatedCost };
+                  });
+                  setCalculatedItems(calculated);
+                }}>
+                  Рассчитать
+                </Button>
+              </Grid>
               <Grid item xs={12} md={6}>
                 <TextField fullWidth label="Дата заказа" name="orderDate" type="date" value={formData.orderDate} onChange={(e) => setFormData(prev => ({ ...prev, orderDate: e.target.value }))} required margin="normal" InputLabelProps={{ shrink: true }} />
               </Grid>
