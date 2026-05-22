@@ -710,14 +710,9 @@ public class OrderService {
     /**
      * Пересчитать сумму оплат и долг.
      */
-    private void recalculatePaidAmount(Long orderId) {
-        BigDecimal paid = jdbcTemplate.queryForObject(
-            "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE order_id = ? AND deleted = false",
-            new Object[]{orderId},
-            BigDecimal.class
-        );
+private void recalculatePaidAmount(Long orderId) {
+        BigDecimal paid = paymentRepository.sumByOrderId(orderId);
         orderRepository.updatePaidAmount(orderId, paid);
-        // Also update debt
         orderRepository.updateDebtAmount(orderId);
     }
 
