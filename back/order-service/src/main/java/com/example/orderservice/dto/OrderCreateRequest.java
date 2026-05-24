@@ -26,6 +26,8 @@ public class OrderCreateRequest {
     private LocalDate dueDate;
     /** ID менеджера */
     private Long managerId;
+    /** Процент добавки клиента (priceplus) */
+    private BigDecimal priceplus;
     /** Список позиций заказа (материалы) */
     private List<OrderMaterialCreateRequest> items;
     /** Итоговая сумма заказа (с учетом наценки priceplus) */

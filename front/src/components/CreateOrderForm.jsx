@@ -34,6 +34,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isM2, isLinearMeter } from '../utils/orderUtils';
 
 const CreateOrderForm = ({ windowId, closeWindow }) => {
   const navigate = useNavigate();
@@ -51,6 +52,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   });
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [priceplus, setPriceplus] = useState(0);
   // Operations dialog state
   const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
   // Unified operation parameters dialog state
@@ -86,8 +88,8 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const { data: materialsData = [], error: materialsError } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/calculations/materials');
-      return response.data;
+      const response = await api.get('/api/v1/materials?size=100');
+      return response.data.content || [];
     },
   });
 
@@ -117,6 +119,15 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
     enabled: !!formData.clientId
   });
+
+  // Синхронизируем priceplus с выбранным клиентом
+  useEffect(() => {
+    if (selectedClient?.priceplus != null) {
+      setPriceplus(selectedClient.priceplus);
+    } else {
+      setPriceplus(0);
+    }
+  }, [selectedClient?.priceplus]);
 
   // Получение текущего менеджера по username из Keycloak
   const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
@@ -192,10 +203,24 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   };
 
   const updateItem = (index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
-    }));
+    setFormData(prev => {
+      if (field === 'materialId' && value) {
+        const dup = prev.items.find((item, i) => i !== index && item.materialId === value);
+        if (dup) {
+          const mat = materialsData.find(m => m.id === parseInt(value));
+          setNotification({
+            open: true,
+            message: `Материал "${mat?.name || value}" уже выбран в другой позиции`,
+            severity: 'warning'
+          });
+          return prev;
+        }
+      }
+      return {
+        ...prev,
+        items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
+      };
+    });
   };
 
   const updateItemOperations = (index, operations) => {
@@ -368,7 +393,11 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       setNotification({ open: true, message: 'Введите название клиента', severity: 'error' });
       return;
     }
-    createClientMutation.mutate(newClientForm);
+    const payload = {
+      ...newClientForm,
+      priceplus: newClientForm.priceplus !== null && newClientForm.priceplus !== '' ? parseFloat(newClientForm.priceplus) : null
+    };
+    createClientMutation.mutate(payload);
   };
 
   const handleClose = () => {
@@ -384,8 +413,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     const calculateTotal = async () => {
       let total = 0;
       for (const item of formData.items) {
-        if (!item.materialId || !item.qty1value || !item.qty2value) {
-          console.warn('Item missing required fields:', item);
+        if (!item.materialId || !item.qty1value) {
           continue;
         }
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
@@ -397,10 +425,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         };
 
         const widthM = toMeters(item.qty1value, item.unit);
-        const heightM = toMeters(item.qty2value, item.unit);
+        const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 0;
 
-        if (isNaN(widthM) || isNaN(heightM) || widthM <= 0 || heightM <= 0) {
-          console.warn('Invalid dimensions:', item.qty1value, item.unit, item.qty2value);
+        if (isNaN(widthM) || widthM <= 0 || (isM2(material) && (isNaN(heightM) || heightM <= 0))) {
           continue;
         }
 
@@ -409,7 +436,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           materialId: material.id,
           materialType: material.name.toLowerCase().includes('баннер') ? 'BANNER' : 'PLENKA',
           widthM,
-          heightM,
+          heightM: isM2(material) ? heightM : null,
           operationIds: item.operations.map(op => op.id),
         };
 
@@ -435,9 +462,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           console.error('Error calculating item cost:', error);
           // Fallback to simple calculation
           let effectiveQty = 0;
-          if (material.unit === 'м2') {
+          if (isM2(material)) {
             effectiveQty = widthM * heightM;
-          } else if (material.unit === 'м.п.') {
+          } else if (isLinearMeter(material)) {
             effectiveQty = widthM;
           } else {
             effectiveQty = widthM;
@@ -445,9 +472,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           total += material.price * effectiveQty * (material.wasteCoefficient || 1);
         }
       }
-      // Применяем наценку priceplus клиента: sumorder = сумма + (priceplus/100 * сумма)
-      if (selectedClient?.priceplus != null && selectedClient.priceplus > 0) {
-        total = total * (1 + selectedClient.priceplus / 100);
+      // Применяем наценку priceplus
+      if (priceplus != null && priceplus > 0) {
+        total = total * (1 + priceplus / 100);
       }
       setTotalOrderAmount(total);
     };
@@ -457,7 +484,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     } else {
       setTotalOrderAmount(0);
     }
-  }, [formData.items, materialsData, selectedClient]);
+  }, [formData.items, materialsData, selectedClient, priceplus]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -475,8 +502,8 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
-        const widthM = toMeters(item.qty1value, item.unit);
-        const heightM = toMeters(item.qty2value, item.unit) || 0;
+         const widthM = toMeters(item.qty1value, item.unit);
+         const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : null;
 
         // Find eyelet operation if any
         const eyeletOp = item.operations.find(op => op.eyeletId);
@@ -492,7 +519,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
          return {
            materialId: parseInt(item.materialId),
            widthM,
-           heightM,
+          heightM: isM2(material) ? heightM : null,
            operations: item.operations.map(op => ({
              operationId: op.id,
              widthMm: op.widthMm != null ? op.widthMm : null,
@@ -513,6 +540,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         orderDate: formData.orderDate,
         dueDate: formData.dueDate || null,
         managerId: currentEmployee.id,
+        priceplus: priceplus,
         items: orderMaterials,
         totalAmount: totalOrderAmount
       };
@@ -561,7 +589,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
       <Box component="form" onSubmit={handleSubmit} sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end' }}>
           <FormControl fullWidth size="small">
             <InputLabel>Клиент</InputLabel>
             <Select
@@ -578,6 +606,15 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
               ))}
             </Select>
           </FormControl>
+          <TextField
+            size="small"
+            label="Наценка %"
+            type="number"
+            value={priceplus}
+            onChange={(e) => setPriceplus(parseFloat(e.target.value) || 0)}
+            inputProps={{ min: -100, max: 100, step: 0.1 }}
+            sx={{ width: 120 }}
+          />
         </Box>
 
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -639,7 +676,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                 <TableBody>
                   {formData.items.map((item, index) => {
                     const material = materialsData.find(m => m.id === parseInt(item.materialId));
-                    const showSecond = material && material.unit === 'м2';
+                    const showSecond = isM2(material);
                     const isBanner = material && material.name.toLowerCase().includes('баннер');
                     return (
                       <TableRow key={index}>
@@ -666,7 +703,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                               value={item.qty1value}
                               onChange={(e) => updateItem(index, 'qty1value', e.target.value)}
                               inputProps={{ min: 0 }}
-                              placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'}
+                              placeholder={isM2(material) ? 'Ширина' : 'Длина'}
                               sx={{ width: 100 }}
                             />
                             <Select
@@ -745,13 +782,22 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
-          <Button
-            variant="outlined"
-            onClick={() => setOrderAmountDialog({ open: true, sumorder: totalOrderAmount })}
-            sx={{ fontSize: '1.25rem', fontWeight: 600 }}
+          <Box
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              px: 2,
+              py: 1,
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
           >
             Сумма: {totalOrderAmount.toFixed(2)} ₽
-          </Button>
+          </Box>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button onClick={handleClose} variant="outlined">
               Отмена

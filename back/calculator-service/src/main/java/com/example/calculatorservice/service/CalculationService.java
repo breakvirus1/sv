@@ -59,7 +59,7 @@ public class CalculationService {
         Calculation calc = new Calculation();
         calc.setMaterial(material);
         calc.setWidthM(request.getWidthM());
-        calc.setHeightM(request.getHeightM());
+        calc.setHeightM(request.getHeightM() != null ? request.getHeightM() : BigDecimal.ONE);
         calc.setDpi(request.getDpi());
         calc.setPodvorotMmHorizontal(request.getPodvorotMmHorizontal());
         calc.setPodvorotMmVertical(request.getPodvorotMmVertical());
@@ -287,10 +287,11 @@ public class CalculationService {
     }
 
     private void validateCalculation(Calculation calc) {
-        if (calc.getWidthM() == null || calc.getHeightM() == null ||
-            calc.getWidthM().compareTo(BigDecimal.ZERO) <= 0 ||
-            calc.getHeightM().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BadRequestException("Размеры должны быть больше нуля");
+        if (calc.getWidthM() == null || calc.getWidthM().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Ширина должна быть больше нуля");
+        }
+        if (calc.getHeightM() == null) {
+            throw new BadRequestException("Высота должна быть указана");
         }
 
         if (calc.getPodvorotCountPerSide() != null && calc.getPodvorotCountPerSide() < 1) {

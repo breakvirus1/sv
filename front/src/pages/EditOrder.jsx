@@ -34,6 +34,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import ClientInfo from '../components/ClientInfo';
+import { isM2, isLinearMeter } from '../utils/orderUtils';
 
 const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const navigate = useNavigate();
@@ -50,12 +51,25 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
         ? `/api/v1/orders/number/${identifier}`
         : `/api/v1/orders/${identifier}`;
       const response = await api.get(endpoint);
+      console.log('=== FETCH ORDER ===');
+      console.log('Fetched orderId:', response.data.id, 'priceplus:', response.data.priceplus);
       return response.data;
     },
+    staleTime: 0,
     enabled: mode !== 'create' && !!identifier && (!order || isOrderNumber)
   });
 
   const orderData = order || fetchedOrder;
+
+  // Track orderData changes
+  useEffect(() => {
+    console.log('=== orderData changed ===');
+    console.log('orderData:', orderData?.id, orderData?.orderNumber);
+    console.log('fetchedOrder:', fetchedOrder?.id);
+    console.log('prop order:', order?.id);
+    console.log('orderData.priceplus:', orderData?.priceplus);
+    console.log('orderData.totalAmount:', orderData?.totalAmount);
+  }, [orderData, fetchedOrder, order]);
 
   const [formData, setFormData] = useState({
     description: '',
@@ -108,6 +122,12 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
     }
   });
 
+  // Track materialsData changes
+  useEffect(() => {
+    console.log('=== materialsData changed ===');
+    console.log('Count:', materialsData.length);
+  }, [materialsData]);
+
 // Initialize totalOrderAmount from order's saved total on mount
    useEffect(() => {
      if (orderData?.totalAmount != null) {
@@ -121,21 +141,62 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
   // Initialize form data when order is loaded
   useEffect(() => {
     if (orderData) {
+      console.log('=== ЗАГРУЗКА ЗАКАЗА ===');
+      console.log('Order ID:', orderData.id);
+      console.log('Order number:', orderData.orderNumber);
+      console.log('Raw materials count:', orderData.materials?.length);
+      console.log('Raw materials:', orderData.materials?.map(m => ({
+        id: m.id,
+        materialId: m.material?.id,
+        materialName: m.material?.name,
+        cost: m.cost,
+        widthM: m.widthM,
+        heightM: m.heightM,
+        operationsCount: m.operations?.length,
+        operations: m.operations?.map(op => ({
+          id: op.operationId,
+          name: op.operationName,
+          subtotal: op.subtotal
+        }))
+      })));
+      console.log('Client priceplus:', orderData.client?.priceplus);
+
       const formatDate = (dateStr) => {
         if (!dateStr) return '';
         return dateStr.split('T')[0];
       };
-      const items = (orderData.materials ?? [])
-        .filter((mat, idx, arr) => arr.findIndex(m => m.id === mat.id) === idx)
-        .map((mat) => ({
-          id: mat.id,
-          materialId: String(mat.material?.id || ''),
-          qty1value: mat.widthM != null ? mat.widthM.toString() : '',
-          unit: 'м',
-          qty2value: mat.heightM != null ? mat.heightM.toString() : '',
-          readyDate: mat.readyDate || '',
-          operations: (mat.operations ?? []).map((op) => ({ id: op.operationId, operationId: op.operationId, widthM: op.widthM, heightM: op.heightMm }))
-        }));
+      const rawItems = orderData.materials ?? [];
+      const dedupedItems = rawItems.filter((mat, idx, arr) => arr.findIndex(m => m.id === mat.id) === idx);
+      console.log('After dedup:', dedupedItems.length, 'items (was', rawItems.length, ')');
+
+      const items = dedupedItems.map((mat) => ({
+        id: mat.id,
+        materialId: String(mat.material?.id || ''),
+        qty1value: mat.widthM != null ? mat.widthM.toString() : '',
+        unit: 'м',
+        qty2value: mat.heightM != null ? mat.heightM.toString() : '',
+        readyDate: mat.readyDate || '',
+        cost: mat.cost != null ? Number(mat.cost) : null,
+        operations: (mat.operations ?? []).map((op) => ({
+          id: op.operationId,
+          operationId: op.operationId,
+          name: op.operationName,
+          subtotal: op.subtotal != null ? Number(op.subtotal) : null,
+          widthM: op.widthM,
+          heightM: op.heightMm,
+        })),
+      }));
+
+      console.log('Mapped items:', items.map(item => ({
+        id: item.id,
+        materialId: item.materialId,
+        cost: item.cost,
+        qty1: item.qty1value,
+        qty2: item.qty2value,
+        opsCount: item.operations.length,
+        opsSubtotal: item.operations.reduce((s, o) => s + (o.subtotal || 0), 0)
+      })));
+
       setFormData({
         description: orderData.description || '',
         orderDate: formatDate(orderData.orderDate),
@@ -143,105 +204,197 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
         managerId: orderData.manager?.id ? String(orderData.manager.id) : (orderData.managerId ? String(orderData.managerId) : ''),
         items
       });
+      // Use priceplus from order if available, otherwise from client
+      if (orderData.priceplus != null) {
+        setPriceplus(orderData.priceplus);
+      } else if (orderData.client?.priceplus != null) {
+        setPriceplus(orderData.client.priceplus);
+      } else {
+        setPriceplus(0);
+      }
+      console.log('Set priceplus from order:', orderData.priceplus, 'or client:', orderData.client?.priceplus);
     }
   }, [orderData, mode]);
-
-  const isM2 = (mat) => {
-    if (!mat || !mat.unit) return false;
-    const u = mat.unit.trim().toLowerCase().replace(/[.]/g, '');
-    return u === 'м2' || u === 'm2';
-  };
 
 // Track if items were modified to avoid recalculating on initial load
    const initialItemsRef = useRef(null);
 
-   // Recalculate total when items change
-   useEffect(() => {
-     const calculateTotal = async () => {
-       let total = 0;
-       for (const item of formData.items) {
-         if (!item.materialId || !item.qty1value || !item.qty2value) {
-           continue;
-         }
-         const material = materialsData.find(m => m.id === parseInt(item.materialId));
-         if (!material) continue;
+    // Recalculate total when items change
+     useEffect(() => {
+       const calculateTotal = async () => {
+         console.log('=== НАЧАЛО РАСЧЁТА ЗАКАЗА ===');
+         console.log('Количество позиций:', formData.items.length);
+         console.log('Наценка (priceplus):', priceplus, '%');
+         console.log('isModified:', isModified);
+         console.log('Текущие items:', formData.items.map(item => ({
+           id: item.id,
+           materialId: item.materialId,
+           cost: item.cost,
+           qty1: item.qty1value,
+           qty2: item.qty2value,
+           opsCount: item.operations.length,
+           opsSubtotal: item.operations.reduce((s, o) => s + (o.subtotal || 0), 0),
+           baseTotal: item.cost + item.operations.reduce((s, o) => s + (o.subtotal || 0), 0)
+         })));
 
-         const toMeters = (value, unit) => {
-           const v = parseFloat(value) || 0;
-           return unit === 'мм' ? v / 1000 : v;
-         };
-
-         const widthM = toMeters(item.qty1value, item.unit);
-         const heightM = toMeters(item.qty2value, item.unit);
-
-         if (isNaN(widthM) || isNaN(heightM) || widthM <= 0 || heightM <= 0) {
-           continue;
-         }
-
-         // Prepare calculation request
-         const requestData = {
-           materialId: material.id,
-           materialType: material.name.toLowerCase().includes('баннер') ? 'BANNER' : 'PLENKA',
-           widthM,
-           heightM,
-           operationIds: item.operations.map(op => op.id),
-         };
-
-         // Add eyelet parameters if present
-         const eyeletOp = item.operations.find(op => op.eyeletId);
-         if (eyeletOp) {
-           requestData.eyeletId = eyeletOp.eyeletId;
-           requestData.eyeletStepCm = eyeletOp.eyeletStepCm;
-         }
-
-         // Add hem parameters if present (take first hem operation)
-         const hemOp = item.operations.find(op => op.hemWidthMm && op.hemCount);
-         if (hemOp) {
-           requestData.podvorotMmHorizontal = hemOp.hemWidthMm;
-           requestData.podvorotMmVertical = hemOp.hemWidthMm;
-           requestData.podvorotCountPerSide = hemOp.hemCount;
-         }
-
-         try {
-           const response = await api.post('/api/v1/calculations', requestData);
-           total += response.data.totalPrice;
-         } catch (error) {
-           console.error('Error calculating item cost:', error);
-           // Fallback to simple calculation
-           let effectiveQty = 0;
-           if (material.unit === 'м2') {
-             effectiveQty = widthM * heightM;
-           } else if (material.unit === 'м.п.') {
-             effectiveQty = widthM;
-           } else {
-             effectiveQty = widthM;
+         let total = 0;
+         for (const item of formData.items) {
+           if (!item.materialId || !item.qty1value) {
+             console.log('Пропуск позиции: не указан материал или количество');
+             continue;
            }
-           total += material.price * effectiveQty * (material.wasteCoefficient || 1);
+
+           const isExistingItem = item.id && item.cost != null;
+
+           if (isExistingItem) {
+             console.log('--- Существующая позиция ---');
+             console.log('ID позиции:', item.id);
+             let itemTotal = Number(item.cost) || 0;
+             console.log('Стоимость материала:', itemTotal);
+             if (item.operations && item.operations.length > 0) {
+               const opsTotal = item.operations.reduce((sum, op) => sum + (Number(op.subtotal) || 0), 0);
+               console.log('Операции:', item.operations.length);
+               console.log('Стоимость операций:', opsTotal);
+               console.log('Операции детально:', item.operations.map(op => `${op.name}: ${op.subtotal}`));
+               itemTotal += opsTotal;
+             }
+             console.log('Итого по позиции:', itemTotal);
+             total += itemTotal;
+             continue;
+           }
+
+           const material = materialsData.find(m => m.id === parseInt(item.materialId));
+           if (!material) {
+             console.log('Материал не найден:', item.materialId);
+             continue;
+           }
+
+           console.log('--- Новая позиция ---');
+           console.log('Материал:', material.name, '(ID:', material.id + ')');
+           console.log('Цена материала:', material.price);
+           console.log('Коэффициент отходов:', material.wasteCoefficient || 1);
+           console.log('Единица измерения:', material.unit);
+
+           const toMeters = (value, unit) => {
+             const v = parseFloat(value) || 0;
+             return unit === 'мм' ? v / 1000 : v;
+           };
+
+           const widthM = toMeters(item.qty1value, item.unit);
+           const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 0;
+
+           console.log('Ширина (м):', widthM);
+           console.log('Высота (м):', heightM);
+           console.log('Тип расчёта:', isM2(material) ? 'По площади (м²)' : isLinearMeter(material) ? 'Погонный метр (м.п.)' : 'Штука');
+
+           if (isNaN(widthM) || widthM <= 0 || (isM2(material) && (isNaN(heightM) || heightM <= 0))) {
+             console.log('Пропуск: некорректные размеры');
+             continue;
+           }
+
+           // Формулы
+           let area = 0;
+           let quantity = 0;
+           let materialCost = 0;
+
+           if (isM2(material)) {
+             area = widthM * heightM;
+             quantity = area;
+             console.log('Формула площади: ', widthM, '×', heightM, '=', area, 'м²');
+           } else if (isLinearMeter(material)) {
+             quantity = widthM;
+             console.log('Формула пог. метра: длина =', widthM, 'м');
+           } else {
+             quantity = widthM;
+             console.log('Формула: количество =', widthM);
+           }
+
+           materialCost = material.price * quantity * (material.wasteCoefficient || 1);
+           console.log('Формула стоимости материала:');
+           console.log('  ', material.price, '×', quantity, '×', (material.wasteCoefficient || 1), '=', materialCost);
+
+           const requestData = {
+             materialId: material.id,
+             materialType: material.name.toLowerCase().includes('баннер') ? 'BANNER' : 'PLENKA',
+             widthM,
+             heightM: isM2(material) ? heightM : null,
+             operationIds: item.operations.map(op => op.id),
+           };
+
+           const eyeletOp = item.operations.find(op => op.eyeletId);
+           if (eyeletOp) {
+             requestData.eyeletId = eyeletOp.eyeletId;
+             requestData.eyeletStepCm = eyeletOp.eyeletStepCm;
+             console.log('Добавлен люверс: ID =', eyeletOp.eyeletId, ', шаг =', eyeletOp.eyeletStepCm, 'см');
+           }
+
+           const hemOp = item.operations.find(op => op.hemWidthMm && op.hemCount);
+           if (hemOp) {
+             requestData.podvorotMmHorizontal = hemOp.hemWidthMm;
+             requestData.podvorotMmVertical = hemOp.hemWidthMm;
+             requestData.podvorotCountPerSide = hemOp.hemCount;
+             console.log('Добавлен подворот: ширина =', hemOp.hemWidthMm, 'мм, кол-во =', hemOp.hemCount, 'на сторону');
+           }
+
+           console.log('Запрос к API /calculations:', JSON.stringify(requestData));
+
+           try {
+             const response = await api.post('/api/v1/calculations', requestData);
+             console.log('Ответ API:', response.data);
+             console.log('Стоимость с операциями (totalPrice):', response.data.totalPrice);
+             total += response.data.totalPrice;
+           } catch (error) {
+             console.error('Ошибка расчёта через API:', error);
+             console.log('Используем fallback-расчёт');
+             let effectiveQty = 0;
+             if (isM2(material)) {
+               effectiveQty = widthM * heightM;
+               console.log('Fallback: площадь =', effectiveQty, 'м²');
+             } else if (isLinearMeter(material)) {
+               effectiveQty = widthM;
+               console.log('Fallback: длина =', effectiveQty, 'м');
+             } else {
+               effectiveQty = widthM;
+               console.log('Fallback: количество =', effectiveQty);
+             }
+             const fallbackCost = material.price * effectiveQty * (material.wasteCoefficient || 1);
+             console.log('Fallback стоимость:', material.price, '×', effectiveQty, '×', (material.wasteCoefficient || 1), '=', fallbackCost);
+             total += fallbackCost;
+           }
          }
-       }
 
-       // Apply client markup (priceplus)
-       if (orderData?.client?.priceplus != null && orderData.client.priceplus > 0) {
-         total = total * (1 + orderData.client.priceplus / 100);
-       }
+         console.log('--- Итог до наценки ---');
+         console.log('Сумма без наценки:', total);
 
-       setTotalOrderAmount(total);
-     };
+         if (priceplus != null && priceplus > 0) {
+           const beforePriceplus = total;
+           total = total * (1 + priceplus / 100);
+           console.log('Формула наценки:');
+           console.log('  ', beforePriceplus, '× (1 +', priceplus, '/ 100) =', beforePriceplus, '×', (1 + priceplus / 100), '=', total);
+         }
 
-     // Skip calculation on initial load - use saved totalAmount from order
-     if (initialItemsRef.current === null) {
-       initialItemsRef.current = JSON.stringify(formData.items);
-       return;
-     }
+         console.log('=== ИТОГО: ', total.toFixed(2), '₽ ===');
 
-     if (formData.items.length > 0 && materialsData.length > 0) {
-       calculateTotal();
-     } else {
-       setTotalOrderAmount(0);
-     }
-   }, [formData.items, materialsData, orderData?.client?.priceplus]);
+         setTotalOrderAmount(total);
+       };
 
-  // Fetch default dimensions for an existing item from backend (on mount and when orderData changes)
+      if (initialItemsRef.current === null) {
+        initialItemsRef.current = JSON.stringify(formData.items);
+        return;
+      }
+
+      if (!isModified) {
+        return;
+      }
+
+      if (formData.items.length > 0 && materialsData.length > 0) {
+        calculateTotal();
+      } else {
+        setTotalOrderAmount(0);
+      }
+    }, [formData.items, materialsData, priceplus]);
+
+    // Fetch default dimensions for an existing item from backend (on mount and when orderData changes)
   useEffect(() => {
     if (!orderData || !materialsData.length) return;
     formData.items.forEach((item, index) => {
@@ -282,6 +435,8 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
   // ── CRUD ──
 
   const addItem = () => {
+    console.log('=== addItem ===');
+    console.log('Current items count:', formData.items.length);
     setIsModified(true);
     setFormData(prev => {
       const newIndex = prev.items.length;
@@ -290,9 +445,11 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
         const candidateId = String(materialsData[0].id);
         const existingCandidate = prev.items.find(item => item.materialId === candidateId);
         if (existingCandidate) {
+          const matName = materialsData.find(m => m.id === parseInt(candidateId))?.name;
+          const idMsg = existingCandidate.id ? ` (позиция #${existingCandidate.id})` : '';
           setNotification({
             open: true,
-            message: `Материал "${materialsData.find(m => m.id === parseInt(candidateId))?.name}" уже выбран`,
+            message: `Материал "${matName}" уже выбран${idMsg}`,
             severity: 'warning'
           });
           return prev;
@@ -319,11 +476,13 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
           .finally(() => pendingDimRef.current.delete(newIndex));
         return { ...prev, items: nextItems };
       }
-        return { ...prev, items: [...prev.items, { materialId: '', qty1value: '', unit: 'м', qty2value: '', readyDate: '', operations: [] }] };
+      return { ...prev, items: [...prev.items, { materialId: '', qty1value: '', unit: 'м', qty2value: '', readyDate: '', operations: [] }] };
     });
   };
 
   const removeItem = (index) => {
+    console.log('=== removeItem ===');
+    console.log('Removing item at index:', index, 'item:', formData.items[index]);
     setIsModified(true);
     setFormData(prev => ({
       ...prev,
@@ -366,15 +525,20 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
   };
 
   const updateItem = (index, field, value) => {
+    console.log('=== updateItem ===');
+    console.log('index:', index, 'field:', field, 'value:', value);
     setFormData(prev => {
       if (field === 'materialId' && value) {
         setIsModified(true);
+        const currentItem = prev.items[index];
+        console.log('Changing materialId for item:', currentItem?.id, 'from:', currentItem?.materialId, 'to:', value);
         const dup = prev.items.find((item, i) => i !== index && item.materialId === value);
         if (dup) {
           const mat = materialsData.find(m => m.id === parseInt(value));
+          const dupIdMsg = dup.id ? ` (позиция #${dup.id})` : '';
           setNotification({
             open: true,
-            message: `Материал "${mat?.name || value}" уже выбран в другой позиции`,
+            message: `Материал "${mat?.name || value}" уже выбран в другой позиции${dupIdMsg}`,
             severity: 'warning'
           });
           return prev;
@@ -386,7 +550,7 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
 
         pendingDimRef.current.set(index, value);
 
-        api.get(`/api/v1/orders/${orderData?.id}/positions/${prev.items[index]?.id || ''}/default`)
+        api.get(`/api/v1/orders/${orderData?.id}/positions/${currentItem?.id || ''}/default`)
           .then(r => {
             const d = r.data;
             const wM = d.widthM != null ? parseFloat(d.widthM) : null;
@@ -422,6 +586,10 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
   };
 
   const updateItemOperations = (index, operations) => {
+    console.log('=== updateItemOperations ===');
+    console.log('index:', index);
+    console.log('New operations:', operations.map(op => ({ id: op.id, name: op.name, subtotal: op.subtotal })));
+    console.log('Old operations:', formData.items[index]?.operations?.map(op => ({ id: op.id, name: op.name, subtotal: op.subtotal })));
     setIsModified(true);
     setFormData(prev => ({
       ...prev,
@@ -568,8 +736,8 @@ const [totalOrderAmount, setTotalOrderAmount] = useState(0);
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
-        const widthM = toMeters(item.qty1value, item.unit);
-        const heightM = toMeters(item.qty2value, item.unit);
+         const widthM = toMeters(item.qty1value, item.unit);
+         const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : null;
 
         return {
           ...(item.id ? { id: item.id } : {}),
@@ -595,15 +763,21 @@ const orderDataPayload = {
          totalAmount: totalOrderAmount
        };
 
-      await api.put(`/api/v1/orders/${orderData.id}`, orderDataPayload);
-      setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
+        console.log('=== СОХРАНЕНИЕ ЗАКАЗА ===');
+        console.log('Payload:', JSON.stringify(orderDataPayload, null, 2));
 
-      await queryClient.invalidateQueries({ queryKey: ['order', orderData.id] });
-      await queryClient.invalidateQueries({ queryKey: ['orders'] });
-      await queryClient.invalidateQueries({ queryKey: ['order-total', orderData.id] });
+        const response = await api.put(`/api/v1/orders/${orderData.id}`, orderDataPayload);
+        console.log('=== ОТВЕТ СЕРВЕРА ===');
+        console.log('Saved priceplus:', response.data.priceplus);
+        console.log('Saved totalAmount:', response.data.totalAmount);
+        setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
 
-      if (onSuccess) onSuccess();
-      setTimeout(() => navigate(`/orders/${orderData.id}`), 1500);
+        // Immediately update the cache with the response data
+        queryClient.setQueryData(['order', orderData.id], response.data);
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+
+        if (onSuccess) onSuccess();
+        navigate(`/orders/${orderData.id}`);
     } catch (err) {
       setNotification({
         open: true,
@@ -646,24 +820,42 @@ const orderDataPayload = {
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
 <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Клиент"
-                  value={orderData?.client?.name || orderData?.clientName || ''}
-                  margin="normal"
-                  disabled
-                  InputProps={{
-                    endAdornment: orderData?.client?.id && (
-                      <IconButton
-                        size="small"
-                        onClick={() => setClientInfoDialog({ open: true, clientId: orderData.client.id })}
-                        sx={{ p: 0.5 }}
-                      >
-                        <Info fontSize="small" />
-                      </IconButton>
-                    )
-                  }}
-                />
+                <Box display="flex" gap={1} alignItems="flex-end">
+                  <TextField
+                    fullWidth
+                    label="Клиент"
+                    value={orderData?.client?.name || orderData?.clientName || ''}
+                    margin="normal"
+                    disabled
+                    InputProps={{
+                      endAdornment: orderData?.client?.id && (
+                        <IconButton
+                          size="small"
+                          onClick={() => setClientInfoDialog({ open: true, clientId: orderData.client.id })}
+                          sx={{ p: 0.5 }}
+                        >
+                          <Info fontSize="small" />
+                        </IconButton>
+                      )
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    label="Наценка %"
+                    type="number"
+                    value={priceplus}
+                    onChange={(e) => {
+                      const newValue = parseFloat(e.target.value) || 0;
+                      console.log('=== priceplus changed ===');
+                      console.log('Old:', priceplus, 'New:', newValue);
+                      setPriceplus(newValue);
+                      setIsModified(true);
+                    }}
+                    margin="normal"
+                    inputProps={{ min: -100, max: 100, step: 0.1 }}
+                    sx={{ width: 120 }}
+                  />
+                </Box>
               </Grid>
             <Grid item xs={12} md={6}>
               <TextField
@@ -710,41 +902,7 @@ const orderDataPayload = {
              <Grid item xs={12} md={6}>
                <TextField
                  fullWidth
-                 label="Процент добавки (priceplus)"
-                 type="number"
-                 value={priceplus}
-                 onChange={(e) => setPriceplus(parseFloat(e.target.value) || 0)}
-                 margin="normal"
-                 inputProps={{ min: -100, max: 100, step: 0.1 }}
-               />
-             </Grid>
-             <Grid item xs={12} md={6}>
-               <Button variant="contained" onClick={() => {
-                 const calculated = formData.items.map(item => {
-                   const material = materialsData.find(m => m.id === parseInt(item.materialId));
-                   if (!material) return { ...item, calculatedCost: 0 };
-                   const toMeters = (value, unit) => {
-                     const v = parseFloat(value) || 0;
-                     return unit === 'мм' ? v / 1000 : v;
-                   };
-                   const widthM = toMeters(item.qty1value, item.unit);
-                   const heightM = material.unit === 'м2' ? toMeters(item.qty2value, item.unit) : 0;
-                   let effectiveQty = material.unit === 'м2' ? widthM * heightM : widthM;
-                   const baseCost = material.price * effectiveQty * (material.wasteCoefficient || 1);
-                   const calculatedCost = baseCost * (1 + priceplus / 100);
-                   return { ...item, calculatedCost };
-                 });
-                 setCalculatedItems(calculated);
-                 const total = calculated.reduce((sum, item) => sum + (item.calculatedCost || 0), 0);
-                 setTotalOrderAmount(total);
-               }} sx={{ mt: 3 }}>
-                 Рассчитать
-               </Button>
-             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Описание"
+                 label="Описание"
                 name="description"
                 multiline
                 rows={3}
@@ -804,7 +962,7 @@ const orderDataPayload = {
                                 value={item.qty1value}
                                 onChange={(e) => updateItem(index, 'qty1value', e.target.value)}
                                 inputProps={{ min: 0, step: 0.001 }}
-                                placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'}
+                                 placeholder={isM2(material) ? 'Ширина' : 'Длина'}
                                 sx={{ width: 100 }}
                               />
                               <Select
@@ -889,13 +1047,22 @@ const orderDataPayload = {
 
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => setOrderAmountDialog({ open: true, sumorder: totalOrderAmount })}
-                  sx={{ fontSize: '1.25rem', fontWeight: 600 }}
+                <Box
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    px: 2,
+                    py: 1,
+                    fontSize: '1.25rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
                 >
                   Сумма: {totalOrderAmount.toFixed(2)} ₽
-                </Button>
+                </Box>
                 <Box display="flex" gap={2}>
                   <Button onClick={() => navigate(`/orders/${orderData.id}`)}>Отмена</Button>
                   <Button

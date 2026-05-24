@@ -27,7 +27,7 @@ import {
 } from '@mui/material';
 import { ArrowBack, Edit, Payment, Delete, Add, Info } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
+import { getStatusColor, getStatusLabel, isM2, isLinearMeter } from '../utils/orderUtils';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ClientInfo from '../components/ClientInfo';
@@ -170,8 +170,8 @@ const { data: employeesData = [] } = useQuery({
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
-        const widthM = toMeters(item.qty1value, item.qty1unit);
-        const heightM = toMeters(item.qty2value, item.qty2unit);
+         const widthM = toMeters(item.qty1value, item.qty1unit);
+         const heightM = isM2(material) ? toMeters(item.qty2value, item.qty2unit) : null;
         return {
           materialId: parseInt(item.materialId),
           widthM,
@@ -256,10 +256,24 @@ const { data: employeesData = [] } = useQuery({
   };
 
   const updateItem = (index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
-    }));
+    setFormData(prev => {
+      if (field === 'materialId' && value) {
+        const dup = prev.items.find((item, i) => i !== index && item.materialId === value);
+        if (dup) {
+          const mat = materialsData.find(m => m.id === parseInt(value));
+          setNotification({
+            open: true,
+            message: `Материал "${mat?.name || value}" уже выбран в другой позиции`,
+            severity: 'warning'
+          });
+          return prev;
+        }
+      }
+      return {
+        ...prev,
+        items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
+      };
+    });
   };
 
   const handleClientChange = (e) => {
@@ -329,11 +343,11 @@ const { data: employeesData = [] } = useQuery({
                       return unit === 'мм' ? v / 1000 : v;
                     };
                     const widthM = toMeters(item.qty1value, item.qty1unit);
-                    const heightM = material.unit === 'м2' ? toMeters(item.qty2value, item.qty2unit) : 0;
+                        const heightM = isM2(material) ? toMeters(item.qty2value, item.qty2unit) : 0;
                     let effectiveQty = 0;
-                    if (material.unit === 'м2') {
+                    if (isM2(material)) {
                       effectiveQty = widthM * heightM;
-                    } else if (material.unit === 'м.п.') {
+                    } else if (isLinearMeter(material)) {
                       effectiveQty = widthM;
                     } else {
                       effectiveQty = widthM;
@@ -377,7 +391,7 @@ const { data: employeesData = [] } = useQuery({
                     <TableBody>
                       {formData.items.map((item, index) => {
                         const material = materialsData.find(m => m.id === parseInt(item.materialId));
-                        const showSecond = material && material.unit === 'м2';
+                        const showSecond = isM2(material);
                         return (
                           <TableRow key={index}>
                             <TableCell>
@@ -394,7 +408,7 @@ const { data: employeesData = [] } = useQuery({
                             </TableCell>
                             <TableCell>
                               <Box display="flex" gap={0.5} alignItems="center">
-                                <TextField size="small" type="number" value={item.qty1value} onChange={(e) => updateItem(index, 'qty1value', e.target.value)} inputProps={{ min: 0, step: 0.001 }} placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'} sx={{ width: 100 }} />
+                                <TextField size="small" type="number" value={item.qty1value} onChange={(e) => updateItem(index, 'qty1value', e.target.value)} inputProps={{ min: 0, step: 0.001 }}                         placeholder={isM2(material) ? 'Ширина' : 'Длина'} sx={{ width: 100 }} />
                                 <Select size="small" value={item.qty1unit || 'м'} onChange={(e) => updateItem(index, 'qty1unit', e.target.value)} sx={{ width: 70 }}>
                                   <MenuItem value="м">м</MenuItem>
                                   <MenuItem value="мм">мм</MenuItem>
@@ -482,7 +496,7 @@ const { data: employeesData = [] } = useQuery({
   }
 
   if (mode === 'edit') {
-    return <EditOrder orderNumber={order?.orderNumber} onSuccess={() => {}} />;
+    return <EditOrder orderNumber={order?.orderNumber} onSuccess={() => navigate(`/orders/${order?.id}`)} />;
   }
 
   return (
@@ -524,7 +538,7 @@ const { data: employeesData = [] } = useQuery({
             </Tabs>
             <Divider />
             <Box sx={{ p: 3 }}>
-              {activeTab === 0 && <PositionsTab materials={order?.materials || []} items={order?.items || []} />}
+              {activeTab === 0 && <PositionsTab materials={order?.materials || []} items={order?.items || []} orderId={order?.id} />}
               {activeTab === 1 && <StagesTab stages={order?.stages || []} />}
               {activeTab === 2 && <PaymentsTab payments={order?.payments || []} />}
               {activeTab === 3 && <CommentsTab comments={order?.comments || []} />}

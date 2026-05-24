@@ -84,6 +84,10 @@ public class Order extends BaseEntity {
     @JoinColumn(name = "manager_id")
     private Employee manager;
 
+    /** Процент добавки клиента (priceplus) */
+    @Column(name = "priceplus", precision = 10, scale = 2)
+    private BigDecimal priceplus;
+
     /** Дата и время запуска заказа в производство */
     @Column(name = "launched_at")
     private LocalDateTime launchedAt;

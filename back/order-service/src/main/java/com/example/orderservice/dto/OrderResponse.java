@@ -44,6 +44,8 @@ public class OrderResponse {
     private LocalDate dueDate;
     /** Менеджер */
     private EmployeeResponse manager;
+    /** Процент добавки клиента (priceplus) */
+    private BigDecimal priceplus;
     /** Наличие документов */
     private Boolean hasDocuments;
     /** Дата создания */

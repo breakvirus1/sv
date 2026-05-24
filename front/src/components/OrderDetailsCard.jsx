@@ -17,6 +17,14 @@ const OrderDetailsCard = ({ order }) => {
           <Typography variant="body2" color="text.secondary">Менеджер</Typography>
           <Typography variant="body1">{order?.manager?.fullName || '—'}</Typography>
         </div>
+        <div>
+          <Typography variant="body2" color="text.secondary">Наценка (priceplus)</Typography>
+          <Typography variant="body1">{order?.priceplus != null ? `${order.priceplus}%` : '—'}</Typography>
+        </div>
+        <div>
+          <Typography variant="body2" color="text.secondary">Итоговая сумма</Typography>
+          <Typography variant="body1" fontWeight={600}>{order?.totalAmount != null ? `${Number(order.totalAmount).toFixed(2)} ₽` : '—'}</Typography>
+        </div>
         <Divider />
         <div>
           <Typography variant="body2" color="text.secondary">Изменен</Typography>

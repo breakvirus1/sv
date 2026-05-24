@@ -99,7 +99,12 @@ public class OrderService {
     public OrderResponse getOrderById(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
-        return mapOrderResponse(order);
+        // Force refresh from DB to avoid stale cache
+        entityManager.refresh(order);
+        System.out.println("=== GET ORDER " + id + ": priceplus=" + order.getPriceplus() + ", totalAmount=" + order.getTotalAmount());
+        OrderResponse response = mapOrderResponse(order);
+        System.out.println("=== GET ORDER RESPONSE: priceplus=" + response.getPriceplus());
+        return response;
     }
 
     /**
@@ -176,6 +181,7 @@ public class OrderService {
         }
 
         order.setDescription(request.getDescription());
+        order.setPriceplus(request.getPriceplus());
         // Use provided total amount if available, otherwise calculate from items
         BigDecimal providedTotal = request.getTotalAmount() != null ? request.getTotalAmount() : BigDecimal.ZERO;
         order.setTotalAmount(providedTotal);
@@ -427,6 +433,11 @@ public class OrderService {
             order.setManager(manager);
         }
 
+        if (request.getPriceplus() != null) {
+            order.setPriceplus(request.getPriceplus());
+            System.out.println("=== ORDER UPDATE: set priceplus = " + request.getPriceplus() + " for order " + id);
+        }
+
         List<OrderMaterialCreateRequest> itemRequests = request.getItems();
         if (itemRequests != null) {
             List<OrderMaterial> existingMaterials = new ArrayList<>(order.getMaterials());
@@ -633,10 +644,15 @@ public class OrderService {
             } else {
                 order.setTotalAmount(total);
             }
+            System.out.println("=== ORDER UPDATE: saving order " + id + " with priceplus=" + order.getPriceplus() + ", totalAmount=" + order.getTotalAmount());
             orderRepository.save(order);
+            entityManager.flush();
+            System.out.println("=== ORDER UPDATE: saved order " + id + ", priceplus now=" + order.getPriceplus());
         }
 
-        return mapOrderResponse(order);
+        OrderResponse response = mapOrderResponse(order);
+        System.out.println("=== ORDER UPDATE: response priceplus=" + response.getPriceplus() + ", totalAmount=" + response.getTotalAmount());
+        return response;
     }
 
     /**

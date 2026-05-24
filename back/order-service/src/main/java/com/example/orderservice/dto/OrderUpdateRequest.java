@@ -23,6 +23,8 @@ public class OrderUpdateRequest {
     private LocalDate dueDate;
     /** ID менеджера */
     private Long managerId;
+    /** Процент добавки клиента (priceplus) */
+    private BigDecimal priceplus;
     /** Позиции заказа (материалы, ширина и высота в метрах) */
     private List<OrderMaterialCreateRequest> items;
     /** Итоговая сумма заказа (с учетом наценки priceplus) */
