@@ -96,16 +96,11 @@ public class OrderService {
       * Получить детальную информацию о заказе со всеми связанными сущностями.
       */
     @Transactional(readOnly = true)
-    public OrderResponse getOrderById(Long id) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
-        // Force refresh from DB to avoid stale cache
-        entityManager.refresh(order);
-        System.out.println("=== GET ORDER " + id + ": priceplus=" + order.getPriceplus() + ", totalAmount=" + order.getTotalAmount());
-        OrderResponse response = mapOrderResponse(order);
-        System.out.println("=== GET ORDER RESPONSE: priceplus=" + response.getPriceplus());
-        return response;
-    }
+public OrderResponse getOrderById(Long id) {
+         Order order = orderRepository.findById(id)
+                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+         return mapOrderResponse(order);
+     }
 
     /**
      * Получить заказ по его номеру (orderNumber).
@@ -312,13 +307,15 @@ public class OrderService {
                 }
 
                 // Material cost = total - operations subtotal
-                BigDecimal materialCost = totalPrice.subtract(operationsSubtotal);
-
-                // Compute effective area for material quantity
+BigDecimal materialCost = totalPrice.subtract(operationsSubtotal);
                 BigDecimal wasteCoeff = material.getWasteCoefficient();
                 if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
                 BigDecimal materialPrice = material.getPrice();
                 BigDecimal effectiveArea = materialCost.divide(materialPrice.multiply(wasteCoeff), 2, RoundingMode.HALF_UP);
+
+                // Calculate cost with priceplus
+                BigDecimal priceplus = saved.getPriceplus() != null ? saved.getPriceplus() : BigDecimal.ZERO;
+                BigDecimal costPriceplus = totalPrice.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
 
                 // Create OrderItem
                 OrderItem orderItem = new OrderItem();
@@ -337,6 +334,7 @@ public class OrderService {
                 orderMaterial.setQuantity(effectiveArea);
                 orderMaterial.setWasteCoefficient(wasteCoeff);
                 orderMaterial.setCost(materialCost);
+                orderMaterial.setCostPriceplus(costPriceplus);
                 orderMaterial.setWidthM(itemReq.getWidthM());
                 orderMaterial.setHeightM(itemReq.getHeightM());
                 order.getMaterials().add(orderMaterial);
@@ -358,6 +356,10 @@ public class OrderService {
             if (request.getTotalAmount() == null) {
                 saved.setTotalAmount(total);
             }
+            // Calculate totalWithPriceplus
+            BigDecimal priceplus = saved.getPriceplus() != null ? saved.getPriceplus() : BigDecimal.ZERO;
+            BigDecimal totalWithPriceplus = total.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+            saved.setTotalWithPriceplus(totalWithPriceplus.setScale(2, RoundingMode.HALF_UP));
             orderRepository.save(saved);
         }
 
@@ -433,10 +435,9 @@ public class OrderService {
             order.setManager(manager);
         }
 
-        if (request.getPriceplus() != null) {
-            order.setPriceplus(request.getPriceplus());
-            System.out.println("=== ORDER UPDATE: set priceplus = " + request.getPriceplus() + " for order " + id);
-        }
+if (request.getPriceplus() != null) {
+             order.setPriceplus(request.getPriceplus());
+         }
 
         List<OrderMaterialCreateRequest> itemRequests = request.getItems();
         if (itemRequests != null) {
@@ -573,6 +574,10 @@ public class OrderService {
                 BigDecimal materialPrice = material.getPrice();
                 BigDecimal effectiveArea = materialCost.divide(materialPrice.multiply(wasteCoeff), 2, RoundingMode.HALF_UP);
 
+                // Calculate cost with priceplus
+                BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : BigDecimal.ZERO;
+                BigDecimal costPriceplus = totalPrice.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+
                 if (itemReq.getId() != null) {
                     OrderMaterial om = existingById.get(itemReq.getId());
                     if (om != null) {
@@ -583,6 +588,7 @@ public class OrderService {
                         om.setQuantity(effectiveArea);
                         om.setWasteCoefficient(wasteCoeff);
                         om.setCost(materialCost);
+                        om.setCostPriceplus(costPriceplus);
 
                         // Update operations for the linked order item
                         OrderItem orderItem = om.getOrderItem();
@@ -617,6 +623,7 @@ public class OrderService {
                     om.setQuantity(effectiveArea);
                     om.setWasteCoefficient(wasteCoeff);
                     om.setCost(materialCost);
+                    om.setCostPriceplus(costPriceplus);
                     om.setWidthM(widthM);
                     om.setHeightM(heightM);
                     om.setReadyDate(itemReq.getReadyDate());
@@ -644,16 +651,16 @@ public class OrderService {
             } else {
                 order.setTotalAmount(total);
             }
-            System.out.println("=== ORDER UPDATE: saving order " + id + " with priceplus=" + order.getPriceplus() + ", totalAmount=" + order.getTotalAmount());
-            orderRepository.save(order);
-            entityManager.flush();
-            System.out.println("=== ORDER UPDATE: saved order " + id + ", priceplus now=" + order.getPriceplus());
-        }
+// Calculate totalWithPriceplus
+             BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : BigDecimal.ZERO;
+             BigDecimal totalWithPriceplus = total.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+             order.setTotalWithPriceplus(totalWithPriceplus.setScale(2, RoundingMode.HALF_UP));
+             orderRepository.save(order);
+         }
 
-        OrderResponse response = mapOrderResponse(order);
-        System.out.println("=== ORDER UPDATE: response priceplus=" + response.getPriceplus() + ", totalAmount=" + response.getTotalAmount());
-        return response;
-    }
+OrderResponse response = mapOrderResponse(order);
+         return response;
+     }
 
     /**
      * Добавить оплату к заказу.
@@ -795,6 +802,7 @@ private void recalculatePaidAmount(Long orderId) {
                 om.getReadyDate(),
                 om.getWasteCoefficient(),
                 om.getCost(),
+                om.getCostPriceplus(),
                 opSummaries
         );
     }
@@ -852,5 +860,56 @@ private void recalculatePaidAmount(Long orderId) {
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
+
+/**
+      * Получить расчитанные позиции заказа с учетом priceplus.
+      * Используется фронтендом для отображения расчетов в реальном времени.
+      */
+@Transactional(readOnly = true)
+      public CalculatedOrderResponse getCalculatedOrder(Long orderId) {
+          Order order = orderRepository.findById(orderId)
+                  .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+
+          // Use order's priceplus, or fallback to client's default priceplus
+          BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : 
+                  (order.getClient() != null && order.getClient().getPriceplus() != null ? order.getClient().getPriceplus() : BigDecimal.ZERO);
+
+         // Total without priceplus is the sum of cost (base cost before priceplus)
+         BigDecimal totalWithoutPriceplus = order.getMaterials().stream()
+                 .map(om -> om.getCost() != null ? om.getCost() : BigDecimal.ZERO)
+                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+// Total with priceplus - always calculate from cost since stored costPriceplus may be 0 due to null priceplus at creation
+          BigDecimal totalWithPriceplus = order.getMaterials().stream()
+                  .map(om -> {
+                      BigDecimal cost = om.getCost() != null ? om.getCost() : BigDecimal.ZERO;
+                      return cost.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+                  })
+                  .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+List<MaterialCalculation> materials = order.getMaterials().stream()
+                  .map(om -> {
+                      BigDecimal cost = om.getCost() != null ? om.getCost() : BigDecimal.ZERO;
+                      BigDecimal costPriceplus = cost.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+                      return new MaterialCalculation(
+                              om.getId(),
+                              om.getMaterial() != null ? om.getMaterial().getId() : null,
+                              om.getMaterial() != null ? om.getMaterial().getName() : "—",
+                              om.getWidthM(),
+                              om.getHeightM(),
+                              om.getCost(),
+                              costPriceplus
+                      );
+                  })
+                  .collect(Collectors.toList());
+
+return new CalculatedOrderResponse(
+                  orderId,
+                  priceplus,
+                  totalWithoutPriceplus.setScale(2, RoundingMode.HALF_UP),
+                  totalWithPriceplus.setScale(2, RoundingMode.HALF_UP),
+                  materials
+          );
+      }
 
 }

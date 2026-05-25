@@ -46,6 +46,8 @@ public class OrderResponse {
     private EmployeeResponse manager;
     /** Процент добавки клиента (priceplus) */
     private BigDecimal priceplus;
+    /** Общая сумма заказа с учетом priceplus */
+    private BigDecimal totalWithPriceplus;
     /** Наличие документов */
     private Boolean hasDocuments;
     /** Дата создания */

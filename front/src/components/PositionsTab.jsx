@@ -1,24 +1,34 @@
 import { Box, Paper, Typography, Chip } from '@mui/material';
 
-const PositionsTab = ({ materials = [], items = [], orderId }) => {
-  const positions = (materials && materials.length > 0) ? materials : items;
+const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) => {
+  console.log('=== PositionsTab render ===');
+  console.log('orderId:', orderId);
+  console.log('calculatedData available:', !!calculatedData);
+  console.log('calculatedData materials count:', calculatedData?.materials?.length);
+  console.log('materials count:', materials?.length);
+  console.log('items count:', items?.length);
+  
+  // Use calculated data if available (with priceplus), otherwise fall back to direct data
+  const positions = calculatedData?.materials || (materials && materials.length > 0) ? materials : items;
 
   if (!positions || positions.length === 0) {
     return <Typography>Нет позиций в заказе</Typography>;
   }
 
-  const isMaterialBased = (materials && materials.length > 0);
+  const isCalculated = !!calculatedData;
+  const isMaterialBased = (materials && materials.length > 0) || isCalculated;
 
   return (
     <Box>
       {positions.map((pos) => {
-        const mat = isMaterialBased ? pos.material : null;
-        const name = mat?.name || pos.name || '—';
-        const unit = mat?.unit || '';
-        const widthM = pos.widthM != null ? pos.widthM : null;
-        const heightM = pos.heightM != null ? pos.heightM : null;
+        const mat = isMaterialBased && !isCalculated ? pos.material : null;
+        const name = isCalculated ? pos.materialName : (mat?.name || pos.name || '—');
+        const unit = isCalculated ? '' : (mat?.unit || '');
+        const widthM = isCalculated ? pos.widthM : (pos.widthM != null ? pos.widthM : null);
+        const heightM = isCalculated ? pos.heightM : (pos.heightM != null ? pos.heightM : null);
         const quantity = pos.quantity != null ? pos.quantity : (pos.widthM != null ? `${pos.widthM} м` : '—');
-        const cost = pos.cost;
+        // Use costPriceplus if available (calculated), otherwise use cost
+        const cost = isCalculated ? pos.costPriceplus : pos.cost;
         const readyDate = pos.readyDate || '—';
         const operations = pos.operations || [];
 

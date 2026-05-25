@@ -209,4 +209,19 @@ public class OrderController {
         java.math.BigDecimal total = orderService.calculateOpenOrderTotal(id);
         return ResponseEntity.ok(total);
     }
+
+    /**
+     * Получить расчитанные позиции заказа с учетом priceplus и общую сумму.
+     * Используется фронтендом для отображения расчетов в реальном времени.
+     *
+     * Пример: GET /api/v1/orders/1/calculated
+     */
+    @Operation(summary = "Получить позиции заказа с расчетами priceplus")
+    @GetMapping("/{id}/calculated")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+    public ResponseEntity<CalculatedOrderResponse> getCalculatedOrder(
+            @Parameter(description = "ID заказа") @PathVariable Long id) {
+        CalculatedOrderResponse response = orderService.getCalculatedOrder(id);
+        return ResponseEntity.ok(response);
+    }
 }

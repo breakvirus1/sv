@@ -51,38 +51,46 @@ const OrderDetail = ({ mode = 'view' }) => {
   const { user } = useAuth();
   const username = user?.username;
 
-  // Create mode state
-  const [formData, setFormData] = useState({
-    clientId: '',
-    description: '',
-    orderDate: new Date().toISOString().split('T')[0],
-    dueDate: '',
-    items: []
-  });
-  const [priceplus, setPriceplus] = useState(0);
-  const [calculatedItems, setCalculatedItems] = useState([]);
+// Create mode state
+   const [formData, setFormData] = useState({
+     clientId: '',
+     description: '',
+     orderDate: new Date().toISOString().split('T')[0],
+     dueDate: '',
+     items: []
+   });
+   const [priceplus, setPriceplus] = useState(0);
+   const [totalAmount, setTotalAmount] = useState(0);
+  
 
-  // Calculate order total with priceplus percentage
+    // Helper to determine endpoint based on identifier
+    const getOrderEndpoint = (identifier) => {
+      // If identifier is exactly 14 digits, treat as orderNumber (format: YYYYMMDDHHmmss)
+      if (/^\d{14}$/.test(identifier)) {
+        return `/api/v1/orders/number/${identifier}`;
+      }
+      return `/api/v1/orders/${identifier}`;
+    };
 
-  // Helper to determine endpoint based on identifier
-  const getOrderEndpoint = (identifier) => {
-    // If identifier is exactly 14 digits, treat as orderNumber (format: YYYYMMDDHHmmss)
-    if (/^\d{14}$/.test(identifier)) {
-      return `/api/v1/orders/number/${identifier}`;
-    }
-    return `/api/v1/orders/${identifier}`;
-  };
+// ==================== Queries ====================
+   const { data: order, isLoading, error } = useQuery({
+     queryKey: ['order', id],
+     queryFn: async () => {
+       const endpoint = getOrderEndpoint(id);
+       const response = await api.get(endpoint);
+       return response.data;
+     },
+     enabled: mode !== 'create'
+   });
 
-  // ==================== Queries ====================
-  const { data: order, isLoading, error } = useQuery({
-    queryKey: ['order', id],
-    queryFn: async () => {
-      const endpoint = getOrderEndpoint(id);
-      const response = await api.get(endpoint);
-      return response.data;
-    },
-    enabled: mode !== 'create'
-  });
+const { data: calculatedData } = useQuery({
+       queryKey: ['order-calculated', id],
+       queryFn: async () => {
+         const response = await api.get(`/api/v1/orders/${id}/calculated`);
+         return response.data;
+       },
+       enabled: mode !== 'create' && !!order
+     });
 
   const { data: clientsData = [] } = useQuery({
     queryKey: ['clients'],
@@ -122,13 +130,8 @@ const { data: employeesData = [] } = useQuery({
     enabled: mode === 'edit'
   });
 
-  // Calculate total with priceplus
-  const totalOrderAmount = useMemo(() => {
-    if (calculatedItems.length > 0) {
-      return calculatedItems.reduce((sum, item) => sum + (item.calculatedCost || 0), 0);
-    }
-    return 0;
-  }, [calculatedItems]);
+// Get total from order (totalAmount from orders table)
+    const totalOrderAmount = order?.totalAmount ?? 0;
 
 // ==================== State ====================
     const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -187,15 +190,7 @@ const { data: employeesData = [] } = useQuery({
         dueDate: formData.dueDate || null,
         managerId: currentEmployee.id,
         priceplus: priceplus,
-        items: calculatedItems.length > 0 
-          ? calculatedItems.map(item => ({
-              materialId: parseInt(item.materialId),
-              widthM: item.widthM,
-              heightM: item.heightM,
-              readyDate: item.readyDate || null,
-              calculatedCost: item.calculatedCost
-            }))
-          : orderMaterials
+        items: orderMaterials
       };
 
       await api.post('/api/v1/orders', orderData);
@@ -333,34 +328,7 @@ const { data: employeesData = [] } = useQuery({
               <Grid item xs={12} md={6}>
                 <TextField fullWidth label="Процент добавки (priceplus)" type="number" value={priceplus} onChange={(e) => setPriceplus(parseFloat(e.target.value) || 0)} margin="normal" inputProps={{ min: -100, max: 100, step: 0.1 }} />
               </Grid>
-              <Grid item xs={12} md={6}>
-                <Button variant="contained" onClick={() => {
-                  const calculated = formData.items.map(item => {
-                    const material = materialsData.find(m => m.id === parseInt(item.materialId));
-                    if (!material) return { ...item, calculatedCost: 0 };
-                    const toMeters = (value, unit) => {
-                      const v = parseFloat(value) || 0;
-                      return unit === 'мм' ? v / 1000 : v;
-                    };
-                    const widthM = toMeters(item.qty1value, item.qty1unit);
-                        const heightM = isM2(material) ? toMeters(item.qty2value, item.qty2unit) : 0;
-                    let effectiveQty = 0;
-                    if (isM2(material)) {
-                      effectiveQty = widthM * heightM;
-                    } else if (isLinearMeter(material)) {
-                      effectiveQty = widthM;
-                    } else {
-                      effectiveQty = widthM;
-                    }
-                    const baseCost = material.price * effectiveQty * (material.wasteCoefficient || 1);
-                    const calculatedCost = baseCost * (1 + priceplus / 100);
-                    return { ...item, calculatedCost };
-                  });
-                  setCalculatedItems(calculated);
-                }}>
-                  Рассчитать
-                </Button>
-              </Grid>
+              <Grid item xs={12} md={6}></Grid>
               <Grid item xs={12} md={6}>
                 <TextField fullWidth label="Дата заказа" name="orderDate" type="date" value={formData.orderDate} onChange={(e) => setFormData(prev => ({ ...prev, orderDate: e.target.value }))} required margin="normal" InputLabelProps={{ shrink: true }} />
               </Grid>
@@ -537,17 +505,17 @@ const { data: employeesData = [] } = useQuery({
               <Tab label="Комментарии" />
             </Tabs>
             <Divider />
-            <Box sx={{ p: 3 }}>
-              {activeTab === 0 && <PositionsTab materials={order?.materials || []} items={order?.items || []} orderId={order?.id} />}
-              {activeTab === 1 && <StagesTab stages={order?.stages || []} />}
-              {activeTab === 2 && <PaymentsTab payments={order?.payments || []} />}
-              {activeTab === 3 && <CommentsTab comments={order?.comments || []} />}
-            </Box>
+<Box sx={{ p: 3 }}>
+               {activeTab === 0 && <PositionsTab materials={order?.materials || []} items={order?.items || []} orderId={order?.id} calculatedData={calculatedData} />}
+               {activeTab === 1 && <StagesTab stages={order?.stages || []} />}
+               {activeTab === 2 && <PaymentsTab payments={order?.payments || []} />}
+               {activeTab === 3 && <CommentsTab comments={order?.comments || []} />}
+             </Box>
           </Paper>
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <OrderDetailsCard order={order} />
+          <OrderDetailsCard order={order} calculatedData={calculatedData} />
         </Grid>
       </Grid>
 

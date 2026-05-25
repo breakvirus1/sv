@@ -472,10 +472,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           total += material.price * effectiveQty * (material.wasteCoefficient || 1);
         }
       }
-      // Применяем наценку priceplus
-      if (priceplus != null && priceplus > 0) {
-        total = total * (1 + priceplus / 100);
-      }
+      // Note: priceplus is applied by backend when order is created
       setTotalOrderAmount(total);
     };
 
@@ -484,7 +481,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     } else {
       setTotalOrderAmount(0);
     }
-  }, [formData.items, materialsData, selectedClient, priceplus]);
+  }, [formData.items, materialsData, selectedClient]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -541,8 +538,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         dueDate: formData.dueDate || null,
         managerId: currentEmployee.id,
         priceplus: priceplus,
-        items: orderMaterials,
-        totalAmount: totalOrderAmount
+        items: orderMaterials
       };
 
       await api.post('/api/v1/orders', orderData);

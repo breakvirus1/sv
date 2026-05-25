@@ -30,6 +30,11 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     @Query("UPDATE Order o SET o.debtAmount = o.totalAmount - o.paidAmount WHERE o.id = :id")
     void updateDebtAmount(Long id);
 
+    @Modifying
+    @Transactional
+    @Query("UPDATE Order o SET o.totalWithPriceplus = :amount WHERE o.id = :id")
+    void updateTotalWithPriceplus(Long id, java.math.BigDecimal amount);
+
     @EntityGraph(attributePaths = {"client", "manager"})
     @Query("SELECT o FROM Order o WHERE o.orderNumber = :orderNumber AND o.deleted = false")
     Order findByOrderNumber(@Param("orderNumber") String orderNumber);

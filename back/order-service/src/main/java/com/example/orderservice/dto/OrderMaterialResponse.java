@@ -24,5 +24,7 @@ public class OrderMaterialResponse {
     private LocalDate readyDate;
     private BigDecimal wasteCoefficient;
     private BigDecimal cost;
+    /** Стоимость с учетом priceplus */
+    private BigDecimal costPriceplus;
     private List<OrderOperationSummary> operations;
 }

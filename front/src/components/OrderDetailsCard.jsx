@@ -1,6 +1,9 @@
 import { Box, Typography, Divider, Paper } from '@mui/material';
 
-const OrderDetailsCard = ({ order }) => {
+const OrderDetailsCard = ({ order, calculatedData }) => {
+  const displayPriceplus = calculatedData?.priceplus ?? order?.priceplus;
+  const displayTotalWithPriceplus = calculatedData?.totalWithPriceplus ?? order?.totalWithPriceplus;
+  
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>Детали</Typography>
@@ -19,11 +22,15 @@ const OrderDetailsCard = ({ order }) => {
         </div>
         <div>
           <Typography variant="body2" color="text.secondary">Наценка (priceplus)</Typography>
-          <Typography variant="body1">{order?.priceplus != null ? `${order.priceplus}%` : '—'}</Typography>
+          <Typography variant="body1">{displayPriceplus != null ? `${displayPriceplus}%` : '—'}</Typography>
         </div>
         <div>
-          <Typography variant="body2" color="text.secondary">Итоговая сумма</Typography>
-          <Typography variant="body1" fontWeight={600}>{order?.totalAmount != null ? `${Number(order.totalAmount).toFixed(2)} ₽` : '—'}</Typography>
+          <Typography variant="body2" color="text.secondary">Сумма без наценки</Typography>
+          <Typography variant="body1">{order?.totalAmount != null ? `${Number(order.totalAmount).toFixed(2)} ₽` : '—'}</Typography>
+        </div>
+        <div>
+          <Typography variant="body2" color="text.secondary">Сумма с наценкой</Typography>
+          <Typography variant="body1" fontWeight={600}>{displayTotalWithPriceplus != null ? `${Number(displayTotalWithPriceplus).toFixed(2)} ₽` : (order?.totalAmount != null ? `${Number(order.totalAmount).toFixed(2)} ₽` : '—')}</Typography>
         </div>
         <Divider />
         <div>
