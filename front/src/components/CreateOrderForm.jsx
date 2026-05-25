@@ -42,7 +42,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const { user } = useAuth();
   const username = user?.username;
 
-  // Form state (без номера заказа и менеджера)
+  // ── State: Form Data ──
   const [formData, setFormData] = useState({
     clientId: '',
     description: '',
@@ -53,18 +53,19 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [priceplus, setPriceplus] = useState(0);
-  // Operations dialog state
+
+  // ── State: Dialogs ──
   const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
-  // Unified operation parameters dialog state
   const [operationParamsDialog, setOperationParamsDialog] = useState({
     open: false,
     itemIndex: null,
     pendingOps: [],
     params: {}
   });
-
-  // Клиентский диалог создания нового клиента
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [orderAmountDialog, setOrderAmountDialog] = useState({ open: false, sumorder: 0 });
+
+  // ── State: New Client Form ──
   const [newClientForm, setNewClientForm] = useState({
     name: '',
     type: 'PRIVATE',
@@ -73,8 +74,6 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     email: '',
     priceplus: null
   });
-  // Диалог редактирования суммы заказа
-  const [orderAmountDialog, setOrderAmountDialog] = useState({ open: false, sumorder: 0 });
 
   // Загрузка данных
   const { data: clientsData = [], error: clientsError } = useQuery({
@@ -255,22 +254,22 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
   const handleSaveOperationParams = () => {
     const { itemIndex, pendingOps, params } = operationParamsDialog;
-    // Combine pendingOps with their configured params, converting types as needed
+    // Объединяем pendingOps с их параметрами, преобразуя типы при необходимости
     const opsWithParams = pendingOps.map(op => {
       const baseOp = operationsData.find(o => o.id === op.id);
       const opParams = params[op.id] || {};
-      // Convert eyeletId to number if present
+      // Преобразуем eyeletId в число если присутствует
       if (opParams.eyeletId !== undefined) {
         opParams.eyeletId = opParams.eyeletId ? parseInt(opParams.eyeletId, 10) : null;
       }
       return { ...baseOp, ...opParams };
     });
 
-    // Get existing operations and update/add the special ones
+    // Получаем существующие операции и обновляем/добавляем специальные
     const currentOps = formData.items[itemIndex].operations || [];
-    // Remove any existing special ops with same ids to avoid duplicates
+    // Удаляем существующие специальные операции с теми же id чтобы избежать дубликатов
     const filteredOps = currentOps.filter(cop => !pendingOps.some(pop => pop.id === cop.id));
-    // Combine: existing non-special ops + new special ops with params
+    // Объединяем: существующие не-специальные операции + новые специальные с параметрами
     const finalOps = [...filteredOps, ...opsWithParams];
 
     updateItemOperations(itemIndex, finalOps);
@@ -291,13 +290,13 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     const selectedOpsData = operationsData.filter(op => selectedOps.includes(op.id));
     const currentOps = formData.items[itemIndex].operations || [];
 
-    // Check for special operations (hem or eyelet) - case-insensitive
+    // Проверяем специальные операции (подворот или люверс) - нечувствительно к регистру
     const specialOps = selectedOpsData.filter(op =>
       op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
     );
 
     if (specialOps.length > 0) {
-      // Check if any special ops already have params in currentOps
+      // Проверяем, есть ли у специальных операций уже параметры в currentOps
       const allAlreadyConfigured = specialOps.every(sop => {
         const existing = currentOps.find(cop => cop.id === sop.id);
         if (sop.name.toLowerCase().includes('люверс')) {
@@ -310,7 +309,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       });
 
       if (allAlreadyConfigured) {
-        // Preserve existing params for all special ops
+        // Сохраняем существующие параметры для всех специальных операций
         const ops = selectedOpsData.map(op => {
           const existing = currentOps.find(cop => cop.id === op.id);
           return existing ? { ...op, ...existing } : op;
@@ -320,7 +319,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         return;
       }
 
-      // Initialize params for all special ops, preserving existing if available
+      // Инициализируем параметры для всех специальных операций, сохраняя существующие если есть
       const initialParams = {};
       const newPendingOps = [];
 
@@ -365,7 +364,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
       handleCloseOperationsDialog();
     } else {
-      // No special operations, save directly
+      // Нет специальных операций, сохраняем сразу
       updateItemOperations(itemIndex, selectedOpsData);
       handleCloseOperationsDialog();
     }
@@ -405,10 +404,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     else navigate('/orders');
   };
 
-  // State for calculated total
+  // Состояние для рассчитанного итога
   const [totalOrderAmount, setTotalOrderAmount] = useState(0);
 
-  // Recalculate total when items change
+  // Пересчитываем итог при изменении позиций
   useEffect(() => {
     const calculateTotal = async () => {
       let total = 0;
@@ -431,7 +430,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           continue;
         }
 
-        // Prepare calculation request
+        // Подготовка запроса расчета
         const requestData = {
           materialId: material.id,
           materialType: material.name.toLowerCase().includes('баннер') ? 'BANNER' : 'PLENKA',
@@ -440,14 +439,14 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           operationIds: item.operations.map(op => op.id),
         };
 
-        // Add eyelet parameters if present
+        // Добавляем параметры люверса если есть
         const eyeletOp = item.operations.find(op => op.eyeletId);
         if (eyeletOp) {
           requestData.eyeletId = eyeletOp.eyeletId;
           requestData.eyeletStepCm = eyeletOp.eyeletStepCm;
         }
 
-        // Add hem parameters if present (take first hem operation)
+        // Добавляем параметры подвороты если есть (берем первую операцию)
         const hemOp = item.operations.find(op => op.hemWidthMm && op.hemCount);
         if (hemOp) {
           requestData.podvorotMmHorizontal = hemOp.hemWidthMm;
@@ -460,7 +459,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           total += response.data.totalPrice;
         } catch (error) {
           console.error('Error calculating item cost:', error);
-          // Fallback to simple calculation
+          // Резервный простой расчет
           let effectiveQty = 0;
           if (isM2(material)) {
             effectiveQty = widthM * heightM;
@@ -472,7 +471,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           total += material.price * effectiveQty * (material.wasteCoefficient || 1);
         }
       }
-      // Note: priceplus is applied by backend when order is created
+      // Примечание: priceplus применяется бекендом при создании заказа
       setTotalOrderAmount(total);
     };
 
@@ -483,7 +482,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     }
   }, [formData.items, materialsData, selectedClient]);
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     if (!currentEmployee) {
       setNotification({ open: true, message: 'Менеджер не определен. Перелогинитесь.', severity: 'error' });
@@ -491,38 +490,41 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     }
     setIsSubmitting(true);
     try {
+      // Конвертация значения в метры в зависимости от единицы измерения
       const toMeters = (value, unit) => {
         const v = parseFloat(value) || 0;
         return unit === 'мм' ? v / 1000 : v;
       };
 
+      // Формирование массива материалов заказа из формы
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
-         const widthM = toMeters(item.qty1value, item.unit);
-         const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : null;
 
-        // Find eyelet operation if any
+        const widthM = toMeters(item.qty1value, item.unit);
+        const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : null;
+
+        // Поиск операции люверс если есть
         const eyeletOp = item.operations.find(op => op.eyeletId);
         const eyeletId = eyeletOp?.eyeletId || null;
         const eyeletStepCm = eyeletOp?.eyeletStepCm || null;
 
-        // Find hem operation if any
+        // Поиск операции подворот если есть
         const hemOp = item.operations.find(op => op.hemWidthMm && op.hemCount);
         const podvorotMmHorizontal = hemOp?.hemWidthMm || null;
         const podvorotMmVertical = hemOp?.hemWidthMm || null;
         const podvorotCountPerSide = hemOp?.hemCount || null;
 
-         return {
-           materialId: parseInt(item.materialId),
-           widthM,
+        return {
+          materialId: parseInt(item.materialId),
+          widthM,
           heightM: isM2(material) ? heightM : null,
-           operations: item.operations.map(op => ({
-             operationId: op.id,
-             widthMm: op.widthMm != null ? op.widthMm : null,
-             heightMm: op.heightMm != null ? op.heightMm : null
-           })),
-           readyDate: item.readyDate || null,
+          operations: item.operations.map(op => ({
+            operationId: op.id,
+            widthMm: op.widthMm != null ? op.widthMm : null,
+            heightMm: op.heightMm != null ? op.heightMm : null
+          })),
+          readyDate: item.readyDate || null,
           ...(eyeletId !== null && { eyeletId }),
           ...(eyeletStepCm !== null && { eyeletStepCm }),
           ...(podvorotMmHorizontal !== null && { podvorotMmHorizontal }),
@@ -530,6 +532,22 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           ...(podvorotCountPerSide !== null && { podvorotCountPerSide })
         };
       });
+
+      // Расчет итогов для логирования
+      let frontendTotal = 0;
+      formData.items.forEach((item, idx) => {
+        const material = materialsData.find(m => m.id === parseInt(item.materialId));
+        if (material) {
+          const widthM = toMeters(item.qty1value, item.unit);
+          const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 0;
+          const wasteCoeff = material.wasteCoefficient || 1;
+          const materialCost = widthM * (heightM || 1) * material.price * wasteCoeff;
+          const opsCost = (item.operations || []).reduce((sum, op) => sum + (op.subtotal || 0), 0);
+          frontendTotal += materialCost + opsCost;
+          console.log(`[CreateOrderForm] Item ${idx}: material=${material.name}, w=${widthM}, h=${heightM}, wasteCoeff=${wasteCoeff}, matCost=${materialCost.toFixed(2)}, opsCost=${opsCost.toFixed(2)}`);
+        }
+      });
+      const frontendTotalWithPriceplus = frontendTotal * (1 + priceplus / 100);
 
       const orderData = {
         clientId: parseInt(formData.clientId),
@@ -541,10 +559,29 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         items: orderMaterials
       };
 
-      await api.post('/api/v1/orders', orderData);
+      console.log('=== CREATE ORDER FORM SUBMIT ===');
+      console.log('Client ID:', formData.clientId);
+      console.log('Items count:', formData.items.length);
+      console.log('Priceplus:', priceplus);
+      console.log('Frontend total (without priceplus):', frontendTotal.toFixed(2));
+      console.log('Frontend total (with priceplus):', frontendTotalWithPriceplus.toFixed(2));
+      console.log('Payload:', JSON.stringify(orderData, null, 2));
+
+      const response = await api.post('/api/v1/orders', orderData);
+
+      console.log('=== CREATE ORDER FORM RESPONSE ===');
+      console.log('Created order ID:', response.data.id);
+      console.log('Created order number:', response.data.orderNumber);
+      console.log('Saved priceplus:', response.data.priceplus);
+      console.log('Saved totalAmount (without priceplus):', response.data.totalAmount);
+      console.log('Saved totalWithPriceplus:', response.data.totalWithPriceplus);
+      console.log('Comparison - Frontend vs Backend totalWithPriceplus:');
+      console.log('  Frontend:', frontendTotalWithPriceplus.toFixed(2));
+      console.log('  Backend:', response.data.totalWithPriceplus?.toFixed(2));
+
       setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
 
-      // Invalidate queries
+      // Инвалидация запросов
       await queryClient.invalidateQueries({ queryKey: ['orders'] });
       await queryClient.invalidateQueries({ queryKey: ['recentOrders'] });
 

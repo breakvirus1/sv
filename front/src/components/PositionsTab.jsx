@@ -8,7 +8,7 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
   console.log('materials count:', materials?.length);
   console.log('items count:', items?.length);
   
-  // Use calculated data if available (with priceplus), otherwise fall back to direct data
+  // Используем расчетные данные если доступны (с наценкой), иначе берем напрямую
   const positions = calculatedData?.materials || (materials && materials.length > 0) ? materials : items;
 
   if (!positions || positions.length === 0) {
@@ -27,7 +27,7 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
         const widthM = isCalculated ? pos.widthM : (pos.widthM != null ? pos.widthM : null);
         const heightM = isCalculated ? pos.heightM : (pos.heightM != null ? pos.heightM : null);
         const quantity = pos.quantity != null ? pos.quantity : (pos.widthM != null ? `${pos.widthM} м` : '—');
-        // Use costPriceplus if available (calculated), otherwise use cost
+        // Используем costPriceplus если доступен (расчитанный), иначе используем cost
         const cost = isCalculated ? pos.costPriceplus : pos.cost;
         const readyDate = pos.readyDate || '—';
         const operations = pos.operations || [];

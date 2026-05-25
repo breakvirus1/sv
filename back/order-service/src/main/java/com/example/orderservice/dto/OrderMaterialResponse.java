@@ -26,5 +26,7 @@ public class OrderMaterialResponse {
     private BigDecimal cost;
     /** Стоимость с учетом priceplus */
     private BigDecimal costPriceplus;
+    /** Стоимость люверсов (eyelet hardware) */
+    private BigDecimal eyeletCost;
     private List<OrderOperationSummary> operations;
 }

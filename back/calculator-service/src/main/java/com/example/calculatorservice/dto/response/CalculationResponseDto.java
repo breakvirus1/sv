@@ -17,4 +17,7 @@ public class CalculationResponseDto {
 
     // Eyelet breakdown (optional)
     private EyeletResultDto eyelet;
+
+    /** Computed eyelet hardware cost (= quantity * pricePerPiece) */
+    private BigDecimal eyeletCost;
 }

@@ -61,7 +61,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
 
   const orderData = order || fetchedOrder;
 
-  // Track orderData changes
+  // Отслеживание изменений orderData
   useEffect(() => {
     console.log('=== orderData changed ===');
     console.log('orderData:', orderData?.id, orderData?.orderNumber);
@@ -77,23 +77,25 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     dueDate: '',
     managerId: null,
     items: []
-  });
-  const [priceplus, setPriceplus] = useState(order?.priceplus || 0);
-const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-const [isSubmitting, setIsSubmitting] = useState(false);
-// Track pending dimension-fetch requests per row index so late responses are ignored
-const pendingDimRef = useRef(new Map()); // index -> materialId
-
-const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
-const [operationParamsDialog, setOperationParamsDialog] = useState({
-  open: false,
-  itemIndex: null,
-  pendingOps: [],
-  params: {}
 });
-const [clientInfoDialog, setClientInfoDialog] = useState({ open: false, clientId: null });
+  const [priceplus, setPriceplus] = useState(order?.priceplus || 0);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Отслеживание ожидающих запросов размеров по индексу позиции
+  const pendingDimRef = useRef(new Map()); // index -> materialId
 
-   const { data: employeesData = [], isLoading: isLoadingEmployees } = useQuery({
+  // ── Состояния: Диалоги ──
+  const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
+  const [operationParamsDialog, setOperationParamsDialog] = useState({
+    open: false,
+    itemIndex: null,
+    pendingOps: [],
+    params: {}
+  });
+  const [clientInfoDialog, setClientInfoDialog] = useState({ open: false, clientId: null });
+
+  // ── Запросы: Сотрудники, Материалы, Операции ──
+  const { data: employeesData = [], isLoading: isLoadingEmployees } = useQuery({
     queryKey: ['employees'],
     queryFn: async () => {
       const response = await api.get('/api/v1/employees?size=100');
@@ -115,45 +117,45 @@ const { data: operationsData = [] } = useQuery({
        const response = await api.get('/api/v1/calculations/operations');
        return response.data || [];
      }
-   });
+});
 
-// Query for calculated order totals from backend
-    const { data: calculatedData } = useQuery({
-      queryKey: ['order-calculated', orderData?.id],
-      queryFn: async () => {
-        if (!orderData?.id) return null;
-        const response = await api.get(`/api/v1/orders/${orderData.id}/calculated`);
-        console.log('=== CALCULATED ORDER RESPONSE ===');
-        console.log('Order ID:', orderData.id);
-        console.log('Calculated data:', response.data);
-        if (response.data?.materials) {
-          console.log('Material calculations:');
-          response.data.materials.forEach((m, idx) => {
-            console.log(`  [${idx}] Material "${m.materialName}" (id=${m.materialId}):`);
-            console.log(`      cost: ${m.cost}, costPriceplus: ${m.costPriceplus}`);
-            console.log(`      widthM: ${m.widthM}, heightM: ${m.heightM}`);
-            console.log(`      operations: ${m.operations?.map(o => `${o.operationName}=${o.subtotal}`).join(', ') || 'none'}`);
-          });
-        }
-        console.log('totalWithPriceplus:', response.data?.totalWithPriceplus);
-        return response.data;
-      },
-      enabled: !!orderData?.id
-    });
+  // ── Запрос расчетных данных заказа с бекенда ──
+  const { data: calculatedData } = useQuery({
+    queryKey: ['order-calculated', orderData?.id],
+    queryFn: async () => {
+      if (!orderData?.id) return null;
+      const response = await api.get(`/api/v1/orders/${orderData.id}/calculated`);
+      console.log('=== ОТВЕТ С РАСЧЕТАМИ ЗАКАЗА ===');
+      console.log('Order ID:', orderData.id);
+      console.log('Calculated data:', response.data);
+      if (response.data?.materials) {
+        console.log('Material calculations:');
+        response.data.materials.forEach((m, idx) => {
+          console.log(`  [${idx}] Material "${m.materialName}" (id=${m.materialId}):`);
+          console.log(`      cost: ${m.cost}, costPriceplus: ${m.costPriceplus}`);
+          console.log(`      widthM: ${m.widthM}, heightM: ${m.heightM}`);
+          console.log(`      operations: ${m.operations?.map(o => `${o.operationName}=${o.subtotal}`).join(', ') || 'none'}`);
+        });
+      }
+      console.log('totalWithPriceplus:', response.data?.totalWithPriceplus);
+      return response.data;
+    },
+    enabled: !!orderData?.id
+  });
 
-   // Track materialsData changes
+  // ── Эффект: Отслеживание изменений материалов ──
   useEffect(() => {
     console.log('=== materialsData changed ===');
     console.log('Count:', materialsData.length);
   }, [materialsData]);
 
-// Use calculated total from backend (with priceplus applied)
-     const totalOrderAmount = calculatedData?.totalWithPriceplus ?? 0;
-    console.log('=== TOTAL ORDER AMOUNT ===');
-    console.log('calculatedData?.totalWithPriceplus:', calculatedData?.totalWithPriceplus);
-    console.log('totalOrderAmount:', totalOrderAmount);
+  // Используем рассчитанную сумму с наценкой из бекенда
+  const totalOrderAmount = calculatedData?.totalWithPriceplus ?? 0;
+  console.log('=== ИТОГОВАЯ СУММА ЗАКАЗА ===');
+  console.log('calculatedData?.totalWithPriceplus:', calculatedData?.totalWithPriceplus);
+  console.log('totalOrderAmount:', totalOrderAmount);
 
-    // Initialize form data when order is loaded
+  // ── Эффект: Инициализация формы при загрузке заказа ──
   useEffect(() => {
     if (orderData) {
       console.log('=== ЗАГРУЗКА ЗАКАЗА ===');
@@ -219,7 +221,7 @@ const { data: operationsData = [] } = useQuery({
         managerId: orderData.manager?.id ? String(orderData.manager.id) : (orderData.managerId ? String(orderData.managerId) : ''),
         items
       });
-      // Use priceplus from order if available, otherwise from client
+      // Используем priceplus из заказа или клиента
       if (orderData.priceplus != null) {
         setPriceplus(orderData.priceplus);
       } else if (orderData.client?.priceplus != null) {
@@ -231,7 +233,7 @@ const { data: operationsData = [] } = useQuery({
     }
 }, [orderData, mode]);
 
-    // Fetch default dimensions for an existing item from backend (on mount and when orderData changes)
+  // ── Эффект: Загрузка значений по умолчанию для позиций ──
   useEffect(() => {
     if (!orderData || !materialsData.length) return;
     formData.items.forEach((item, index) => {
@@ -555,20 +557,23 @@ setFormData(prev => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      // Конвертация значения в метры в зависимости от единицы измерения
       const toMeters = (value, unit) => {
         const v = parseFloat(value) || 0;
         return unit === 'мм' ? v / 1000 : v;
       };
 
+      // Формирование массива материалов заказа из формы
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
-         const widthM = toMeters(item.qty1value, item.unit);
-         const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : null;
+
+        const widthM = toMeters(item.qty1value, item.unit);
+        const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : null;
 
         return {
           ...(item.id ? { id: item.id } : {}),
@@ -584,31 +589,58 @@ setFormData(prev => {
         };
       });
 
-const orderDataPayload = {
-         description: formData.description,
-         orderDate: formData.orderDate,
-         dueDate: formData.dueDate || null,
-         managerId: formData.managerId ? parseInt(formData.managerId) : null,
-         priceplus: priceplus,
-items: orderMaterials
-        };
+      // Расчет итогов для логирования
+      let frontendTotal = 0;
+      formData.items.forEach((item, idx) => {
+        const material = materialsData.find(m => m.id === parseInt(item.materialId));
+        if (material) {
+          const widthM = toMeters(item.qty1value, item.unit);
+          const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 0;
+          const wasteCoeff = material.wasteCoefficient || 1;
+          const materialCost = widthM * (heightM || 1) * material.price * wasteCoeff;
+          const opsCost = (item.operations || []).reduce((sum, op) => sum + (op.subtotal || 0), 0);
+          frontendTotal += materialCost + opsCost;
+          console.log(`[EditOrder] Item ${idx}: material=${material.name}, w=${widthM}, h=${heightM}, wasteCoeff=${wasteCoeff}, matCost=${materialCost.toFixed(2)}, opsCost=${opsCost.toFixed(2)}`);
+        }
+      });
+      const frontendTotalWithPriceplus = frontendTotal * (1 + priceplus / 100);
 
-        console.log('=== СОХРАНЕНИЕ ЗАКАЗА ===');
-        console.log('Payload:', JSON.stringify(orderDataPayload, null, 2));
+      const orderDataPayload = {
+        description: formData.description,
+        orderDate: formData.orderDate,
+        dueDate: formData.dueDate || null,
+        managerId: formData.managerId ? parseInt(formData.managerId) : null,
+        priceplus: priceplus,
+        items: orderMaterials
+      };
 
-const response = await api.put(`/api/v1/orders/${orderData.id}`, orderDataPayload);
-         console.log('=== ОТВЕТ СЕРВЕРА ===');
-         console.log('Saved priceplus:', response.data.priceplus);
-         console.log('Saved totalAmount (without priceplus):', response.data.totalAmount);
-         console.log('Saved totalWithPriceplus:', response.data.totalWithPriceplus);
-         setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
+      console.log('=== EDIT ORDER SUBMIT ===');
+      console.log('Order ID:', orderData?.id);
+      console.log('Items count:', formData.items.length);
+      console.log('Priceplus:', priceplus);
+      console.log('Frontend total (without priceplus):', frontendTotal.toFixed(2));
+      console.log('Frontend total (with priceplus):', frontendTotalWithPriceplus.toFixed(2));
+      console.log('Payload:', JSON.stringify(orderDataPayload, null, 2));
 
-        // Immediately update the cache with the response data
-        queryClient.setQueryData(['order', orderData.id], response.data);
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
+      const response = await api.put(`/api/v1/orders/${orderData.id}`, orderDataPayload);
 
-        if (onSuccess) onSuccess();
-        navigate(`/orders/${orderData.id}`);
+      console.log('=== EDIT ORDER RESPONSE ===');
+      console.log('Saved priceplus:', response.data.priceplus);
+      console.log('Saved totalAmount (without priceplus):', response.data.totalAmount);
+      console.log('Saved totalWithPriceplus:', response.data.totalWithPriceplus);
+      console.log('Comparison - Frontend vs Backend totalWithPriceplus:');
+      console.log('  Frontend:', frontendTotalWithPriceplus.toFixed(2));
+      console.log('  Backend:', response.data.totalWithPriceplus?.toFixed(2));
+      console.log('  Diff:', (Math.abs(frontendTotalWithPriceplus - (response.data.totalWithPriceplus || 0))).toFixed(2));
+
+      setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
+
+      // Немедленное обновление кэша
+      queryClient.setQueryData(['order', orderData.id], response.data);
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+
+      if (onSuccess) onSuccess();
+      navigate(`/orders/${orderData.id}`);
     } catch (err) {
       setNotification({
         open: true,
@@ -1116,37 +1148,6 @@ value={priceplus}
         </DialogActions>
       </Dialog>
 
-      {/* Dialog for editing order amount */}
-      <Dialog open={orderAmountDialog.open} onClose={() => setOrderAmountDialog({ open: false, sumorder: totalOrderAmount })} maxWidth="xs" fullWidth>
-        <DialogTitle>Итоговая сумма заказа</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            margin="dense"
-            label="Сумма с учетом наценки (sumorder)"
-            type="number"
-            value={orderAmountDialog.sumorder}
-            onChange={(e) => {
-              const newSumorder = parseFloat(e.target.value) || 0;
-              setOrderAmountDialog(prev => ({ ...prev, sumorder: newSumorder }));
-              setTotalOrderAmount(newSumorder);
-            }}
-            InputProps={{
-              endAdornment: <InputAdornment position="end">₽</InputAdornment>
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOrderAmountDialog({ open: false, sumorder: totalOrderAmount })}>
-            Отмена
-          </Button>
-          <Button onClick={() => setOrderAmountDialog({ open: false })} variant="contained">
-            ОК
-          </Button>
-        </DialogActions>
-      </Dialog>
-
       <Dialog open={clientInfoDialog.open} onClose={() => setClientInfoDialog({ open: false, clientId: null })} maxWidth="sm" fullWidth>
         <DialogTitle>Информация о клиенте</DialogTitle>
         <DialogContent>
@@ -1162,8 +1163,7 @@ value={priceplus}
       <Snackbar
         open={notification.open}
         autoHideDuration={6000}
-        onClose={() => setNotification({ ...notification, open: false })}
-      >
+        onClose={() => setNotification({ ...notification, open: false })}>
         <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
           {notification.message}
         </Alert>

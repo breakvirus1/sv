@@ -54,6 +54,9 @@ public class CalculationService {
         // Do NOT save; map to DTO directly (id will be null)
         return calculationMapper.toResponseDto(calc);
     }
+        // Eyelet hardware cost is included in totalPrice by calculateTotalPrice()
+    // It is NOT broken out separately in the response DTO to avoid Hibernate
+    // proxy serialization issues with @AfterMapping in MapStruct.
 
     private Calculation buildCalculationFromRequest(CalculationRequestDto request, Material material) {
         Calculation calc = new Calculation();

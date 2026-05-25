@@ -1,9 +1,11 @@
 import { Box, Typography, Divider, Paper } from '@mui/material';
 
 const OrderDetailsCard = ({ order, calculatedData }) => {
+  // Отображаем priceplus из расчетных данных или заказа
   const displayPriceplus = calculatedData?.priceplus ?? order?.priceplus;
+  // Отображаем итоговую сумму с наценкой из расчетных данных или заказа
   const displayTotalWithPriceplus = calculatedData?.totalWithPriceplus ?? order?.totalWithPriceplus;
-  
+
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>Детали</Typography>

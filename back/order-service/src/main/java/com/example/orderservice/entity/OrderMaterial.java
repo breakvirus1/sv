@@ -59,6 +59,10 @@ public class OrderMaterial extends BaseEntity {
     @Column(name = "cost_priceplus", precision = 12, scale = 2)
     private BigDecimal costPriceplus = BigDecimal.ZERO;
 
+    /** Стоимость люверсов (eyelet hardware), 0 если люверсы не используются */
+    @Column(name = "eyelet_cost", precision = 12, scale = 2)
+    private BigDecimal eyeletCost = BigDecimal.ZERO;
+
     /** Ширина изделия в метрах */
     @Column(name = "width_m", precision = 10, scale = 4)
     private BigDecimal widthM;

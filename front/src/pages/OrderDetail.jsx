@@ -32,7 +32,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ClientInfo from '../components/ClientInfo';
 
-// Components
+// Компоненты
 import OrderInfoCard from '../components/OrderInfoCard';
 import OrderDetailsCard from '../components/OrderDetailsCard';
 import PositionsTab from '../components/PositionsTab';
@@ -51,46 +51,44 @@ const OrderDetail = ({ mode = 'view' }) => {
   const { user } = useAuth();
   const username = user?.username;
 
-// Create mode state
-   const [formData, setFormData] = useState({
-     clientId: '',
-     description: '',
-     orderDate: new Date().toISOString().split('T')[0],
-     dueDate: '',
-     items: []
-   });
-   const [priceplus, setPriceplus] = useState(0);
-   const [totalAmount, setTotalAmount] = useState(0);
-  
+  // ── Create mode state ──
+  const [formData, setFormData] = useState({
+    clientId: '',
+    description: '',
+    orderDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    items: []
+  });
+  const [priceplus, setPriceplus] = useState(0);
+  const [totalAmount, setTotalAmount] = useState(0);
 
-    // Helper to determine endpoint based on identifier
-    const getOrderEndpoint = (identifier) => {
-      // If identifier is exactly 14 digits, treat as orderNumber (format: YYYYMMDDHHmmss)
-      if (/^\d{14}$/.test(identifier)) {
-        return `/api/v1/orders/number/${identifier}`;
-      }
-      return `/api/v1/orders/${identifier}`;
-    };
+  // ── Helper to determine endpoint based on identifier ──
+  const getOrderEndpoint = (identifier) => {
+    if (/^\d{14}$/.test(identifier)) {
+      return `/api/v1/orders/number/${identifier}`;
+    }
+    return `/api/v1/orders/${identifier}`;
+  };
 
-// ==================== Queries ====================
-   const { data: order, isLoading, error } = useQuery({
-     queryKey: ['order', id],
-     queryFn: async () => {
-       const endpoint = getOrderEndpoint(id);
-       const response = await api.get(endpoint);
-       return response.data;
-     },
-     enabled: mode !== 'create'
-   });
+  // ── Queries: Order, Calculated Data, Clients, Materials, Employees ──
+  const { data: order, isLoading, error } = useQuery({
+    queryKey: ['order', id],
+    queryFn: async () => {
+      const endpoint = getOrderEndpoint(id);
+      const response = await api.get(endpoint);
+      return response.data;
+    },
+    enabled: mode !== 'create'
+  });
 
-const { data: calculatedData } = useQuery({
-       queryKey: ['order-calculated', id],
-       queryFn: async () => {
-         const response = await api.get(`/api/v1/orders/${id}/calculated`);
-         return response.data;
-       },
-       enabled: mode !== 'create' && !!order
-     });
+  const { data: calculatedData } = useQuery({
+    queryKey: ['order-calculated', id],
+    queryFn: async () => {
+      const response = await api.get(`/api/v1/orders/${id}/calculated`);
+      return response.data;
+    },
+    enabled: mode !== 'create' && !!order
+  });
 
   const { data: clientsData = [] } = useQuery({
     queryKey: ['clients'],
@@ -130,7 +128,7 @@ const { data: employeesData = [] } = useQuery({
     enabled: mode === 'edit'
   });
 
-// Get total from order (totalAmount from orders table)
+// Получаем итоговую сумму из заказа (totalAmount from orders table)
     const totalOrderAmount = order?.totalAmount ?? 0;
 
 // ==================== State ====================
@@ -157,7 +155,7 @@ const { data: employeesData = [] } = useQuery({
       setClientDialogOpen(false);
       setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' });
       setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
-    },
+},
     onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
   });
 
@@ -166,15 +164,20 @@ const { data: employeesData = [] } = useQuery({
       if (!currentEmployee) {
         throw new Error('Менеджер не определен. Перелогинитесь.');
       }
+      // Конвертация значения в метры в зависимости от единицы измерения
       const toMeters = (value, unit) => {
         const v = parseFloat(value) || 0;
         return unit === 'мм' ? v / 1000 : v;
       };
+
+      // Формирование массива материалов заказа из формы
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
-         const widthM = toMeters(item.qty1value, item.qty1unit);
-         const heightM = isM2(material) ? toMeters(item.qty2value, item.qty2unit) : null;
+
+        const widthM = toMeters(item.qty1value, item.qty1unit);
+        const heightM = isM2(material) ? toMeters(item.qty2value, item.qty2unit) : null;
+
         return {
           materialId: parseInt(item.materialId),
           widthM,
@@ -182,6 +185,22 @@ const { data: employeesData = [] } = useQuery({
           readyDate: item.readyDate || null
         };
       });
+
+      // Расчет итогов для логирования
+      let frontendTotal = 0;
+      formData.items.forEach((item, idx) => {
+        const material = materialsData.find(m => m.id === parseInt(item.materialId));
+        if (material) {
+          const widthM = toMeters(item.qty1value, item.qty1unit);
+          const heightM = isM2(material) ? toMeters(item.qty2value, item.qty2unit) : 0;
+          const wasteCoeff = material.wasteCoefficient || 1;
+          const materialCost = widthM * (heightM || 1) * material.price * wasteCoeff;
+          const opsCost = (item.operations || []).reduce((sum, op) => sum + (op.subtotal || 0), 0);
+          frontendTotal += materialCost + opsCost;
+          console.log(`[CreateOrder] Item ${idx}: material=${material.name}, w=${widthM}, h=${heightM}, wasteCoeff=${wasteCoeff}, matCost=${materialCost.toFixed(2)}, opsCost=${opsCost.toFixed(2)}`);
+        }
+      });
+      const frontendTotalWithPriceplus = frontendTotal * (1 + priceplus / 100);
 
       const orderData = {
         clientId: parseInt(formData.clientId),
@@ -193,7 +212,25 @@ const { data: employeesData = [] } = useQuery({
         items: orderMaterials
       };
 
-      await api.post('/api/v1/orders', orderData);
+      console.log('=== CREATE ORDER SUBMIT ===');
+      console.log('Client ID:', formData.clientId);
+      console.log('Items count:', formData.items.length);
+      console.log('Priceplus:', priceplus);
+      console.log('Frontend total (without priceplus):', frontendTotal.toFixed(2));
+      console.log('Frontend total (with priceplus):', frontendTotalWithPriceplus.toFixed(2));
+      console.log('Payload:', JSON.stringify(orderData, null, 2));
+
+      const response = await api.post('/api/v1/orders', orderData);
+
+      console.log('=== CREATE ORDER RESPONSE ===');
+      console.log('Created order ID:', response.data.id);
+      console.log('Created order number:', response.data.orderNumber);
+      console.log('Saved priceplus:', response.data.priceplus);
+      console.log('Saved totalAmount (without priceplus):', response.data.totalAmount);
+      console.log('Saved totalWithPriceplus:', response.data.totalWithPriceplus);
+      console.log('Comparison - Frontend vs Backend totalWithPriceplus:');
+      console.log('  Frontend:', frontendTotalWithPriceplus.toFixed(2));
+      console.log('  Backend:', response.data.totalWithPriceplus?.toFixed(2));
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['orders'] });

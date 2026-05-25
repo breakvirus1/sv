@@ -259,7 +259,7 @@ public OrderResponse getOrderById(Long id) {
                     throw new RuntimeException("Пустой ответ от службы расчета");
                 }
 
-                // Parse total price
+// Parse total price
                 Number totalPriceNum = (Number) calcResponse.get("totalPrice");
                 BigDecimal totalPrice = new BigDecimal(totalPriceNum.toString());
 
@@ -306,12 +306,18 @@ public OrderResponse getOrderById(Long id) {
                     }
                 }
 
-                // Material cost = total - operations subtotal
-BigDecimal materialCost = totalPrice.subtract(operationsSubtotal);
+                // Compute material cost from known formula to avoid double-counting eyelet hardware
                 BigDecimal wasteCoeff = material.getWasteCoefficient();
                 if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
                 BigDecimal materialPrice = material.getPrice();
-                BigDecimal effectiveArea = materialCost.divide(materialPrice.multiply(wasteCoeff), 2, RoundingMode.HALF_UP);
+                BigDecimal materialArea = itemReq.getWidthM().multiply(itemReq.getHeightM());
+                BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff).setScale(2, RoundingMode.HALF_UP);
+
+                // Effective area = materialCost / (price * wasteCoeff) = materialArea
+                BigDecimal effectiveArea = materialArea.setScale(2, RoundingMode.HALF_UP);
+
+                // Compute eyelet hardware cost from calculator response (totalPrice includes it)
+                BigDecimal eyeletCost = totalPrice.subtract(operationsSubtotal).subtract(materialCost);
 
                 // Calculate cost with priceplus
                 BigDecimal priceplus = saved.getPriceplus() != null ? saved.getPriceplus() : BigDecimal.ZERO;
@@ -335,6 +341,7 @@ BigDecimal materialCost = totalPrice.subtract(operationsSubtotal);
                 orderMaterial.setWasteCoefficient(wasteCoeff);
                 orderMaterial.setCost(materialCost);
                 orderMaterial.setCostPriceplus(costPriceplus);
+                orderMaterial.setEyeletCost(eyeletCost.compareTo(BigDecimal.ZERO) > 0 ? eyeletCost : BigDecimal.ZERO);
                 orderMaterial.setWidthM(itemReq.getWidthM());
                 orderMaterial.setHeightM(itemReq.getHeightM());
                 order.getMaterials().add(orderMaterial);
@@ -568,11 +575,15 @@ if (request.getPriceplus() != null) {
                     }
                 }
 
-                BigDecimal materialCost = totalPrice.subtract(operationsSubtotal);
+                // Compute material cost from known formula to avoid double-counting eyelet hardware
                 BigDecimal wasteCoeff = material.getWasteCoefficient();
                 if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
                 BigDecimal materialPrice = material.getPrice();
-                BigDecimal effectiveArea = materialCost.divide(materialPrice.multiply(wasteCoeff), 2, RoundingMode.HALF_UP);
+                BigDecimal materialArea = widthM.multiply(heightM);
+                BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff).setScale(2, RoundingMode.HALF_UP);
+
+                // Effective area = materialCost / (price * wasteCoeff) = materialArea
+                BigDecimal effectiveArea = materialArea.setScale(2, RoundingMode.HALF_UP);
 
                 // Calculate cost with priceplus
                 BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : BigDecimal.ZERO;
@@ -874,23 +885,41 @@ private void recalculatePaidAmount(Long orderId) {
           BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : 
                   (order.getClient() != null && order.getClient().getPriceplus() != null ? order.getClient().getPriceplus() : BigDecimal.ZERO);
 
-         // Total without priceplus is the sum of cost (base cost before priceplus)
-         BigDecimal totalWithoutPriceplus = order.getMaterials().stream()
-                 .map(om -> om.getCost() != null ? om.getCost() : BigDecimal.ZERO)
-                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+// Total without priceplus is the sum of cost + eyeletCost (base cost before priceplus)
+          BigDecimal totalWithoutPriceplus = order.getMaterials().stream()
+                  .map(om -> {
+                      BigDecimal cost = om.getCost() != null ? om.getCost() : BigDecimal.ZERO;
+                      BigDecimal eyelet = om.getEyeletCost() != null ? om.getEyeletCost() : BigDecimal.ZERO;
+                      return cost.add(eyelet);
+                  })
+                  .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-// Total with priceplus - always calculate from cost since stored costPriceplus may be 0 due to null priceplus at creation
+// Total with priceplus
           BigDecimal totalWithPriceplus = order.getMaterials().stream()
                   .map(om -> {
                       BigDecimal cost = om.getCost() != null ? om.getCost() : BigDecimal.ZERO;
-                      return cost.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+                      BigDecimal eyelet = om.getEyeletCost() != null ? om.getEyeletCost() : BigDecimal.ZERO;
+                      return cost.add(eyelet).multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
                   })
                   .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+          // Also sum operations cost
+          BigDecimal totalOperationCost = order.getItems().stream()
+                  .flatMap(item -> item.getOperations().stream())
+                  .map(op -> op.getSubtotal() != null ? op.getSubtotal() : BigDecimal.ZERO)
+                  .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+          totalWithoutPriceplus = totalWithoutPriceplus.add(totalOperationCost);
+          totalWithPriceplus = totalWithPriceplus.add(
+                  totalOperationCost.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)))
+          );
 
 List<MaterialCalculation> materials = order.getMaterials().stream()
                   .map(om -> {
                       BigDecimal cost = om.getCost() != null ? om.getCost() : BigDecimal.ZERO;
-                      BigDecimal costPriceplus = cost.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+                      BigDecimal eyelet = om.getEyeletCost() != null ? om.getEyeletCost() : BigDecimal.ZERO;
+                      BigDecimal base = cost.add(eyelet);
+                      BigDecimal costPriceplus = base.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
                       return new MaterialCalculation(
                               om.getId(),
                               om.getMaterial() != null ? om.getMaterial().getId() : null,
