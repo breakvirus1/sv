@@ -310,7 +310,8 @@ public OrderResponse getOrderById(Long id) {
                 BigDecimal wasteCoeff = material.getWasteCoefficient();
                 if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
                 BigDecimal materialPrice = material.getPrice();
-                BigDecimal materialArea = itemReq.getWidthM().multiply(itemReq.getHeightM());
+                BigDecimal height = itemReq.getHeightM() != null ? itemReq.getHeightM() : BigDecimal.ONE;
+                BigDecimal materialArea = itemReq.getWidthM().multiply(height);
                 BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff).setScale(2, RoundingMode.HALF_UP);
 
                 // Effective area = materialCost / (price * wasteCoeff) = materialArea
@@ -367,6 +368,17 @@ public OrderResponse getOrderById(Long id) {
             BigDecimal priceplus = saved.getPriceplus() != null ? saved.getPriceplus() : BigDecimal.ZERO;
             BigDecimal totalWithPriceplus = total.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
             saved.setTotalWithPriceplus(totalWithPriceplus.setScale(2, RoundingMode.HALF_UP));
+
+            // === ВАЛИДАЦИЯ РАСЧЕТОВ из calculation service (с минимальной погрешностью) ===
+            BigDecimal clientCalc = request.getClientTotalWithPriceplus() != null ? request.getClientTotalWithPriceplus() : request.getTotalAmount();
+            if (clientCalc != null) {
+                BigDecimal diff = totalWithPriceplus.subtract(clientCalc).abs();
+                BigDecimal tolerance = new BigDecimal("0.01");
+                if (diff.compareTo(tolerance) > 0) {
+                    throw new RuntimeException("Валидация расчетов не пройдена: расхождение фронтенда с calculation service = " + diff + " (допуск " + tolerance + "). Обновите форму.");
+                }
+            }
+
             orderRepository.save(saved);
         }
 
@@ -579,7 +591,8 @@ if (request.getPriceplus() != null) {
                 BigDecimal wasteCoeff = material.getWasteCoefficient();
                 if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
                 BigDecimal materialPrice = material.getPrice();
-                BigDecimal materialArea = widthM.multiply(heightM);
+                BigDecimal h = heightM != null ? heightM : BigDecimal.ONE;
+                BigDecimal materialArea = widthM.multiply(h);
                 BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff).setScale(2, RoundingMode.HALF_UP);
 
                 // Effective area = materialCost / (price * wasteCoeff) = materialArea
@@ -662,11 +675,23 @@ if (request.getPriceplus() != null) {
             } else {
                 order.setTotalAmount(total);
             }
-// Calculate totalWithPriceplus
-             BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : BigDecimal.ZERO;
-             BigDecimal totalWithPriceplus = total.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
-             order.setTotalWithPriceplus(totalWithPriceplus.setScale(2, RoundingMode.HALF_UP));
-             orderRepository.save(order);
+ // Calculate totalWithPriceplus
+              BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : BigDecimal.ZERO;
+              BigDecimal totalWithPriceplus = total.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+              order.setTotalWithPriceplus(totalWithPriceplus.setScale(2, RoundingMode.HALF_UP));
+
+              // === ВАЛИДАЦИЯ РАСЧЕТОВ из calculation service (минимальная погрешность) ===
+              BigDecimal clientCalc = request.getClientTotalWithPriceplus() != null ? request.getClientTotalWithPriceplus() : request.getTotalAmount();
+              if (clientCalc != null) {
+                  BigDecimal diff = totalWithPriceplus.subtract(clientCalc).abs();
+                  BigDecimal tolerance = new BigDecimal("0.01");
+                  if (diff.compareTo(tolerance) > 0) {
+                      throw new RuntimeException("Валидация расчетов не пройдена: расхождение фронтенда с calculation service = " + diff + " (допуск " + tolerance + ").");
+                  }
+              }
+
+              orderRepository.save(order);
+
          }
 
 OrderResponse response = mapOrderResponse(order);

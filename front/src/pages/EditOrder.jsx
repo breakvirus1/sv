@@ -35,6 +35,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import ClientInfo from '../components/ClientInfo';
 import { isM2, isLinearMeter } from '../utils/orderUtils';
+import { recalculateOrderLocally, calculateItemCostFull, applyPriceplus, recalculateOrderFull } from '../services/calculationService';
 
 const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const navigate = useNavigate();
@@ -43,21 +44,21 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const identifier = orderNumber || order?.id;
   const isOrderNumber = !!orderNumber && !order;
 
-  const { data: fetchedOrder, isLoading: isLoadingOrder, isError } = useQuery({
-    queryKey: ['order', identifier],
-    queryFn: async () => {
-      if (order) return order;
-      const endpoint = isOrderNumber && /^\d{17}$/.test(identifier)
-        ? `/api/v1/orders/number/${identifier}`
-        : `/api/v1/orders/${identifier}`;
-      const response = await api.get(endpoint);
-      console.log('=== FETCH ORDER ===');
-      console.log('Fetched orderId:', response.data.id, 'priceplus:', response.data.priceplus);
-      return response.data;
-    },
-    staleTime: 0,
-    enabled: mode !== 'create' && !!identifier && (!order || isOrderNumber)
-  });
+    const { data: fetchedOrder, isLoading: isLoadingOrder, isError } = useQuery({
+      queryKey: ['order', identifier],
+      queryFn: async () => {
+        if (order) return order;
+        const endpoint = isOrderNumber
+          ? `/api/v1/orders/number/${identifier}`
+          : `/api/v1/orders/${identifier}`;
+        const response = await api.get(endpoint);
+        console.log('=== FETCH ORDER ===');
+        console.log('Fetched orderId:', response.data.id, 'priceplus:', response.data.priceplus);
+        return response.data;
+      },
+      staleTime: 0,
+      enabled: mode !== 'create' && !!identifier && (!order || isOrderNumber)
+    });
 
   const orderData = order || fetchedOrder;
 
@@ -149,11 +150,46 @@ const { data: operationsData = [] } = useQuery({
     console.log('Count:', materialsData.length);
   }, [materialsData]);
 
-  // Используем рассчитанную сумму с наценкой из бекенда
-  const totalOrderAmount = calculatedData?.totalWithPriceplus ?? 0;
-  console.log('=== ИТОГОВАЯ СУММА ЗАКАЗА ===');
-  console.log('calculatedData?.totalWithPriceplus:', calculatedData?.totalWithPriceplus);
-  console.log('totalOrderAmount:', totalOrderAmount);
+  // === Live real-time recalc using calculationService (on ANY change to items or priceplus) ===
+  const liveTotals = useMemo(() => {
+    if (!formData.items || formData.items.length === 0 || !materialsData.length) {
+      return { totalWithoutPriceplus: 0, totalWithPriceplus: 0 };
+    }
+    let totalWithout = 0;
+    formData.items.forEach((item) => {
+      if (!item.materialId || !item.qty1value) return;
+      const material = materialsData.find(m => m.id === parseInt(item.materialId));
+      if (!material) return;
+      const toM = (v, u='м') => parseFloat(v || 0) / (u === 'мм' ? 1000 : 1);
+      const w = toM(item.qty1value, item.unit);
+      const h = isM2(material) ? toM(item.qty2value, item.unit) : 0;
+      if (isNaN(w) || w <= 0 || (isM2(material) && (isNaN(h) || h <= 0))) return;
+      const temp = {
+        ...item,
+        widthM: w,
+        heightM: h,
+        qty1value: w,
+        qty2value: h,
+        operations: item.operations || []
+      };
+      const c = calculateItemCostFull(temp, material);
+      totalWithout += c.totalWithoutPriceplus;
+    });
+    const totalWith = applyPriceplus(totalWithout, priceplus);
+    return {
+      totalWithoutPriceplus: Number(totalWithout.toFixed(2)),
+      totalWithPriceplus: Number(totalWith.toFixed(2))
+    };
+  }, [formData.items, materialsData, priceplus]);
+
+  // Для отображения используем live из calculation service (реал-тайм)
+  const totalOrderAmount = liveTotals.totalWithPriceplus;
+  const liveTotalWithPriceplus = liveTotals.totalWithPriceplus;
+  const liveTotalWithoutPriceplus = liveTotals.totalWithoutPriceplus;
+
+  console.log('=== ИТОГОВАЯ СУММА ЗАКАЗА (live from calculationService) ===');
+  console.log('Live totalWithPriceplus:', liveTotalWithPriceplus);
+  console.log('Backend (static) totalWithPriceplus:', calculatedData?.totalWithPriceplus);
 
   // ── Эффект: Инициализация формы при загрузке заказа ──
   useEffect(() => {
@@ -589,21 +625,20 @@ const handleSubmit = async (e) => {
         };
       });
 
-      // Расчет итогов для логирования
+      // Расчет итогов для логирования (через calculation service)
       let frontendTotal = 0;
       formData.items.forEach((item, idx) => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (material) {
           const widthM = toMeters(item.qty1value, item.unit);
           const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 0;
-          const wasteCoeff = material.wasteCoefficient || 1;
-          const materialCost = widthM * (heightM || 1) * material.price * wasteCoeff;
-          const opsCost = (item.operations || []).reduce((sum, op) => sum + (op.subtotal || 0), 0);
-          frontendTotal += materialCost + opsCost;
-          console.log(`[EditOrder] Item ${idx}: material=${material.name}, w=${widthM}, h=${heightM}, wasteCoeff=${wasteCoeff}, matCost=${materialCost.toFixed(2)}, opsCost=${opsCost.toFixed(2)}`);
+          const temp = { ...item, widthM, heightM, qty1value: widthM, qty2value: heightM, operations: item.operations || [] };
+          const c = calculateItemCostFull(temp, material);
+          frontendTotal += c.totalWithoutPriceplus;
+          console.log(`[EditOrder] Item ${idx}: material=${material.name}, ... cost=${c.totalWithoutPriceplus} (calculationService)`);
         }
       });
-      const frontendTotalWithPriceplus = frontendTotal * (1 + priceplus / 100);
+      const frontendTotalWithPriceplus = applyPriceplus(frontendTotal, priceplus);
 
       const orderDataPayload = {
         description: formData.description,
@@ -611,7 +646,9 @@ const handleSubmit = async (e) => {
         dueDate: formData.dueDate || null,
         managerId: formData.managerId ? parseInt(formData.managerId) : null,
         priceplus: priceplus,
-        items: orderMaterials
+        items: orderMaterials,
+        totalAmount: Number(frontendTotalWithPriceplus.toFixed(2)),
+        clientTotalWithPriceplus: Number(frontendTotalWithPriceplus.toFixed(2))  // для backend валидации против calculation service
       };
 
       console.log('=== EDIT ORDER SUBMIT ===');
@@ -923,7 +960,10 @@ value={priceplus}
                     gap: 1,
                   }}
                 >
-                  Сумма: {totalOrderAmount.toFixed(2)} ₽
+                  Сумма: {liveTotalWithPriceplus.toFixed(2)} ₽
+                  <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                    (без наценки: {liveTotalWithoutPriceplus.toFixed(2)})
+                  </Typography>
                 </Box>
                 <Box display="flex" gap={2}>
                   <Button onClick={() => navigate(`/orders/${orderData.id}`)}>Отмена</Button>

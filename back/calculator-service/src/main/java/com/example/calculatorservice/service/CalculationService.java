@@ -3,6 +3,7 @@ package com.example.calculatorservice.service;
 import com.example.calculatorservice.entity.*;
 import com.example.calculatorservice.dto.request.CalculationRequestDto;
 import com.example.calculatorservice.dto.response.CalculationResponseDto;
+import com.example.calculatorservice.dto.response.EyeletResultDto;
 import com.example.calculatorservice.exception.BadRequestException;
 import com.example.calculatorservice.exception.ResourceNotFoundException;
 import com.example.calculatorservice.mapper.CalculationMapper;
@@ -36,12 +37,14 @@ public class CalculationService {
         calculateTotalPrice(calc);
 
         Calculation saved = calculationRepository.save(calc);
-        return calculationMapper.toResponseDto(saved);
+        CalculationResponseDto dto = calculationMapper.toResponseDto(saved);
+        populateEyeletResultIfPresent(saved, dto);
+        return dto;
     }
 
     /**
-     * Calculates order item cost without persisting.
-     * Used by order-service to compute item totals including operations.
+     * Вычисляет себестоимость позиции заказа без сохранения в БД.
+     * Используется order-service для расчёта итогов по материалам и операциям.
      */
     public CalculationResponseDto calculateWithoutSaving(CalculationRequestDto request) {
         Material material = materialRepository.findByIdAndDeletedFalse(request.getMaterialId())
@@ -51,12 +54,11 @@ public class CalculationService {
         calc.setCreatedAt(LocalDateTime.now());
         validateCalculation(calc);
         calculateTotalPrice(calc);
-        // Do NOT save; map to DTO directly (id will be null)
-        return calculationMapper.toResponseDto(calc);
+        // Не сохраняем в БД — сразу маппим в DTO (id будет null)
+        CalculationResponseDto dto = calculationMapper.toResponseDto(calc);
+        populateEyeletResultIfPresent(calc, dto);
+        return dto;
     }
-        // Eyelet hardware cost is included in totalPrice by calculateTotalPrice()
-    // It is NOT broken out separately in the response DTO to avoid Hibernate
-    // proxy serialization issues with @AfterMapping in MapStruct.
 
     private Calculation buildCalculationFromRequest(CalculationRequestDto request, Material material) {
         Calculation calc = new Calculation();
@@ -90,7 +92,7 @@ public class CalculationService {
 
     /**
      * Вычисляет площадь материала с учётом подворотов (без сохранения).
-     * Используется для real-time расчета в интерфейсе.
+     * Используется для оперативного расчёта в интерфейсе.
      */
     public BigDecimal calculateAreaWithPodvorot(BigDecimal widthM, BigDecimal heightM,
                                                  BigDecimal podvorotMmHorizontal,
@@ -120,9 +122,9 @@ public class CalculationService {
 
     /**
      * Рассчитывает стоимость одной позиции материала с учётом подворотов и операций (без сохранения).
-     * Используется для real-time расчета в интерфейсе.
+     * Используется для оперативного расчёта в интерфейсе.
      *
-     * @return totalCost = materialCost + operationsCost
+     * @return итоговая стоимость = стоимость материала + стоимость операций
      */
     public BigDecimal calculateItemCost(Long materialId, BigDecimal widthM, BigDecimal heightM,
                                          BigDecimal podvorotMmHorizontal, BigDecimal podvorotMmVertical,
@@ -130,7 +132,7 @@ public class CalculationService {
         Material material = materialRepository.findByIdAndDeletedFalse(materialId)
                 .orElseThrow(() -> new BadRequestException("Материал не найден"));
 
-        // Build a transient Calculation object (not persisted) to reuse existing logic
+        // Создаём временный объект Calculation (не сохраняем), чтобы переиспользовать существующую логику
         Calculation calc = new Calculation();
         calc.setMaterial(material);
         calc.setWidthM(widthM);
@@ -139,7 +141,7 @@ public class CalculationService {
         calc.setPodvorotMmVertical(podvorotMmVertical);
         calc.setPodvorotCountPerSide(podvorotCountPerSide != null ? podvorotCountPerSide : 2);
 
-        // Attach operations if provided
+        // Присоединяем операции, если они указаны
         if (operationIds != null) {
             for (Long opId : operationIds) {
                 Operation op = operationRepository.findById(opId)
@@ -151,14 +153,14 @@ public class CalculationService {
             }
         }
 
-        // Compute material area with podvorot
+        // Вычисляем площадь материала с учётом подворотов
         BigDecimal materialArea = calculateAreaWithPodvorot(widthM, heightM, podvorotMmHorizontal, podvorotMmVertical, calc.getPodvorotCountPerSide());
         BigDecimal materialPrice = material.getPricePerSquareMeter();
         BigDecimal wasteCoeff = material.getWasteCoefficient();
         if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
         BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff);
 
-        // Compute operations cost
+        // Вычисляем стоимость операций
         BigDecimal operationsCost = BigDecimal.ZERO;
         for (CalculationOperation calcOp : calc.getSelectedOperations()) {
             Operation op = calcOp.getOperation();
@@ -176,14 +178,16 @@ public class CalculationService {
      public CalculationResponseDto getById(Long id) {
         Calculation calc = calculationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Расчёт не найден"));
-        return calculationMapper.toResponseDto(calc);
+        CalculationResponseDto dto = calculationMapper.toResponseDto(calc);
+        populateEyeletResultIfPresent(calc, dto);
+        return dto;
     }
 
     private void calculateTotalPrice(Calculation calc) {
-        // 1. Material area (including podvorot if specified)
+        // 1. Площадь материала (с учётом подворотов, если указаны)
         BigDecimal materialArea = calculateMaterialArea(calc);
 
-        // Material cost = area * pricePerSquareMeter * wasteCoefficient
+        // Стоимость материала = площадь × цена за м² × коэффициент отхода
         BigDecimal materialPrice = calc.getMaterial().getPricePerSquareMeter();
         BigDecimal wasteCoeff = calc.getMaterial().getWasteCoefficient();
         if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
@@ -191,7 +195,7 @@ public class CalculationService {
 
         BigDecimal total = materialCost;
 
-        // 2. Operations cost
+        // 2. Стоимость операций
         for (CalculationOperation calcOp : calc.getSelectedOperations()) {
             Operation op = calcOp.getOperation();
             BigDecimal quantity = calculateOperationQuantity(calc, op);
@@ -202,7 +206,7 @@ public class CalculationService {
             total = total.add(subtotal);
         }
 
-        // 3. Eyelet hardware cost
+        // 3. Стоимость люверсов (фурнитура)
         if (calc.getEyelet() != null) {
             BigDecimal eyeletQty = calculateEyeletsQuantity(calc);
             BigDecimal eyeletPrice = calc.getEyelet().getPricePerPiece();
@@ -217,7 +221,7 @@ public class CalculationService {
         BigDecimal width = c.getWidthM();
         BigDecimal height = c.getHeightM();
 
-        // Apply podvorot (folds) if specified
+        // Применяем подвороты (припуски), если указаны
         if (c.hasPodvorot()) {
             BigDecimal extraW = BigDecimal.ZERO;
             BigDecimal extraH = BigDecimal.ZERO;
@@ -243,34 +247,34 @@ public class CalculationService {
         UnitType unit = op.getUnit();
         String name = op.getName().toLowerCase();
 
-        // Hem operation: if hem parameters are set, compute quantity using the specified formula
+        // Операция "подворот": если заданы параметры подворота, вычисляем количество по формуле
         if (op.getHemWidthMm() != null && op.getHemCount() != null) {
-            // Convert dimensions to mm
+            // Переводим размеры в миллиметры
             BigDecimal widthMm = c.getWidthM().multiply(BigDecimal.valueOf(1000));
             BigDecimal heightMm = c.getHeightM().multiply(BigDecimal.valueOf(1000));
-            // Additional size per dimension = hemWidthMm * hemCount
+            // Добавка по каждому измерению = hemWidthMm * hemCount
             BigDecimal added = BigDecimal.valueOf(op.getHemWidthMm() * op.getHemCount());
             BigDecimal newWidth = widthMm.add(added);
             BigDecimal newHeight = heightMm.add(added);
-            // Area in mm²
+            // Площадь в мм²
             BigDecimal areaMm2 = newWidth.multiply(newHeight);
-            // Convert to m²
+            // Переводим в м²
             return areaMm2.divide(BigDecimal.valueOf(1_000_000), 4, RoundingMode.HALF_UP);
         }
 
         switch (unit) {
             case SQUARE_METER:
-                // For all area-based operations (printing, lamination, application)
+                // Для всех операций, измеряемых в квадратных метрах (печать, ламинация, аппликация)
                 return calculateMaterialArea(c);
             case LINEAR_METER:
-                // For all linear meter operations (cutting, hem, welding)
+                // Для всех операций, измеряемых в погонных метрах (резка, подворот, сварка)
                 return perimeter(c);
             case PIECE:
-                // Typically eyelet installation
+                // Обычно — установка люверсов
                 if (name.contains("люверс") || name.contains("установка")) {
                     return calculateEyeletsQuantity(c);
                 }
-                // other piece-based operations maybe quantity = 1?
+                // Для прочих операций "по штукам" обычно quantity = 1
                 return BigDecimal.ONE;
             default:
                 return BigDecimal.ONE;
@@ -303,6 +307,27 @@ public class CalculationService {
 
         if (calc.getEyeletStepCm() != null && calc.getEyeletStepCm() <= 0) {
             throw new BadRequestException("Шаг люверсов должен быть больше 0");
+        }
+    }
+
+    /**
+     * Заполняет блок с информацией о люверсах в DTO (если люверсы указаны в расчёте).
+     * Вычисляет количество, цену за штуку и итог по люверсам.
+     */
+    private void populateEyeletResultIfPresent(Calculation calc, CalculationResponseDto dto) {
+        if (calc.getEyelet() != null) {
+            BigDecimal qty = calculateEyeletsQuantity(calc);
+            BigDecimal price = calc.getEyelet().getPricePerPiece();
+            BigDecimal subtotal = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
+
+            EyeletResultDto eyeletDto = new EyeletResultDto();
+            eyeletDto.setName(calc.getEyelet().getName());
+            eyeletDto.setQuantity(qty);
+            eyeletDto.setPricePerUnit(price);
+            eyeletDto.setSubtotal(subtotal);
+
+            dto.setEyelet(eyeletDto);
+            dto.setEyeletCost(subtotal);
         }
     }
 }

@@ -29,4 +29,7 @@ public class OrderUpdateRequest {
     private List<OrderMaterialCreateRequest> items;
     /** Итоговая сумма заказа (с учетом наценки priceplus) */
     private BigDecimal totalAmount;
+
+    /** Расчёт суммы (с priceplus), выполненный фронтендом через calculation service. Для валидации на бэкенде с минимальной погрешностью. */
+    private BigDecimal clientTotalWithPriceplus;
 }

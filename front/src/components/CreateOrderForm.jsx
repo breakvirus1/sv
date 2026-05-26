@@ -35,6 +35,7 @@ import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isM2, isLinearMeter } from '../utils/orderUtils';
+import { calculateItemCostFull, applyPriceplus } from '../services/calculationService';
 
 const CreateOrderForm = ({ windowId, closeWindow }) => {
   const navigate = useNavigate();
@@ -404,17 +405,16 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     else navigate('/orders');
   };
 
-  // Состояние для рассчитанного итога
+  // Состояние для рассчитанного итога (live из calculation service)
   const [totalOrderAmount, setTotalOrderAmount] = useState(0);
 
-  // Пересчитываем итог при изменении позиций
+  // Реал-тайм пересчёт заказа из calculationService (локально, мгновенно при любом изменении)
+  // При изменении любого поля, добавлении/удалении позиций — мгновенный пересчёт
   useEffect(() => {
-    const calculateTotal = async () => {
-      let total = 0;
+    let totalWithout = 0;
+    if (formData.items.length > 0 && materialsData.length > 0) {
       for (const item of formData.items) {
-        if (!item.materialId || !item.qty1value) {
-          continue;
-        }
+        if (!item.materialId || !item.qty1value) continue;
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) continue;
 
@@ -430,57 +430,23 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           continue;
         }
 
-        // Подготовка запроса расчета
-        const requestData = {
-          materialId: material.id,
-          materialType: material.name.toLowerCase().includes('баннер') ? 'BANNER' : 'PLENKA',
+        const tempItemForCalc = {
+          ...item,
           widthM,
-          heightM: isM2(material) ? heightM : null,
-          operationIds: item.operations.map(op => op.id),
+          heightM,
+          qty1value: widthM,
+          qty2value: heightM,
+          operations: item.operations || []
         };
 
-        // Добавляем параметры люверса если есть
-        const eyeletOp = item.operations.find(op => op.eyeletId);
-        if (eyeletOp) {
-          requestData.eyeletId = eyeletOp.eyeletId;
-          requestData.eyeletStepCm = eyeletOp.eyeletStepCm;
-        }
-
-        // Добавляем параметры подвороты если есть (берем первую операцию)
-        const hemOp = item.operations.find(op => op.hemWidthMm && op.hemCount);
-        if (hemOp) {
-          requestData.podvorotMmHorizontal = hemOp.hemWidthMm;
-          requestData.podvorotMmVertical = hemOp.hemWidthMm;
-          requestData.podvorotCountPerSide = hemOp.hemCount;
-        }
-
-        try {
-          const response = await api.post('/api/v1/calculations', requestData);
-          total += response.data.totalPrice;
-        } catch (error) {
-          console.error('Error calculating item cost:', error);
-          // Резервный простой расчет
-          let effectiveQty = 0;
-          if (isM2(material)) {
-            effectiveQty = widthM * heightM;
-          } else if (isLinearMeter(material)) {
-            effectiveQty = widthM;
-          } else {
-            effectiveQty = widthM;
-          }
-          total += material.price * effectiveQty * (material.wasteCoefficient || 1);
-        }
+        const c = calculateItemCostFull(tempItemForCalc, material);
+        totalWithout += c.totalWithoutPriceplus;
       }
-      // Примечание: priceplus применяется бекендом при создании заказа
-      setTotalOrderAmount(total);
-    };
-
-    if (formData.items.length > 0 && materialsData.length > 0) {
-      calculateTotal();
-    } else {
-      setTotalOrderAmount(0);
     }
-  }, [formData.items, materialsData, selectedClient]);
+    // priceplus применяется для live preview
+    const totalWith = applyPriceplus(totalWithout, priceplus);
+    setTotalOrderAmount(totalWith);  // показываем итог с наценкой в реальном времени
+  }, [formData.items, materialsData, priceplus]);
 
 const handleSubmit = async (e) => {
     e.preventDefault();
@@ -533,21 +499,20 @@ const handleSubmit = async (e) => {
         };
       });
 
-      // Расчет итогов для логирования
+      // Расчет итогов для логирования (используем calculation service)
       let frontendTotal = 0;
       formData.items.forEach((item, idx) => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (material) {
           const widthM = toMeters(item.qty1value, item.unit);
           const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 0;
-          const wasteCoeff = material.wasteCoefficient || 1;
-          const materialCost = widthM * (heightM || 1) * material.price * wasteCoeff;
-          const opsCost = (item.operations || []).reduce((sum, op) => sum + (op.subtotal || 0), 0);
-          frontendTotal += materialCost + opsCost;
-          console.log(`[CreateOrderForm] Item ${idx}: material=${material.name}, w=${widthM}, h=${heightM}, wasteCoeff=${wasteCoeff}, matCost=${materialCost.toFixed(2)}, opsCost=${opsCost.toFixed(2)}`);
+          const tempItem = { ...item, widthM, heightM, qty1value: widthM, qty2value: heightM, operations: item.operations || [] };
+          const c = calculateItemCostFull(tempItem, material);
+          frontendTotal += c.totalWithoutPriceplus;
+          console.log(`[CreateOrderForm] Item ${idx}: material=${material.name}, w=${widthM}, h=${heightM}, ... cost=${c.totalWithoutPriceplus} (via calculationService)`);
         }
       });
-      const frontendTotalWithPriceplus = frontendTotal * (1 + priceplus / 100);
+      const frontendTotalWithPriceplus = applyPriceplus(frontendTotal, priceplus);
 
       const orderData = {
         clientId: parseInt(formData.clientId),
@@ -556,7 +521,9 @@ const handleSubmit = async (e) => {
         dueDate: formData.dueDate || null,
         managerId: currentEmployee.id,
         priceplus: priceplus,
-        items: orderMaterials
+        items: orderMaterials,
+        totalAmount: Number(frontendTotalWithPriceplus.toFixed(2)),
+        clientTotalWithPriceplus: Number(frontendTotalWithPriceplus.toFixed(2))  // для валидации calculation service с погрешностью
       };
 
       console.log('=== CREATE ORDER FORM SUBMIT ===');
