@@ -814,6 +814,7 @@ private void recalculatePaidAmount(Long orderId) {
                 om.getWasteCoefficient(),
                 om.getCost(),
                 om.getCostPriceplus(),
+                om.getEyeletCost(),
                 opSummaries
         );
     }
