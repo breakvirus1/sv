@@ -29,3 +29,9 @@ eureka:
 calculator:
   service:
     url: ${CALCULATOR_SERVICE_URL:http://calculator-service:8086}
+
+logging:
+  level:
+    com.example.orderservice: INFO
+    org.springframework: INFO
+    org.hibernate: INFO

@@ -29,8 +29,8 @@ eureka:
 
 logging:
   level:
-    org.springframework.security: DEBUG
-    com.example.materialservice: DEBUG
+    org.springframework.security: INFO
+    com.example.materialservice: INFO
     liquibase: INFO
 
 springdoc:

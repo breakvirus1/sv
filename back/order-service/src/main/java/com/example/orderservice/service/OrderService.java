@@ -377,6 +377,14 @@ public OrderResponse getOrderById(Long id) {
                 if (diff.compareTo(tolerance) > 0) {
                     throw new RuntimeException("Валидация расчетов не пройдена: расхождение фронтенда с calculation service = " + diff + " (допуск " + tolerance + "). Обновите форму.");
                 }
+                // Лог успешной валидации
+                System.out.println("=== ORDER VALIDATION PASSED ===");
+                System.out.println("Order ID: " + saved.getId());
+                System.out.println("Order number: " + saved.getOrderNumber());
+                System.out.println("Frontend total: " + clientCalc);
+                System.out.println("Backend total: " + totalWithPriceplus);
+                System.out.println("Difference: " + diff);
+                System.out.println("==============================");
             }
 
             orderRepository.save(saved);
@@ -688,6 +696,14 @@ if (request.getPriceplus() != null) {
                   if (diff.compareTo(tolerance) > 0) {
                       throw new RuntimeException("Валидация расчетов не пройдена: расхождение фронтенда с calculation service = " + diff + " (допуск " + tolerance + ").");
                   }
+                  // Лог успешной валидации
+                  System.out.println("=== ORDER UPDATE VALIDATION PASSED ===");
+                  System.out.println("Order ID: " + order.getId());
+                  System.out.println("Order number: " + order.getOrderNumber());
+                  System.out.println("Frontend total: " + clientCalc);
+                  System.out.println("Backend total: " + totalWithPriceplus);
+                  System.out.println("Difference: " + diff);
+                  System.out.println("=====================================");
               }
 
               orderRepository.save(order);

@@ -35,7 +35,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import ClientInfo from '../components/ClientInfo';
 import { isM2, isLinearMeter } from '../utils/orderUtils';
-import { recalculateOrderLocally, calculateItemCostFull, applyPriceplus, recalculateOrderFull } from '../services/calculationService';
+import { recalculateOrderLocally, applyPriceplus } from '../services/calculationService';
 
 const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const navigate = useNavigate();

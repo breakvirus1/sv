@@ -27,9 +27,9 @@ eureka:
 
 logging:
   level:
-    org.springframework.security: DEBUG
-    com.example.apigateway: DEBUG
-    org.springframework.cloud.gateway: TRACE
+    org.springframework.security: INFO
+    com.example.apigateway: INFO
+    org.springframework.cloud.gateway: INFO
 
 springdoc:
   api-docs:

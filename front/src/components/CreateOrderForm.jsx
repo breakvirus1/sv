@@ -35,7 +35,7 @@ import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isM2, isLinearMeter } from '../utils/orderUtils';
-import { calculateItemCostFull, applyPriceplus } from '../services/calculationService';
+import { recalculateOrderLocally, applyPriceplus } from '../services/calculationService';
 
 const CreateOrderForm = ({ windowId, closeWindow }) => {
   const navigate = useNavigate();
@@ -401,55 +401,26 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     createClientMutation.mutate(payload);
   };
 
-  const handleClose = () => {
+const handleClose = () => {
     if (closeWindow) closeWindow();
     else navigate('/orders');
   };
 
-  // Состояние для рассчитанного итога (live из calculation service)
   const [totalOrderAmount, setTotalOrderAmount] = useState(0);
 
-  // Реал-тайм пересчёт заказа из calculationService (локально, мгновенно при любом изменении)
-  // При изменении любого поля, добавлении/удалении позиций — мгновенный пересчёт
+  const calculateTotals = async () => {
+    if (formData.items.length === 0) return;
+    try {
+      const result = await recalculateOrderLocally(formData.items, priceplus);
+      setTotalOrderAmount(result.totalWithPriceplus);
+    } catch (err) {
+      console.error('Calculation error:', err);
+    }
+  };
+
   useEffect(() => {
-    let totalWithout = 0;
-    if (formData.items.length > 0 && materialsData.length > 0) {
-      for (const item of formData.items) {
-        if (!item.materialId || !item.qty1value) continue;
-        const material = materialsData.find(m => m.id === parseInt(item.materialId));
-        if (!material) continue;
-
-        const toMeters = (value, unit) => {
-          const v = parseFloat(value) || 0;
-          return unit === 'мм' ? v / 1000 : v;
-        };
-
-const widthM = toMeters(item.qty1value, item.unit);
-           const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 1;
-
-           if (isNaN(widthM) || widthM <= 0 || (isM2(material) && (isNaN(heightM) || heightM <= 0))) {
-             continue;
-           }
-
-         const tempItemForCalc = {
-             ...item,
-             widthM,
-             heightM,
-             qty1value: widthM,
-             qty2value: heightM,
-             operations: item.operations || [],
-             eyeletId: item.operations?.find(op => op.eyeletId)?.eyeletId || null,
-             eyeletStepCm: item.operations?.find(op => op.eyeletId)?.eyeletStepCm || 40
-           };
-
-const c = calculateItemCostFull(tempItemForCalc, material, eyeletsData);
-       totalWithout += c.totalWithoutPriceplus;
-       }
-     }
-     // priceplus применяется для live preview
-     const totalWith = applyPriceplus(totalWithout, priceplus);
-     setTotalOrderAmount(totalWith);  // показываем итог с наценкой в реальном времени
-   }, [formData.items, materialsData, priceplus, eyeletsData]);
+    calculateTotals();
+  }, [formData.items, priceplus]);
 
 const handleSubmit = async (e) => {
     e.preventDefault();
@@ -502,32 +473,6 @@ const handleSubmit = async (e) => {
         };
       });
 
-      // Расчет итогов для логирования (используем calculation service)
-      let frontendTotal = 0;
-      formData.items.forEach((item, idx) => {
-        const material = materialsData.find(m => m.id === parseInt(item.materialId));
-        if (material) {
-const widthM = toMeters(item.qty1value, item.unit);
-const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 1;
-             const eyeletOp = item.operations?.find(op => op.eyeletId);
-             const tempItem = {
-               ...item,
-               widthM,
-               heightM,
-               qty1value: widthM,
-               qty2value: heightM,
-               operations: item.operations || [],
-               eyeletId: eyeletOp?.eyeletId || null,
-               eyeletStepCm: eyeletOp?.eyeletStepCm || 40
-             };
-            console.log('[DEBUG handleSubmit] tempItem:', tempItem, 'eyeletsData:', eyeletsData?.length);
-const c = calculateItemCostFull(tempItem, material, eyeletsData);
-            frontendTotal += c.totalWithoutPriceplus;
-           console.log(`[CreateOrderForm] Item ${idx}: material=${material.name}, w=${widthM}, h=${heightM}, eyeletId=${eyeletOp?.eyeletId}, ops=`, item.operations, 'calc=', c);
-        }
-      });
-      const frontendTotalWithPriceplus = applyPriceplus(frontendTotal, priceplus);
-
       const orderData = {
         clientId: parseInt(formData.clientId),
         description: formData.description,
@@ -536,29 +481,10 @@ const c = calculateItemCostFull(tempItem, material, eyeletsData);
         managerId: currentEmployee.id,
         priceplus: priceplus,
         items: orderMaterials,
-        totalAmount: Number(frontendTotalWithPriceplus.toFixed(2)),
-        clientTotalWithPriceplus: Number(frontendTotalWithPriceplus.toFixed(2))  // для валидации calculation service с погрешностью
+        clientTotalWithPriceplus: Number(totalOrderAmount.toFixed(2))
       };
 
-      console.log('=== CREATE ORDER FORM SUBMIT ===');
-      console.log('Client ID:', formData.clientId);
-      console.log('Items count:', formData.items.length);
-      console.log('Priceplus:', priceplus);
-      console.log('Frontend total (without priceplus):', frontendTotal.toFixed(2));
-      console.log('Frontend total (with priceplus):', frontendTotalWithPriceplus.toFixed(2));
-      console.log('Payload:', JSON.stringify(orderData, null, 2));
-
       const response = await api.post('/api/v1/orders', orderData);
-
-      console.log('=== CREATE ORDER FORM RESPONSE ===');
-      console.log('Created order ID:', response.data.id);
-      console.log('Created order number:', response.data.orderNumber);
-      console.log('Saved priceplus:', response.data.priceplus);
-      console.log('Saved totalAmount (without priceplus):', response.data.totalAmount);
-      console.log('Saved totalWithPriceplus:', response.data.totalWithPriceplus);
-      console.log('Comparison - Frontend vs Backend totalWithPriceplus:');
-      console.log('  Frontend:', frontendTotalWithPriceplus.toFixed(2));
-      console.log('  Backend:', response.data.totalWithPriceplus?.toFixed(2));
 
       setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
 
