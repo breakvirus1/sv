@@ -105,6 +105,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     queryKey: ['eyelets'],
     queryFn: async () => {
       const response = await api.get('/api/v1/calculations/eyelets');
+      console.log('[DEBUG] eyeletsData received:', response.data);
       return response.data || [];
     },
   });
@@ -423,30 +424,32 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           return unit === 'мм' ? v / 1000 : v;
         };
 
-        const widthM = toMeters(item.qty1value, item.unit);
-        const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 0;
+const widthM = toMeters(item.qty1value, item.unit);
+           const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 1;
 
-        if (isNaN(widthM) || widthM <= 0 || (isM2(material) && (isNaN(heightM) || heightM <= 0))) {
-          continue;
-        }
+           if (isNaN(widthM) || widthM <= 0 || (isM2(material) && (isNaN(heightM) || heightM <= 0))) {
+             continue;
+           }
 
-        const tempItemForCalc = {
-          ...item,
-          widthM,
-          heightM,
-          qty1value: widthM,
-          qty2value: heightM,
-          operations: item.operations || []
-        };
+         const tempItemForCalc = {
+             ...item,
+             widthM,
+             heightM,
+             qty1value: widthM,
+             qty2value: heightM,
+             operations: item.operations || [],
+             eyeletId: item.operations?.find(op => op.eyeletId)?.eyeletId || null,
+             eyeletStepCm: item.operations?.find(op => op.eyeletId)?.eyeletStepCm || 40
+           };
 
-        const c = calculateItemCostFull(tempItemForCalc, material);
-        totalWithout += c.totalWithoutPriceplus;
-      }
-    }
-    // priceplus применяется для live preview
-    const totalWith = applyPriceplus(totalWithout, priceplus);
-    setTotalOrderAmount(totalWith);  // показываем итог с наценкой в реальном времени
-  }, [formData.items, materialsData, priceplus]);
+const c = calculateItemCostFull(tempItemForCalc, material, eyeletsData);
+       totalWithout += c.totalWithoutPriceplus;
+       }
+     }
+     // priceplus применяется для live preview
+     const totalWith = applyPriceplus(totalWithout, priceplus);
+     setTotalOrderAmount(totalWith);  // показываем итог с наценкой в реальном времени
+   }, [formData.items, materialsData, priceplus, eyeletsData]);
 
 const handleSubmit = async (e) => {
     e.preventDefault();
@@ -476,7 +479,7 @@ const handleSubmit = async (e) => {
         const eyeletStepCm = eyeletOp?.eyeletStepCm || null;
 
         // Поиск операции подворот если есть
-        const hemOp = item.operations.find(op => op.hemWidthMm && op.hemCount);
+        const hemOp = item.operations.find(op => op.hemWidthMm != null && op.hemCount != null);
         const podvorotMmHorizontal = hemOp?.hemWidthMm || null;
         const podvorotMmVertical = hemOp?.hemWidthMm || null;
         const podvorotCountPerSide = hemOp?.hemCount || null;
@@ -504,12 +507,23 @@ const handleSubmit = async (e) => {
       formData.items.forEach((item, idx) => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (material) {
-          const widthM = toMeters(item.qty1value, item.unit);
-          const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 0;
-          const tempItem = { ...item, widthM, heightM, qty1value: widthM, qty2value: heightM, operations: item.operations || [] };
-          const c = calculateItemCostFull(tempItem, material);
-          frontendTotal += c.totalWithoutPriceplus;
-          console.log(`[CreateOrderForm] Item ${idx}: material=${material.name}, w=${widthM}, h=${heightM}, ... cost=${c.totalWithoutPriceplus} (via calculationService)`);
+const widthM = toMeters(item.qty1value, item.unit);
+const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 1;
+             const eyeletOp = item.operations?.find(op => op.eyeletId);
+             const tempItem = {
+               ...item,
+               widthM,
+               heightM,
+               qty1value: widthM,
+               qty2value: heightM,
+               operations: item.operations || [],
+               eyeletId: eyeletOp?.eyeletId || null,
+               eyeletStepCm: eyeletOp?.eyeletStepCm || 40
+             };
+            console.log('[DEBUG handleSubmit] tempItem:', tempItem, 'eyeletsData:', eyeletsData?.length);
+const c = calculateItemCostFull(tempItem, material, eyeletsData);
+            frontendTotal += c.totalWithoutPriceplus;
+           console.log(`[CreateOrderForm] Item ${idx}: material=${material.name}, w=${widthM}, h=${heightM}, eyeletId=${eyeletOp?.eyeletId}, ops=`, item.operations, 'calc=', c);
         }
       });
       const frontendTotalWithPriceplus = applyPriceplus(frontendTotal, priceplus);
