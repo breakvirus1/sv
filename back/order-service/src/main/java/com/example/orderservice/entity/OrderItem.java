@@ -56,4 +56,9 @@ public class OrderItem extends BaseEntity {
     /** Операции для этой позиции */
     @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<OrderOperation> operations = new ArrayList<>();
+
+    /** Прикрепленный файл к позиции */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "file_id")
+    private FileAttachment file;
 }

@@ -6,6 +6,7 @@ import com.example.employeeservice.entity.Employee;
 import com.example.materialservice.dto.MaterialResponse;
 import com.example.materialservice.entity.Material;
 import com.example.orderservice.dto.*;
+import com.example.orderservice.entity.FileAttachment;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderComment;
 import com.example.orderservice.entity.OrderItem;
@@ -16,6 +17,7 @@ import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.entity.Payment;
 import com.example.orderservice.entity.ProductionStage;
 import com.example.orderservice.mapper.OrderMapper;
+import com.example.orderservice.repository.FileAttachmentRepository;
 import com.example.orderservice.repository.OrderCommentRepository;
 import com.example.orderservice.repository.OrderItemRepository;
 import com.example.orderservice.repository.OrderRepository;
@@ -74,6 +76,7 @@ public class OrderService {
     private final OrderStageRepository orderStageRepository;
     private final PaymentRepository paymentRepository;
     private final OrderCommentRepository orderCommentRepository;
+    private final FileAttachmentRepository fileAttachmentRepository;
     private final OrderMapper orderMapper;
     @PersistenceContext
     private EntityManager entityManager;
@@ -117,9 +120,15 @@ public OrderResponse getOrderById(Long id) {
     private OrderResponse mapOrderResponse(Order order) {
         OrderResponse response = orderMapper.toDto(order);
 
-        // Загружаем связанные сущности
         response.setItems(order.getItems().stream()
-                .map(orderMapper::itemToDto)
+                .map(item -> {
+                    OrderItemResponse dto = orderMapper.itemToDto(item);
+                    fileAttachmentRepository.findByOrderItemId(item.getId()).ifPresent(f -> {
+                        dto.setFileUrl(f.getFileUrl());
+                        dto.setFileOriginalName(f.getOriginalName());
+                    });
+                    return dto;
+                })
                 .collect(Collectors.toList()));
 
         response.setStages(order.getStages().stream()
@@ -134,7 +143,6 @@ public OrderResponse getOrderById(Long id) {
                 .map(orderMapper::commentToDto)
                 .collect(Collectors.toList()));
 
-        // Collect materials from order items only (each OrderMaterial is linked to an OrderItem)
         List<OrderMaterial> allMaterials = order.getItems().stream()
                 .flatMap(item -> item.getMaterials().stream())
                 .collect(Collectors.toList());
@@ -957,22 +965,33 @@ private void recalculatePaidAmount(Long orderId) {
           );
 
 List<MaterialCalculation> materials = order.getMaterials().stream()
-                  .map(om -> {
-                      BigDecimal cost = om.getCost() != null ? om.getCost() : BigDecimal.ZERO;
-                      BigDecimal eyelet = om.getEyeletCost() != null ? om.getEyeletCost() : BigDecimal.ZERO;
-                      BigDecimal base = cost.add(eyelet);
-                      BigDecimal costPriceplus = base.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
-                      return new MaterialCalculation(
-                              om.getId(),
-                              om.getMaterial() != null ? om.getMaterial().getId() : null,
-                              om.getMaterial() != null ? om.getMaterial().getName() : "—",
-                              om.getWidthM(),
-                              om.getHeightM(),
-                              om.getCost(),
-                              costPriceplus
-                      );
-                  })
-                  .collect(Collectors.toList());
+                   .map(om -> {
+                       BigDecimal cost = om.getCost() != null ? om.getCost() : BigDecimal.ZERO;
+                       BigDecimal eyelet = om.getEyeletCost() != null ? om.getEyeletCost() : BigDecimal.ZERO;
+                       BigDecimal base = cost.add(eyelet);
+                       BigDecimal costPriceplus = base.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+                       String fileUrl = null;
+                       String fileOriginalName = null;
+                       if (om.getOrderItem() != null) {
+                           FileAttachment file = fileAttachmentRepository.findByOrderItemId(om.getOrderItem().getId()).orElse(null);
+                           if (file != null) {
+                               fileUrl = file.getFileUrl();
+                               fileOriginalName = file.getOriginalName();
+                           }
+                       }
+                       return new MaterialCalculation(
+                               om.getId(),
+                               om.getMaterial() != null ? om.getMaterial().getId() : null,
+                               om.getMaterial() != null ? om.getMaterial().getName() : "—",
+                               om.getWidthM(),
+                               om.getHeightM(),
+                               om.getCost(),
+                               costPriceplus,
+                               fileUrl,
+                               fileOriginalName
+                       );
+                   })
+                   .collect(Collectors.toList());
 
 return new CalculatedOrderResponse(
                   orderId,

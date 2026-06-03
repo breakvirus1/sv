@@ -35,6 +35,7 @@ class OrderServiceTest {
     @Mock private OrderStageRepository orderStageRepository;
     @Mock private PaymentRepository paymentRepository;
     @Mock private OrderCommentRepository orderCommentRepository;
+    @Mock private FileAttachmentRepository fileAttachmentRepository;
     @Mock private OrderMapper orderMapper;
     @Mock private EntityManager entityManager;
     @Mock private JdbcTemplate jdbcTemplate;

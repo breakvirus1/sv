@@ -6,11 +6,22 @@ spring:
     name: api-gateway
   main:
     web-application-type: reactive
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
   cloud:
     gateway:
       discovery:
         locator:
           enabled: true
+      routes:
+        - id: file-service
+          uri: lb://file-service
+          predicates:
+            - Path=/api/files/**
+          filters:
+            - StripPrefix=0
   security:
     oauth2:
       resourceserver:

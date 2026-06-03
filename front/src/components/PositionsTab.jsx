@@ -1,15 +1,15 @@
-import { Box, Paper, Typography, Chip } from '@mui/material';
+import { Box, Paper, Typography, Chip, Link } from '@mui/material';
+import { Download } from '@mui/icons-material';
 
 const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) => {
   console.log('=== PositionsTab render ===');
   console.log('orderId:', orderId);
   console.log('calculatedData available:', !!calculatedData);
-  console.log('calculatedData materials count:', calculatedData?.materials?.length);
+  console.log('calculatedData materials:', JSON.stringify(calculatedData?.materials?.map(m => ({ id: m.id, name: m.materialName, fileUrl: m.fileUrl }))));
+  console.log('items:', JSON.stringify(items?.map(i => ({ id: i.id, name: i.name, fileUrl: i.fileUrl }))));
   console.log('materials count:', materials?.length);
-  console.log('items count:', items?.length);
-  
-  // Используем расчетные данные если доступны (с наценкой), иначе берем напрямую
-  const positions = calculatedData?.materials || (materials && materials.length > 0) ? materials : items;
+
+  const positions = calculatedData?.materials || ((materials && materials.length > 0) ? materials : items);
 
   if (!positions || positions.length === 0) {
     return <Typography>Нет позиций в заказе</Typography>;
@@ -22,7 +22,7 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
     <Box>
       {positions.map((pos) => {
         const mat = isMaterialBased && !isCalculated ? pos.material : null;
-        const name = isCalculated ? pos.materialName : (mat?.name || pos.name || '—');
+        const name = isCalculated ? pos.materialName : (mat?.name || pos.name || pos.materialName || '—');
         const unit = isCalculated ? '' : (mat?.unit || '');
         const widthM = isCalculated ? pos.widthM : (pos.widthM != null ? pos.widthM : null);
         const heightM = isCalculated ? pos.heightM : (pos.heightM != null ? pos.heightM : null);
@@ -78,6 +78,20 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
                     />
                   ))}
                 </Box>
+              </Box>
+            )}
+
+            {pos.fileUrl && (
+              <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Link
+                  href={pos.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                >
+                  <Download fontSize="small" />
+                  {pos.fileOriginalName || 'Скачать файл'}
+                </Link>
               </Box>
             )}
           </Paper>

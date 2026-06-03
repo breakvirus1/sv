@@ -29,4 +29,10 @@ public class OrderItemResponse {
     private LocalDate readyDate;
     /** Операции, применённые к этой позиции */
     private List<OrderOperationSummary> operations;
+
+    /** URL прикреплённого файла */
+    private String fileUrl;
+
+    /** Оригинальное имя прикреплённого файла */
+    private String fileOriginalName;
 }

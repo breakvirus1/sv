@@ -29,7 +29,7 @@ import {
   FormControlLabel,
   InputAdornment
 } from '@mui/material';
-import { Add, Delete, Save } from '@mui/icons-material';
+import { Add, Delete, Save, AttachFile } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
@@ -192,7 +192,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [] }]
+      items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [], file: null, fileName: '' }]
     }));
   };
 
@@ -485,6 +485,28 @@ const handleSubmit = async (e) => {
       };
 
       const response = await api.post('/api/v1/orders', orderData);
+      const createdOrderId = response.data.id;
+      const createdOrderItems = response.data.items || [];
+
+      for (let i = 0; i < formData.items.length; i++) {
+        const item = formData.items[i];
+        if (item.file) {
+          const fileFormData = new FormData();
+          fileFormData.append('file', item.file);
+          fileFormData.append('orderId', createdOrderId);
+          const orderItemId = createdOrderItems[i]?.id;
+          if (orderItemId) {
+            fileFormData.append('orderItemId', orderItemId);
+          }
+          try {
+            await api.post('/api/files/upload', fileFormData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+          } catch (fileErr) {
+            console.error('File upload error for item', i, fileErr);
+          }
+        }
+      }
 
       setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
 
@@ -610,6 +632,7 @@ const handleSubmit = async (e) => {
                       <TableCell width={180}>Размер 2</TableCell>
                      <TableCell width={120}>Операции</TableCell>
                      <TableCell width={130}>Срок готовности</TableCell>
+                     <TableCell width={140}>Файл</TableCell>
                      <TableCell width={50}>Действия</TableCell>
                    </TableRow>
                  </TableHead>
@@ -708,6 +731,47 @@ const handleSubmit = async (e) => {
                           />
                         </TableCell>
                         <TableCell>
+                          <Button
+                            component="label"
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AttachFile />}
+                            sx={{ fontSize: '0.75rem', px: 1 }}
+                          >
+                            {item.fileName || 'Файл'}
+                            <input
+                              type="file"
+                              hidden
+                              onChange={(e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                  const file = e.target.files[0];
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    items: prev.items.map((it, i) =>
+                                      i === index ? { ...it, file, fileName: file.name } : it
+                                    )
+                                  }));
+                                }
+                              }}
+                            />
+                          </Button>
+                          {item.fileName && (
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => setFormData(prev => ({
+                                ...prev,
+                                items: prev.items.map((it, i) =>
+                                  i === index ? { ...it, file: null, fileName: '' } : it
+                                )
+                              }))}
+                              sx={{ ml: 0.5 }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <IconButton onClick={() => removeItem(index)} color="error" size="small">
                             <Delete fontSize="small" />
                           </IconButton>
@@ -738,7 +802,9 @@ const handleSubmit = async (e) => {
           >
             Сумма: {totalOrderAmount.toFixed(2)} ₽
           </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+        </Box>
+
+        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
             <Button onClick={handleClose} variant="outlined">
               Отмена
             </Button>
@@ -759,7 +825,6 @@ const handleSubmit = async (e) => {
               {isSubmitting ? 'Создание...' : 'Создать заказ'}
             </Button>
           </Box>
-        </Box>
       </Box>
 
       <Dialog open={orderAmountDialog.open} onClose={() => setOrderAmountDialog({ open: false, sumorder: totalOrderAmount })} maxWidth="xs" fullWidth>

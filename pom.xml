@@ -38,6 +38,7 @@
          <module>back/material-service</module>
          <module>back/order-service</module>
          <module>back/calculator-service</module>
+         <module>back/file-service</module>
          <module>back/api-gateway</module>
      </modules>
 

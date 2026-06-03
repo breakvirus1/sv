@@ -49,7 +49,7 @@ public class FileAttachment extends BaseEntity {
     private Order order;
 
     /** Позиция заказа, к которой прикреплен файл (может быть null) */
-    @ManyToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_item_id")
     private OrderItem orderItem;
 
