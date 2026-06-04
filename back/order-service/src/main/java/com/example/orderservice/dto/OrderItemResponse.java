@@ -35,4 +35,7 @@ public class OrderItemResponse {
 
     /** Оригинальное имя прикреплённого файла */
     private String fileOriginalName;
+
+    /** ID прикреплённого файла */
+    private Long fileId;
 }

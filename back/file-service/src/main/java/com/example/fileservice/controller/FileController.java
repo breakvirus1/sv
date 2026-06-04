@@ -70,4 +70,18 @@ public class FileController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @DeleteMapping("/{fileId}")
+    public ResponseEntity<Void> deleteFile(@PathVariable Long fileId) {
+        FileAttachment file = fileAttachmentRepository.findById(fileId).orElse(null);
+        if (file == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (file.getOrderItem() != null) {
+            jdbcTemplate.update("UPDATE ordschema.order_items SET file_id = NULL WHERE id = ?", file.getOrderItem().getId());
+        }
+        fileService.deleteFile(file);
+        fileAttachmentRepository.delete(file);
+        return ResponseEntity.ok().build();
+    }
 }

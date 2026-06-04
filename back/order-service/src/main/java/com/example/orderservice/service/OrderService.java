@@ -864,7 +864,8 @@ private void recalculatePaidAmount(Long orderId) {
                 om.getCost(),
                 om.getCostPriceplus(),
                 om.getEyeletCost(),
-                opSummaries
+                opSummaries,
+                om.getOrderItem() != null ? om.getOrderItem().getId() : null
         );
     }
 

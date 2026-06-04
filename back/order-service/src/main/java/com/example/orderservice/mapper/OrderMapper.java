@@ -62,6 +62,9 @@ public interface OrderMapper {
                     op.getHeightM()))
                 .collect(Collectors.toList()));
         }
+        if (entity.getFile() != null) {
+            dto.setFileId(entity.getFile().getId());
+        }
     }
 
     @Mapping(target = "workshop", ignore = true)
@@ -84,6 +87,7 @@ public interface OrderMapper {
     MaterialResponse materialToDto(com.example.materialservice.entity.Material material);
 
     @Mapping(target = "operations", ignore = true)
+    @Mapping(target = "orderItemId", ignore = true)
     OrderMaterialResponse orderMaterialToDto(OrderMaterial orderMaterial);
 
     @AfterMapping
@@ -99,6 +103,9 @@ public interface OrderMapper {
                     op.getWidthM(),
                     op.getHeightM()))
                 .collect(Collectors.toList()));
+        }
+        if (entity.getOrderItem() != null) {
+            dto.setOrderItemId(entity.getOrderItem().getId());
         }
     }
 

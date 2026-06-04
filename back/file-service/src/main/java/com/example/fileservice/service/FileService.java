@@ -62,4 +62,13 @@ public class FileService {
     public Path getFilePath(String fileName) {
         return this.fileStorageLocation.resolve(fileName).normalize();
     }
+
+    public void deleteFile(FileAttachment file) {
+        try {
+            Path filePath = Paths.get(file.getFilePath());
+            Files.deleteIfExists(filePath);
+        } catch (IOException ex) {
+            throw new RuntimeException("Could not delete file " + file.getFileName(), ex);
+        }
+    }
 }

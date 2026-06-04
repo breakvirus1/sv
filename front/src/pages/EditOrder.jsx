@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Container,
@@ -27,15 +27,17 @@ import {
   DialogActions,
   Checkbox,
   FormControlLabel,
-  InputAdornment
+  InputAdornment,
+  Link,
+  Tooltip
 } from '@mui/material';
-import { ArrowBack, Add, Delete, Save, Info } from '@mui/icons-material';
+import { ArrowBack, Add, Delete, Save, Info, Download, Close } from '@mui/icons-material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import ClientInfo from '../components/ClientInfo';
-import { isM2, isLinearMeter } from '../utils/orderUtils';
-import { recalculateOrderLocally, applyPriceplus } from '../services/calculationService';
+import { isM2 } from '../utils/orderUtils';
+
 
 const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const navigate = useNavigate();
@@ -150,46 +152,17 @@ const { data: operationsData = [] } = useQuery({
     console.log('Count:', materialsData.length);
   }, [materialsData]);
 
-  // === Live real-time recalc using calculationService (on ANY change to items or priceplus) ===
-  const liveTotals = useMemo(() => {
-    if (!formData.items || formData.items.length === 0 || !materialsData.length) {
-      return { totalWithoutPriceplus: 0, totalWithPriceplus: 0 };
-    }
-    let totalWithout = 0;
-    formData.items.forEach((item) => {
-      if (!item.materialId || !item.qty1value) return;
-      const material = materialsData.find(m => m.id === parseInt(item.materialId));
-      if (!material) return;
-      const toM = (v, u='м') => parseFloat(v || 0) / (u === 'мм' ? 1000 : 1);
-      const w = toM(item.qty1value, item.unit);
-      const h = isM2(material) ? toM(item.qty2value, item.unit) : 0;
-      if (isNaN(w) || w <= 0 || (isM2(material) && (isNaN(h) || h <= 0))) return;
-      const temp = {
-        ...item,
-        widthM: w,
-        heightM: h,
-        qty1value: w,
-        qty2value: h,
-        operations: item.operations || []
-      };
-      const c = calculateItemCostFull(temp, material);
-      totalWithout += c.totalWithoutPriceplus;
-    });
-    const totalWith = applyPriceplus(totalWithout, priceplus);
-    return {
-      totalWithoutPriceplus: Number(totalWithout.toFixed(2)),
-      totalWithPriceplus: Number(totalWith.toFixed(2))
-    };
-  }, [formData.items, materialsData, priceplus]);
+  // Итоговые суммы берём из calculatedData (расчёт на бэкенде)
+  const baseTotalWithoutPriceplus = calculatedData?.totalWithoutPriceplus ?? 0;
+  const backendPriceplus = calculatedData?.priceplus ?? 0;
+  const priceplusDiff = priceplus - backendPriceplus;
+  const liveTotalWithoutPriceplus = baseTotalWithoutPriceplus;
+  const liveTotalWithPriceplus = baseTotalWithoutPriceplus * (1 + priceplus / 100);
+  const totalOrderAmount = liveTotalWithPriceplus;
 
-  // Для отображения используем live из calculation service (реал-тайм)
-  const totalOrderAmount = liveTotals.totalWithPriceplus;
-  const liveTotalWithPriceplus = liveTotals.totalWithPriceplus;
-  const liveTotalWithoutPriceplus = liveTotals.totalWithoutPriceplus;
-
-  console.log('=== ИТОГОВАЯ СУММА ЗАКАЗА (live from calculationService) ===');
-  console.log('Live totalWithPriceplus:', liveTotalWithPriceplus);
-  console.log('Backend (static) totalWithPriceplus:', calculatedData?.totalWithPriceplus);
+  console.log('=== ИТОГОВАЯ СУММА ЗАКАЗА (from backend calculatedData) ===');
+  console.log('Backend totalWithPriceplus:', calculatedData?.totalWithPriceplus);
+  console.log('Backend totalWithoutPriceplus:', calculatedData?.totalWithoutPriceplus);
 
   // ── Эффект: Инициализация формы при загрузке заказа ──
   useEffect(() => {
@@ -222,23 +195,30 @@ const { data: operationsData = [] } = useQuery({
       const dedupedItems = rawItems.filter((mat, idx, arr) => arr.findIndex(m => m.id === mat.id) === idx);
       console.log('After dedup:', dedupedItems.length, 'items (was', rawItems.length, ')');
 
-      const items = dedupedItems.map((mat) => ({
-        id: mat.id,
-        materialId: String(mat.material?.id || ''),
-        qty1value: mat.widthM != null ? mat.widthM.toString() : '',
-        unit: 'м',
-        qty2value: mat.heightM != null ? mat.heightM.toString() : '',
-        readyDate: mat.readyDate || '',
-        cost: mat.cost != null ? Number(mat.cost) : null,
-        operations: (mat.operations ?? []).map((op) => ({
-          id: op.operationId,
-          operationId: op.operationId,
-          name: op.operationName,
-          subtotal: op.subtotal != null ? Number(op.subtotal) : null,
-          widthM: op.widthM,
-          heightM: op.heightMm,
-        })),
-      }));
+      const items = dedupedItems.map((mat) => {
+        const orderItem = orderData.items?.find(i => i.id === mat.orderItemId);
+        return {
+          id: mat.id,
+          orderItemId: mat.orderItemId,
+          materialId: String(mat.material?.id || ''),
+          qty1value: mat.widthM != null ? mat.widthM.toString() : '',
+          unit: 'м',
+          qty2value: mat.heightM != null ? mat.heightM.toString() : '',
+          readyDate: mat.readyDate || '',
+          cost: mat.cost != null ? Number(mat.cost) : null,
+          operations: (mat.operations ?? []).map((op) => ({
+            id: op.operationId,
+            operationId: op.operationId,
+            name: op.operationName,
+            subtotal: op.subtotal != null ? Number(op.subtotal) : null,
+            widthM: op.widthM,
+            heightM: op.heightMm,
+          })),
+          fileId: orderItem?.fileId || null,
+          fileUrl: orderItem?.fileUrl || null,
+          fileOriginalName: orderItem?.fileOriginalName || null,
+        };
+      });
 
       console.log('Mapped items:', items.map(item => ({
         id: item.id,
@@ -361,6 +341,24 @@ const removeItem = (index) => {
       ...prev,
       items: prev.items.filter((_, i) => i !== index)
     }));
+  };
+
+  const handleDeleteFile = async (index) => {
+    const item = formData.items[index];
+    if (!item.fileId) return;
+    if (!window.confirm(`Удалить файл "${item.fileOriginalName || 'файл'}"?`)) return;
+    try {
+      await api.delete(`/api/files/${item.fileId}`);
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.map((it, i) => i === index ? { ...it, fileId: null, fileUrl: null, fileOriginalName: null } : it)
+      }));
+      queryClient.invalidateQueries({ queryKey: ['order', orderData?.id] });
+      queryClient.invalidateQueries({ queryKey: ['order-calculated', orderData?.id] });
+      setNotification({ open: true, message: 'Файл удалён', severity: 'success' });
+    } catch (err) {
+      setNotification({ open: true, message: `Ошибка удаления: ${err.response?.data?.message || err.message}`, severity: 'error' });
+    }
   };
 
   const convertUnit = (value, fromUnit, toUnit) => {
@@ -625,50 +623,27 @@ const handleSubmit = async (e) => {
         };
       });
 
-      // Расчет итогов для логирования (через calculation service)
-      let frontendTotal = 0;
-      formData.items.forEach((item, idx) => {
-        const material = materialsData.find(m => m.id === parseInt(item.materialId));
-        if (material) {
-          const widthM = toMeters(item.qty1value, item.unit);
-          const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : 0;
-          const temp = { ...item, widthM, heightM, qty1value: widthM, qty2value: heightM, operations: item.operations || [] };
-          const c = calculateItemCostFull(temp, material);
-          frontendTotal += c.totalWithoutPriceplus;
-          console.log(`[EditOrder] Item ${idx}: material=${material.name}, ... cost=${c.totalWithoutPriceplus} (calculationService)`);
-        }
-      });
-      const frontendTotalWithPriceplus = applyPriceplus(frontendTotal, priceplus);
-
       const orderDataPayload = {
         description: formData.description,
         orderDate: formData.orderDate,
         dueDate: formData.dueDate || null,
         managerId: formData.managerId ? parseInt(formData.managerId) : null,
         priceplus: priceplus,
-        items: orderMaterials,
-        totalAmount: Number(frontendTotalWithPriceplus.toFixed(2)),
-        clientTotalWithPriceplus: Number(frontendTotalWithPriceplus.toFixed(2))  // для backend валидации против calculation service
+        items: orderMaterials
       };
 
       console.log('=== EDIT ORDER SUBMIT ===');
       console.log('Order ID:', orderData?.id);
       console.log('Items count:', formData.items.length);
       console.log('Priceplus:', priceplus);
-      console.log('Frontend total (without priceplus):', frontendTotal.toFixed(2));
-      console.log('Frontend total (with priceplus):', frontendTotalWithPriceplus.toFixed(2));
       console.log('Payload:', JSON.stringify(orderDataPayload, null, 2));
 
       const response = await api.put(`/api/v1/orders/${orderData.id}`, orderDataPayload);
 
       console.log('=== EDIT ORDER RESPONSE ===');
       console.log('Saved priceplus:', response.data.priceplus);
-      console.log('Saved totalAmount (without priceplus):', response.data.totalAmount);
+      console.log('Saved totalAmount:', response.data.totalAmount);
       console.log('Saved totalWithPriceplus:', response.data.totalWithPriceplus);
-      console.log('Comparison - Frontend vs Backend totalWithPriceplus:');
-      console.log('  Frontend:', frontendTotalWithPriceplus.toFixed(2));
-      console.log('  Backend:', response.data.totalWithPriceplus?.toFixed(2));
-      console.log('  Diff:', (Math.abs(frontendTotalWithPriceplus - (response.data.totalWithPriceplus || 0))).toFixed(2));
 
       setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
 
