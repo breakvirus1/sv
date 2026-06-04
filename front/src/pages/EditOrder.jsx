@@ -31,7 +31,7 @@ import {
   Link,
   Tooltip
 } from '@mui/material';
-import { ArrowBack, Add, Delete, Save, Info, Download, Close } from '@mui/icons-material';
+import { ArrowBack, Add, Delete, Save, Info, Download, Close, Upload } from '@mui/icons-material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -86,6 +86,8 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Отслеживание ожидающих запросов размеров по индексу позиции
   const pendingDimRef = useRef(new Map()); // index -> materialId
+  const fileInputRef = useRef(null);
+  const [uploadingIndex, setUploadingIndex] = useState(null);
 
   // ── Состояния: Диалоги ──
   const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
@@ -343,24 +345,6 @@ const removeItem = (index) => {
     }));
   };
 
-  const handleDeleteFile = async (index) => {
-    const item = formData.items[index];
-    if (!item.fileId) return;
-    if (!window.confirm(`Удалить файл "${item.fileOriginalName || 'файл'}"?`)) return;
-    try {
-      await api.delete(`/api/files/${item.fileId}`);
-      setFormData(prev => ({
-        ...prev,
-        items: prev.items.map((it, i) => i === index ? { ...it, fileId: null, fileUrl: null, fileOriginalName: null } : it)
-      }));
-      queryClient.invalidateQueries({ queryKey: ['order', orderData?.id] });
-      queryClient.invalidateQueries({ queryKey: ['order-calculated', orderData?.id] });
-      setNotification({ open: true, message: 'Файл удалён', severity: 'success' });
-    } catch (err) {
-      setNotification({ open: true, message: `Ошибка удаления: ${err.response?.data?.message || err.message}`, severity: 'error' });
-    }
-  };
-
   const convertUnit = (value, fromUnit, toUnit) => {
     if (fromUnit === toUnit) return value;
     const num = parseFloat(value) || 0;
@@ -591,6 +575,67 @@ setFormData(prev => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleFileSelect = (index) => {
+    setUploadingIndex(index);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || uploadingIndex === null) return;
+    const item = formData.items[uploadingIndex];
+    if (!item?.orderItemId) {
+      setNotification({ open: true, message: 'Сначала сохраните заказ, чтобы привязать файл к позиции', severity: 'warning' });
+      e.target.value = '';
+      return;
+    }
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('orderItemId', item.orderItemId);
+      fd.append('orderId', orderData.id);
+      const response = await api.post('/api/files/upload', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const saved = response.data;
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.map((it, i) => i === uploadingIndex ? {
+          ...it,
+          fileId: saved.id,
+          fileUrl: saved.fileUrl,
+          fileOriginalName: saved.originalName || file.name
+        } : it)
+      }));
+      queryClient.invalidateQueries({ queryKey: ['order', orderData?.id] });
+      queryClient.invalidateQueries({ queryKey: ['order-calculated', orderData?.id] });
+      setNotification({ open: true, message: `Файл "${saved.originalName || file.name}" загружен`, severity: 'success' });
+    } catch (err) {
+      setNotification({ open: true, message: `Ошибка загрузки: ${err.response?.data?.message || err.message}`, severity: 'error' });
+    } finally {
+      setUploadingIndex(null);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteFile = async (index) => {
+    const item = formData.items[index];
+    if (!item?.fileId) return;
+    if (!window.confirm(`Удалить файл "${item.fileOriginalName || 'файл'}"?`)) return;
+    try {
+      await api.delete(`/api/files/${item.fileId}`);
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.map((it, i) => i === index ? { ...it, fileId: null, fileUrl: null, fileOriginalName: null } : it)
+      }));
+      queryClient.invalidateQueries({ queryKey: ['order', orderData?.id] });
+      queryClient.invalidateQueries({ queryKey: ['order-calculated', orderData?.id] });
+      setNotification({ open: true, message: 'Файл удалён', severity: 'success' });
+    } catch (err) {
+      setNotification({ open: true, message: `Ошибка удаления: ${err.response?.data?.message || err.message}`, severity: 'error' });
+    }
+  };
+
 const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -803,6 +848,7 @@ value={priceplus}
                       <TableCell width={180}>Размер 1</TableCell>
                       <TableCell width={180}>Размер 2</TableCell>
                       <TableCell width={120}>Операции</TableCell>
+                      <TableCell width={200}>Файл</TableCell>
                       <TableCell width={130}>Срок готовности</TableCell>
                       <TableCell width={50}>Действия</TableCell>
                     </TableRow>
@@ -888,6 +934,28 @@ value={priceplus}
                                   </span>
                                 ))}
                               </Box>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {item.fileOriginalName ? (
+                              <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
+                                <Link
+                                  href={`${import.meta.env.VITE_API_URL || ''}${item.fileUrl}`}
+                                  target="_blank"
+                                  rel="noopener"
+                                  sx={{ fontSize: '0.8rem', wordBreak: 'break-all' }}
+                                >
+                                  <Download fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.3 }} />
+                                  {item.fileOriginalName}
+                                </Link>
+                                <IconButton size="small" onClick={() => handleDeleteFile(index)} color="error" sx={{ p: 0.3 }}>
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            ) : (
+                              <Button size="small" variant="text" startIcon={<Upload />} onClick={() => handleFileSelect(index)} sx={{ fontSize: '0.75rem' }}>
+                                Загрузить
+                              </Button>
                             )}
                           </TableCell>
                           <TableCell>
@@ -1183,6 +1251,13 @@ value={priceplus}
           {notification.message}
         </Alert>
       </Snackbar>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        style={{ display: 'none' }}
+      />
     </Container>
   );
 };
