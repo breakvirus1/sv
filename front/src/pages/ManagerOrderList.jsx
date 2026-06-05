@@ -1,5 +1,6 @@
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import { DataGrid } from '@mui/x-data-grid';
+import { useEffect } from 'react';
 import {
   Box,
   Button,
@@ -26,13 +27,19 @@ const fetchOrders = async (params) => {
   return response.data.content || [];
 };
 
-const OrdersList = () => {
+const ManagerOrderList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const statusFilter = searchParams.get('status');
   const myOrders = searchParams.get('my');
+
+  useEffect(() => {
+    if (!statusFilter && !myOrders) {
+      setSearchParams({ my: 'true' });
+    }
+  }, []);
 
   const { data: currentEmployee } = useQuery({
     queryKey: ['currentEmployee', user?.username],
@@ -48,7 +55,7 @@ const OrdersList = () => {
   const managerId = currentEmployee?.id;
 
   const { data: orders = [], isLoading, error } = useQuery({
-    queryKey: ['orders', { status: statusFilter, my: myOrders, managerId }],
+    queryKey: ['managerOrders', { status: statusFilter, my: myOrders, managerId }],
     queryFn: () => fetchOrders({ status: statusFilter, my: myOrders, managerId }),
     enabled: !!user,
     refetchInterval: 30000,
@@ -58,9 +65,9 @@ const OrdersList = () => {
 
   const columns = [
     { field: 'orderNumber', headerName: '№ заказа', width: 130 },
-{ 
-      field: 'clientName', 
-      headerName: 'Клиент', 
+    {
+      field: 'clientName',
+      headerName: 'Клиент',
       width: 200,
       renderCell: (params) => (
         <Typography variant="body2">{params.row?.client?.name || '—'}</Typography>
@@ -198,4 +205,4 @@ const OrdersList = () => {
   );
 };
 
-export default OrdersList;
+export default ManagerOrderList;

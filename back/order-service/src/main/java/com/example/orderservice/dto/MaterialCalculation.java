@@ -5,10 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
-/**
- * Material calculation info for CalculatedOrderResponse.
- */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -20,8 +18,9 @@ public class MaterialCalculation {
     private BigDecimal heightM;
     private BigDecimal cost;
     private BigDecimal costPriceplus;
-
+    private BigDecimal operationsTotal;
+    private BigDecimal operationsTotalPriceplus;
     private String fileUrl;
-
     private String fileOriginalName;
+    private List<OrderOperationSummary> operations;
 }

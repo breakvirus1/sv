@@ -1,14 +1,7 @@
-import { Box, Paper, Typography, Chip, Link } from '@mui/material';
+import { Box, Paper, Typography, Chip, Link, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import { Download } from '@mui/icons-material';
 
 const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) => {
-  console.log('=== PositionsTab render ===');
-  console.log('orderId:', orderId);
-  console.log('calculatedData available:', !!calculatedData);
-  console.log('calculatedData materials:', JSON.stringify(calculatedData?.materials?.map(m => ({ id: m.id, name: m.materialName, fileUrl: m.fileUrl }))));
-  console.log('items:', JSON.stringify(items?.map(i => ({ id: i.id, name: i.name, fileUrl: i.fileUrl }))));
-  console.log('materials count:', materials?.length);
-
   const positions = calculatedData?.materials || ((materials && materials.length > 0) ? materials : items);
 
   if (!positions || positions.length === 0) {
@@ -17,6 +10,8 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
 
   const isCalculated = !!calculatedData;
   const isMaterialBased = (materials && materials.length > 0) || isCalculated;
+
+  const fmt = (v) => v != null ? `${Number(v).toFixed(2)} ₽` : '—';
 
   return (
     <Box>
@@ -27,10 +22,13 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
         const widthM = isCalculated ? pos.widthM : (pos.widthM != null ? pos.widthM : null);
         const heightM = isCalculated ? pos.heightM : (pos.heightM != null ? pos.heightM : null);
         const quantity = pos.quantity != null ? pos.quantity : (pos.widthM != null ? `${pos.widthM} м` : '—');
-        // Используем costPriceplus если доступен (расчитанный), иначе используем cost
         const cost = isCalculated ? pos.costPriceplus : pos.cost;
         const readyDate = pos.readyDate || '—';
         const operations = pos.operations || [];
+        const operationsTotal = pos.operationsTotalPriceplus != null ? pos.operationsTotalPriceplus : (isCalculated ? pos.operationsTotal : null);
+        const posTotal = cost != null && operationsTotal != null
+          ? (Number(cost) + Number(operationsTotal)).toFixed(2)
+          : null;
 
         let sizeStr = '—';
         if (widthM != null && heightM != null) {
@@ -48,7 +46,7 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
                   <Typography variant="caption" color="text.secondary">{unit}</Typography>
                 )}
               </Box>
-              <Typography variant="h6">{cost != null ? `${Number(cost).toFixed(2)} ₽` : '—'}</Typography>
+              <Typography variant="h6">{cost != null ? fmt(cost) : '—'}</Typography>
             </Box>
 
             <Box sx={{ mt: 1, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -65,19 +63,44 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
 
             {operations.length > 0 && (
               <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="caption" color="text.secondary" gutterBottom>
+                <Typography variant="caption" color="text.secondary" gutterBottom display="block">
                   Операции:
                 </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
-                  {operations.map((op, idx) => (
-                    <Chip
-                      key={idx}
-                      label={`${op.operationName}${op.subtotal != null ? ` — ${Number(op.subtotal).toFixed(2)} ₽` : ''}`}
-                      size="small"
-                      variant="outlined"
-                    />
-                  ))}
-                </Box>
+                <Table size="small" sx={{ mt: 0.5 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600 }}>Операция</TableCell>
+                      <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600 }}>Цена за ед.</TableCell>
+                      <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600 }}>Кол-во</TableCell>
+                      <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600, textAlign: 'right' }}>Сумма</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {operations.map((op, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell sx={{ py: 0.5, px: 1 }}>{op.operationName}</TableCell>
+                        <TableCell sx={{ py: 0.5, px: 1 }}>{op.pricePerUnit != null ? fmt(op.pricePerUnit) : '—'}</TableCell>
+                        <TableCell sx={{ py: 0.5, px: 1 }}>{op.calculatedQuantity != null ? op.calculatedQuantity : '—'}</TableCell>
+                        <TableCell sx={{ py: 0.5, px: 1, textAlign: 'right' }}>{op.subtotal != null ? fmt(op.subtotal) : '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {operationsTotal != null && (
+                  <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Typography variant="body2" fontWeight={600}>
+                      Итого по операциям: {fmt(operationsTotal)}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            )}
+
+            {posTotal != null && (
+              <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'flex-end' }}>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Итого по позиции: {posTotal} ₽
+                </Typography>
               </Box>
             )}
 

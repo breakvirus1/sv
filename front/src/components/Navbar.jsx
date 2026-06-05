@@ -66,9 +66,11 @@ const Navbar = () => {
     navigate(`/orders?status=${status}`);
   };
 
+  const isManager = user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_ADMIN');
+
   const handleMyOrders = () => {
     handleCloseOrders();
-    navigate('/orders?my=true');
+    navigate(isManager ? '/manager' : '/orders?my=true');
   };
 
   const handleAllOrders = () => {

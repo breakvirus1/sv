@@ -4,6 +4,7 @@ import Navbar from './components/Navbar'
 import LoginPage from './pages/LoginPage'
 import Dashboard from './pages/Dashboard'
 import OrdersList from './pages/OrdersList'
+import ManagerOrderList from './pages/ManagerOrderList'
 import OrderDetail from './pages/OrderDetail'
 import CallbackPage from './pages/CallbackPage'
 import AdminPanel from './pages/AdminPanel'
@@ -18,6 +19,7 @@ function App() {
   }
 
   const isAuthenticated = !!user
+  const isManager = user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_ADMIN')
   const hasPermission = user?.roles?.some(role =>
     ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_PRODUCTION', 'ROLE_ACCOUNTANT'].includes(role)
   )
@@ -39,10 +41,10 @@ function App() {
         <div className="container pt-20">
           <Routes>
             <Route path="/" element={
-              isAuthenticated ? <Dashboard /> : <Navigate to="/login" />
+              isAuthenticated ? (isManager ? <Navigate to="/manager" /> : <Dashboard />) : <Navigate to="/login" />
             } />
             <Route path="/login" element={
-              isAuthenticated ? <Navigate to="/orders" /> : <LoginPage />
+              isAuthenticated ? (isManager ? <Navigate to="/manager" /> : <Navigate to="/orders" />) : <LoginPage />
             } />
             <Route path="/callback" element={<CallbackPage />} />
             <Route path="/dashboard" element={
@@ -53,6 +55,11 @@ function App() {
             <Route path="/orders" element={
               <ProtectedRoute>
                 <OrdersList />
+              </ProtectedRoute>
+            } />
+            <Route path="/manager" element={
+              <ProtectedRoute requiresManager={true}>
+                <ManagerOrderList />
               </ProtectedRoute>
             } />
             <Route path="/orders/new" element={

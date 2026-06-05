@@ -50,6 +50,7 @@ const OrderDetail = ({ mode = 'view' }) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const username = user?.username;
+  const isAdmin = user?.roles?.includes('ROLE_ADMIN');
 
   // ── Create mode state ──
   const [formData, setFormData] = useState({
@@ -116,7 +117,7 @@ const OrderDetail = ({ mode = 'view' }) => {
       const data = response.data.content || [];
       return data.length > 0 ? data[0] : null;
     },
-    enabled: mode === 'create' && !!username
+    enabled: !!username
   });
 
 const { data: employeesData = [] } = useQuery({
@@ -131,7 +132,10 @@ const { data: employeesData = [] } = useQuery({
 // Получаем итоговую сумму из заказа (totalAmount from orders table)
     const totalOrderAmount = order?.totalAmount ?? 0;
 
-// ==================== State ====================
+    // Проверка прав на редактирование: автор заказа или ADMIN
+    const canEdit = !!(currentEmployee && order?.manager && (isAdmin || currentEmployee.id === order.manager.id));
+
+    // ==================== State ====================
     const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
     const [activeTab, setActiveTab] = useState(0);
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -517,7 +521,7 @@ const { data: employeesData = [] } = useQuery({
           <Chip label={getStatusLabel(order?.status)} color={getStatusColor(order?.status)} size="medium" />
         </Box>
         <Box display="flex" gap={1}>
-          {(user?.roles?.some(r => r === 'ROLE_ADMIN' || r === 'ROLE_MANAGER')) && (
+          {canEdit && (
             <Button variant="outlined" startIcon={<Edit />} onClick={() => navigate(`/orders/${id}/edit`)}>
               Редактировать
             </Button>

@@ -973,11 +973,31 @@ List<MaterialCalculation> materials = order.getMaterials().stream()
                        BigDecimal costPriceplus = base.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
                        String fileUrl = null;
                        String fileOriginalName = null;
+                       List<OrderOperationSummary> operations = List.of();
+                       BigDecimal operationsTotal = BigDecimal.ZERO;
+                       BigDecimal operationsTotalPriceplus = BigDecimal.ZERO;
                        if (om.getOrderItem() != null) {
                            FileAttachment file = fileAttachmentRepository.findByOrderItemId(om.getOrderItem().getId()).orElse(null);
                            if (file != null) {
                                fileUrl = file.getFileUrl();
                                fileOriginalName = file.getOriginalName();
+                           }
+                           if (om.getOrderItem().getOperations() != null) {
+                               operations = om.getOrderItem().getOperations().stream()
+                                   .map(op -> new OrderOperationSummary(
+                                       op.getOperationId(),
+                                       op.getOperationName(),
+                                       op.getPricePerUnit(),
+                                       op.getCalculatedQuantity(),
+                                       op.getSubtotal(),
+                                       op.getWidthM(),
+                                       op.getHeightM()))
+                                   .collect(Collectors.toList());
+                               operationsTotal = operations.stream()
+                                   .map(op -> op.getSubtotal() != null ? op.getSubtotal() : BigDecimal.ZERO)
+                                   .reduce(BigDecimal.ZERO, BigDecimal::add);
+                               operationsTotalPriceplus = operationsTotal.multiply(
+                                   BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
                            }
                        }
                        return new MaterialCalculation(
@@ -988,8 +1008,11 @@ List<MaterialCalculation> materials = order.getMaterials().stream()
                                om.getHeightM(),
                                om.getCost(),
                                costPriceplus,
+                               operationsTotal,
+                               operationsTotalPriceplus,
                                fileUrl,
-                               fileOriginalName
+                               fileOriginalName,
+                               operations
                        );
                    })
                    .collect(Collectors.toList());
