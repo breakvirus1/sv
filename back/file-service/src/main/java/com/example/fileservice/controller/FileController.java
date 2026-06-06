@@ -34,9 +34,15 @@ public class FileController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "orderId", required = false) Long orderId,
             @RequestParam(value = "orderItemId", required = false) Long orderItemId,
-            @RequestParam(value = "uploadedBy", required = false) String uploadedBy) {
+            @RequestParam(value = "uploadedBy", required = false) String uploadedBy,
+            @RequestParam(value = "orderNumber", required = false) String orderNumber,
+            @RequestParam(value = "managerName", required = false) String managerName,
+            @RequestParam(value = "clientName", required = false) String clientName,
+            @RequestParam(value = "materialName", required = false) String materialName,
+            @RequestParam(value = "operationNames", required = false) String operationNames,
+            @RequestParam(value = "operationParams", required = false) String operationParams) {
 
-        FileAttachment attachment = fileService.storeFile(file, orderId, orderItemId, uploadedBy);
+        FileAttachment attachment = fileService.storeFile(file, orderId, orderItemId, uploadedBy, orderNumber, managerName, clientName, materialName, operationNames, operationParams);
         FileAttachment saved = fileAttachmentRepository.save(attachment);
 
         if (orderItemId != null) {

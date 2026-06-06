@@ -24,11 +24,8 @@ public class FileAttachment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "file_name", nullable = false, length = 255)
+    @Column(name = "file_name", nullable = false, length = 500)
     private String fileName;
-
-    @Column(name = "original_name", length = 255)
-    private String originalName;
 
     @Column(name = "file_path", nullable = false, length = 500)
     private String filePath;

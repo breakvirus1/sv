@@ -21,6 +21,5 @@ public class MaterialCalculation {
     private BigDecimal operationsTotal;
     private BigDecimal operationsTotalPriceplus;
     private String fileUrl;
-    private String fileOriginalName;
     private List<OrderOperationSummary> operations;
 }

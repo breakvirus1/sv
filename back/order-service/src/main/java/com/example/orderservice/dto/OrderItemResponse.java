@@ -33,9 +33,6 @@ public class OrderItemResponse {
     /** URL прикреплённого файла */
     private String fileUrl;
 
-    /** Оригинальное имя прикреплённого файла */
-    private String fileOriginalName;
-
     /** ID прикреплённого файла */
     private Long fileId;
 }

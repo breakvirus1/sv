@@ -125,7 +125,6 @@ public OrderResponse getOrderById(Long id) {
                     OrderItemResponse dto = orderMapper.itemToDto(item);
                     fileAttachmentRepository.findByOrderItemId(item.getId()).ifPresent(f -> {
                         dto.setFileUrl(f.getFileUrl());
-                        dto.setFileOriginalName(f.getOriginalName());
                     });
                     return dto;
                 })
@@ -972,16 +971,14 @@ List<MaterialCalculation> materials = order.getMaterials().stream()
                        BigDecimal base = cost.add(eyelet);
                        BigDecimal costPriceplus = base.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
                        String fileUrl = null;
-                       String fileOriginalName = null;
-                       List<OrderOperationSummary> operations = List.of();
-                       BigDecimal operationsTotal = BigDecimal.ZERO;
-                       BigDecimal operationsTotalPriceplus = BigDecimal.ZERO;
-                       if (om.getOrderItem() != null) {
-                           FileAttachment file = fileAttachmentRepository.findByOrderItemId(om.getOrderItem().getId()).orElse(null);
-                           if (file != null) {
-                               fileUrl = file.getFileUrl();
-                               fileOriginalName = file.getOriginalName();
-                           }
+                        List<OrderOperationSummary> operations = List.of();
+                        BigDecimal operationsTotal = BigDecimal.ZERO;
+                        BigDecimal operationsTotalPriceplus = BigDecimal.ZERO;
+                        if (om.getOrderItem() != null) {
+                            FileAttachment file = fileAttachmentRepository.findByOrderItemId(om.getOrderItem().getId()).orElse(null);
+                            if (file != null) {
+                                fileUrl = file.getFileUrl();
+                            }
                            if (om.getOrderItem().getOperations() != null) {
                                operations = om.getOrderItem().getOperations().stream()
                                    .map(op -> new OrderOperationSummary(
@@ -1010,9 +1007,8 @@ List<MaterialCalculation> materials = order.getMaterials().stream()
                                costPriceplus,
                                operationsTotal,
                                operationsTotalPriceplus,
-                               fileUrl,
-                               fileOriginalName,
-                               operations
+                                fileUrl,
+                                operations
                        );
                    })
                    .collect(Collectors.toList());

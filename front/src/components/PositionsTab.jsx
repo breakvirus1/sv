@@ -113,7 +113,7 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
                   sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
                 >
                   <Download fontSize="small" />
-                  {pos.fileOriginalName || 'Скачать файл'}
+                  {pos.fileUrl.split('/').pop()}
                 </Link>
               </Box>
             )}

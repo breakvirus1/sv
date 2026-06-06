@@ -488,9 +488,29 @@ const handleSubmit = async (e) => {
       const createdOrderId = response.data.id;
       const createdOrderItems = response.data.items || [];
 
+      const createdOrderNumber = response.data.orderNumber || '';
+      const createdManagerName = response.data.manager?.fullName || currentEmployee?.fullName || '';
+      const createdClientName = clientsData.find(c => String(c.id) === String(formData.clientId))?.name || '';
+
       for (let i = 0; i < formData.items.length; i++) {
         const item = formData.items[i];
         if (item.file) {
+          const materialName = materialsData.find(m => String(m.id) === String(item.materialId))?.name || '';
+          const operationNames = (item.operations || []).map(op => op.name).filter(Boolean).join('-');
+          const operationParamsList = (item.operations || []).map(op => {
+            const params = [];
+            if (op.hemWidthMm != null) params.push(`podvorot${op.hemWidthMm}mm`);
+            if (op.hemCount != null) params.push(`x${op.hemCount}`);
+            if (op.eyeletId) {
+              const eyelet = eyeletsData.find(e => String(e.id) === String(op.eyeletId));
+              const diameter = eyelet?.diameterMm || op.eyeletId;
+              params.push(`d${diameter}mm`);
+            }
+            if (op.eyeletStepCm != null) params.push(`shag${op.eyeletStepCm}sm`);
+            if (op.widthMm != null) params.push(`w${op.widthMm}mm`);
+            if (op.heightMm != null) params.push(`h${op.heightMm}mm`);
+            return params.join('_');
+          }).filter(Boolean).join('-');
           const fileFormData = new FormData();
           fileFormData.append('file', item.file);
           fileFormData.append('orderId', createdOrderId);
@@ -498,6 +518,12 @@ const handleSubmit = async (e) => {
           if (orderItemId) {
             fileFormData.append('orderItemId', orderItemId);
           }
+          fileFormData.append('orderNumber', createdOrderNumber);
+          fileFormData.append('managerName', createdManagerName);
+          fileFormData.append('clientName', createdClientName);
+          fileFormData.append('materialName', materialName);
+          fileFormData.append('operationNames', operationNames);
+          fileFormData.append('operationParams', operationParamsList);
           try {
             await api.post('/api/files/upload', fileFormData, {
               headers: { 'Content-Type': 'multipart/form-data' },

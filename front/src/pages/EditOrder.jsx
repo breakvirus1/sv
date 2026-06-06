@@ -124,6 +124,14 @@ const { data: operationsData = [] } = useQuery({
      }
 });
 
+  const { data: eyeletsData = [] } = useQuery({
+    queryKey: ['eyelets'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/calculations/eyelets');
+      return response.data || [];
+    }
+  });
+
   // ── Запрос расчетных данных заказа с бекенда ──
   const { data: calculatedData } = useQuery({
     queryKey: ['order-calculated', orderData?.id],
@@ -218,7 +226,6 @@ const { data: operationsData = [] } = useQuery({
           })),
           fileId: orderItem?.fileId || null,
           fileUrl: orderItem?.fileUrl || null,
-          fileOriginalName: orderItem?.fileOriginalName || null,
         };
       });
 
@@ -590,10 +597,32 @@ setFormData(prev => {
       return;
     }
     try {
+      const materialName = materialsData.find(m => String(m.id) === String(item.materialId))?.name || '';
+      const operationNames = (item.operations || []).map(op => op.name).filter(Boolean).join('-');
+      const operationParamsList = (item.operations || []).map(op => {
+        const params = [];
+        if (op.hemWidthMm != null) params.push(`podvorot${op.hemWidthMm}mm`);
+        if (op.hemCount != null) params.push(`x${op.hemCount}`);
+        if (op.eyeletId) {
+          const eyelet = eyeletsData.find(e => String(e.id) === String(op.eyeletId));
+          const diameter = eyelet?.diameterMm || op.eyeletId;
+          params.push(`d${diameter}mm`);
+        }
+        if (op.eyeletStepCm != null) params.push(`shag${op.eyeletStepCm}sm`);
+        if (op.widthMm != null) params.push(`w${op.widthMm}mm`);
+        if (op.heightMm != null) params.push(`h${op.heightMm}mm`);
+        return params.join('_');
+      }).filter(Boolean).join('-');
       const fd = new FormData();
       fd.append('file', file);
       fd.append('orderItemId', item.orderItemId);
       fd.append('orderId', orderData.id);
+      fd.append('orderNumber', orderData.orderNumber || '');
+      fd.append('managerName', orderData.manager?.fullName || '');
+      fd.append('clientName', orderData.client?.name || '');
+      fd.append('materialName', materialName);
+      fd.append('operationNames', operationNames);
+      fd.append('operationParams', operationParamsList);
       const response = await api.post('/api/files/upload', fd, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -604,12 +633,11 @@ setFormData(prev => {
           ...it,
           fileId: saved.id,
           fileUrl: saved.fileUrl,
-          fileOriginalName: saved.originalName || file.name
         } : it)
       }));
       queryClient.invalidateQueries({ queryKey: ['order', orderData?.id] });
       queryClient.invalidateQueries({ queryKey: ['order-calculated', orderData?.id] });
-      setNotification({ open: true, message: `Файл "${saved.originalName || file.name}" загружен`, severity: 'success' });
+      setNotification({ open: true, message: `Файл "${saved.fileName}" загружен`, severity: 'success' });
     } catch (err) {
       setNotification({ open: true, message: `Ошибка загрузки: ${err.response?.data?.message || err.message}`, severity: 'error' });
     } finally {
@@ -621,12 +649,12 @@ setFormData(prev => {
   const handleDeleteFile = async (index) => {
     const item = formData.items[index];
     if (!item?.fileId) return;
-    if (!window.confirm(`Удалить файл "${item.fileOriginalName || 'файл'}"?`)) return;
+    if (!window.confirm('Удалить файл?')) return;
     try {
       await api.delete(`/api/files/${item.fileId}`);
       setFormData(prev => ({
         ...prev,
-        items: prev.items.map((it, i) => i === index ? { ...it, fileId: null, fileUrl: null, fileOriginalName: null } : it)
+        items: prev.items.map((it, i) => i === index ? { ...it, fileId: null, fileUrl: null } : it)
       }));
       queryClient.invalidateQueries({ queryKey: ['order', orderData?.id] });
       queryClient.invalidateQueries({ queryKey: ['order-calculated', orderData?.id] });
@@ -937,7 +965,7 @@ value={priceplus}
                             )}
                           </TableCell>
                           <TableCell>
-                            {item.fileOriginalName ? (
+                            {item.fileUrl ? (
                               <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
                                 <Link
                                   href={`${import.meta.env.VITE_API_URL || ''}${item.fileUrl}`}
@@ -946,7 +974,7 @@ value={priceplus}
                                   sx={{ fontSize: '0.8rem', wordBreak: 'break-all' }}
                                 >
                                   <Download fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.3 }} />
-                                  {item.fileOriginalName}
+                                  {item.fileUrl.split('/').pop()}
                                 </Link>
                                 <IconButton size="small" onClick={() => handleDeleteFile(index)} color="error" sx={{ p: 0.3 }}>
                                   <Delete fontSize="small" />
