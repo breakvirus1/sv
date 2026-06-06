@@ -24,6 +24,7 @@ public interface OrderMapper {
     @Mapping(target = "payments", ignore = true)
     @Mapping(target = "comments", ignore = true)
     @Mapping(target = "materials", ignore = true)
+    @Mapping(target = "updatedAt", source = "updatedAt")
     OrderResponse toDto(Order order);
 
     @AfterMapping

@@ -1,36 +1,57 @@
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import { DataGrid } from '@mui/x-data-grid';
-import { useEffect } from 'react';
 import {
   Box,
   Button,
   Chip,
-  IconButton,
   Typography,
   Container,
   Paper,
   CircularProgress,
   Alert
 } from '@mui/material';
-import { Visibility, Add, Person } from '@mui/icons-material';
+import { Add, Person } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-const fetchOrders = async (params) => {
+const STORAGE_KEY = 'managerOrderListColumnWidths';
+const PAGE_SIZE = 50;
+
+const loadColumnWidths = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveColumnWidths = (widths) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
+  } catch { /* ignore */ }
+};
+
+const fetchOrders = async ({ pageParam = 0, queryKey }) => {
+  const [, { status, my, managerId }] = queryKey;
   const searchParams = new URLSearchParams();
-  searchParams.set('size', '50');
-  if (params.status) searchParams.set('status', params.status);
-  if (params.my && params.managerId) searchParams.set('managerId', params.managerId);
+  searchParams.set('page', String(pageParam));
+  searchParams.set('size', String(PAGE_SIZE));
+  if (status) searchParams.set('status', status);
+  if (my && managerId) searchParams.set('managerId', managerId);
   const response = await api.get(`/api/v1/orders?${searchParams}`);
-  return response.data.content || [];
+  return response.data;
 };
 
 const ManagerOrderList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: PAGE_SIZE });
+  const loadingRef = useRef(false);
 
   const statusFilter = searchParams.get('status');
   const myOrders = searchParams.get('my');
@@ -54,21 +75,57 @@ const ManagerOrderList = () => {
 
   const managerId = currentEmployee?.id;
 
-  const { data: orders = [], isLoading, error } = useQuery({
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['managerOrders', { status: statusFilter, my: myOrders, managerId }],
-    queryFn: () => fetchOrders({ status: statusFilter, my: myOrders, managerId }),
+    queryFn: fetchOrders,
     enabled: !!user,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.last ? undefined : allPages.length;
+    },
     refetchInterval: 30000,
     retry: 1,
     retryDelay: 1000,
   });
 
+  const allOrders = data?.pages?.flatMap(page => page.content) ?? [];
+  const totalCount = data?.pages?.[0]?.totalElements ?? 0;
+
+  useEffect(() => {
+    if (paginationModel.page > 0 && hasNextPage && !loadingRef.current) {
+      loadingRef.current = true;
+      fetchNextPage().finally(() => { loadingRef.current = false; });
+    }
+  }, [paginationModel.page]);
+
+  useEffect(() => {
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [statusFilter, myOrders, managerId]);
+
+  const [columnWidths, setColumnWidths] = useState(loadColumnWidths);
+
+  const handleColumnWidthChange = useCallback((params) => {
+    setColumnWidths(prev => {
+      const next = { ...prev, [params.colDef.field]: params.width };
+      saveColumnWidths(next);
+      return next;
+    });
+  }, []);
+
   const columns = [
-    { field: 'orderNumber', headerName: '№ заказа', width: 130 },
+    { field: 'orderNumber', headerName: '№ заказа', flex: 0.8, minWidth: 100, resizable: true },
     {
       field: 'clientName',
       headerName: 'Клиент',
-      width: 200,
+      flex: 1.5,
+      minWidth: 120,
+      resizable: true,
       renderCell: (params) => (
         <Typography variant="body2">{params.row?.client?.name || '—'}</Typography>
       )
@@ -76,7 +133,9 @@ const ManagerOrderList = () => {
     {
       field: 'managerName',
       headerName: 'Менеджер',
-      width: 180,
+      flex: 1.2,
+      minWidth: 120,
+      resizable: true,
       renderCell: (params) => (
         <Box display="flex" alignItems="center" gap={0.5}>
           <Person fontSize="small" color="action" />
@@ -87,28 +146,36 @@ const ManagerOrderList = () => {
     {
       field: 'totalAmount',
       headerName: 'Сумма',
-      width: 120,
+      flex: 0.8,
+      minWidth: 90,
+      resizable: true,
       type: 'number',
       valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
     },
     {
       field: 'paidAmount',
       headerName: 'Оплачено',
-      width: 120,
+      flex: 0.8,
+      minWidth: 90,
+      resizable: true,
       type: 'number',
       valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
     },
     {
       field: 'debtAmount',
       headerName: 'Долг',
-      width: 100,
+      flex: 0.7,
+      minWidth: 80,
+      resizable: true,
       type: 'number',
       valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
     },
     {
       field: 'status',
       headerName: 'Статус',
-      width: 140,
+      flex: 1,
+      minWidth: 100,
+      resizable: true,
       renderCell: (params) => (
         <Chip
           label={getStatusLabel(params.value)}
@@ -118,26 +185,25 @@ const ManagerOrderList = () => {
       )
     },
     {
-      field: 'dueDate',
-      headerName: 'Срок',
-      width: 120,
-      type: 'date',
-      valueFormatter: ({ value }) => value || ''
+      field: 'updatedAt',
+      headerName: 'Изменён',
+      flex: 1,
+      minWidth: 140,
+      resizable: true,
+      valueFormatter: ({ value }) => {
+        if (!value) return '';
+        const d = new Date(value);
+        return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+      }
     },
     {
-      field: 'actions',
-      type: 'actions',
-      headerName: 'Действия',
-      width: 100,
-      getActions: (params) => [
-        <IconButton
-          key="view"
-          size="small"
-          onClick={() => navigate(`/orders/${params.row.id}`)}
-        >
-          <Visibility />
-        </IconButton>,
-      ],
+      field: 'dueDate',
+      headerName: 'Срок',
+      flex: 0.8,
+      minWidth: 90,
+      resizable: true,
+      type: 'date',
+      valueFormatter: ({ value }) => value || ''
     },
   ];
 
@@ -164,39 +230,73 @@ const ManagerOrderList = () => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5, height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
         <Typography variant="h4">{getTitle()}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Заказов: {orders.length}
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => navigate('/orders/new')}
-        >
-          Новый заказ
-        </Button>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Typography variant="body2" color="text.secondary">
+            Заказов: {totalCount}
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => navigate('/orders/new')}
+          >
+            Новый заказ
+          </Button>
+        </Box>
       </Box>
 
-      <Paper sx={{ height: 600, width: '100%' }}>
+      <Paper sx={{ flex: 1, minHeight: 0, width: '100%', position: 'relative' }}>
+        {isFetchingNextPage && (
+          <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, display: 'flex', justifyContent: 'center', py: 1 }}>
+            <CircularProgress size={24} />
+          </Box>
+        )}
         <DataGrid
-          rows={orders}
+          rows={allOrders}
           columns={columns}
-          pageSizeOptions={[25, 50, 100]}
+          rowCount={totalCount}
+          loading={isLoading || isFetchingNextPage}
+          paginationMode="server"
+          paginationModel={paginationModel}
+          onPaginationModelChange={(model) => {
+            const needFetch = model.page > (data?.pages?.length ?? 0) - 1;
+            if (needFetch && hasNextPage) {
+              fetchNextPage();
+            }
+            setPaginationModel(model);
+          }}
+          pageSizeOptions={[PAGE_SIZE]}
           disableRowSelectionOnClick
+          columnBuffer={8}
+          density="compact"
           sx={{
-            '& .MuiDataGrid-cell:hover': {
-              cursor: 'pointer',
-            },
+            height: '100%',
+            border: 'none',
+            '& .MuiDataGrid-cell:hover': { cursor: 'pointer' },
+            '& .MuiDataGrid-columnSeparator': { visibility: 'visible', resize: 'horizontal' },
+            '& .MuiDataGrid-virtualScroller': { overflowX: 'auto' },
           }}
           onRowClick={(params) => navigate(`/orders/${params.id}`)}
+          onColumnWidthChange={handleColumnWidthChange}
+          slots={{
+            noRowsOverlay: () => (
+              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                <Typography color="text.secondary">Нет заказов</Typography>
+              </Box>
+            ),
+          }}
           initialState={{
-            pagination: {
-              paginationModel: { pageSize: 25 }
-            },
             sorting: {
-              sortModel: [{ field: 'createdAt', sort: 'desc' }]
+              sortModel: [{ field: 'updatedAt', sort: 'desc' }]
+            },
+            columns: {
+              columnVisibilityModel: {},
+              dimensions: Object.entries(columnWidths).reduce((acc, [field, width]) => {
+                acc[field] = { width };
+                return acc;
+              }, {})
             }
           }}
         />

@@ -52,6 +52,8 @@ public class OrderResponse {
     private Boolean hasDocuments;
     /** Дата создания */
     private LocalDateTime createdAt;
+    /** Дата последнего изменения */
+    private LocalDateTime updatedAt;
     /** Позиции заказа (заполняется только в детальном виде) */
     private List<OrderItemResponse> items;
     /** Этапы производства (заполняется только в детальном виде) */
