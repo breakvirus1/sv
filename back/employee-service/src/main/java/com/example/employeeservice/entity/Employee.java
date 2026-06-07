@@ -38,4 +38,8 @@ public class Employee extends BaseEntity {
     /** Email адрес */
     @Column(length = 255)
     private String email;
+
+    /** ID цеха, к которому привязан сотрудник */
+    @Column(name = "workshop_id")
+    private Long workshopId;
 }

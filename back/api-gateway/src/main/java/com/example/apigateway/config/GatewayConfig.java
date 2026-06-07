@@ -20,6 +20,10 @@ public class GatewayConfig {
                 .path("/api/v1/orders/**")
                 .uri("http://order-service:8081")
             )
+            .route("workshop-service", r -> r
+                .path("/api/v1/workshops/**")
+                .uri("http://order-service:8081")
+            )
             .route("client-service", r -> r
                 .path("/api/v1/clients/**")
                 .uri("http://client-service:8082")

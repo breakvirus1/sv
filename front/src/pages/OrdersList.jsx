@@ -199,6 +199,16 @@ const OrdersList = () => {
       type: 'date',
       valueFormatter: ({ value }) => value || ''
     },
+    {
+      field: 'workshopId',
+      headerName: 'Цех',
+      flex: 0.8,
+      minWidth: 80,
+      resizable: true,
+      renderCell: (params) => (
+        <Typography variant="body2">{params.value || '—'}</Typography>
+      )
+    },
   ];
 
   const getTitle = () => {

@@ -112,6 +112,10 @@ public class Order extends BaseEntity {
     @Column(name = "has_documents")
     private Boolean hasDocuments = false;
 
+    /** ID цеха, к которому относится заказ (для фильтрации видимости) */
+    @Column(name = "workshop_id")
+    private Long workshopId;
+
     /** Позиции заказа (изделия) */
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore

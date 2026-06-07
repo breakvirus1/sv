@@ -93,6 +93,29 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
+  const { data: currentEmployee } = useQuery({
+    queryKey: ['currentEmployee', username],
+    queryFn: async () => {
+      if (!username) return null;
+      const response = await api.get('/api/v1/employees?size=1&q=' + username);
+      const data = response.data.content || [];
+      return data.length > 0 ? data[0] : null;
+    },
+    enabled: !!username,
+  });
+
+  const { data: workshopsData = [] } = useQuery({
+    queryKey: ['workshops'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/workshops?size=100');
+      return response.data.content || [];
+    },
+  });
+
+  const workshopName = currentEmployee?.workshopId
+    ? (workshopsData.find(w => w.id === currentEmployee.workshopId)?.name || '#' + currentEmployee.workshopId)
+    : null;
+
   const { data: operationsData = [], error: operationsError } = useQuery({
     queryKey: ['operations'],
     queryFn: async () => {
@@ -129,27 +152,6 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       setPriceplus(0);
     }
   }, [selectedClient?.priceplus]);
-
-  // Получение текущего менеджера по username из Keycloak
-  const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
-    queryKey: ['currentEmployee', username],
-    queryFn: async () => {
-      if (!username) return null;
-      const response = await api.get(`/api/v1/employees?size=1&q=${username}`);
-      const data = response.data.content || [];
-      return data.length > 0 ? data[0] : null;
-    },
-    enabled: !!username
-  });
-
-  // Синхронизируем менеджера из Keycloak, если не найден
-  useEffect(() => {
-    if (username && !currentEmployee) {
-      api.post('/api/v1/employees/sync')
-        .then(() => refetchEmployee())
-        .catch(err => console.error('Employee sync failed:', err));
-    }
-  }, [username, currentEmployee, refetchEmployee]);
 
   // Мутация для создания клиента
   const createClientMutation = useMutation({
@@ -571,7 +573,7 @@ const handleSubmit = async (e) => {
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
       <Typography variant="h6" gutterBottom sx={{ color: '#0055ea', fontWeight: 600 }}>
-        Создание нового заказа
+        {workshopName ? workshopName + ' — ' : ''}Создание нового заказа
       </Typography>
       <Divider sx={{ mb: 2 }} />
 

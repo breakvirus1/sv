@@ -9,8 +9,7 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class WorkshopResponse {
-    private Long id;
+public class WorkshopCreateRequest {
     private String name;
     private Integer sortOrder;
     private List<Long> operationIds;

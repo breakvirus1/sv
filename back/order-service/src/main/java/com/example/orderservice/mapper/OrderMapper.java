@@ -77,7 +77,9 @@ public interface OrderMapper {
             dto.setWorkshop(new WorkshopResponse(
                 entity.getWorkshop().getId(),
                 entity.getWorkshop().getName(),
-                entity.getWorkshop().getSortOrder()));
+                entity.getWorkshop().getSortOrder(),
+                entity.getWorkshop().getOperationIds(),
+                entity.getWorkshop().getMaterialIds()));
         }
     }
 
@@ -175,7 +177,8 @@ public interface OrderMapper {
                 entity.getAuthor().getPosition(),
                 entity.getAuthor().getPhone(),
                 entity.getAuthor().getEmail(),
-                entity.getAuthor().getUsername()));
+                entity.getAuthor().getUsername(),
+                entity.getAuthor().getWorkshopId()));
         }
     }
 

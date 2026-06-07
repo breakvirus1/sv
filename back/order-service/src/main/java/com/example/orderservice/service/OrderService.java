@@ -16,6 +16,7 @@ import com.example.orderservice.entity.OrderStage;
 import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.entity.Payment;
 import com.example.orderservice.entity.ProductionStage;
+import com.example.orderservice.entity.Workshop;
 import com.example.orderservice.mapper.OrderMapper;
 import com.example.orderservice.repository.FileAttachmentRepository;
 import com.example.orderservice.repository.OrderCommentRepository;
@@ -91,8 +92,46 @@ public class OrderService {
      */
     @Transactional(readOnly = true)
     public Page<OrderResponse> getAllOrders(Specification<Order> spec, Pageable pageable) {
+        spec = spec.and(workshopFilterForCurrentUser());
         return orderRepository.findAll(spec, pageable)
                 .map(orderMapper::toDto);
+    }
+
+    /**
+     * Build a specification that filters orders by the current PRODUCTION user's workshop.
+     * For ADMIN/MANAGER/ACCOUNTANT roles, no workshop filtering is applied.
+     */
+    private Specification<Order> workshopFilterForCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return (root, query, cb) -> cb.conjunction();
+        }
+
+        boolean isProduction = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_PRODUCTION"));
+        if (!isProduction) {
+            return (root, query, cb) -> cb.conjunction();
+        }
+
+        String username = auth.getAuthorities().stream()
+                .filter(a -> a.getAuthority().startsWith("USERNAME_"))
+                .map(a -> a.getAuthority().substring("USERNAME_".length()))
+                .findFirst()
+                .orElse(null);
+
+        if (username == null) {
+            return (root, query, cb) -> cb.disjunction();
+        }
+
+        return (root, query, cb) -> {
+            jakarta.persistence.criteria.Subquery<Long> sq = query.subquery(Long.class);
+            jakarta.persistence.criteria.Root<Employee> empRoot = sq.from(Employee.class);
+            sq.select(empRoot.get("workshopId"))
+              .where(cb.equal(empRoot.get("username"), username),
+                     cb.equal(empRoot.get("deleted"), false));
+
+            return cb.in(root.get("workshopId")).value(sq);
+        };
     }
 
      /**
@@ -102,8 +141,35 @@ public class OrderService {
 public OrderResponse getOrderById(Long id) {
          Order order = orderRepository.findById(id)
                  .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+         checkWorkshopAccess(order);
          return mapOrderResponse(order);
      }
+
+    private void checkWorkshopAccess(Order order) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return;
+        boolean isProduction = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_PRODUCTION"));
+        if (!isProduction) return;
+
+        String username = auth.getAuthorities().stream()
+                .filter(a -> a.getAuthority().startsWith("USERNAME_"))
+                .map(a -> a.getAuthority().substring("USERNAME_".length()))
+                .findFirst()
+                .orElse(null);
+        if (username == null) return;
+
+        Employee employee = (Employee) entityManager.createQuery(
+                "SELECT e FROM Employee e WHERE e.username = :username AND e.deleted = false")
+                .setParameter("username", username)
+                .getResultStream().findFirst().orElse(null);
+
+        if (employee != null && employee.getWorkshopId() != null
+                && order.getWorkshopId() != null
+                && !employee.getWorkshopId().equals(order.getWorkshopId())) {
+            throw new NotFoundException("Заказ не найден");
+        }
+    }
 
     /**
      * Получить заказ по его номеру (orderNumber).
@@ -771,7 +837,17 @@ OrderResponse response = mapOrderResponse(order);
         com.example.orderservice.entity.OrderStage stage = orderMapper.stageToEntity(stageRequest);
         stage.setOrder(order);
 
+        if (stageRequest.getWorkshopId() != null) {
+            Workshop workshop = entityManager.find(Workshop.class, stageRequest.getWorkshopId());
+            if (workshop == null) {
+                throw new NotFoundException("Цех не найден: " + stageRequest.getWorkshopId());
+            }
+            stage.setWorkshop(workshop);
+            order.setWorkshopId(workshop.getId());
+        }
+
         com.example.orderservice.entity.OrderStage saved = orderStageRepository.save(stage);
+        orderRepository.save(order);
         return orderMapper.stageToDto(saved);
     }
 
@@ -818,7 +894,7 @@ private void recalculatePaidAmount(Long orderId) {
     private CommentResponse mapComment(OrderComment comment) {
         Employee author = comment.getAuthor();
         EmployeeResponse authorDto = author != null ?
-                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername()) :
+                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername(), author.getWorkshopId()) :
                 null;
 
         return new CommentResponse(
