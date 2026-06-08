@@ -32,7 +32,7 @@ public class EmployeeController {
 
     @Operation(summary = "Получить список сотрудников")
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
     public ResponseEntity<Page<EmployeeResponse>> getAllEmployees(
             @RequestParam(required = false) String q,
             Pageable pageable) {

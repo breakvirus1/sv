@@ -28,11 +28,6 @@ public class Workshop extends BaseEntity {
     @Column(name = "operation_id")
     private List<Long> operationIds = new ArrayList<>();
 
-    @ElementCollection
-    @CollectionTable(name = "workshop_materials", joinColumns = @JoinColumn(name = "workshop_id", referencedColumnName = "id"))
-    @Column(name = "material_id")
-    private List<Long> materialIds = new ArrayList<>();
-
     @OneToMany(mappedBy = "workshop", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderStage> orderStages = new ArrayList<>();
 }

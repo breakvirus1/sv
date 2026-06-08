@@ -64,6 +64,4 @@ public class OrderResponse {
     private List<CommentResponse> comments;
     /** Материалы заказа (заполняется только в детальном виде) */
     private List<OrderMaterialResponse> materials;
-    /** ID цеха, к которому относится заказ */
-    private Long workshopId;
 }

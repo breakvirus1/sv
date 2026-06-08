@@ -13,5 +13,4 @@ public class WorkshopCreateRequest {
     private String name;
     private Integer sortOrder;
     private List<Long> operationIds;
-    private List<Long> materialIds;
 }

@@ -24,6 +24,7 @@ import com.example.orderservice.repository.OrderItemRepository;
 import com.example.orderservice.repository.OrderRepository;
 import com.example.orderservice.repository.OrderStageRepository;
 import com.example.orderservice.repository.PaymentRepository;
+import com.example.orderservice.repository.WorkshopRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -78,6 +79,7 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final OrderCommentRepository orderCommentRepository;
     private final FileAttachmentRepository fileAttachmentRepository;
+    private final WorkshopRepository workshopRepository;
     private final OrderMapper orderMapper;
     @PersistenceContext
     private EntityManager entityManager;
@@ -97,40 +99,59 @@ public class OrderService {
                 .map(orderMapper::toDto);
     }
 
-    /**
-     * Build a specification that filters orders by the current PRODUCTION user's workshop.
-     * For ADMIN/MANAGER/ACCOUNTANT roles, no workshop filtering is applied.
-     */
-    private Specification<Order> workshopFilterForCurrentUser() {
+    private String getCurrentUsername() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) {
-            return (root, query, cb) -> cb.conjunction();
-        }
-
-        boolean isProduction = auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_PRODUCTION"));
-        if (!isProduction) {
-            return (root, query, cb) -> cb.conjunction();
-        }
-
-        String username = auth.getAuthorities().stream()
+        if (auth == null) return null;
+        return auth.getAuthorities().stream()
                 .filter(a -> a.getAuthority().startsWith("USERNAME_"))
                 .map(a -> a.getAuthority().substring("USERNAME_".length()))
                 .findFirst()
                 .orElse(null);
+    }
 
+    private boolean isProductionUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_PRODUCTION"));
+    }
+
+    private List<Long> getWorkshopOperationIds(String username) {
+        Employee employee = (Employee) entityManager.createQuery(
+                "SELECT e FROM Employee e WHERE e.username = :username AND e.deleted = false")
+                .setParameter("username", username)
+                .getResultStream().findFirst().orElse(null);
+        if (employee == null || employee.getWorkshopId() == null) return null;
+        Workshop workshop = workshopRepository.findById(employee.getWorkshopId()).orElse(null);
+        if (workshop == null || workshop.getOperationIds() == null || workshop.getOperationIds().isEmpty()) return null;
+        return workshop.getOperationIds();
+    }
+
+    /**
+     * Build a specification that filters orders by the current PRODUCTION user's workshop operations.
+     * For ADMIN/MANAGER/ACCOUNTANT roles, no workshop filtering is applied.
+     * For PRODUCTION, returns orders where any OrderItem has an OrderOperation with operationId
+     * matching one of the workshop's operationIds.
+     */
+    private Specification<Order> workshopFilterForCurrentUser() {
+        if (!isProductionUser()) {
+            return (root, query, cb) -> cb.conjunction();
+        }
+
+        String username = getCurrentUsername();
         if (username == null) {
             return (root, query, cb) -> cb.disjunction();
         }
 
-        return (root, query, cb) -> {
-            jakarta.persistence.criteria.Subquery<Long> sq = query.subquery(Long.class);
-            jakarta.persistence.criteria.Root<Employee> empRoot = sq.from(Employee.class);
-            sq.select(empRoot.get("workshopId"))
-              .where(cb.equal(empRoot.get("username"), username),
-                     cb.equal(empRoot.get("deleted"), false));
+        List<Long> operationIds = getWorkshopOperationIds(username);
+        if (operationIds == null) {
+            return (root, query, cb) -> cb.disjunction();
+        }
 
-            return cb.in(root.get("workshopId")).value(sq);
+        return (root, query, cb) -> {
+            jakarta.persistence.criteria.Join<Order, OrderItem> itemJoin = root.join("items", jakarta.persistence.criteria.JoinType.INNER);
+            jakarta.persistence.criteria.Join<OrderItem, OrderOperation> opJoin = itemJoin.join("operations", jakarta.persistence.criteria.JoinType.INNER);
+            return opJoin.get("operationId").in(operationIds);
         };
     }
 
@@ -146,27 +167,21 @@ public OrderResponse getOrderById(Long id) {
      }
 
     private void checkWorkshopAccess(Order order) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) return;
-        boolean isProduction = auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_PRODUCTION"));
-        if (!isProduction) return;
+        if (!isProductionUser()) return;
 
-        String username = auth.getAuthorities().stream()
-                .filter(a -> a.getAuthority().startsWith("USERNAME_"))
-                .map(a -> a.getAuthority().substring("USERNAME_".length()))
-                .findFirst()
-                .orElse(null);
+        String username = getCurrentUsername();
         if (username == null) return;
 
-        Employee employee = (Employee) entityManager.createQuery(
-                "SELECT e FROM Employee e WHERE e.username = :username AND e.deleted = false")
-                .setParameter("username", username)
-                .getResultStream().findFirst().orElse(null);
+        List<Long> operationIds = getWorkshopOperationIds(username);
+        if (operationIds == null) {
+            throw new NotFoundException("Заказ не найден");
+        }
 
-        if (employee != null && employee.getWorkshopId() != null
-                && order.getWorkshopId() != null
-                && !employee.getWorkshopId().equals(order.getWorkshopId())) {
+        boolean hasMatchingOperation = order.getItems().stream()
+                .flatMap(item -> item.getOperations().stream())
+                .anyMatch(op -> operationIds.contains(op.getOperationId()));
+
+        if (!hasMatchingOperation) {
             throw new NotFoundException("Заказ не найден");
         }
     }
@@ -180,6 +195,7 @@ public OrderResponse getOrderById(Long id) {
         if (order == null) {
             throw new NotFoundException("Заказ не найден");
         }
+        checkWorkshopAccess(order);
         return mapOrderResponse(order);
     }
 
@@ -843,7 +859,6 @@ OrderResponse response = mapOrderResponse(order);
                 throw new NotFoundException("Цех не найден: " + stageRequest.getWorkshopId());
             }
             stage.setWorkshop(workshop);
-            order.setWorkshopId(workshop.getId());
         }
 
         com.example.orderservice.entity.OrderStage saved = orderStageRepository.save(stage);
