@@ -36,6 +36,7 @@ import { useNavigate } from 'react-router-dom';
 import { computeWorkshopTags } from '../utils/workshopTags';
 import { isM2, isLinearMeter } from '../utils/orderUtils';
 import { recalculateOrderLocally, applyPriceplus } from '../services/calculationService';
+import { useAuth } from '../context/AuthContext';
 
 const CreateOrderForm = ({ windowId, closeWindow }) => {
   const navigate = useNavigate();
@@ -54,6 +55,15 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [priceplus, setPriceplus] = useState(0);
+
+  // ── Queries ──
+  const { data: workshopsData = [] } = useQuery({
+    queryKey: ['workshops'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/workshops?size=100');
+      return response.data.content || [];
+    },
+  });
 
   // ── Workshop tags for display ──
   const workshopTags = useMemo(
@@ -108,14 +118,6 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       return data.length > 0 ? data[0] : null;
     },
     enabled: !!username,
-  });
-
-  const { data: workshopsData = [] } = useQuery({
-    queryKey: ['workshops'],
-    queryFn: async () => {
-      const response = await api.get('/api/v1/workshops?size=100');
-      return response.data.content || [];
-    },
   });
 
   const workshopName = currentEmployee?.workshopId
