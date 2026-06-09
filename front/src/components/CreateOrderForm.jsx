@@ -33,7 +33,7 @@ import { Add, Delete, Save, AttachFile } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { computeWorkshopTags } from '../utils/workshopTags';
 import { isM2, isLinearMeter } from '../utils/orderUtils';
 import { recalculateOrderLocally, applyPriceplus } from '../services/calculationService';
 
@@ -54,6 +54,12 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [priceplus, setPriceplus] = useState(0);
+
+  // ── Workshop tags for display ──
+  const workshopTags = useMemo(
+    () => computeWorkshopTags(workshopsData, formData.items),
+    [workshopsData, formData.items]
+  );
 
   // ── State: Dialogs ──
   const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
@@ -115,33 +121,6 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const workshopName = currentEmployee?.workshopId
     ? (workshopsData.find(w => w.id === currentEmployee.workshopId)?.name || '#' + currentEmployee.workshopId)
     : null;
-
-// WORKSHOPS_BY_OP
-  const orderWorkshopsStr = useMemo(() => {
-    const opToWorkshops = new Map();
-    for (const ws of workshopsData) {
-      if (ws.operationIds) {
-        for (const opId of ws.operationIds) {
-          if (!opToWorkshops.has(opId)) opToWorkshops.set(opId, new Set());
-          opToWorkshops.get(opId).add(ws.name);
-        }
-      }
-    }
-    const names = new Set();
-    for (const item of formData.items) {
-      if (item.operations) {
-        for (const op of item.operations) {
-          const wsNames = opToWorkshops.get(Number(op.id));
-          if (wsNames) {
-            for (const n of wsNames) names.add(n);
-          }
-        }
-      }
-    }
-    const result = Array.from(names).map(n => '#' + n).join('   ');
-    console.log('[WORKSHOP_DEBUG] orderWorkshopsStr:', result);
-    return result;
-  }, [workshopsData, formData.items]);
 
   const { data: operationsData = [], error: operationsError } = useQuery({
     queryKey: ['operations'],
@@ -855,7 +834,7 @@ const handleSubmit = async (e) => {
               gap: 1,
             }}
           >
-            Сумма: {totalOrderAmount.toFixed(2)} ₽{orderWorkshopsStr ? '   ' + orderWorkshopsStr : ''}
+            Сумма: {totalOrderAmount.toFixed(2)} ₽{workshopTags ? '   ' + workshopTags : ''}
           </Box>
         </Box>
 

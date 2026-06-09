@@ -230,7 +230,9 @@ services:
 
 networks:
   sv-network:
+    name: sv-network
     driver: bridge
+    external: false
 
 volumes:
   postgres_data:
