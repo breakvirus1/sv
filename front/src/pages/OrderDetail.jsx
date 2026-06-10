@@ -11,38 +11,29 @@ import {
   CircularProgress,
   Alert,
   Chip,
+  TextField,
   Divider,
   Snackbar,
   Grid,
-  TextField,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  MenuItem,
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from '@mui/material';
-import { ArrowBack, Edit, Payment, Delete, Add, Info } from '@mui/icons-material';
+import { ArrowBack, Payment, Edit } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getStatusColor, getStatusLabel, isM2, isLinearMeter } from '../utils/orderUtils';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import ClientInfo from '../components/ClientInfo';
-
-// Компоненты
-import OrderInfoCard from '../components/OrderInfoCard';
-import OrderDetailsCard from '../components/OrderDetailsCard';
-import PositionsTab from '../components/PositionsTab';
-import StagesTab from '../components/StagesTab';
-import PaymentsTab from '../components/PaymentsTab';
-import CommentsTab from '../components/CommentsTab';
-import StatusChangeDialog from '../components/StatusChangeDialog';
-import PaymentDialog from '../components/PaymentDialog';
-import NewClientDialog from '../components/NewClientDialog';
-import EditOrder from './EditOrder';
+import CreateOrderForm from '../components/CreateOrderForm';
 
 const OrderDetail = ({ mode = 'view' }) => {
   const { id } = useParams();
@@ -340,151 +331,7 @@ const { data: employeesData = [] } = useQuery({
 
   // ==================== Render ====================
   if (mode === 'create') {
-    return (
-      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
-        <Box display="flex" alignItems="center" gap={2} mb={3}>
-          <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
-            Назад
-          </Button>
-          <Typography variant="h4">Новый заказ</Typography>
-        </Box>
-
-        <Paper sx={{ p: 4 }}>
-          <form onSubmit={handleCreateSubmit}>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth margin="normal" required>
-                  <InputLabel>Клиент</InputLabel>
-                  <Select name="clientId" value={formData.clientId} onChange={handleClientChange}>
-                    <MenuItem value="create_new">Создать нового клиента</MenuItem>
-                    {clientsData?.map((client) => (
-                      <MenuItem key={client.id} value={client.id}>
-                        {client.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}></Grid>
-              <Grid item xs={12} md={6}>
-                <TextField fullWidth label="Процент добавки (priceplus)" type="number" value={priceplus} onChange={(e) => setPriceplus(parseFloat(e.target.value) || 0)} margin="normal" inputProps={{ min: -100, max: 100, step: 0.1 }} />
-              </Grid>
-              <Grid item xs={12} md={6}></Grid>
-              <Grid item xs={12} md={6}>
-                <TextField fullWidth label="Дата заказа" name="orderDate" type="date" value={formData.orderDate} onChange={(e) => setFormData(prev => ({ ...prev, orderDate: e.target.value }))} required margin="normal" InputLabelProps={{ shrink: true }} />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField fullWidth label="Срок сдачи" name="dueDate" type="date" value={formData.dueDate} onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))} margin="normal" InputLabelProps={{ shrink: true }} />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField fullWidth label="Описание" name="description" multiline rows={3} value={formData.description} onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} margin="normal" />
-              </Grid>
-
-              {/* Positions */}
-              <Grid item xs={12}>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography variant="h6">Позиции заказа</Typography>
-                  <Button startIcon={<Add />} onClick={addItem} variant="outlined">Добавить позицию</Button>
-                </Box>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Материал</TableCell>
-                        <TableCell width={180}>Размер 1</TableCell>
-                        <TableCell width={180}>Размер 2</TableCell>
-                        <TableCell width={130}>Срок готовности</TableCell>
-                        <TableCell width={50}>Действия</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {formData.items.map((item, index) => {
-                        const material = materialsData.find(m => m.id === parseInt(item.materialId));
-                        const showSecond = isM2(material);
-                        return (
-                          <TableRow key={index}>
-                            <TableCell>
-                              <FormControl fullWidth size="small">
-                                <Select value={item.materialId} onChange={(e) => updateItem(index, 'materialId', e.target.value)}>
-                                  <MenuItem value="">Выберите материал</MenuItem>
-                                  {materialsData.map((mat) => (
-                                    <MenuItem key={mat.id} value={mat.id}>
-                                      {mat.name} ({mat.unit})
-                                    </MenuItem>
-                                  ))}
-                                </Select>
-                              </FormControl>
-                            </TableCell>
-                            <TableCell>
-                              <Box display="flex" gap={0.5} alignItems="center">
-                                <TextField size="small" type="number" value={item.qty1value} onChange={(e) => updateItem(index, 'qty1value', e.target.value)} inputProps={{ min: 0, step: 0.001 }}                         placeholder={isM2(material) ? 'Ширина' : 'Длина'} sx={{ width: 100 }} />
-                                <Select size="small" value={item.qty1unit || 'м'} onChange={(e) => updateItem(index, 'qty1unit', e.target.value)} sx={{ width: 70 }}>
-                                  <MenuItem value="м">м</MenuItem>
-                                  <MenuItem value="мм">мм</MenuItem>
-                                </Select>
-                              </Box>
-                            </TableCell>
-                            {showSecond ? (
-                              <TableCell>
-                                <Box display="flex" gap={0.5} alignItems="center">
-                                  <TextField size="small" type="number" value={item.qty2value} onChange={(e) => updateItem(index, 'qty2value', e.target.value)} inputProps={{ min: 0, step: 0.001 }} placeholder="Высота" sx={{ width: 100 }} />
-                                  <Select size="small" value={item.qty2unit || 'м'} onChange={(e) => updateItem(index, 'qty2unit', e.target.value)} sx={{ width: 70 }}>
-                                    <MenuItem value="м">м</MenuItem>
-                                    <MenuItem value="мм">мм</MenuItem>
-                                  </Select>
-                                </Box>
-                              </TableCell>
-                            ) : (
-                              <TableCell />
-                            )}
-                            <TableCell>
-                              <TextField fullWidth size="small" type="date" value={item.readyDate} onChange={(e) => updateItem(index, 'readyDate', e.target.value)} InputLabelProps={{ shrink: true }} />
-                            </TableCell>
-                            <TableCell>
-                              <IconButton onClick={() => removeItem(index)} color="error" size="small">
-                                <Delete />
-                              </IconButton>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                {formData.items.length === 0 && (
-                  <Alert severity="info" sx={{ mt: 2 }}>Добавьте хотя бы одну позицию в заказ</Alert>
-                )}
-              </Grid>
-
-              <Grid item xs={12}>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-                  <Typography variant="h6">Сумма: {totalOrderAmount.toFixed(2)} ₽</Typography>
-                  <Box display="flex" gap={2}>
-                    <Button onClick={() => navigate('/orders')}>Отмена</Button>
-                    <Button type="submit" variant="contained" disabled={!formData.clientId || formData.items.length === 0 || createOrderMutation.isLoading || !currentEmployee}>
-                      {createOrderMutation.isLoading ? 'Создание...' : 'Создать заказ'}
-                    </Button>
-                  </Box>
-                </Box>
-              </Grid>
-            </Grid>
-          </form>
-        </Paper>
-
-        <NewClientDialog
-          open={clientDialogOpen}
-          onClose={() => setClientDialogOpen(false)}
-          onSubmit={handleClientSubmit}
-          isLoading={createClientMutation.isLoading}
-        />
-
-        <Snackbar open={notification.open} autoHideDuration={6000} onClose={() => setNotification({ ...notification, open: false })}>
-          <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
-            {notification.message}
-          </Alert>
-        </Snackbar>
-      </Container>
-    );
+    return <CreateOrderForm />;
   }
 
   if (isLoading) {
@@ -546,12 +393,24 @@ const { data: employeesData = [] } = useQuery({
               <Tab label="Комментарии" />
             </Tabs>
             <Divider />
-<Box sx={{ p: 3 }}>
-               {activeTab === 0 && <PositionsTab materials={order?.materials || []} items={order?.items || []} orderId={order?.id} calculatedData={calculatedData} />}
-               {activeTab === 1 && <StagesTab stages={order?.stages || []} />}
-               {activeTab === 2 && <PaymentsTab payments={order?.payments || []} />}
-               {activeTab === 3 && <CommentsTab comments={order?.comments || []} />}
-             </Box>
+            <Box sx={{ p: 3 }}>
+              {activeTab === 0 && (
+                <PositionsTab 
+                  materials={order?.materials || []} 
+                  items={order?.items || []}
+                  orderId={order?.id}
+                />
+              )}
+              {activeTab === 1 && (
+                <StagesTab stages={order?.stages || []} />
+              )}
+              {activeTab === 2 && (
+                <PaymentsTab payments={order?.payments || []} />
+              )}
+              {activeTab === 3 && (
+                <CommentsTab comments={order?.comments || []} />
+              )}
+            </Box>
           </Paper>
         </Grid>
 
@@ -591,6 +450,298 @@ const { data: employeesData = [] } = useQuery({
         </Alert>
       </Snackbar>
     </Container>
+  );
+};
+
+// ==================== Helper Components ====================
+const getStatusColor = (status) => {
+  const colors = {
+    WAITING: 'warning',
+    LAUNCHED: 'info',
+    IN_PROGRESS: 'primary',
+    READY: 'success',
+    ACCEPTED: 'success',
+    CLOSED: 'default'
+  };
+  return colors[status] || 'default';
+};
+
+const PositionsTab = ({ materials = [], items = [], orderId }) => {
+  if (!items?.length && !materials?.length) {
+    return <Typography>Нет позиций в заказе</Typography>;
+  }
+
+  const navigate = useNavigate();
+
+  return (
+    <Box>
+      {items.map((item) => (
+        <Paper key={item.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle1">{item.name}</Typography>
+            <Typography variant="h6">{Number(item.cost).toFixed(2)} ₽</Typography>
+          </Box>
+          <Box display="flex" gap={4} mt={1}>
+            <Typography variant="body2" color="text.secondary">
+              Цена за ед.: {Number(item.price).toFixed(2)} ₽
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Кол-во: {item.quantity} шт.
+            </Typography>
+          </Box>
+          <Box mt={1}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Edit />}
+              onClick={() => navigate(`/orders/${orderId}/items/${item.id}`)}
+            >
+              Смета
+            </Button>
+          </Box>
+          {/* Operations list */}
+          {item.operations && item.operations.length > 0 && (
+            <Box mt={2}>
+              <Typography variant="subtitle2" gutterBottom>Операции:</Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Название</TableCell>
+                      <TableCell align="right">Цена</TableCell>
+                      <TableCell align="right">Кол-во</TableCell>
+                      <TableCell align="right">Сумма</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {item.operations.map((op) => (
+                      <TableRow key={op.id}>
+                        <TableCell>{op.name}</TableCell>
+                        <TableCell align="right">{Number(op.pricePerUnit).toFixed(2)} ₽</TableCell>
+                        <TableCell align="right">{Number(op.quantity).toFixed(2)}</TableCell>
+                        <TableCell align="right">{Number(op.cost).toFixed(2)} ₽</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+        </Paper>
+      ))}
+      {materials.map((mat) => (
+        <Paper key={mat.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle1">
+              {mat.materialName}
+            </Typography>
+            <Typography variant="h6">{Number(mat.cost).toFixed(2)} ₽</Typography>
+          </Box>
+          <Box display="flex" gap={4} mt={1}>
+            <Typography variant="body2" color="text.secondary">
+              Цена за ед.: {Number(mat.pricePerUnit).toFixed(2)} ₽
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Кол-во: {parseFloat(mat.quantity).toFixed(3)} {mat.unit}
+            </Typography>
+          </Box>
+          {/* Operations for material */}
+          {mat.operations && mat.operations.length > 0 && (
+            <Box mt={2}>
+              <Typography variant="subtitle2" gutterBottom>Операции:</Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Название</TableCell>
+                      <TableCell align="right">Цена</TableCell>
+                      <TableCell align="right">Кол-во</TableCell>
+                      <TableCell align="right">Сумма</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {mat.operations.map((op) => (
+                      <TableRow key={op.id}>
+                        <TableCell>{op.name}</TableCell>
+                        <TableCell align="right">{Number(op.pricePerUnit).toFixed(2)} ₽</TableCell>
+                        <TableCell align="right">{Number(op.quantity).toFixed(2)}</TableCell>
+                        <TableCell align="right">{Number(op.cost).toFixed(2)} ₽</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+        </Paper>
+      ))}
+    </Box>
+  );
+};
+
+const StagesTab = ({ stages }) => {
+  if (!stages?.length) {
+    return <Typography>Этапы производства не заданы</Typography>;
+  }
+
+  return (
+    <Box>
+      {stages.map((stage) => (
+        <Paper key={stage.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle1">{stage.workshop?.name}</Typography>
+            <Chip
+              label={stage.status}
+              color={stage.status === 'DONE' ? 'success' : stage.status === 'IN_PROGRESS' ? 'primary' : 'default'}
+              size="small"
+            />
+          </Box>
+          <Box mt={1}>
+            <Typography variant="body2" color="text.secondary">
+              Срок: {stage.dueDate || '—'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Ждать предыдущие: {stage.waitPrevious ? 'Да' : 'Нет'}
+            </Typography>
+            {stage.note && (
+              <Typography variant="body2" color="text.secondary">
+                Примечание: {stage.note}
+              </Typography>
+            )}
+          </Box>
+        </Paper>
+      ))}
+    </Box>
+  );
+};
+
+const PaymentsTab = ({ payments }) => {
+  if (!payments?.length) {
+    return <Typography>Нет оплат</Typography>;
+  }
+
+  return (
+    <Box>
+      {payments.map((payment) => (
+        <Paper key={payment.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box>
+              <Typography variant="subtitle1">{payment.paymentType}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {payment.paymentDate}
+              </Typography>
+            </Box>
+            <Typography variant="h6">{payment.amount?.toFixed(2)} ₽</Typography>
+          </Box>
+          {payment.details && (
+            <Typography variant="body2" color="text.secondary" mt={1}>
+              {payment.details}
+            </Typography>
+          )}
+        </Paper>
+      ))}
+    </Box>
+  );
+};
+
+const CommentsTab = ({ comments }) => {
+  if (!comments?.length) {
+    return <Typography>Нет комментариев</Typography>;
+  }
+
+  return (
+    <Box>
+      {comments.map((comment) => (
+        <Paper key={comment.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+            <Typography variant="subtitle1">{comment.author?.fullName || 'Система'}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {new Date(comment.timestamp).toLocaleString()}
+            </Typography>
+          </Box>
+          <Typography variant="body1">{comment.message}</Typography>
+          {comment.isInternal && (
+            <Chip label="Внутренний" size="small" sx={{ mt: 1 }} />
+          )}
+        </Paper>
+      ))}
+    </Box>
+  );
+};
+
+const PaymentForm = ({ onSubmit }) => {
+  const [formData, setFormData] = useState({
+    amount: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    paymentType: 'Безнал',
+    details: ''
+  });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit({
+      ...formData,
+      amount: parseFloat(formData.amount)
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <TextField
+        fullWidth
+        margin="dense"
+        label="Сумма"
+        name="amount"
+        type="number"
+        value={formData.amount}
+        onChange={handleChange}
+        required
+        inputProps={{ step: 0.01 }}
+      />
+      <TextField
+        fullWidth
+        margin="dense"
+        label="Дата оплаты"
+        name="paymentDate"
+        type="date"
+        value={formData.paymentDate}
+        onChange={handleChange}
+        required
+        InputLabelProps={{ shrink: true }}
+      />
+      <TextField
+        fullWidth
+        margin="dense"
+        label="Вид оплаты"
+        name="paymentType"
+        select
+        value={formData.paymentType}
+        onChange={handleChange}
+      >
+        <MenuItem value="Безнал">Безнал</MenuItem>
+        <MenuItem value="Нал">Нал</MenuItem>
+        <MenuItem value="Карта">Карта</MenuItem>
+      </TextField>
+      <TextField
+        fullWidth
+        margin="dense"
+        label="Примечание"
+        name="details"
+        multiline
+        rows={2}
+        value={formData.details}
+        onChange={handleChange}
+      />
+      <DialogActions sx={{ mt: 2 }}>
+        <Button type="button" onClick={() => {}}>Отмена</Button>
+        <Button type="submit" variant="contained">Добавить</Button>
+      </DialogActions>
+    </form>
   );
 };
 

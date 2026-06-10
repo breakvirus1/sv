@@ -9,6 +9,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Сущность "Материал в заказе" — связь заказа/позиции с материалом.
@@ -55,19 +57,8 @@ public class OrderMaterial extends BaseEntity {
     @Column(name = "cost", precision = 12, scale = 2)
     private BigDecimal cost = BigDecimal.ZERO;
 
-    /** Стоимость с учетом priceplus (cost * (1 + priceplus/100)) */
-    @Column(name = "cost_priceplus", precision = 12, scale = 2)
-    private BigDecimal costPriceplus = BigDecimal.ZERO;
-
-    /** Стоимость люверсов (eyelet hardware), 0 если люверсы не используются */
-    @Column(name = "eyelet_cost", precision = 12, scale = 2)
-    private BigDecimal eyeletCost = BigDecimal.ZERO;
-
-    /** Ширина изделия в метрах */
-    @Column(name = "width_m", precision = 10, scale = 4)
-    private BigDecimal widthM;
-
-    /** Высота изделия в метрах */
-    @Column(name = "height_m", precision = 10, scale = 4)
-    private BigDecimal heightM;
+    /** Операции, выполненные над этим материалом в заказе */
+    @OneToMany(mappedBy = "orderMaterial", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<OrderMaterialOperation> operations = new HashSet<>();
 }
+

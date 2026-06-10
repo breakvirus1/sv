@@ -25,6 +25,10 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class Material extends BaseEntity {
 
+    /** Артикул материала (уникальный) */
+    @Column(name = "article", unique = true, length = 100)
+    private String article;
+
     /** Наименование материала или операции */
     @Column(nullable = false, length = 255)
     private String name;
@@ -46,11 +50,19 @@ public class Material extends BaseEntity {
     @Column(name = "waste_coefficient", precision = 5, scale = 3)
     private BigDecimal wasteCoefficient = BigDecimal.ONE;
 
-    /** Ширина по умолчанию в метрах */
-    @Column(name = "default_width_m", precision = 10, scale = 4)
-    private BigDecimal defaultWidthM = BigDecimal.ZERO;
+    /** Поставщик материала */
+    @Column(name = "supplier", length = 150)
+    private String supplier;
 
-    /** Высота по умолчанию в метрах */
-    @Column(name = "default_height_m", precision = 10, scale = 4)
-    private BigDecimal defaultHeightM = BigDecimal.ZERO;
-}
+    /** Текущий остаток на складе */
+    @Column(name = "current_stock", precision = 12, scale = 4)
+    private BigDecimal currentStock = BigDecimal.ZERO;
+
+     /** Минимальный остаток (точка заказа) */
+     @Column(name = "min_stock", precision = 12, scale = 4)
+     private BigDecimal minStock;
+
+     /** Список этапов операций, связанных с материалом (справочник) */
+     @OneToMany(mappedBy = "material", cascade = CascadeType.ALL, orphanRemoval = true)
+     private java.util.List<MaterialOperation> operations = new java.util.ArrayList<>();
+ }

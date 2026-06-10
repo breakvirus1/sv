@@ -21,8 +21,10 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
   flyway:
+    enabled: true
+    locations: classpath:db/migration
     baseline-on-migrate: true
-    baseline-version: 0
+    schemas: public
 
   security:
     oauth2:

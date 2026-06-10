@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -15,8 +16,6 @@ public class MaterialResponse {
     private String unit;
     private BigDecimal price;
     private BigDecimal wasteCoefficient;
-    /** Ширина по умолчанию в метрах */
-    private BigDecimal defaultWidthM;
-    /** Высота по умолчанию в метрах */
-    private BigDecimal defaultHeightM;
+    /** Список операций, связанных с материалом */
+    private List<MaterialOperationResponse> operations;
 }

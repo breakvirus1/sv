@@ -1,7 +1,8 @@
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery, ListItemIcon, ListItemText, Chip, Divider } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
-import { Person, Logout, Add, AdminPanelSettings, ShoppingBag, ArrowDropDown, Assignment, Visibility, Category } from '@mui/icons-material';
+import { Person, Logout, Add, AdminPanelSettings, ShoppingBag } from '@mui/icons-material';
+
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
@@ -18,7 +19,7 @@ const Navbar = () => {
   const { user, login, logout, isAuthenticated } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
   const [createAnchorEl, setCreateAnchorEl] = useState(null);
-  const [ordersAnchorEl, setOrdersAnchorEl] = useState(null);
+
   const navigate = useNavigate();
 
   const { data: orders = [] } = useQuery({
@@ -48,9 +49,10 @@ const Navbar = () => {
     setCreateAnchorEl(null);
   };
 
-  const handleOrdersMenu = (event) => {
-    setOrdersAnchorEl(event.currentTarget);
-  };
+    const handleCreateOrder = () => {
+      handleCloseCreate();
+      navigate('/orders/new');
+    };
 
   const handleCloseOrders = () => {
     setOrdersAnchorEl(null);

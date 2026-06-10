@@ -15,7 +15,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Сущность "Заказ" — основная сущность системы.
@@ -60,6 +62,14 @@ public class Order extends BaseEntity {
     /** Текущий долг (total_amount - paid_amount) */
     @Column(name = "debt_amount", precision = 12, scale = 2)
     private BigDecimal debtAmount = BigDecimal.ZERO;
+
+    /** Себестоимость заказа (расходы на материалы и работы) */
+    @Column(name = "cost_price", precision = 15, scale = 2)
+    private BigDecimal costPrice = BigDecimal.ZERO;
+
+    /** Маржа в процентах */
+    @Column(name = "margin_percent", precision = 8, scale = 2)
+    private BigDecimal marginPercent;
 
     /** Текущий статус заказа */
     @Enumerated(EnumType.STRING)
@@ -115,25 +125,25 @@ public class Order extends BaseEntity {
     /** Позиции заказа (изделия) */
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
-    private List<OrderItem> items = new ArrayList<>();
+    private Set<OrderItem> items = new HashSet<>();
 
     /** Этапы производства по цехам */
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
-    private List<OrderStage> stages = new ArrayList<>();
+    private Set<OrderStage> stages = new HashSet<>();
 
     /** Платежи по заказу */
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
-    private List<Payment> payments = new ArrayList<>();
+    private Set<Payment> payments = new HashSet<>();
 
     /** Комментарии и сообщения по заказу */
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
-    private List<OrderComment> comments = new ArrayList<>();
+    private Set<OrderComment> comments = new HashSet<>();
 
     /** Материалы, использованные в заказе (на уровне заказа) */
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
-    private List<OrderMaterial> materials = new ArrayList<>();
+    private Set<OrderMaterial> materials = new HashSet<>();
 }

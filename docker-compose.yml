@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -42,34 +44,31 @@ services:
        - sv-network
 
   discovery-server:
-     build:
-       context: .
-       dockerfile: back/discovery-server/Dockerfile
-     ports:
-       - "8761:8761"
-     depends_on:
-       postgres:
-         condition: service_healthy
-     networks:
-       - sv-network
-     environment:
-       - SPRING_PROFILES_ACTIVE=docker
+    build:
+      context: ./back/discovery-server
+      dockerfile: Dockerfile
+    ports:
+      - "8762:8761"
+    depends_on:
+      - postgres
+    networks:
+      - sv-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_URL=http://discovery-server:8761/eureka/
+      - DB_HOST=postgres
 
   order-service:
     build:
-      context: .
-      dockerfile: back/order-service/Dockerfile
+      context: ./back/order-service
+      dockerfile: Dockerfile
     ports:
       - "8081:8081"
     depends_on:
-      postgres:
-        condition: service_healthy
-      discovery-server:
-        condition: service_started
-      keycloak:
-        condition: service_started
-      client-service:
-        condition: service_started
+      - postgres
+      - discovery-server
+      - keycloak
+      - client-service
     networks:
       - sv-network
     environment:
@@ -80,17 +79,14 @@ services:
 
   client-service:
     build:
-      context: .
-      dockerfile: back/client-service/Dockerfile
+      context: ./back/client-service
+      dockerfile: Dockerfile
     ports:
       - "8082:8082"
     depends_on:
-      postgres:
-        condition: service_healthy
-      discovery-server:
-        condition: service_started
-      keycloak:
-        condition: service_started
+      - postgres
+      - discovery-server
+      - keycloak
     networks:
       - sv-network
     environment:
@@ -101,15 +97,12 @@ services:
 
   employee-service:
     build:
-      context: .
-      dockerfile: back/employee-service/Dockerfile
+      context: ./back/employee-service
+      dockerfile: Dockerfile
     depends_on:
-      postgres:
-        condition: service_healthy
-      discovery-server:
-        condition: service_started
-      keycloak:
-        condition: service_started
+      - postgres
+      - discovery-server
+      - keycloak
     networks:
       - sv-network
     environment:
@@ -120,15 +113,12 @@ services:
 
   material-service:
     build:
-      context: .
-      dockerfile: back/material-service/Dockerfile
+      context: ./back/material-service
+      dockerfile: Dockerfile
     depends_on:
-      postgres:
-        condition: service_healthy
-      discovery-server:
-        condition: service_started
-      keycloak:
-        condition: service_started
+      - postgres
+      - discovery-server
+      - keycloak
     networks:
       - sv-network
     environment:
@@ -182,8 +172,8 @@ services:
 
   api-gateway:
     build:
-      context: .
-      dockerfile: back/api-gateway/Dockerfile
+      context: ./back/api-gateway
+      dockerfile: Dockerfile
     ports:
       - "8085:8085"
     depends_on:

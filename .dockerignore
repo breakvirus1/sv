@@ -14,4 +14,6 @@ README.md
 .DS_Store
 
 # Re-include built JARs from service targets
+!back/order-service/target/
+!back/order-service/target/*.jar
 !**/target/*.jar

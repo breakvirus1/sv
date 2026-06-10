@@ -8,11 +8,10 @@ spring:
     password: ${DB_PASSWORD:12345}
     driver-class-name: org.postgresql.Driver
   flyway:
-    enabled: false
+    enabled: true
   jpa:
-    properties:
-      hibernate:
-        default_schema: ordschema
+    hibernate:
+      ddl-auto: update
   security:
     oauth2:
       resourceserver:

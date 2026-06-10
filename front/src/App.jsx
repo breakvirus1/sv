@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import OrdersList from './pages/OrdersList'
 import ManagerOrderList from './pages/ManagerOrderList'
 import OrderDetail from './pages/OrderDetail'
+import OrderItemDetail from './pages/OrderItemDetail'
 import CallbackPage from './pages/CallbackPage'
 import AdminPanel from './pages/AdminPanel'
 import ProductionOrderList from './pages/ProductionOrderList'
@@ -40,8 +41,8 @@ function App() {
           <Navbar />
         </div>
 
-        {/* Page content as "desktop icons" or background */}
-        <div className="container pt-20">
+         {/* Page content as "desktop icons" or background */}
+         <div className="pt-20" style={{ paddingLeft: 0, paddingRight: 0, maxWidth: '100%', margin: 0, width: '100%' }}>
           <Routes>
              <Route path="/" element={
                isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Dashboard />) : <Navigate to="/login" />
@@ -78,6 +79,11 @@ function App() {
             <Route path="/orders/new" element={
               <ProtectedRoute requiresManager={true}>
                 <CreateOrderForm />
+              </ProtectedRoute>
+            } />
+            <Route path="/orders/:orderId/items/:itemId" element={
+              <ProtectedRoute>
+                <OrderItemDetail />
               </ProtectedRoute>
             } />
             <Route path="/orders/:id" element={
