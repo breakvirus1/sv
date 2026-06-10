@@ -8,6 +8,7 @@ import com.example.materialservice.entity.Material;
 import com.example.materialservice.entity.MaterialOperation;
 import com.example.materialservice.entity.OperationType;
 import com.example.orderservice.dto.*;
+import com.example.orderservice.entity.FileAttachment;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderComment;
 import com.example.orderservice.entity.OrderItem;
@@ -16,6 +17,7 @@ import com.example.orderservice.entity.OrderMaterialOperation;
 import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.entity.Payment;
 import com.example.orderservice.entity.ProductionStage;
+import com.example.orderservice.entity.Workshop;
 import com.example.orderservice.mapper.OrderMapper;
 import com.example.orderservice.order.entity.OrderItemMaterial;
 import com.example.orderservice.order.entity.OrderItemOperation;
@@ -28,13 +30,27 @@ import com.example.orderservice.service.CalculatorService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
+import com.example.orderservice.exception.NotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -62,6 +78,8 @@ public class OrderService {
     private final OrderStageRepository orderStageRepository;
     private final PaymentRepository paymentRepository;
     private final OrderCommentRepository orderCommentRepository;
+    private final FileAttachmentRepository fileAttachmentRepository;
+    private final WorkshopRepository workshopRepository;
     private final OrderMapper orderMapper;
     private final ProductRepository productRepository;
     private final CalculatorService calculatorService;
@@ -71,17 +89,110 @@ public class OrderService {
     private EntityManager entityManager;
 
     private final JdbcTemplate jdbcTemplate;
+    private final RestTemplate restTemplate;
+
+    @Value("${calculator.service.url}")
+    private String calculatorUrl;
 
     /**
      * Получить список заказов с фильтрацией и пагинацией.
      */
+    @Transactional(readOnly = true)
     public Page<OrderResponse> getAllOrders(Specification<Order> spec, Pageable pageable) {
+        spec = spec.and(workshopFilterForCurrentUser());
         return orderRepository.findAll(spec, pageable)
                 .map(orderMapper::toDto);
     }
 
+    private String getCurrentUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return null;
+        return auth.getAuthorities().stream()
+                .filter(a -> a.getAuthority().startsWith("USERNAME_"))
+                .map(a -> a.getAuthority().substring("USERNAME_".length()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean isProductionUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_PRODUCTION"));
+    }
+
+    private List<Long> getWorkshopOperationIds(String username) {
+        Employee employee = (Employee) entityManager.createQuery(
+                "SELECT e FROM Employee e WHERE e.username = :username AND e.deleted = false")
+                .setParameter("username", username)
+                .getResultStream().findFirst().orElse(null);
+        if (employee == null || employee.getWorkshopId() == null) return null;
+        Workshop workshop = workshopRepository.findById(employee.getWorkshopId()).orElse(null);
+        if (workshop == null || workshop.getOperationIds() == null || workshop.getOperationIds().isEmpty()) return null;
+        return workshop.getOperationIds();
+    }
+
     /**
-     * Получить детальную информацию о заказе со всеми связанными сущностями.
+     * Build a specification that filters orders by the current PRODUCTION user's workshop operations.
+     * For ADMIN/MANAGER/ACCOUNTANT roles, no workshop filtering is applied.
+     * For PRODUCTION, returns orders where any OrderItem has an OrderOperation with operationId
+     * matching one of the workshop's operationIds.
+     */
+    private Specification<Order> workshopFilterForCurrentUser() {
+        if (!isProductionUser()) {
+            return (root, query, cb) -> cb.conjunction();
+        }
+
+        String username = getCurrentUsername();
+        if (username == null) {
+            return (root, query, cb) -> cb.disjunction();
+        }
+
+        List<Long> operationIds = getWorkshopOperationIds(username);
+        if (operationIds == null) {
+            return (root, query, cb) -> cb.disjunction();
+        }
+
+        return (root, query, cb) -> {
+            jakarta.persistence.criteria.Join<Order, OrderItem> itemJoin = root.join("items", jakarta.persistence.criteria.JoinType.INNER);
+            jakarta.persistence.criteria.Join<OrderItem, OrderOperation> opJoin = itemJoin.join("operations", jakarta.persistence.criteria.JoinType.INNER);
+            return opJoin.get("operationId").in(operationIds);
+        };
+    }
+
+     /**
+      * Получить детальную информацию о заказе со всеми связанными сущностями.
+      */
+    @Transactional(readOnly = true)
+public OrderResponse getOrderById(Long id) {
+         Order order = orderRepository.findById(id)
+                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+         checkWorkshopAccess(order);
+         return mapOrderResponse(order);
+     }
+
+    private void checkWorkshopAccess(Order order) {
+        if (!isProductionUser()) return;
+
+        String username = getCurrentUsername();
+        if (username == null) return;
+
+        List<Long> operationIds = getWorkshopOperationIds(username);
+        if (operationIds == null) {
+            throw new NotFoundException("Заказ не найден");
+        }
+
+        boolean hasMatchingOperation = order.getItems().stream()
+                .flatMap(item -> item.getOperations().stream())
+                .anyMatch(op -> operationIds.contains(op.getOperationId()));
+
+        if (!hasMatchingOperation) {
+            throw new NotFoundException("Заказ не найден");
+        }
+    }
+
+    /**
+     * Получить заказ по его номеру (orderNumber).
      */
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(Long id) {
@@ -91,7 +202,13 @@ public class OrderService {
 
         // Items with operations are mapped automatically via itemToDto (operations included)
         response.setItems(order.getItems().stream()
-                .map(orderMapper::itemToDto)
+                .map(item -> {
+                    OrderItemResponse dto = orderMapper.itemToDto(item);
+                    fileAttachmentRepository.findByOrderItemId(item.getId()).ifPresent(f -> {
+                        dto.setFileUrl(f.getFileUrl());
+                    });
+                    return dto;
+                })
                 .collect(Collectors.toList()));
 
         // Stages
@@ -101,12 +218,12 @@ public class OrderService {
 
         // Payments
         response.setPayments(order.getPayments().stream()
-                .map(this::mapPayment)
+                .map(orderMapper::paymentToDto)
                 .collect(Collectors.toList()));
 
         // Comments
         response.setComments(order.getComments().stream()
-                .map(this::mapComment)
+                .map(orderMapper::commentToDto)
                 .collect(Collectors.toList()));
 
         // Materials with operations
@@ -154,34 +271,43 @@ public class OrderService {
         }
 
         order.setDescription(request.getDescription());
-        order.setTotalAmount(BigDecimal.ZERO);
+        order.setPriceplus(request.getPriceplus());
+        // Use provided total amount if available, otherwise calculate from items
+        BigDecimal providedTotal = request.getTotalAmount() != null ? request.getTotalAmount() : BigDecimal.ZERO;
+        order.setTotalAmount(providedTotal);
         order.setPaidAmount(BigDecimal.ZERO);
         order.setDebtAmount(BigDecimal.ZERO);
-        order.setStatus(OrderStatus.WAITING);
+        order.setStatus(OrderStatus.DRAFT);
         order.setProductionStage(ProductionStage.NOT_STARTED);
 
         Order saved = orderRepository.save(order);
 
-        // Обработка позиций заказа (материалы)
+        // Обработка позиций заказа
         if (request.getItems() != null && !request.getItems().isEmpty()) {
+            // Get current user's JWT token to propagate to calculator service
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String jwtToken = null;
+            if (auth != null && auth.getPrincipal() instanceof Jwt) {
+                jwtToken = ((Jwt) auth.getPrincipal()).getTokenValue();
+            }
+
             BigDecimal total = BigDecimal.ZERO;
-            for (OrderMaterialCreateRequest matReq : request.getItems()) {
-                Material material = entityManager.find(Material.class, matReq.getMaterialId());
+            for (OrderMaterialCreateRequest itemReq : request.getItems()) {
+                Material material = entityManager.find(Material.class, itemReq.getMaterialId());
                 if (material == null) {
-                    throw new RuntimeException("Материал не найден: " + matReq.getMaterialId());
+                    throw new RuntimeException("Материал не найден: " + itemReq.getMaterialId());
                 }
 
-                OrderMaterial orderMaterial = new OrderMaterial();
-                orderMaterial.setOrder(saved);
-                orderMaterial.setMaterial(material);
-                orderMaterial.setQuantity(matReq.getQuantity());
-                orderMaterial.setWasteCoefficient(material.getWasteCoefficient());
-                orderMaterial.setReadyDate(matReq.getReadyDate());
-                // Расчет стоимости: цена * количество * коэффициент отхода
-                BigDecimal cost = material.getPrice()
-                        .multiply(matReq.getQuantity())
-                        .multiply(material.getWasteCoefficient());
-                orderMaterial.setCost(cost);
+                 // Build request to calculator service
+                 Map<String, Object> calcRequest = new HashMap<>();
+                 calcRequest.put("materialId", material.getId());
+                 calcRequest.put("widthM", itemReq.getWidthM());
+                 calcRequest.put("heightM", itemReq.getHeightM());
+                 List<Long> opIds = itemReq.getOperations() == null ? Collections.emptyList() :
+                     itemReq.getOperations().stream()
+                         .map(OrderOperationRequest::getOperationId)
+                         .collect(Collectors.toList());
+                 calcRequest.put("operationIds", opIds);
 
                 // Обработка операций для материала
                 if (matReq.getOperations() != null && !matReq.getOperations().isEmpty()) {
@@ -369,12 +495,21 @@ public class OrderService {
         return getOrderById(saved.getId());
     }
 
+    private static final AtomicInteger sequence = new AtomicInteger(0);
+
     /**
      * Сгенерировать уникальный номер заказа.
-     * Формат: ORD-{timestamp}
+     * Формат: YYYYMMDDHHmmssSSS (где SSS - последовательный номер для уникальности)
      */
     private String generateOrderNumber() {
-        return "ORD-" + System.currentTimeMillis();
+        while (true) {
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+            int seq = sequence.getAndIncrement() % 1000;
+            String orderNumber = timestamp + String.format("%03d", seq);
+            if (orderRepository.findByOrderNumber(orderNumber) == null) {
+                return orderNumber;
+            }
+        }
     }
 
     /**
@@ -383,7 +518,7 @@ public class OrderService {
      */
     public OrderResponse updateStatus(Long id, String status) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
         order.setStatus(OrderStatus.valueOf(status));
         Order saved = orderRepository.save(order);
@@ -396,7 +531,7 @@ public class OrderService {
      */
     public OrderResponse updateProductionStage(Long id, String stage) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
         order.setProductionStage(ProductionStage.valueOf(stage));
         Order saved = orderRepository.save(order);
@@ -406,11 +541,11 @@ public class OrderService {
     /**
      * Обновить заказ.
      */
+    @Transactional
     public OrderResponse updateOrder(Long id, OrderUpdateRequest request) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
-        // Update simple fields
         if (request.getDescription() != null) {
             order.setDescription(request.getDescription());
         }
@@ -421,7 +556,6 @@ public class OrderService {
             order.setDueDate(request.getDueDate());
         }
 
-        // Update manager if provided
         if (request.getManagerId() != null) {
             Employee manager = entityManager.find(Employee.class, request.getManagerId());
             if (manager == null) {
@@ -430,30 +564,274 @@ public class OrderService {
             order.setManager(manager);
         }
 
-        Order saved = orderRepository.save(order);
-        return orderMapper.toDto(saved);
-    }
+if (request.getPriceplus() != null) {
+             order.setPriceplus(request.getPriceplus());
+         }
+
+        List<OrderMaterialCreateRequest> itemRequests = request.getItems();
+        if (itemRequests != null) {
+            List<OrderMaterial> existingMaterials = new ArrayList<>(order.getMaterials());
+            Map<Long, OrderMaterial> existingById = existingMaterials.stream()
+                    .collect(Collectors.toMap(com.example.orderservice.entity.BaseEntity::getId, m -> m));
+
+            // Get JWT token for calculator service
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String jwtToken = null;
+            if (auth != null && auth.getPrincipal() instanceof Jwt) {
+                jwtToken = ((Jwt) auth.getPrincipal()).getTokenValue();
+            }
+
+            // Collect old operations for cleanup
+            List<OrderOperation> oldOps = new ArrayList<>();
+            for (OrderItem item : order.getItems()) {
+                oldOps.addAll(item.getOperations());
+            }
+
+            BigDecimal total = BigDecimal.ZERO;
+
+            for (OrderMaterialCreateRequest itemReq : itemRequests) {
+                Material material = entityManager.find(Material.class, itemReq.getMaterialId());
+                if (material == null) {
+                    throw new RuntimeException("Материал не найден: " + itemReq.getMaterialId());
+                }
+
+                BigDecimal widthM = itemReq.getWidthM();
+                BigDecimal heightM = itemReq.getHeightM();
+
+                // Build calculator request
+                Map<String, Object> calcRequest = new HashMap<>();
+                calcRequest.put("materialId", material.getId());
+                calcRequest.put("widthM", widthM);
+                calcRequest.put("heightM", heightM);
+                List<Long> opIds = itemReq.getOperations() == null ? Collections.emptyList() :
+                    itemReq.getOperations().stream()
+                        .map(OrderOperationRequest::getOperationId)
+                        .collect(Collectors.toList());
+                calcRequest.put("operationIds", opIds);
+
+                // Include eyelet parameters
+                if (itemReq.getEyeletId() != null) {
+                    calcRequest.put("eyeletId", itemReq.getEyeletId());
+                }
+                if (itemReq.getEyeletStepCm() != null) {
+                    calcRequest.put("eyeletStepCm", itemReq.getEyeletStepCm());
+                }
+
+                // Include podvorot parameters
+                if (itemReq.getPodvorotMmHorizontal() != null) {
+                    calcRequest.put("podvorotMmHorizontal", itemReq.getPodvorotMmHorizontal());
+                }
+                if (itemReq.getPodvorotMmVertical() != null) {
+                    calcRequest.put("podvorotMmVertical", itemReq.getPodvorotMmVertical());
+                }
+                if (itemReq.getPodvorotCountPerSide() != null) {
+                    calcRequest.put("podvorotCountPerSide", itemReq.getPodvorotCountPerSide());
+                }
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                if (jwtToken != null) {
+                    headers.setBearerAuth(jwtToken);
+                }
+                HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(calcRequest, headers);
+
+                Map<String, Object> calcResponse;
+                try {
+                    ResponseEntity<Map> response = restTemplate.exchange(
+                        calculatorUrl + "/api/v1/calculations/preview",
+                        HttpMethod.POST,
+                        requestEntity,
+                        Map.class
+                    );
+                    calcResponse = response.getBody();
+                } catch (RestClientException e) {
+                    throw new RuntimeException("Ошибка при расчете стоимости позиции: " + e.getMessage(), e);
+                }
+
+                if (calcResponse == null) {
+                    throw new RuntimeException("Пустой ответ от службы расчета");
+                }
+
+                Number totalPriceNum = (Number) calcResponse.get("totalPrice");
+                BigDecimal totalPrice = new BigDecimal(totalPriceNum.toString());
+
+                // Parse operations breakdown
+                List<Map<String, Object>> opsData = (List<Map<String, Object>>) calcResponse.get("operations");
+                BigDecimal operationsSubtotal = BigDecimal.ZERO;
+                List<OrderOperation> orderOps = new ArrayList<>();
+
+                // Build map from operationId -> request operation for width/height lookup
+                Map<Long, OrderOperationRequest> reqOpMap = new HashMap<>();
+                if (itemReq.getOperations() != null) {
+                    for (OrderOperationRequest reqOp : itemReq.getOperations()) {
+                        reqOpMap.put(reqOp.getOperationId(), reqOp);
+                    }
+                }
+
+                if (opsData != null) {
+                    for (Map<String, Object> opMap : opsData) {
+                        Long opId = ((Number) opMap.get("operationId")).longValue();
+                        String opName = (String) opMap.get("operationName");
+                        Number qtyNum = (Number) opMap.get("quantity");
+                        Number priceNum = (Number) opMap.get("pricePerUnit");
+                        Number subtotalNum = (Number) opMap.get("subtotal");
+                        BigDecimal qty = new BigDecimal(qtyNum.toString());
+                        BigDecimal pricePerUnit = new BigDecimal(priceNum.toString());
+                        BigDecimal subtotal = new BigDecimal(subtotalNum.toString());
+                        operationsSubtotal = operationsSubtotal.add(subtotal);
+
+                        OrderOperation orderOp = new OrderOperation();
+                        orderOp.setOperationId(opId);
+                        orderOp.setOperationName(opName);
+                        orderOp.setPricePerUnit(pricePerUnit);
+                        orderOp.setCalculatedQuantity(qty);
+                        orderOp.setSubtotal(subtotal);
+
+                        OrderOperationRequest reqOp = reqOpMap.get(opId);
+                        if (reqOp != null) {
+                            orderOp.setWidthM(reqOp.getWidthM());
+                            orderOp.setHeightM(reqOp.getHeightM());
+                        }
+
+                        orderOps.add(orderOp);
+                    }
+                }
+
+                // Compute material cost from known formula to avoid double-counting eyelet hardware
+                BigDecimal wasteCoeff = material.getWasteCoefficient();
+                if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
+                BigDecimal materialPrice = material.getPrice();
+                BigDecimal h = heightM != null ? heightM : BigDecimal.ONE;
+                BigDecimal materialArea = widthM.multiply(h);
+                BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff).setScale(2, RoundingMode.HALF_UP);
+
+                // Effective area = materialCost / (price * wasteCoeff) = materialArea
+                BigDecimal effectiveArea = materialArea.setScale(2, RoundingMode.HALF_UP);
+
+                // Calculate cost with priceplus
+                BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : BigDecimal.ZERO;
+                BigDecimal costPriceplus = totalPrice.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+
+                if (itemReq.getId() != null) {
+                    OrderMaterial om = existingById.get(itemReq.getId());
+                    if (om != null) {
+                        om.setMaterial(material);
+                        om.setReadyDate(itemReq.getReadyDate());
+                        om.setWidthM(widthM);
+                        om.setHeightM(heightM);
+                        om.setQuantity(effectiveArea);
+                        om.setWasteCoefficient(wasteCoeff);
+                        om.setCost(materialCost);
+                        om.setCostPriceplus(costPriceplus);
+
+                        // Update operations for the linked order item
+                        OrderItem orderItem = om.getOrderItem();
+                        if (orderItem != null) {
+                            orderItem.getOperations().clear();
+                            for (OrderOperation op : orderOps) {
+                                op.setOrderItem(orderItem);
+                                orderItem.getOperations().add(op);
+                            }
+                            orderItem.setPrice(totalPrice);
+                            orderItem.setCost(totalPrice);
+                        }
+                    }
+                } else {
+                    OrderItem orderItem = new OrderItem();
+                    orderItem.setOrder(order);
+                    orderItem.setName(material.getName() + " " + widthM + "x" + heightM + "m");
+                    orderItem.setQuantity(1);
+                    orderItem.setReadyDate(itemReq.getReadyDate());
+                    orderItem.setPrice(totalPrice);
+                    orderItem.setCost(totalPrice);
+
+                    for (OrderOperation op : orderOps) {
+                        op.setOrderItem(orderItem);
+                        orderItem.getOperations().add(op);
+                    }
+
+                    OrderMaterial om = new OrderMaterial();
+                    om.setOrder(order);
+                    om.setOrderItem(orderItem);
+                    om.setMaterial(material);
+                    om.setQuantity(effectiveArea);
+                    om.setWasteCoefficient(wasteCoeff);
+                    om.setCost(materialCost);
+                    om.setCostPriceplus(costPriceplus);
+                    om.setWidthM(widthM);
+                    om.setHeightM(heightM);
+                    om.setReadyDate(itemReq.getReadyDate());
+                    order.getMaterials().add(om);
+                    orderItem.getMaterials().add(om);
+
+                    order.getItems().add(orderItem);
+                }
+
+                total = total.add(totalPrice);
+            }
+
+            // Remove materials no longer in the submitted list
+            Set<Long> updatedIds = itemRequests.stream()
+                    .filter(r -> r.getId() != null)
+                    .map(OrderMaterialCreateRequest::getId)
+                    .collect(Collectors.toSet());
+            existingMaterials.stream()
+                    .filter(m -> !updatedIds.contains(m.getId()))
+                    .forEach(order.getMaterials()::remove);
+
+            // Use provided totalAmount or calculate from items
+            if (request.getTotalAmount() != null) {
+                order.setTotalAmount(request.getTotalAmount());
+            } else {
+                order.setTotalAmount(total);
+            }
+ // Calculate totalWithPriceplus
+              BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : BigDecimal.ZERO;
+              BigDecimal totalWithPriceplus = total.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+              order.setTotalWithPriceplus(totalWithPriceplus.setScale(2, RoundingMode.HALF_UP));
+
+              // === ВАЛИДАЦИЯ РАСЧЕТОВ из calculation service (минимальная погрешность) ===
+              BigDecimal clientCalc = request.getClientTotalWithPriceplus() != null ? request.getClientTotalWithPriceplus() : request.getTotalAmount();
+              if (clientCalc != null) {
+                  BigDecimal diff = totalWithPriceplus.subtract(clientCalc).abs();
+                  BigDecimal tolerance = new BigDecimal("0.01");
+                  if (diff.compareTo(tolerance) > 0) {
+                      throw new RuntimeException("Валидация расчетов не пройдена: расхождение фронтенда с calculation service = " + diff + " (допуск " + tolerance + ").");
+                  }
+                  // Лог успешной валидации
+                  System.out.println("=== ORDER UPDATE VALIDATION PASSED ===");
+                  System.out.println("Order ID: " + order.getId());
+                  System.out.println("Order number: " + order.getOrderNumber());
+                  System.out.println("Frontend total: " + clientCalc);
+                  System.out.println("Backend total: " + totalWithPriceplus);
+                  System.out.println("Difference: " + diff);
+                  System.out.println("=====================================");
+              }
+
+              orderRepository.save(order);
+
+         }
+
+OrderResponse response = mapOrderResponse(order);
+         return response;
+     }
 
     /**
      * Добавить оплату к заказу.
      * Автоматически пересчитывает paidAmount и debtAmount.
      */
-    public void addPayment(Long orderId, PaymentRequest paymentRequest) {
+    public PaymentResponse addPayment(Long orderId, PaymentRequest paymentRequest) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
-        com.example.orderservice.entity.Payment payment = new com.example.orderservice.entity.Payment();
+        com.example.orderservice.entity.Payment payment = orderMapper.toPaymentEntity(paymentRequest);
         payment.setOrder(order);
-        payment.setAmount(paymentRequest.getAmount());
-        payment.setPaymentDate(paymentRequest.getPaymentDate() != null ? paymentRequest.getPaymentDate() : LocalDate.now());
-        payment.setPaymentType(paymentRequest.getPaymentType());
-        payment.setDetails(paymentRequest.getDetails());
-        payment.setIsPartial(paymentRequest.getIsPartial() != null ? paymentRequest.getIsPartial() : false);
 
-        paymentRepository.save(payment);
+        Payment saved = paymentRepository.save(payment);
 
         // Пересчитаем оплаченную сумму и долг
         recalculatePaidAmount(orderId);
+        return orderMapper.paymentToDto(saved);
     }
 
     /**
@@ -461,13 +839,13 @@ public class OrderService {
      */
     public CommentResponse addComment(Long orderId, CommentRequest commentRequest, EmployeeResponse author) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
-        OrderComment comment = new OrderComment();
+        OrderComment comment = orderMapper.commentToEntity(commentRequest);
         comment.setOrder(order);
-        comment.setMessage(commentRequest.getMessage());
-        comment.setIsInternal(commentRequest.getIsInternal() != null ? commentRequest.getIsInternal() : false);
-        // Author would be set from authentication
+        if (commentRequest.getIsInternal() != null) {
+            comment.setIsInternal(commentRequest.getIsInternal());
+        }
         if (author != null) {
             Employee authorEntity = entityManager.find(Employee.class, author.getId());
             comment.setAuthor(authorEntity);
@@ -475,7 +853,7 @@ public class OrderService {
         comment.setCreatedAt(LocalDateTime.now());
 
         OrderComment saved = orderCommentRepository.save(comment);
-        return mapComment(saved);
+        return orderMapper.commentToDto(saved);
     }
 
     /**
@@ -483,19 +861,21 @@ public class OrderService {
      */
     public OrderStageResponse addStage(Long orderId, OrderStageRequest stageRequest) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
-        com.example.orderservice.entity.OrderStage stage = new com.example.orderservice.entity.OrderStage();
+        com.example.orderservice.entity.OrderStage stage = orderMapper.stageToEntity(stageRequest);
         stage.setOrder(order);
-        // Workshop lookup would be needed here
-        // workshopService.findById(stageRequest.getWorkshopId())
-        stage.setWaitPrevious(stageRequest.getWaitPrevious());
-        stage.setDueDate(stageRequest.getDueDate());
-        stage.setNote(stageRequest.getNote());
-        stage.setStatus(stageRequest.getStatus());
-        stage.setSourceFiles(stageRequest.getSourceFiles());
+
+        if (stageRequest.getWorkshopId() != null) {
+            Workshop workshop = entityManager.find(Workshop.class, stageRequest.getWorkshopId());
+            if (workshop == null) {
+                throw new NotFoundException("Цех не найден: " + stageRequest.getWorkshopId());
+            }
+            stage.setWorkshop(workshop);
+        }
 
         com.example.orderservice.entity.OrderStage saved = orderStageRepository.save(stage);
+        orderRepository.save(order);
         return orderMapper.stageToDto(saved);
     }
 
@@ -516,14 +896,9 @@ public class OrderService {
     /**
      * Пересчитать сумму оплат и долг.
      */
-    private void recalculatePaidAmount(Long orderId) {
-        BigDecimal paid = jdbcTemplate.queryForObject(
-            "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE order_id = ? AND deleted = false",
-            new Object[]{orderId},
-            BigDecimal.class
-        );
+private void recalculatePaidAmount(Long orderId) {
+        BigDecimal paid = paymentRepository.sumByOrderId(orderId);
         orderRepository.updatePaidAmount(orderId, paid);
-        // Also update debt
         orderRepository.updateDebtAmount(orderId);
     }
 
@@ -547,7 +922,7 @@ public class OrderService {
     private CommentResponse mapComment(OrderComment comment) {
         Employee author = comment.getAuthor();
         EmployeeResponse authorDto = author != null ?
-                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername()) :
+                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername(), author.getWorkshopId()) :
                 null;
 
         return new CommentResponse(
@@ -696,4 +1071,159 @@ public class OrderService {
             }
         }
     }
+
+    /**
+     * Получить информацию о существующей позиции заказа (материал в заказе).
+     * Подтягивает ширину и высоту: если в заказе не заданы, берёт defaultWidthMm/defaultHeightMm из справочника.
+     * Используется фронтендом при редактировании линии заказа для подтягивания размеров из БД.
+     */
+    public ItemPositionInfo getItemPositionInfo(Long orderId, Long orderMaterialId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+
+        OrderMaterial om = order.getMaterials().stream()
+                .filter(m -> m.getId().equals(orderMaterialId))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Позиция в заказе не найдена: " + orderMaterialId));
+
+        BigDecimal widthM = om.getWidthM() != null ? om.getWidthM() : om.getMaterial().getDefaultWidthM();
+        BigDecimal heightM = om.getHeightM() != null ? om.getHeightM() : om.getMaterial().getDefaultHeightM();
+
+        MaterialResponse matResp = orderMapper.materialToDto(om.getMaterial());
+
+        return new ItemPositionInfo(om.getId(), matResp, widthM, heightM);
+    }
+
+    /**
+     * Рассчитать общую стоимость заказа без сохранения в БД.
+     * Используется фронтендом для отображения суммы в реальном времени.
+     */
+    @Transactional(readOnly = true)
+    public BigDecimal calculateOpenOrderTotal(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        return order.getMaterials().stream()
+                .map(om -> {
+                    Material mat = om.getMaterial();
+                    BigDecimal price = mat.getPrice() != null ? mat.getPrice() : BigDecimal.ZERO;
+                    BigDecimal waste  = mat.getWasteCoefficient() != null ? mat.getWasteCoefficient() : BigDecimal.ONE;
+
+                    BigDecimal q1 = om.getWidthM()  != null ? om.getWidthM()  : mat.getDefaultWidthM();
+                    BigDecimal q2 = om.getHeightM() != null ? om.getHeightM() : mat.getDefaultHeightM();
+                    q1 = q1 != null ? q1 : BigDecimal.ZERO;
+                    q2 = q2 != null ? q2 : BigDecimal.ZERO;
+
+                    BigDecimal effectiveQty;
+                    if ("м2".equals(mat.getUnit())) {
+                        effectiveQty = q1.multiply(q2);
+                    } else if ("м.п.".equals(mat.getUnit())) {
+                        effectiveQty = q1;
+                    } else {
+                        effectiveQty = q1;
+                    }
+                    return price.multiply(effectiveQty).multiply(waste);
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+/**
+      * Получить расчитанные позиции заказа с учетом priceplus.
+      * Используется фронтендом для отображения расчетов в реальном времени.
+      */
+@Transactional(readOnly = true)
+      public CalculatedOrderResponse getCalculatedOrder(Long orderId) {
+          Order order = orderRepository.findById(orderId)
+                  .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+
+          // Use order's priceplus, or fallback to client's default priceplus
+          BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : 
+                  (order.getClient() != null && order.getClient().getPriceplus() != null ? order.getClient().getPriceplus() : BigDecimal.ZERO);
+
+// Total without priceplus is the sum of cost + eyeletCost (base cost before priceplus)
+          BigDecimal totalWithoutPriceplus = order.getMaterials().stream()
+                  .map(om -> {
+                      BigDecimal cost = om.getCost() != null ? om.getCost() : BigDecimal.ZERO;
+                      BigDecimal eyelet = om.getEyeletCost() != null ? om.getEyeletCost() : BigDecimal.ZERO;
+                      return cost.add(eyelet);
+                  })
+                  .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+// Total with priceplus
+          BigDecimal totalWithPriceplus = order.getMaterials().stream()
+                  .map(om -> {
+                      BigDecimal cost = om.getCost() != null ? om.getCost() : BigDecimal.ZERO;
+                      BigDecimal eyelet = om.getEyeletCost() != null ? om.getEyeletCost() : BigDecimal.ZERO;
+                      return cost.add(eyelet).multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+                  })
+                  .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+          // Also sum operations cost
+          BigDecimal totalOperationCost = order.getItems().stream()
+                  .flatMap(item -> item.getOperations().stream())
+                  .map(op -> op.getSubtotal() != null ? op.getSubtotal() : BigDecimal.ZERO)
+                  .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+          totalWithoutPriceplus = totalWithoutPriceplus.add(totalOperationCost);
+          totalWithPriceplus = totalWithPriceplus.add(
+                  totalOperationCost.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)))
+          );
+
+List<MaterialCalculation> materials = order.getMaterials().stream()
+                   .map(om -> {
+                       BigDecimal cost = om.getCost() != null ? om.getCost() : BigDecimal.ZERO;
+                       BigDecimal eyelet = om.getEyeletCost() != null ? om.getEyeletCost() : BigDecimal.ZERO;
+                       BigDecimal base = cost.add(eyelet);
+                       BigDecimal costPriceplus = base.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+                       String fileUrl = null;
+                        List<OrderOperationSummary> operations = List.of();
+                        BigDecimal operationsTotal = BigDecimal.ZERO;
+                        BigDecimal operationsTotalPriceplus = BigDecimal.ZERO;
+                        if (om.getOrderItem() != null) {
+                            FileAttachment file = fileAttachmentRepository.findByOrderItemId(om.getOrderItem().getId()).orElse(null);
+                            if (file != null) {
+                                fileUrl = file.getFileUrl();
+                            }
+                           if (om.getOrderItem().getOperations() != null) {
+                               operations = om.getOrderItem().getOperations().stream()
+                                   .map(op -> new OrderOperationSummary(
+                                       op.getOperationId(),
+                                       op.getOperationName(),
+                                       op.getPricePerUnit(),
+                                       op.getCalculatedQuantity(),
+                                       op.getSubtotal(),
+                                       op.getWidthM(),
+                                       op.getHeightM()))
+                                   .collect(Collectors.toList());
+                               operationsTotal = operations.stream()
+                                   .map(op -> op.getSubtotal() != null ? op.getSubtotal() : BigDecimal.ZERO)
+                                   .reduce(BigDecimal.ZERO, BigDecimal::add);
+                               operationsTotalPriceplus = operationsTotal.multiply(
+                                   BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+                           }
+                       }
+                       return new MaterialCalculation(
+                               om.getId(),
+                               om.getMaterial() != null ? om.getMaterial().getId() : null,
+                               om.getMaterial() != null ? om.getMaterial().getName() : "—",
+                               om.getWidthM(),
+                               om.getHeightM(),
+                               om.getCost(),
+                               costPriceplus,
+                               operationsTotal,
+                               operationsTotalPriceplus,
+                                fileUrl,
+                                operations
+                       );
+                   })
+                   .collect(Collectors.toList());
+
+return new CalculatedOrderResponse(
+                  orderId,
+                  priceplus,
+                  totalWithoutPriceplus.setScale(2, RoundingMode.HALF_UP),
+                  totalWithPriceplus.setScale(2, RoundingMode.HALF_UP),
+                  materials
+          );
+      }
+
 }

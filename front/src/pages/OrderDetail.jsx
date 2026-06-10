@@ -13,6 +13,7 @@ import {
   Chip,
   TextField,
   Divider,
+  Snackbar,
   Grid,
   Dialog,
   DialogTitle,
@@ -29,6 +30,7 @@ import {
 } from '@mui/material';
 import { ArrowBack, Payment, Edit } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getStatusColor, getStatusLabel, isM2, isLinearMeter } from '../utils/orderUtils';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import CreateOrderForm from '../components/CreateOrderForm';
@@ -39,11 +41,9 @@ const OrderDetail = ({ mode = 'view' }) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const username = user?.username;
+  const isAdmin = user?.roles?.includes('ROLE_ADMIN');
 
-  // ==================== Common State ====================
-  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-
-  // ==================== Create Mode State ====================
+  // ── Create mode state ──
   const [formData, setFormData] = useState({
     clientId: '',
     description: '',
@@ -51,24 +51,37 @@ const OrderDetail = ({ mode = 'view' }) => {
     dueDate: '',
     items: []
   });
-  const [clientDialogOpen, setClientDialogOpen] = useState(false);
-  const [newClientForm, setNewClientForm] = useState({
-    name: '',
-    type: 'PRIVATE',
-    contactPerson: '',
-    phone: '',
-    email: ''
+  const [priceplus, setPriceplus] = useState(0);
+  const [totalAmount, setTotalAmount] = useState(0);
+
+  // ── Helper to determine endpoint based on identifier ──
+  const getOrderEndpoint = (identifier) => {
+    if (/^\d{14}$/.test(identifier)) {
+      return `/api/v1/orders/number/${identifier}`;
+    }
+    return `/api/v1/orders/${identifier}`;
+  };
+
+  // ── Queries: Order, Calculated Data, Clients, Materials, Employees ──
+  const { data: order, isLoading, error } = useQuery({
+    queryKey: ['order', id],
+    queryFn: async () => {
+      const endpoint = getOrderEndpoint(id);
+      const response = await api.get(endpoint);
+      return response.data;
+    },
+    enabled: mode !== 'create'
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ==================== View Mode State ====================
-  const [activeTab, setActiveTab] = useState(0);
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
+  const { data: calculatedData } = useQuery({
+    queryKey: ['order-calculated', id],
+    queryFn: async () => {
+      const response = await api.get(`/api/v1/orders/${id}/calculated`);
+      return response.data;
+    },
+    enabled: mode !== 'create' && !!order
+  });
 
-  // ==================== Queries ====================
-  // Clients (fetch when create mode)
   const { data: clientsData = [] } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
@@ -78,7 +91,6 @@ const OrderDetail = ({ mode = 'view' }) => {
     enabled: mode === 'create'
   });
 
-  // Materials (create mode)
   const { data: materialsData = [] } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
@@ -88,7 +100,6 @@ const OrderDetail = ({ mode = 'view' }) => {
     enabled: mode === 'create'
   });
 
-  // Current employee (manager) from Keycloak
   const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
     queryKey: ['currentEmployee', username],
     queryFn: async () => {
@@ -97,20 +108,41 @@ const OrderDetail = ({ mode = 'view' }) => {
       const data = response.data.content || [];
       return data.length > 0 ? data[0] : null;
     },
-    enabled: mode === 'create' && !!username
+    enabled: !!username
   });
 
-  // Order data (view mode)
-  const { data: order, isLoading, error } = useQuery({
-    queryKey: ['order', id],
+const { data: employeesData = [] } = useQuery({
+    queryKey: ['employees'],
     queryFn: async () => {
-      const response = await api.get(`/api/v1/orders/${id}`);
-      return response.data;
+      const response = await api.get('/api/v1/employees?size=100');
+      return response.data.content || [];
     },
-    enabled: mode !== 'create'
+    enabled: mode === 'edit'
   });
 
-  // ==================== Mutations ====================
+// Получаем итоговую сумму из заказа (totalAmount from orders table)
+    const totalOrderAmount = order?.totalAmount ?? 0;
+
+    // Проверка прав на редактирование: автор заказа или ADMIN
+    const canEdit = !!(currentEmployee && order?.manager && (isAdmin || currentEmployee.id === order.manager.id));
+
+    // ==================== State ====================
+    const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+    const [activeTab, setActiveTab] = useState(0);
+    const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+    const [newStatus, setNewStatus] = useState('');
+    const [clientDialogOpen, setClientDialogOpen] = useState(false);
+    const [newClientForm, setNewClientForm] = useState({
+      name: '',
+      type: 'PRIVATE',
+      contactPerson: '',
+      phone: '',
+      email: ''
+    });
+    const [clientInfoDialog, setClientInfoDialog] = useState({ open: false, clientId: null });
+
+   // ==================== Mutations ====================
   const createClientMutation = useMutation({
     mutationFn: (client) => api.post('/api/v1/clients', client),
     onSuccess: (response) => {
@@ -118,15 +150,86 @@ const OrderDetail = ({ mode = 'view' }) => {
       setClientDialogOpen(false);
       setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' });
       setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
-    },
+},
     onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
   });
 
-  // Used in view mode (historical). Not used in create mode but defined.
   const createOrderMutation = useMutation({
-    mutationFn: (data) => api.post('/api/v1/orders', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    mutationFn: async () => {
+      if (!currentEmployee) {
+        throw new Error('Менеджер не определен. Перелогинитесь.');
+      }
+      // Конвертация значения в метры в зависимости от единицы измерения
+      const toMeters = (value, unit) => {
+        const v = parseFloat(value) || 0;
+        return unit === 'мм' ? v / 1000 : v;
+      };
+
+      // Формирование массива материалов заказа из формы
+      const orderMaterials = formData.items.map(item => {
+        const material = materialsData.find(m => m.id === parseInt(item.materialId));
+        if (!material) throw new Error('Материал не выбран');
+
+        const widthM = toMeters(item.qty1value, item.qty1unit);
+        const heightM = isM2(material) ? toMeters(item.qty2value, item.qty2unit) : null;
+
+        return {
+          materialId: parseInt(item.materialId),
+          widthM,
+          heightM,
+          readyDate: item.readyDate || null
+        };
+      });
+
+      // Расчет итогов для логирования
+      let frontendTotal = 0;
+      formData.items.forEach((item, idx) => {
+        const material = materialsData.find(m => m.id === parseInt(item.materialId));
+        if (material) {
+          const widthM = toMeters(item.qty1value, item.qty1unit);
+          const heightM = isM2(material) ? toMeters(item.qty2value, item.qty2unit) : 0;
+          const wasteCoeff = material.wasteCoefficient || 1;
+          const materialCost = widthM * (heightM || 1) * material.price * wasteCoeff;
+          const opsCost = (item.operations || []).reduce((sum, op) => sum + (op.subtotal || 0), 0);
+          frontendTotal += materialCost + opsCost;
+          console.log(`[CreateOrder] Item ${idx}: material=${material.name}, w=${widthM}, h=${heightM}, wasteCoeff=${wasteCoeff}, matCost=${materialCost.toFixed(2)}, opsCost=${opsCost.toFixed(2)}`);
+        }
+      });
+      const frontendTotalWithPriceplus = frontendTotal * (1 + priceplus / 100);
+
+      const orderData = {
+        clientId: parseInt(formData.clientId),
+        description: formData.description,
+        orderDate: formData.orderDate,
+        dueDate: formData.dueDate || null,
+        managerId: currentEmployee.id,
+        priceplus: priceplus,
+        items: orderMaterials
+      };
+
+      console.log('=== CREATE ORDER SUBMIT ===');
+      console.log('Client ID:', formData.clientId);
+      console.log('Items count:', formData.items.length);
+      console.log('Priceplus:', priceplus);
+      console.log('Frontend total (without priceplus):', frontendTotal.toFixed(2));
+      console.log('Frontend total (with priceplus):', frontendTotalWithPriceplus.toFixed(2));
+      console.log('Payload:', JSON.stringify(orderData, null, 2));
+
+      const response = await api.post('/api/v1/orders', orderData);
+
+      console.log('=== CREATE ORDER RESPONSE ===');
+      console.log('Created order ID:', response.data.id);
+      console.log('Created order number:', response.data.orderNumber);
+      console.log('Saved priceplus:', response.data.priceplus);
+      console.log('Saved totalAmount (without priceplus):', response.data.totalAmount);
+      console.log('Saved totalWithPriceplus:', response.data.totalWithPriceplus);
+      console.log('Comparison - Frontend vs Backend totalWithPriceplus:');
+      console.log('  Frontend:', frontendTotalWithPriceplus.toFixed(2));
+      console.log('  Backend:', response.data.totalWithPriceplus?.toFixed(2));
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['orders'] });
+      await queryClient.invalidateQueries({ queryKey: ['recentOrders'] });
       setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
       setTimeout(() => navigate('/orders'), 1500);
     },
@@ -156,7 +259,6 @@ const OrderDetail = ({ mode = 'view' }) => {
   });
 
   // ==================== Effects ====================
-  // Ensure current employee is synced from Keycloak when in create mode
   useEffect(() => {
     if (mode === 'create' && username && !currentEmployee) {
       api.post('/api/v1/employees/sync')
@@ -165,11 +267,11 @@ const OrderDetail = ({ mode = 'view' }) => {
     }
   }, [mode, username, currentEmployee, refetchEmployee]);
 
-  // ==================== Create Mode Handlers ====================
+  // ==================== Handlers ====================
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { materialId: '', qty1: '', qty2: '', readyDate: '' }]
+      items: [...prev.items, { materialId: '', qty1value: '', qty1unit: 'м', qty2value: '', qty2unit: 'м', readyDate: '', operations: [] }]
     }));
   };
 
@@ -181,10 +283,24 @@ const OrderDetail = ({ mode = 'view' }) => {
   };
 
   const updateItem = (index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
-    }));
+    setFormData(prev => {
+      if (field === 'materialId' && value) {
+        const dup = prev.items.find((item, i) => i !== index && item.materialId === value);
+        if (dup) {
+          const mat = materialsData.find(m => m.id === parseInt(value));
+          setNotification({
+            open: true,
+            message: `Материал "${mat?.name || value}" уже выбран в другой позиции`,
+            severity: 'warning'
+          });
+          return prev;
+        }
+      }
+      return {
+        ...prev,
+        items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
+      };
+    });
   };
 
   const handleClientChange = (e) => {
@@ -208,92 +324,15 @@ const OrderDetail = ({ mode = 'view' }) => {
     createClientMutation.mutate(newClientForm);
   };
 
-  // Total calculation
-  const totalOrderAmount = useMemo(() => {
-    return formData.items.reduce((sum, item) => {
-      const material = materialsData.find(m => m.id === parseInt(item.materialId));
-      if (!material) return sum;
-      const q1 = parseFloat(item.qty1) || 0;
-      const q2 = parseFloat(item.qty2) || 0;
-      let effectiveQty = 0;
-      if (material.unit === 'м2') {
-        effectiveQty = (q1 / 1000) * (q2 / 1000);
-      } else if (material.unit === 'м.п.') {
-        effectiveQty = q1 / 1000;
-      } else {
-        effectiveQty = q1;
-      }
-      const cost = material.price * effectiveQty * (material.wasteCoefficient || 1);
-      return sum + cost;
-    }, 0);
-  }, [formData.items, materialsData]);
-
-  const handleCreateSubmit = async (e) => {
+  const handleCreateSubmit = (e) => {
     e.preventDefault();
-    if (!currentEmployee) {
-      setNotification({ open: true, message: 'Менеджер не определен. Перелогинитесь.', severity: 'error' });
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const orderMaterials = formData.items.map(item => {
-        const material = materialsData.find(m => m.id === parseInt(item.materialId));
-        if (!material) throw new Error('Материал не выбран');
-        let qty;
-        const q1 = parseFloat(item.qty1) || 0;
-        const q2 = parseFloat(item.qty2) || 0;
-        if (material.unit === 'м2') {
-          qty = (q1 / 1000) * (q2 / 1000);
-        } else if (material.unit === 'м.п.') {
-          qty = q1 / 1000;
-        } else {
-          qty = q1;
-        }
-        return {
-          materialId: parseInt(item.materialId),
-          quantity: qty,
-          readyDate: item.readyDate || null
-        };
-      });
-
-      const orderData = {
-        clientId: parseInt(formData.clientId),
-        description: formData.description,
-        orderDate: formData.orderDate,
-        dueDate: formData.dueDate || null,
-        managerId: currentEmployee.id,
-        items: orderMaterials
-      };
-
-      await api.post('/api/v1/orders', orderData);
-      setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
-
-      await queryClient.invalidateQueries({ queryKey: ['orders'] });
-      await queryClient.invalidateQueries({ queryKey: ['recentOrders'] });
-
-      setTimeout(() => navigate('/orders'), 1500);
-    } catch (err) {
-      setNotification({
-        open: true,
-        message: `Ошибка: ${err.response?.data?.message || err.message}`,
-        severity: 'error'
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    createOrderMutation.mutate();
   };
 
-  // ==================== View Mode Handlers ====================
-  // They are directly used in JSX (no separate functions except existing)
-  // Status change handler is inline in dialog? Actually in original view they used updateStatusMutation directly; we can keep as is.
-
-  // ==================== Conditional Render ====================
+  // ==================== Render ====================
   if (mode === 'create') {
     return <CreateOrderForm />;
   }
-
-  // ==================== View Mode JSX ====================
-  const statusOptions = ['WAITING', 'LAUNCHED', 'IN_PROGRESS', 'READY', 'ACCEPTED', 'CLOSED'];
 
   if (isLoading) {
     return (
@@ -304,15 +343,20 @@ const OrderDetail = ({ mode = 'view' }) => {
   }
 
   if (error) {
+    const isNotFound = error.response?.status === 404;
     return (
-      <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
+      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+        <Alert severity="error">{isNotFound ? 'Заказ не найден' : `Ошибка загрузки заказа: ${error.message}`}</Alert>
       </Container>
     );
   }
 
+  if (mode === 'edit') {
+    return <EditOrder orderNumber={order?.orderNumber} onSuccess={() => navigate(`/orders/${order?.id}`)} />;
+  }
+
   return (
-    <Container maxWidth="xl" sx={{ mt: 4 }}>
+    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={2}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
@@ -321,27 +365,18 @@ const OrderDetail = ({ mode = 'view' }) => {
           <Typography variant="h4">
             Заказ #{order?.orderNumber}
           </Typography>
-          <Chip
-            label={order?.status}
-            color={getStatusColor(order?.status)}
-            size="medium"
-          />
+          <Chip label={getStatusLabel(order?.status)} color={getStatusColor(order?.status)} size="medium" />
         </Box>
         <Box display="flex" gap={1}>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setNewStatus(order?.status);
-              setStatusDialogOpen(true);
-            }}
-          >
+          {canEdit && (
+            <Button variant="outlined" startIcon={<Edit />} onClick={() => navigate(`/orders/${id}/edit`)}>
+              Редактировать
+            </Button>
+          )}
+          <Button variant="outlined" onClick={() => { setNewStatus(order?.status); setStatusDialogOpen(true); }}>
             Изменить статус
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<Payment />}
-            onClick={() => setPaymentDialogOpen(true)}
-          >
+          <Button variant="contained" startIcon={<Payment />} onClick={() => setPaymentDialogOpen(true)}>
             Добавить оплату
           </Button>
         </Box>
@@ -349,34 +384,7 @@ const OrderDetail = ({ mode = 'view' }) => {
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom>Информация о заказе</Typography>
-            <Box display="flex" flexDirection="column" gap={2}>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Клиент</Typography>
-                <Typography variant="body1">{order?.client?.name}</Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Описание</Typography>
-                <Typography variant="body1">{order?.description || '—'}</Typography>
-              </Box>
-              <Divider />
-              <Box>
-                <Typography variant="body2" color="text.secondary">Сумма</Typography>
-                <Typography variant="h6">{order?.totalAmount?.toFixed(2)} ₽</Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Оплачено</Typography>
-                <Typography variant="body1" color="success.main">{order?.paidAmount?.toFixed(2)} ₽</Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Долг</Typography>
-                <Typography variant="body1" color="error.main">{order?.debtAmount?.toFixed(2)} ₽</Typography>
-              </Box>
-            </Box>
-          </Paper>
-
-          {/* Tabs */}
+          <OrderInfoCard order={order} onClientInfoClick={(clientId) => setClientInfoDialog({ open: true, clientId })} />
           <Paper sx={{ mt: 3 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
@@ -407,76 +415,36 @@ const OrderDetail = ({ mode = 'view' }) => {
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>Детали</Typography>
-            <Box display="flex" flexDirection="column" gap={2}>
-              <div>
-                <Typography variant="body2" color="text.secondary">Дата заказа</Typography>
-                <Typography variant="body1">{order?.orderDate || '—'}</Typography>
-              </div>
-              <div>
-                <Typography variant="body2" color="text.secondary">Срок сдачи</Typography>
-                <Typography variant="body1">{order?.dueDate || '—'}</Typography>
-              </div>
-              <div>
-                <Typography variant="body2" color="text.secondary">Менеджер</Typography>
-                <Typography variant="body1">{order?.manager?.fullName || '—'}</Typography>
-              </div>
-              <Divider />
-              <div>
-                <Typography variant="body2" color="text.secondary">Изменен</Typography>
-                <Typography variant="body1">
-                  {new Date(order?.updatedAt).toLocaleString()}
-                </Typography>
-              </div>
-            </Box>
-          </Paper>
+          <OrderDetailsCard order={order} calculatedData={calculatedData} />
         </Grid>
       </Grid>
 
-      {/* Dialog for Status Change */}
-      <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)}>
-        <DialogTitle>Изменить статус заказа</DialogTitle>
+      <StatusChangeDialog
+        open={statusDialogOpen}
+        onClose={() => setStatusDialogOpen(false)}
+        onSave={(status) => updateStatusMutation.mutate(status)}
+        currentStatus={newStatus}
+      />
+
+      <PaymentDialog
+        open={paymentDialogOpen}
+        onClose={() => setPaymentDialogOpen(false)}
+        onSubmit={(data) => addPaymentMutation.mutate(data)}
+      />
+
+      <Dialog open={clientInfoDialog.open} onClose={() => setClientInfoDialog({ open: false, clientId: null })} maxWidth="sm" fullWidth>
+        <DialogTitle>Информация о клиенте</DialogTitle>
         <DialogContent>
-          <TextField
-            select
-            fullWidth
-            margin="dense"
-            label="Статус"
-            value={newStatus}
-            onChange={(e) => setNewStatus(e.target.value)}
-          >
-            {statusOptions.map((status) => (
-              <MenuItem key={status} value={status}>
-                {status}
-              </MenuItem>
-            ))}
-          </TextField>
+          <ClientInfo clientId={clientInfoDialog.clientId} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setStatusDialogOpen(false)}>Отмена</Button>
-          <Button
-            onClick={() => updateStatusMutation.mutate(newStatus)}
-            variant="contained"
-          >
-            Сохранить
+          <Button onClick={() => setClientInfoDialog({ open: false, clientId: null })}>
+            Закрыть
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Dialog for Payment */}
-      <Dialog open={paymentDialogOpen} onClose={() => setPaymentDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Добавить оплату</DialogTitle>
-        <DialogContent>
-          <PaymentForm onSubmit={(data) => addPaymentMutation.mutate(data)} />
-        </DialogContent>
-      </Dialog>
-
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={6000}
-        onClose={() => setNotification({ ...notification, open: false })}
-      >
+      <Snackbar open={notification.open} autoHideDuration={6000} onClose={() => setNotification({ ...notification, open: false })}>
         <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
           {notification.message}
         </Alert>

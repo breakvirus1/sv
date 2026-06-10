@@ -14,29 +14,32 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
-/**
- * MapStruct mapper для преобразования между сущностями и DTO.
- */
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface OrderMapper {
 
-    @Mapping(source = "client.id", target = "client.id")
-    @Mapping(source = "client.name", target = "client.name")
-    @Mapping(source = "client.type", target = "client.type")
-    @Mapping(source = "client.contactPerson", target = "client.contactPerson")
-    @Mapping(source = "client.phone", target = "client.phone")
-    @Mapping(source = "client.email", target = "client.email")
-    @Mapping(source = "manager.id", target = "manager.id")
-    @Mapping(source = "manager.fullName", target = "manager.fullName")
-    @Mapping(source = "manager.position", target = "manager.position")
+    @Mapping(target = "client", ignore = true)
+    @Mapping(target = "manager", ignore = true)
+    @Mapping(target = "items", ignore = true)
+    @Mapping(target = "stages", ignore = true)
     @Mapping(target = "payments", ignore = true)
     @Mapping(target = "comments", ignore = true)
     @Mapping(target = "materials", ignore = true)
+    @Mapping(target = "updatedAt", source = "updatedAt")
     OrderResponse toDto(Order order);
+
+    @AfterMapping
+    default void afterToDto(Order order, @MappingTarget OrderResponse dto) {
+        if (order.getClient() != null) {
+            dto.setClient(clientToDto(order.getClient()));
+        }
+        if (order.getManager() != null) {
+            dto.setManager(employeeToDto(order.getManager()));
+        }
+    }
 
     @Mapping(target = "client", ignore = true)
     @Mapping(target = "manager", ignore = true)
@@ -59,6 +62,17 @@ public interface OrderMapper {
     OrderItemOperationDTO operationToDto(OrderItemOperation op);
 
     OrderStageResponse stageToDto(OrderStage stage);
+
+    @AfterMapping
+    default void afterStageToDto(OrderStage entity, @MappingTarget OrderStageResponse dto) {
+        if (entity.getWorkshop() != null) {
+            dto.setWorkshop(new WorkshopResponse(
+                entity.getWorkshop().getId(),
+                entity.getWorkshop().getName(),
+                entity.getWorkshop().getSortOrder(),
+                entity.getWorkshop().getOperationIds()));
+        }
+    }
 
     ClientResponse clientToDto(com.example.clientservice.entity.Client client);
 
@@ -86,6 +100,25 @@ public interface OrderMapper {
     @Mapping(target = "pricePerUnit", source = "basePrice")
     OrderMaterialOperationResponse orderMaterialOperationToDto(OrderMaterialOperation op);
 
+    @AfterMapping
+    default void afterOrderMaterialToDto(OrderMaterial entity, @MappingTarget OrderMaterialResponse dto) {
+        if (entity.getOrderItem() != null && entity.getOrderItem().getOperations() != null) {
+            dto.setOperations(entity.getOrderItem().getOperations().stream()
+                .map(op -> new OrderOperationSummary(
+                    op.getOperationId(),
+                    op.getOperationName(),
+                    op.getPricePerUnit(),
+                    op.getCalculatedQuantity(),
+                    op.getSubtotal(),
+                    op.getWidthM(),
+                    op.getHeightM()))
+                .collect(Collectors.toList()));
+        }
+        if (entity.getOrderItem() != null) {
+            dto.setOrderItemId(entity.getOrderItem().getId());
+        }
+    }
+
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "orderNumber", ignore = true)
     @Mapping(target = "client", ignore = true)
@@ -98,7 +131,7 @@ public interface OrderMapper {
     @Mapping(target = "totalAmount", constant = "0")
     @Mapping(target = "paidAmount", constant = "0")
     @Mapping(target = "debtAmount", constant = "0")
-    @Mapping(target = "status", constant = "WAITING")
+    @Mapping(target = "status", constant = "DRAFT")
     @Mapping(target = "productionStage", constant = "NOT_STARTED")
     @Mapping(target = "hasDocuments", constant = "false")
     @Mapping(target = "createdAt", ignore = true)
@@ -128,7 +161,7 @@ public interface OrderMapper {
     @Mapping(target = "order", ignore = true)
     @Mapping(target = "paymentDate", expression = "java(request.getPaymentDate() != null ? request.getPaymentDate() : java.time.LocalDate.now())")
     @Mapping(target = "isPartial", expression = "java(request.getIsPartial() != null ? request.getIsPartial() : false)")
-    com.example.orderservice.entity.Payment toPaymentEntity(PaymentRequest request);
+    Payment toPaymentEntity(PaymentRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "order", ignore = true)

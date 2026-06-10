@@ -1,16 +1,30 @@
 import { useQuery } from '@tanstack/react-query';
-import { Grid, Paper, Typography, Box, Button, Card, CardContent } from '@mui/material';
-import { People, Inventory, Payments, Assessment, Add } from '@mui/icons-material';
+import {
+  Grid,
+  Paper,
+  Typography,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip
+} from '@mui/material';
+import {
+  Inventory,
+  Payments,
+  Add
+} from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
-import { useWindowsStore } from '../store/windowsStore';
-import CreateOrderForm from '../components/CreateOrderForm';
 import api from '../services/api';
+import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+
   const { data: orders = [] } = useQuery({
     queryKey: ['recentOrders'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/orders?size=5');
+      const response = await api.get('/api/v1/orders?size=50');
       return response.data.content || [];
     },
   });
@@ -21,19 +35,7 @@ const Dashboard = () => {
     navigate('/orders/new');
   };
 
-  const stats = {
-    totalOrders: orders.length,
-    pendingOrders: orders.filter(o => o.status === 'WAITING').length,
-    inProgressOrders: orders.filter(o => o.status === 'IN_PROGRESS').length,
-    totalRevenue: orders.reduce((sum, o) => sum + (o.paidAmount || 0), 0),
-  };
-
-  const statCards = [
-    { title: 'Всего заказов', value: stats.totalOrders, icon: <Inventory />, color: '#1976d2' },
-    { title: 'Ожидают', value: stats.pendingOrders, icon: <Assessment />, color: '#ff9800' },
-    { title: 'В работе', value: stats.inProgressOrders, icon: <Inventory />, color: '#9c27b0' },
-    { title: 'Оплачено, ₽', value: stats.totalRevenue.toFixed(2), icon: <Payments />, color: '#4caf50' },
-  ];
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.paidAmount || 0), 0);
 
   return (
     <Box sx={{ mt: 4, width: '1900px', mx: 'auto', overflowX: 'auto' }}>
@@ -47,27 +49,44 @@ const Dashboard = () => {
       </Box>
 
       <Grid container spacing={3}>
-        {statCards.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <Card>
-              <CardContent>
-                <Box display="flex" alignItems="center" justifyContent="space-between">
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {stat.title}
-                    </Typography>
-                    <Typography variant="h5" sx={{ mt: 1 }}>
-                      {stat.value}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ color: stat.color }}>
-                    {stat.icon}
-                  </Box>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Всего заказов
+                  </Typography>
+                  <Typography variant="h5" sx={{ mt: 1 }}>
+                    {orders.length}
+                  </Typography>
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
+                <Box sx={{ color: '#1976d2' }}>
+                  <Inventory />
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Оплачено
+                  </Typography>
+                  <Typography variant="h5" sx={{ mt: 1 }}>
+                    {totalRevenue.toFixed(2)} ₽
+                  </Typography>
+                </Box>
+                <Box sx={{ color: '#4caf50' }}>
+                  <Payments />
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       <Box mt={4}>
@@ -103,9 +122,11 @@ const Dashboard = () => {
               </Box>
               <Box textAlign="right">
                 <Typography variant="body1">{order.totalAmount?.toFixed(2)} ₽</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {order.status}
-                </Typography>
+                <Chip
+                  label={getStatusLabel(order.status)}
+                  color={getStatusColor(order.status)}
+                  size="small"
+                />
               </Box>
             </Box>
           ))}

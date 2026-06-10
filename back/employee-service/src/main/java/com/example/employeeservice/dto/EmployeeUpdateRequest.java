@@ -4,21 +4,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Request DTO для обновления сотрудника.
- */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class EmployeeUpdateRequest {
-    /** Полное имя (ФИО) */
     private String fullName;
-    /** Логин */
     private String username;
-    /** Должность (Менеджер, Печатник, Бухгалтер и т.д.) */
     private String position;
-    /** Контактный телефон */
     private String phone;
-    /** Email адрес */
     private String email;
+    private Long workshopId;
 }

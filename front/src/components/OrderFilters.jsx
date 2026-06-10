@@ -70,12 +70,10 @@ const OrderFilters = ({ filters, onFilterChange }) => {
           label="Статус"
         >
           <MenuItem value="">Все</MenuItem>
-          <MenuItem value="WAITING">Ожидание</MenuItem>
-          <MenuItem value="LAUNCHED">Запущен</MenuItem>
+          <MenuItem value="DRAFT">Черновик</MenuItem>
+          <MenuItem value="APPROVAL">Согласование</MenuItem>
           <MenuItem value="IN_PROGRESS">В работе</MenuItem>
           <MenuItem value="READY">Готов</MenuItem>
-          <MenuItem value="ACCEPTED">Принят</MenuItem>
-          <MenuItem value="CLOSED">Закрыт</MenuItem>
         </Select>
       </FormControl>
 

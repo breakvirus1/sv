@@ -6,16 +6,27 @@ spring:
     name: api-gateway
   main:
     web-application-type: reactive
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
   cloud:
     gateway:
       discovery:
         locator:
-          enabled: false
+          enabled: true
+      routes:
+        - id: file-service
+          uri: lb://file-service
+          predicates:
+            - Path=/api/files/**
+          filters:
+            - StripPrefix=0
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080/realms/print-sv
+          issuer-uri: http://keycloak:8080/realms/print-sv
           jwk-set-uri: http://keycloak:8080/realms/print-sv/protocol/openid-connect/certs
 
 eureka:
@@ -27,9 +38,9 @@ eureka:
 
 logging:
   level:
-    org.springframework.security: DEBUG
-    com.example.apigateway: DEBUG
-    org.springframework.cloud.gateway: TRACE
+    org.springframework.security: INFO
+    com.example.apigateway: INFO
+    org.springframework.cloud.gateway: INFO
 
 springdoc:
   api-docs:

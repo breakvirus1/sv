@@ -1,10 +1,19 @@
-import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery, ListItemIcon, ListItemText, Chip, Divider } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 import { Person, Logout, Add, AdminPanelSettings, ShoppingBag } from '@mui/icons-material';
 
 import { useNavigate } from 'react-router-dom';
-import CreateOrderForm from './CreateOrderForm';
+import { useQuery } from '@tanstack/react-query';
+import api from '../services/api';
+import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
+
+const statusGroups = [
+  { key: 'DRAFT', label: 'Черновики' },
+  { key: 'APPROVAL', label: 'На согласовании' },
+  { key: 'IN_PROGRESS', label: 'В работе' },
+  { key: 'READY', label: 'Готовы' },
+];
 
 const Navbar = () => {
   const { user, login, logout, isAuthenticated } = useAuth();
@@ -13,8 +22,16 @@ const Navbar = () => {
 
   const navigate = useNavigate();
 
-  // Debug logging
-  console.log('Navbar render - user:', user);
+  const { data: orders = [] } = useQuery({
+    queryKey: ['navbarOrders'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/orders?size=50');
+      return response.data.content || [];
+    },
+    enabled: isAuthenticated,
+    retry: 1,
+    retryDelay: 1000,
+  });
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -37,10 +54,32 @@ const Navbar = () => {
       navigate('/orders/new');
     };
 
-   const handleMyOrders = () => {
-     handleClose();
-     navigate('/dashboard');
-   };
+  const handleCloseOrders = () => {
+    setOrdersAnchorEl(null);
+  };
+
+  const handleCreateOrder = () => {
+    handleCloseCreate();
+    navigate('/orders/new');
+  };
+
+  const handleStatusClick = (status) => {
+    handleCloseOrders();
+    navigate(`/orders?status=${status}`);
+  };
+
+  const isManager = user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_ADMIN');
+  const isProduction = user?.roles?.includes('ROLE_PRODUCTION');
+
+  const handleMyOrders = () => {
+    handleCloseOrders();
+    navigate(isManager ? '/manager' : '/orders?my=true');
+  };
+
+  const handleAllOrders = () => {
+    handleCloseOrders();
+    navigate('/orders');
+  };
 
   return (
     <AppBar position="static">
@@ -49,19 +88,94 @@ const Navbar = () => {
           Print SV — Производство
         </Typography>
 
-        {isAuthenticated ? (
-          <Box display="flex" alignItems="center" gap={2}>
-            {/* My Orders button */}
-            <Button
-              variant="outlined"
-              color="inherit"
-              size="small"
-              onClick={handleMyOrders}
-              startIcon={<ShoppingBag />}
-              sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
-            >
-              Мои заказы
-            </Button>
+         {isAuthenticated ? (
+           <Box display="flex" alignItems="center" gap={2}>
+             {/* Production: View dropdown */}
+             {isProduction && (
+               <>
+                 <Button
+                   variant="outlined"
+                   color="inherit"
+                   size="small"
+                   onClick={handleOrdersMenu}
+                   startIcon={<Visibility />}
+                   endIcon={<ArrowDropDown />}
+                   sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
+                 >
+                   Вид
+                 </Button>
+                 <Menu
+                   anchorEl={ordersAnchorEl}
+                   open={Boolean(ordersAnchorEl)}
+                   onClose={handleCloseOrders}
+                   PaperProps={{ sx: { minWidth: 200 } }}
+                 >
+                  <MenuItem onClick={() => { handleCloseOrders(); navigate('/production'); }}>
+                    <ListItemIcon>
+                      <ShoppingBag fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary="Заказы" />
+                  </MenuItem>
+                  <MenuItem onClick={() => { handleCloseOrders(); navigate('/production/positions'); }}>
+                    <ListItemIcon>
+                      <Category fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary="Позиции" />
+                  </MenuItem>
+                 </Menu>
+               </>
+             )}
+
+             {/* Orders dropdown button - not for production */}
+             {!isProduction && (
+               <>
+                 <Button
+                   variant="outlined"
+                   color="inherit"
+                   size="small"
+                   onClick={handleOrdersMenu}
+                   startIcon={<ShoppingBag />}
+                   endIcon={<ArrowDropDown />}
+                   sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
+                 >
+                   Заказы
+                 </Button>
+                 <Menu
+                   anchorEl={ordersAnchorEl}
+                   open={Boolean(ordersAnchorEl)}
+                   onClose={handleCloseOrders}
+                   PaperProps={{ sx: { minWidth: 280 } }}
+                 >
+                   <MenuItem onClick={handleAllOrders}>
+                     <ListItemIcon>
+                       <ShoppingBag fontSize="small" />
+                     </ListItemIcon>
+                     <ListItemText primary="Все заказы" />
+                   </MenuItem>
+                   <Divider />
+                   {statusGroups.map((group) => (
+                     <MenuItem
+                       key={group.key}
+                       onClick={() => handleStatusClick(group.key)}
+                     >
+                       <ListItemIcon sx={{ color: getStatusColor(group.key) }}>
+                         <Assignment fontSize="small" />
+                       </ListItemIcon>
+                       <ListItemText primary={group.label} />
+                     </MenuItem>
+                   ))}
+                   <Divider />
+                   <MenuItem onClick={handleMyOrders}>
+                     <Box display="flex" alignItems="center" gap={1}>
+                       <ListItemIcon>
+                         <Person fontSize="small" />
+                       </ListItemIcon>
+                       <ListItemText primary="Мои заказы" />
+                     </Box>
+                   </MenuItem>
+                 </Menu>
+               </>
+             )}
 
             {/* Admin Panel button - only for ADMIN role */}
             {user?.roles?.includes('ROLE_ADMIN') && (
@@ -77,34 +191,38 @@ const Navbar = () => {
               </Button>
             )}
 
-            {/* Create Order button with dropdown */}
-            <Button
-              variant="contained"
-              color="secondary"
-              size="small"
-              onClick={handleCreateMenu}
-              startIcon={<Add />}
-            >
-              Создать заказ
-            </Button>
-            <Menu
-              anchorEl={createAnchorEl}
-              open={Boolean(createAnchorEl)}
-              onClose={handleCloseCreate}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-            >
-              <MenuItem onClick={handleCreateOrder}>
-                <Add fontSize="small" sx={{ mr: 1 }} />
-                Создать заказ
-              </MenuItem>
-            </Menu>
+             {/* Create Order button with dropdown - only for manager/admin */}
+             {isManager && (
+               <>
+                 <Button
+                   variant="contained"
+                   color="secondary"
+                   size="small"
+                   onClick={handleCreateMenu}
+                   startIcon={<Add />}
+                 >
+                   Создать заказ
+                 </Button>
+                 <Menu
+                   anchorEl={createAnchorEl}
+                   open={Boolean(createAnchorEl)}
+                   onClose={handleCloseCreate}
+                   anchorOrigin={{
+                     vertical: 'bottom',
+                     horizontal: 'right',
+                   }}
+                   transformOrigin={{
+                     vertical: 'top',
+                     horizontal: 'right',
+                   }}
+                 >
+                   <MenuItem onClick={handleCreateOrder}>
+                     <Add fontSize="small" sx={{ mr: 1 }} />
+                     Создать заказ
+                   </MenuItem>
+                 </Menu>
+               </>
+             )}
 
             <Typography variant="body2">
               {user?.name} ({user?.roles?.map(r => r.replace(/^ROLE_/, '')).join(', ')})

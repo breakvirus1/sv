@@ -16,7 +16,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class OrderMaterialCreateRequest {
-    /** ID материала из справочника */
+    private Long id;
     private Long materialId;
 
     /** Количество в единицах измерения материала (например, метры, квадратные метры) */

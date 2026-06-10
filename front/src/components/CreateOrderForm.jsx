@@ -28,10 +28,13 @@ import {
   ListItem,
   ListItemText
 } from '@mui/material';
-import { Add, Delete, Save } from '@mui/icons-material';
+import { Add, Delete, Save, AttachFile } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { computeWorkshopTags } from '../utils/workshopTags';
+import { isM2, isLinearMeter } from '../utils/orderUtils';
+import { recalculateOrderLocally, applyPriceplus } from '../services/calculationService';
 import { useAuth } from '../context/AuthContext';
 import OperationForm from './OperationForm';
 
@@ -41,7 +44,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const { user } = useAuth();
   const username = user?.username;
 
-  // Form state (без номера заказа и менеджера)
+  // ── State: Form Data ──
   const [formData, setFormData] = useState({
     clientId: '',
     description: '',
@@ -51,6 +54,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   });
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [priceplus, setPriceplus] = useState(0);
 
    // Operation dialog state
    const [opDialogOpen, setOpDialogOpen] = useState(false);
@@ -60,12 +64,16 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
    // Клиентский диалог создания нового клиента
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [orderAmountDialog, setOrderAmountDialog] = useState({ open: false, sumorder: 0 });
+
+  // ── State: New Client Form ──
   const [newClientForm, setNewClientForm] = useState({
     name: '',
     type: 'PRIVATE',
     contactPerson: '',
     phone: '',
-    email: ''
+    email: '',
+    priceplus: null
   });
 
   // Загрузка данных
@@ -85,26 +93,57 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
-  // Получение текущего менеджера по username из Keycloak
-  const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
+  const { data: currentEmployee } = useQuery({
     queryKey: ['currentEmployee', username],
     queryFn: async () => {
       if (!username) return null;
-      const response = await api.get(`/api/v1/employees?size=1&q=${username}`);
+      const response = await api.get('/api/v1/employees?size=1&q=' + username);
       const data = response.data.content || [];
       return data.length > 0 ? data[0] : null;
     },
-    enabled: !!username
+    enabled: !!username,
   });
 
-  // Синхронизируем менеджера из Keycloak, если не найден
+  const workshopName = currentEmployee?.workshopId
+    ? (workshopsData.find(w => w.id === currentEmployee.workshopId)?.name || '#' + currentEmployee.workshopId)
+    : null;
+
+  const { data: operationsData = [], error: operationsError } = useQuery({
+    queryKey: ['operations'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/calculations/operations');
+      return response.data || [];
+    },
+  });
+
+  const { data: eyeletsData = [], error: eyeletsError } = useQuery({
+    queryKey: ['eyelets'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/calculations/eyelets');
+      console.log('[DEBUG] eyeletsData received:', response.data);
+      return response.data || [];
+    },
+  });
+
+  // Получение данных выбранного клиента для получения priceplus
+  const { data: selectedClient } = useQuery({
+    queryKey: ['client', formData.clientId],
+    queryFn: async () => {
+      if (!formData.clientId) return null;
+      const response = await api.get(`/api/v1/clients/${formData.clientId}`);
+      return response.data;
+    },
+    enabled: !!formData.clientId
+  });
+
+  // Синхронизируем priceplus с выбранным клиентом
   useEffect(() => {
-    if (username && !currentEmployee) {
-      api.post('/api/v1/employees/sync')
-        .then(() => refetchEmployee())
-        .catch(err => console.error('Employee sync failed:', err));
+    if (selectedClient?.priceplus != null) {
+      setPriceplus(selectedClient.priceplus);
+    } else {
+      setPriceplus(0);
     }
-  }, [username, currentEmployee, refetchEmployee]);
+  }, [selectedClient?.priceplus]);
 
   // Load material operations when dialog opens
   const currentMaterialId = formData.items[activeItemIdx]?.materialId;
@@ -124,11 +163,36 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       setClientDialogOpen(false);
-      setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' });
+      setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '', priceplus: null });
       setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
     },
     onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
   });
+
+  const handleUnitChange = (index, newUnit) => {
+    setFormData(prev => {
+      const item = prev.items[index];
+      const convertUnit = (value, fromUnit, toUnit) => {
+        if (fromUnit === toUnit) return value;
+        const num = parseFloat(value) || 0;
+        if (fromUnit === 'м' && toUnit === 'мм') return (num * 1000).toString();
+        if (fromUnit === 'мм' && toUnit === 'м') return (num / 1000).toString();
+        return value;
+      };
+      const oldUnit = item.unit || 'мм';
+      return {
+        ...prev,
+        items: prev.items.map((it, i) =>
+          i === index ? {
+            ...it,
+            unit: newUnit,
+            qty1value: convertUnit(it.qty1value, oldUnit, newUnit),
+            qty2value: convertUnit(it.qty2value, oldUnit, newUnit)
+          } : it
+        )
+      };
+    });
+  };
 
   // Функции для позиций заказа (материалов)
   const addItem = () => {
@@ -166,6 +230,147 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
      setOpDialogOpen(true);
    };
 
+  const handleOpenOperationsDialog = (itemIndex) => {
+    const item = formData.items[itemIndex];
+    setOperationsDialog({
+      open: true,
+      itemIndex,
+      selectedOps: item.operations.map(op => op.id)
+    });
+  };
+
+  const handleCloseOperationsDialog = () => {
+    setOperationsDialog({ open: false, itemIndex: null, selectedOps: [] });
+  };
+
+  const handleCloseOperationParamsDialog = () => {
+    setOperationParamsDialog(prev => ({
+      ...prev,
+      open: false,
+      itemIndex: null,
+      pendingOps: [],
+      params: {}
+    }));
+  };
+
+  const handleSaveOperationParams = () => {
+    const { itemIndex, pendingOps, params } = operationParamsDialog;
+    // Объединяем pendingOps с их параметрами, преобразуя типы при необходимости
+    const opsWithParams = pendingOps.map(op => {
+      const baseOp = operationsData.find(o => o.id === op.id);
+      const opParams = params[op.id] || {};
+      // Преобразуем eyeletId в число если присутствует
+      if (opParams.eyeletId !== undefined) {
+        opParams.eyeletId = opParams.eyeletId ? parseInt(opParams.eyeletId, 10) : null;
+      }
+      return { ...baseOp, ...opParams };
+    });
+
+    // Получаем существующие операции и обновляем/добавляем специальные
+    const currentOps = formData.items[itemIndex].operations || [];
+    // Удаляем существующие специальные операции с теми же id чтобы избежать дубликатов
+    const filteredOps = currentOps.filter(cop => !pendingOps.some(pop => pop.id === cop.id));
+    // Объединяем: существующие не-специальные операции + новые специальные с параметрами
+    const finalOps = [...filteredOps, ...opsWithParams];
+
+    updateItemOperations(itemIndex, finalOps);
+    handleCloseOperationParamsDialog();
+  };
+
+  const handleToggleOperation = (opId) => {
+    setOperationsDialog(prev => ({
+      ...prev,
+      selectedOps: prev.selectedOps.includes(opId)
+        ? prev.selectedOps.filter(id => id !== opId)
+        : [...prev.selectedOps, opId]
+    }));
+  };
+
+  const handleSaveOperations = () => {
+    const { itemIndex, selectedOps } = operationsDialog;
+    const selectedOpsData = operationsData.filter(op => selectedOps.includes(op.id));
+    const currentOps = formData.items[itemIndex].operations || [];
+
+    // Проверяем специальные операции (подворот или люверс) - нечувствительно к регистру
+    const specialOps = selectedOpsData.filter(op =>
+      op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
+    );
+
+    if (specialOps.length > 0) {
+      // Проверяем, есть ли у специальных операций уже параметры в currentOps
+      const allAlreadyConfigured = specialOps.every(sop => {
+        const existing = currentOps.find(cop => cop.id === sop.id);
+        if (sop.name.toLowerCase().includes('люверс')) {
+          return existing && existing.eyeletId;
+        }
+        if (sop.name.toLowerCase().includes('подворот')) {
+          return existing && existing.hemWidthMm;
+        }
+        return false;
+      });
+
+      if (allAlreadyConfigured) {
+        // Сохраняем существующие параметры для всех специальных операций
+        const ops = selectedOpsData.map(op => {
+          const existing = currentOps.find(cop => cop.id === op.id);
+          return existing ? { ...op, ...existing } : op;
+        });
+        updateItemOperations(itemIndex, ops);
+        handleCloseOperationsDialog();
+        return;
+      }
+
+      // Инициализируем параметры для всех специальных операций, сохраняя существующие если есть
+      const initialParams = {};
+      const newPendingOps = [];
+
+      specialOps.forEach(op => {
+        const opId = op.id;
+        newPendingOps.push(op);
+        const existing = currentOps.find(cop => cop.id === opId);
+        if (op.name.toLowerCase().includes('подворот')) {
+          if (existing && existing.hemWidthMm) {
+            initialParams[opId] = { 
+              hemWidthMm: existing.hemWidthMm, 
+              hemCount: existing.hemCount || 2,
+              widthMm: existing.widthMm,
+              heightMm: existing.heightMm
+            };
+          } else {
+            const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
+            const defaultCount = op.hemCount != null ? op.hemCount : 2;
+            initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: null, heightMm: null };
+          }
+        } else if (op.name.toLowerCase().includes('люверс')) {
+          if (existing && existing.eyeletId) {
+            initialParams[opId] = { 
+              eyeletId: existing.eyeletId, 
+              eyeletStepCm: existing.eyeletStepCm || 40,
+              widthMm: existing.widthMm,
+              heightMm: existing.heightMm
+            };
+          } else {
+            initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: null, heightMm: null };
+          }
+        }
+      });
+
+      setOperationParamsDialog(prev => ({
+        ...prev,
+        open: true,
+        itemIndex,
+        pendingOps: newPendingOps,
+        params: initialParams
+      }));
+
+      handleCloseOperationsDialog();
+    } else {
+      // Нет специальных операций, сохраняем сразу
+      updateItemOperations(itemIndex, selectedOpsData);
+      handleCloseOperationsDialog();
+    }
+  };
+
   const handleChange = (field) => (e) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
   };
@@ -188,7 +393,11 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       setNotification({ open: true, message: 'Введите название клиента', severity: 'error' });
       return;
     }
-    createClientMutation.mutate(newClientForm);
+    const payload = {
+      ...newClientForm,
+      priceplus: newClientForm.priceplus !== null && newClientForm.priceplus !== '' ? parseFloat(newClientForm.priceplus) : null
+    };
+    createClientMutation.mutate(payload);
   };
 
    const handleClose = () => {
@@ -528,13 +737,13 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
       <Typography variant="h6" gutterBottom sx={{ color: '#0055ea', fontWeight: 600 }}>
-        Создание нового заказа
+        {workshopName ? workshopName + ' — ' : ''}Создание нового заказа
       </Typography>
       <Divider sx={{ mb: 2 }} />
 
       <Box component="form" onSubmit={handleSubmit} sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end' }}>
           <FormControl fullWidth size="small">
             <InputLabel>Клиент</InputLabel>
             <Select
@@ -551,6 +760,15 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
               ))}
             </Select>
           </FormControl>
+          <TextField
+            size="small"
+            label="Наценка %"
+            type="number"
+            value={priceplus}
+            onChange={(e) => setPriceplus(parseFloat(e.target.value) || 0)}
+            inputProps={{ min: -100, max: 100, step: 0.1 }}
+            sx={{ width: 120 }}
+          />
         </Box>
 
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -613,7 +831,8 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                 <TableBody>
                   {formData.items.map((item, index) => {
                     const material = materialsData.find(m => m.id === parseInt(item.materialId));
-                    const showSecond = material && material.unit === 'м2';
+                    const showSecond = isM2(material);
+                    const isBanner = material && material.name.toLowerCase().includes('баннер');
                     return (
                       <TableRow key={index}>
                         <TableCell>
@@ -632,26 +851,37 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                           </FormControl>
                         </TableCell>
                         <TableCell>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            type="number"
-                            value={item.qty1}
-                            onChange={(e) => updateItem(index, 'qty1', e.target.value)}
-                            inputProps={{ min: 0 }}
-                            placeholder={material?.unit === 'м2' ? 'Ширина' : 'Длина'}
-                          />
+                          <Box display="flex" gap={0.5} alignItems="center">
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={item.qty1value}
+                              onChange={(e) => updateItem(index, 'qty1value', e.target.value)}
+                              inputProps={{ min: 0 }}
+                              placeholder={isM2(material) ? 'Ширина' : 'Длина'}
+                              sx={{ width: 100 }}
+                            />
+                            <Select
+                              size="small"
+                              value={item.unit || 'мм'}
+                              onChange={(e) => handleUnitChange(index, e.target.value)}
+                              sx={{ width: 70 }}
+                            >
+                              <MenuItem value="мм">мм</MenuItem>
+                              <MenuItem value="м">м</MenuItem>
+                            </Select>
+                          </Box>
                         </TableCell>
                         {showSecond ? (
                           <TableCell>
                             <TextField
-                              fullWidth
                               size="small"
                               type="number"
-                              value={item.qty2}
-                              onChange={(e) => updateItem(index, 'qty2', e.target.value)}
+                              value={item.qty2value}
+                              onChange={(e) => updateItem(index, 'qty2value', e.target.value)}
                               inputProps={{ min: 0 }}
                               placeholder="Высота"
+                              sx={{ width: 100 }}
                             />
                           </TableCell>
                          ) : (
@@ -688,6 +918,47 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                           )}
                         </TableCell>
                         <TableCell>
+                          <Button
+                            component="label"
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AttachFile />}
+                            sx={{ fontSize: '0.75rem', px: 1 }}
+                          >
+                            {item.fileName || 'Файл'}
+                            <input
+                              type="file"
+                              hidden
+                              onChange={(e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                  const file = e.target.files[0];
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    items: prev.items.map((it, i) =>
+                                      i === index ? { ...it, file, fileName: file.name } : it
+                                    )
+                                  }));
+                                }
+                              }}
+                            />
+                          </Button>
+                          {item.fileName && (
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => setFormData(prev => ({
+                                ...prev,
+                                items: prev.items.map((it, i) =>
+                                  i === index ? { ...it, file: null, fileName: '' } : it
+                                )
+                              }))}
+                              sx={{ ml: 0.5 }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <IconButton onClick={() => removeItem(index)} color="error" size="small">
                             <Delete fontSize="small" />
                           </IconButton>
@@ -702,10 +973,25 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
-          <Typography variant="h6">
-            Сумма: {totalOrderAmount.toFixed(2)} ₽
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              px: 2,
+              py: 1,
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
+            Сумма: {totalOrderAmount.toFixed(2)} ₽{workshopTags ? '   ' + workshopTags : ''}
+          </Box>
+        </Box>
+
+        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
             <Button onClick={handleClose} variant="outlined">
               Отмена
             </Button>
@@ -726,8 +1012,37 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
               {isSubmitting ? 'Создание...' : 'Создать заказ'}
             </Button>
           </Box>
-        </Box>
       </Box>
+
+      <Dialog open={orderAmountDialog.open} onClose={() => setOrderAmountDialog({ open: false, sumorder: totalOrderAmount })} maxWidth="xs" fullWidth>
+        <DialogTitle>Итоговая сумма заказа</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            margin="dense"
+            label="Сумма с учетом наценки (sumorder)"
+            type="number"
+            value={orderAmountDialog.sumorder}
+            onChange={(e) => {
+              const newSumorder = parseFloat(e.target.value) || 0;
+              setOrderAmountDialog(prev => ({ ...prev, sumorder: newSumorder }));
+              setTotalOrderAmount(newSumorder);
+            }}
+            InputProps={{
+              endAdornment: <InputAdornment position="end">₽</InputAdornment>
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOrderAmountDialog({ open: false, sumorder: totalOrderAmount })}>
+            Отмена
+          </Button>
+          <Button onClick={() => setOrderAmountDialog({ open: false })} variant="contained">
+            ОК
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Диалог создания нового клиента */}
       <Dialog open={clientDialogOpen} onClose={() => setClientDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -772,6 +1087,15 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
             label="Email"
             value={newClientForm.email}
             onChange={handleNewClientChange('email')}
+          />
+          <TextField
+            fullWidth
+            margin="dense"
+            label="Процент добавки (priceplus)"
+            type="number"
+            value={newClientForm.priceplus || ''}
+            onChange={handleNewClientChange('priceplus')}
+            inputProps={{ min: 0, step: 0.01 }}
           />
         </DialogContent>
         <DialogActions>
@@ -852,6 +1176,244 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           {notification.message}
         </Alert>
       </Snackbar>
+
+      {/* Operations dialog */}
+      <Dialog open={operationsDialog.open} onClose={handleCloseOperationsDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Выбрать операции</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, alignItems: 'flex-start' }}>
+            {operationsData.map(op => (
+              <FormControlLabel
+                key={op.id}
+                control={
+                  <Checkbox
+                    checked={operationsDialog.selectedOps.includes(op.id)}
+                    onChange={() => handleToggleOperation(op.id)}
+                  />
+                }
+                label={op.name}
+              />
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseOperationsDialog}>Отмена</Button>
+          <Button onClick={handleSaveOperations} variant="contained">Сохранить</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Unified operation parameters dialog */}
+      <Dialog open={operationParamsDialog.open} onClose={handleCloseOperationParamsDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>Параметры операций</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {operationParamsDialog.pendingOps.map(op => {
+              const opName = op.name.toLowerCase();
+              if (opName.includes('подворот')) {
+                const params = operationParamsDialog.params[op.id] || { hemWidthMm: 20, hemCount: 2 };
+                return (
+                  <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom color="primary">
+                      {op.name}
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      margin="dense"
+                      label="Ширина подворота (мм)"
+                      type="number"
+                      value={params.hemWidthMm}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev,
+                        params: {
+                          ...prev.params,
+                          [op.id]: {
+                            ...prev.params[op.id],
+                            hemWidthMm: parseInt(e.target.value) || 0
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 1 }}
+                      required
+                    />
+                    <TextField
+                      fullWidth
+                      margin="dense"
+                      label="Количество подворотов на сторону"
+                      type="number"
+                      value={params.hemCount}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev,
+                        params: {
+                          ...prev.params,
+                          [op.id]: {
+                            ...prev.params[op.id],
+                            hemCount: parseInt(e.target.value) || 0
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 1 }}
+                      required
+                    />
+                    <TextField
+                      fullWidth margin="dense" label="Ширина (мм)" type="number"
+                      value={params.widthMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], widthMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
+                    />
+                    <TextField
+                      fullWidth margin="dense" label="Высота (мм)" type="number"
+                      value={params.heightMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], heightMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
+                    />
+                  </Box>
+                );
+              } else if (opName.includes('люверс')) {
+                const params = operationParamsDialog.params[op.id] || { eyeletId: '', eyeletStepCm: 40 };
+                return (
+                  <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom color="primary">
+                      {op.name}
+                    </Typography>
+                    <TextField
+                      select
+                      fullWidth
+                      margin="dense"
+                      label="Размер люверса"
+                      value={params.eyeletId}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev,
+                        params: {
+                          ...prev.params,
+                          [op.id]: {
+                            ...prev.params[op.id],
+                            eyeletId: e.target.value
+                          }
+                        }
+                      }))}
+                      required
+                    >
+                      <MenuItem value="">Выберите размер</MenuItem>
+                      {eyeletsData.map(eyelet => (
+                        <MenuItem key={eyelet.id} value={eyelet.id}>
+                          {eyelet.name} — {eyelet.pricePerPiece} ₽/шт
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      fullWidth
+                      margin="dense"
+                      label="Шаг установки (см)"
+                      type="number"
+                      value={params.eyeletStepCm}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev,
+                        params: {
+                          ...prev.params,
+                          [op.id]: {
+                            ...prev.params[op.id],
+                            eyeletStepCm: parseInt(e.target.value) || 0
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 10 }}
+                      required
+                    />
+                    <TextField
+                      fullWidth margin="dense" label="Ширина (мм)" type="number"
+                      value={params.widthMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], widthMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
+                    />
+                    <TextField
+                      fullWidth margin="dense" label="Высота (мм)" type="number"
+                      value={params.heightMm || ''}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev, params: {
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], heightMm: e.target.value ? parseFloat(e.target.value) : null
+                          }
+                        }
+                      }))}
+                      inputProps={{ min: 0 }}
+                    />
+                  </Box>
+                );
+              }
+              const params = operationParamsDialog.params[op.id] || {};
+              return (
+                <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom color="primary">{op.name}</Typography>
+                  <TextField
+                    fullWidth margin="dense" label="Ширина (мм)" type="number"
+                    value={params.widthMm || ''}
+                    onChange={(e) => setOperationParamsDialog(prev => ({
+                      ...prev, params: {
+                        ...prev.params, [op.id]: {
+                          ...prev.params[op.id], widthMm: e.target.value ? parseFloat(e.target.value) : null
+                        }
+                      }
+                    }))}
+                    inputProps={{ min: 0 }}
+                  />
+                  <TextField
+                    fullWidth margin="dense" label="Высота (мм)" type="number"
+                    value={params.heightMm || ''}
+                    onChange={(e) => setOperationParamsDialog(prev => ({
+                      ...prev, params: {
+                        ...prev.params, [op.id]: {
+                          ...prev.params[op.id], heightMm: e.target.value ? parseFloat(e.target.value) : null
+                        }
+                      }
+                    }))}
+                    inputProps={{ min: 0 }}
+                  />
+                </Box>
+              );
+            })}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseOperationParamsDialog}>Отмена</Button>
+          <Button
+            onClick={handleSaveOperationParams}
+            variant="contained"
+            disabled={
+              !operationParamsDialog.pendingOps.every(op => {
+                const opName = op.name.toLowerCase();
+                if (opName.includes('подворот')) {
+                  const p = operationParamsDialog.params[op.id];
+                  return p && p.hemWidthMm > 0 && p.hemCount > 0;
+                } else if (opName.includes('люверс')) {
+                  const p = operationParamsDialog.params[op.id];
+                  return p && p.eyeletId;
+                }
+                return true;
+              })
+            }
+          >
+            Сохранить
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

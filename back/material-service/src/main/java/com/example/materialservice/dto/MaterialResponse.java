@@ -7,22 +7,14 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * Response DTO для материала (номенклатура).
- */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class MaterialResponse {
-    /** ID материала */
     private Long id;
-    /** Наименование материала или операции */
     private String name;
-    /** Единица измерения (м2, шт, п.м. и т.д.) */
     private String unit;
-    /** Цена за единицу */
     private BigDecimal price;
-    /** Коэффициент отхода */
     private BigDecimal wasteCoefficient;
     /** Список операций, связанных с материалом */
     private List<MaterialOperationResponse> operations;

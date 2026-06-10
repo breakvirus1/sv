@@ -81,6 +81,19 @@ public class OrderController {
     }
 
     /**
+     * Получить заказ по номеру заказа (orderNumber).
+     * Формат номера: YYYYMMDDHHmmss (14 цифр).
+     * Доступно: ADMIN, MANAGER, PRODUCTION, ACCOUNTANT.
+     */
+    @Operation(summary = "Получить заказ по номеру")
+    @GetMapping("/number/{orderNumber}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+    public ResponseEntity<OrderResponse> getOrderByNumber(
+            @Parameter(description = "Номер заказа") @PathVariable String orderNumber) {
+        return ResponseEntity.ok(orderService.getOrderByOrderNumber(orderNumber));
+    }
+
+    /**
      * Создать новый заказ.
      * Доступно: ADMIN, MANAGER.
      */
@@ -137,11 +150,11 @@ public class OrderController {
     @Operation(summary = "Добавить оплату к заказу")
     @PostMapping("/{id}/payments")
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
-    public ResponseEntity<Void> addPayment(
+    public ResponseEntity<PaymentResponse> addPayment(
             @Parameter(description = "ID заказа") @PathVariable Long id,
             @RequestBody PaymentRequest payment) {
-        orderService.addPayment(id, payment);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        PaymentResponse response = orderService.addPayment(id, payment);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
      /**

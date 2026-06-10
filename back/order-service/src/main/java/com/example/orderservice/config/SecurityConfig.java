@@ -26,14 +26,14 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
-                .requestMatchers("/api/v1/orders/**").authenticated()
-                .anyRequest().authenticated()
-            )
+http
+             .csrf(csrf -> csrf.disable())
+             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+             .authorizeHttpRequests(auth -> auth
+                 .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/api/v1/orders/*/calculated").permitAll()
+                 .requestMatchers("/api/v1/orders/**").authenticated()
+                 .anyRequest().authenticated()
+             )
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
             );

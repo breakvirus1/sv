@@ -11,7 +11,7 @@ const CallbackPage = () => {
     const processAuth = async () => {
       try {
         await handleCallback();
-        navigate('/orders', { replace: true });
+        navigate('/', { replace: true });
       } catch (error) {
         console.error('Auth callback error:', error);
         navigate('/login', { replace: true });

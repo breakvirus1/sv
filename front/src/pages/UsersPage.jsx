@@ -11,8 +11,8 @@ const UsersPage = () => {
 
    const fetchUsers = async () => {
      try {
-       const response = await api.get('/api/user')
-       setUsers(response.data)
+       const { data } = await api.get('/api/v1/employees?size=100')
+       setUsers(data.content || [])
      } catch (err) {
        setError('Failed to fetch users')
      }

@@ -26,10 +26,10 @@ public class OrderAdminService {
 
     public List<Order> generateTestOrders(int count) {
         // Fetch IDs of existing clients, employees, and materials
-        List<Long> clientIds = jdbcTemplate.query("SELECT id FROM clients WHERE deleted = false", (rs, rowNum) -> rs.getLong("id"));
-        List<Long> employeeIds = jdbcTemplate.query("SELECT id FROM employees WHERE deleted = false", (rs, rowNum) -> rs.getLong("id"));
+        List<Long> clientIds = jdbcTemplate.query("SELECT id FROM ordschema.clients WHERE deleted = false", (rs, rowNum) -> rs.getLong("id"));
+        List<Long> employeeIds = jdbcTemplate.query("SELECT id FROM ordschema.employees WHERE deleted = false", (rs, rowNum) -> rs.getLong("id"));
         List<MaterialInfo> materials = jdbcTemplate.query(
-            "SELECT id, name, unit, price FROM materials WHERE deleted = false",
+            "SELECT id, name, unit, price FROM ordschema.materials WHERE deleted = false",
             (rs, rowNum) -> new MaterialInfo(
                 rs.getLong("id"),
                 rs.getString("name"),
@@ -76,7 +76,8 @@ public class OrderAdminService {
                     }
                     OrderMaterialCreateRequest om = new OrderMaterialCreateRequest();
                     om.setMaterialId(mat.getId());
-                    om.setQuantity(quantity);
+                    om.setWidthM(BigDecimal.valueOf(1 + random.nextInt(5)));
+                    om.setHeightM(BigDecimal.valueOf(1 + random.nextInt(5)));
                     om.setReadyDate(LocalDate.now().plusDays(random.nextInt(30) + 7));
                     items.add(om);
                 }
