@@ -12,12 +12,8 @@ import org.mapstruct.ReportingPolicy;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface MaterialMapper {
 
-    @Mapping(target = "defaultWidthM", source = "defaultWidthM")
-    @Mapping(target = "defaultHeightM", source = "defaultHeightM")
     MaterialResponse toDto(Material material);
 
-    @Mapping(target = "defaultWidthM", ignore = true)
-    @Mapping(target = "defaultHeightM", ignore = true)
     Material toEntity(MaterialCreateRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -25,7 +21,5 @@ public interface MaterialMapper {
     @Mapping(target = "deleted", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "defaultWidthM", ignore = true)
-    @Mapping(target = "defaultHeightM", ignore = true)
     void updateEntityFromRequest(MaterialUpdateRequest request, @MappingTarget Material material);
 }

@@ -39,4 +39,6 @@ public class OrderItemResponse {
     private String params;
     /** Операции, выполненные над этой позицией */
     private List<OrderItemOperationDTO> operations;
+    /** URL прикреплённого файла */
+    private String fileUrl;
 }

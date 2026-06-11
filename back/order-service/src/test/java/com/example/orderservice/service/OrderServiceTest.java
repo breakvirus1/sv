@@ -101,7 +101,7 @@ class OrderServiceTest {
         @DisplayName("Returns order when found by order number")
         void returnsOrderWhenFound() {
             when(orderRepository.findByOrderNumber("20260526102500001"))
-                    .thenReturn(testOrder);
+                    .thenReturn(Optional.of(testOrder));
             OrderResponse mappedResponse = new OrderResponse();
             mappedResponse.setOrderNumber("20260526102500001");
             when(orderMapper.toDto(testOrder)).thenReturn(mappedResponse);
@@ -115,7 +115,7 @@ class OrderServiceTest {
         @Test
         @DisplayName("Throws NotFoundException when order number not found")
         void throwsWhenNotFound() {
-            when(orderRepository.findByOrderNumber("NONEXISTENT")).thenReturn(null);
+            when(orderRepository.findByOrderNumber("NONEXISTENT")).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> orderService.getOrderByOrderNumber("NONEXISTENT"))
                     .isInstanceOf(NotFoundException.class);
@@ -718,9 +718,9 @@ class OrderServiceTest {
                 // Создаём заказ
                 Order order = new Order();
                 order.setId(300L + seed);
-                order.setMaterials(List.of(om));
+                order.setMaterials(new java.util.HashSet<>(List.of(om)));
                 order.setPriceplus(priceplus);
-                order.setItems(new java.util.ArrayList<>());
+                order.setItems(new java.util.HashSet<>());
                 order.setDeleted(false);
 
                 // Операции (каждый 3-й заказ)

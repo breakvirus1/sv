@@ -14,6 +14,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
+import java.math.BigDecimal;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -167,8 +169,19 @@ public class OrderController {
      public ResponseEntity<CommentResponse> addComment(
              @Parameter(description = "ID заказа") @PathVariable Long id,
              @RequestBody CommentRequest request) {
-         // Author will be extracted from authentication token in the service
          CommentResponse comment = orderService.addComment(id, request, null);
          return new ResponseEntity<>(comment, HttpStatus.CREATED);
+     }
+
+     /**
+      * Получить рассчитанные данные по заказу (стоимость материалов, операций и т.д.)
+      * Доступно без авторизации (используется для отображения на фронтенде).
+      */
+     @Operation(summary = "Получить рассчитанные данные по заказу")
+     @GetMapping("/{id}/calculated")
+     public ResponseEntity<CalculatedOrderResponse> getCalculatedOrder(
+             @Parameter(description = "ID заказа") @PathVariable Long id) {
+         CalculatedOrderResponse result = orderService.getCalculatedOrder(id);
+         return ResponseEntity.ok(result);
      }
  }

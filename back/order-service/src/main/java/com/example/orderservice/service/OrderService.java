@@ -191,10 +191,8 @@ public OrderResponse getOrderById(Long id) {
      */
     @Transactional(readOnly = true)
     public OrderResponse getOrderByOrderNumber(String orderNumber) {
-        Order order = orderRepository.findByOrderNumber(orderNumber);
-        if (order == null) {
-            throw new NotFoundException("Заказ не найден");
-        }
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
         checkWorkshopAccess(order);
         return mapOrderResponse(order);
     }
@@ -295,32 +293,18 @@ public OrderResponse getOrderById(Long id) {
                  // Build request to calculator service
                  Map<String, Object> calcRequest = new HashMap<>();
                  calcRequest.put("materialId", material.getId());
-                 calcRequest.put("widthM", itemReq.getWidthM());
-                 calcRequest.put("heightM", itemReq.getHeightM());
+                 calcRequest.put("widthM", itemReq.getWidth());
+                 calcRequest.put("heightM", itemReq.getHeight());
                  List<Long> opIds = itemReq.getOperations() == null ? Collections.emptyList() :
                      itemReq.getOperations().stream()
-                         .map(OrderOperationRequest::getOperationId)
+                         .map(OrderOperationCreateRequest::getMaterialOperationId)
                          .collect(Collectors.toList());
                  calcRequest.put("operationIds", opIds);
 
                   // Include eyelet parameters if present
-                  if (itemReq.getEyeletId() != null) {
-                      calcRequest.put("eyeletId", itemReq.getEyeletId());
-                  }
-                  if (itemReq.getEyeletStepCm() != null) {
-                      calcRequest.put("eyeletStepCm", itemReq.getEyeletStepCm());
-                  }
+                  // Eyelet parameters not available in OrderMaterialCreateRequest
 
-                  // Include podvorot parameters if present
-                  if (itemReq.getPodvorotMmHorizontal() != null) {
-                      calcRequest.put("podvorotMmHorizontal", itemReq.getPodvorotMmHorizontal());
-                  }
-                  if (itemReq.getPodvorotMmVertical() != null) {
-                      calcRequest.put("podvorotMmVertical", itemReq.getPodvorotMmVertical());
-                  }
-                  if (itemReq.getPodvorotCountPerSide() != null) {
-                      calcRequest.put("podvorotCountPerSide", itemReq.getPodvorotCountPerSide());
-                  }
+                  // Podvorot parameters not available in OrderMaterialCreateRequest
 
                 // Prepare headers with JWT
                 HttpHeaders headers = new HttpHeaders();
@@ -358,10 +342,10 @@ public OrderResponse getOrderById(Long id) {
                 List<OrderOperation> orderOps = new ArrayList<>();
 
                 // Build a map from operationId -> request operation for width/height lookup
-                Map<Long, OrderOperationRequest> reqOpMap = new HashMap<>();
+                Map<Long, OrderOperationCreateRequest> reqOpMap = new HashMap<>();
                 if (itemReq.getOperations() != null) {
-                    for (OrderOperationRequest reqOp : itemReq.getOperations()) {
-                        reqOpMap.put(reqOp.getOperationId(), reqOp);
+                    for (OrderOperationCreateRequest reqOp : itemReq.getOperations()) {
+                        reqOpMap.put(reqOp.getMaterialOperationId(), reqOp);
                     }
                 }
 
@@ -385,10 +369,9 @@ public OrderResponse getOrderById(Long id) {
                         orderOp.setSubtotal(subtotal);
 
                         // Attach width/height from request if provided
-                        OrderOperationRequest reqOp = reqOpMap.get(opId);
+                        OrderOperationCreateRequest reqOp = reqOpMap.get(opId);
                         if (reqOp != null) {
-                            orderOp.setWidthM(reqOp.getWidthM());
-                            orderOp.setHeightM(reqOp.getHeightM());
+                            // Width/height not available in OrderOperationCreateRequest
                         }
 
                         orderOps.add(orderOp);
@@ -399,8 +382,8 @@ public OrderResponse getOrderById(Long id) {
                 BigDecimal wasteCoeff = material.getWasteCoefficient();
                 if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
                 BigDecimal materialPrice = material.getPrice();
-                BigDecimal height = itemReq.getHeightM() != null ? itemReq.getHeightM() : BigDecimal.ONE;
-                BigDecimal materialArea = itemReq.getWidthM().multiply(height);
+                BigDecimal height = itemReq.getHeight() != null ? itemReq.getHeight() : BigDecimal.ONE;
+                BigDecimal materialArea = itemReq.getWidth().multiply(height);
                 BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff).setScale(2, RoundingMode.HALF_UP);
 
                 // Effective area = materialCost / (price * wasteCoeff) = materialArea
@@ -416,7 +399,7 @@ public OrderResponse getOrderById(Long id) {
                 // Create OrderItem
                 OrderItem orderItem = new OrderItem();
                 orderItem.setOrder(saved);
-                orderItem.setName(material.getName() + " " + itemReq.getWidthM() + "x" + itemReq.getHeightM() + "m");
+                orderItem.setName(material.getName() + " " + itemReq.getWidth() + "x" + itemReq.getHeight() + "m");
                 orderItem.setQuantity(1);
                 orderItem.setReadyDate(itemReq.getReadyDate());
                 orderItem.setPrice(totalPrice);
@@ -432,8 +415,8 @@ public OrderResponse getOrderById(Long id) {
                 orderMaterial.setCost(materialCost);
                 orderMaterial.setCostPriceplus(costPriceplus);
                 orderMaterial.setEyeletCost(eyeletCost.compareTo(BigDecimal.ZERO) > 0 ? eyeletCost : BigDecimal.ZERO);
-                orderMaterial.setWidthM(itemReq.getWidthM());
-                orderMaterial.setHeightM(itemReq.getHeightM());
+                orderMaterial.setWidthM(itemReq.getWidth());
+                orderMaterial.setHeightM(itemReq.getHeight());
                 order.getMaterials().add(orderMaterial);
                 orderItem.getMaterials().add(orderMaterial);
 
@@ -526,6 +509,28 @@ public OrderResponse getOrderById(Long id) {
     }
 
     /**
+     * Добавить позицию (изделие) в заказ.
+     */
+    @Transactional
+    public OrderItemResponse addOrderItem(OrderItemCreateRequest request) {
+        Order order = orderRepository.findById(request.getOrderId())
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+
+        OrderItem item = new OrderItem();
+        item.setOrder(order);
+        item.setName(request.getName());
+        item.setWidth(request.getWidth());
+        item.setHeight(request.getHeight());
+        item.setQuantity(request.getQuantity() != null ? request.getQuantity() : 1);
+        item.setReadyDate(request.getReadyDate());
+
+        order.getItems().add(item);
+        orderRepository.save(order);
+
+        return orderMapper.itemToDto(item);
+    }
+
+    /**
      * Обновить заказ.
      */
     @Transactional
@@ -582,8 +587,8 @@ if (request.getPriceplus() != null) {
                     throw new RuntimeException("Материал не найден: " + itemReq.getMaterialId());
                 }
 
-                BigDecimal widthM = itemReq.getWidthM();
-                BigDecimal heightM = itemReq.getHeightM();
+                BigDecimal widthM = itemReq.getWidth();
+                BigDecimal heightM = itemReq.getHeight();
 
                 // Build calculator request
                 Map<String, Object> calcRequest = new HashMap<>();
@@ -592,28 +597,13 @@ if (request.getPriceplus() != null) {
                 calcRequest.put("heightM", heightM);
                 List<Long> opIds = itemReq.getOperations() == null ? Collections.emptyList() :
                     itemReq.getOperations().stream()
-                        .map(OrderOperationRequest::getOperationId)
+                        .map(OrderOperationCreateRequest::getMaterialOperationId)
                         .collect(Collectors.toList());
                 calcRequest.put("operationIds", opIds);
 
-                // Include eyelet parameters
-                if (itemReq.getEyeletId() != null) {
-                    calcRequest.put("eyeletId", itemReq.getEyeletId());
-                }
-                if (itemReq.getEyeletStepCm() != null) {
-                    calcRequest.put("eyeletStepCm", itemReq.getEyeletStepCm());
-                }
+                // Eyelet parameters not available in OrderMaterialCreateRequest
 
-                // Include podvorot parameters
-                if (itemReq.getPodvorotMmHorizontal() != null) {
-                    calcRequest.put("podvorotMmHorizontal", itemReq.getPodvorotMmHorizontal());
-                }
-                if (itemReq.getPodvorotMmVertical() != null) {
-                    calcRequest.put("podvorotMmVertical", itemReq.getPodvorotMmVertical());
-                }
-                if (itemReq.getPodvorotCountPerSide() != null) {
-                    calcRequest.put("podvorotCountPerSide", itemReq.getPodvorotCountPerSide());
-                }
+                // Podvorot parameters not available in OrderMaterialCreateRequest
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
@@ -648,10 +638,10 @@ if (request.getPriceplus() != null) {
                 List<OrderOperation> orderOps = new ArrayList<>();
 
                 // Build map from operationId -> request operation for width/height lookup
-                Map<Long, OrderOperationRequest> reqOpMap = new HashMap<>();
+                Map<Long, OrderOperationCreateRequest> reqOpMap = new HashMap<>();
                 if (itemReq.getOperations() != null) {
-                    for (OrderOperationRequest reqOp : itemReq.getOperations()) {
-                        reqOpMap.put(reqOp.getOperationId(), reqOp);
+                    for (OrderOperationCreateRequest reqOp : itemReq.getOperations()) {
+                        reqOpMap.put(reqOp.getMaterialOperationId(), reqOp);
                     }
                 }
 
@@ -674,10 +664,9 @@ if (request.getPriceplus() != null) {
                         orderOp.setCalculatedQuantity(qty);
                         orderOp.setSubtotal(subtotal);
 
-                        OrderOperationRequest reqOp = reqOpMap.get(opId);
+                        OrderOperationCreateRequest reqOp = reqOpMap.get(opId);
                         if (reqOp != null) {
-                            orderOp.setWidthM(reqOp.getWidthM());
-                            orderOp.setHeightM(reqOp.getHeightM());
+                            // Width/height not available in OrderOperationCreateRequest
                         }
 
                         orderOps.add(orderOp);
@@ -945,17 +934,26 @@ private void recalculatePaidAmount(Long orderId) {
 
         return new OrderMaterialResponse(
                 om.getId(),
-                materialDto,
+                materialDto != null ? materialDto.getId() : null,
+                materialDto != null ? materialDto.getName() : null,
                 om.getQuantity(),
-                om.getWidthM(),
-                om.getHeightM(),
-                om.getReadyDate(),
                 om.getWasteCoefficient(),
                 om.getCost(),
-                om.getCostPriceplus(),
-                om.getEyeletCost(),
-                opSummaries,
-                om.getOrderItem() != null ? om.getOrderItem().getId() : null
+                materialDto != null ? materialDto.getPrice() : null,
+                materialDto != null ? materialDto.getUnit() : null,
+                om.getReadyDate(),
+                opSummaries.stream()
+                    .map(op -> new OrderMaterialOperationResponse(
+                        op.getOperationId(),
+                        op.getOperationName(),
+                        op.getPricePerUnit(),
+                        op.getCalculatedQuantity(),
+                        op.getSubtotal(),
+                        null,
+                        null,
+                        null
+                    ))
+                    .collect(Collectors.toList())
         );
     }
 
@@ -973,8 +971,8 @@ private void recalculatePaidAmount(Long orderId) {
                 .findFirst()
                 .orElseThrow(() -> new NotFoundException("Позиция в заказе не найдена: " + orderMaterialId));
 
-        BigDecimal widthM = om.getWidthM() != null ? om.getWidthM() : om.getMaterial().getDefaultWidthM();
-        BigDecimal heightM = om.getHeightM() != null ? om.getHeightM() : om.getMaterial().getDefaultHeightM();
+        BigDecimal widthM = om.getWidthM() != null ? om.getWidthM() : BigDecimal.ONE;
+        BigDecimal heightM = om.getHeightM() != null ? om.getHeightM() : BigDecimal.ONE;
 
         MaterialResponse matResp = orderMapper.materialToDto(om.getMaterial());
 
@@ -995,8 +993,8 @@ private void recalculatePaidAmount(Long orderId) {
                     BigDecimal price = mat.getPrice() != null ? mat.getPrice() : BigDecimal.ZERO;
                     BigDecimal waste  = mat.getWasteCoefficient() != null ? mat.getWasteCoefficient() : BigDecimal.ONE;
 
-                    BigDecimal q1 = om.getWidthM()  != null ? om.getWidthM()  : mat.getDefaultWidthM();
-                    BigDecimal q2 = om.getHeightM() != null ? om.getHeightM() : mat.getDefaultHeightM();
+                    BigDecimal q1 = om.getWidthM()  != null ? om.getWidthM()  : (mat.getDefaultWidthM() != null ? mat.getDefaultWidthM() : BigDecimal.ONE);
+                    BigDecimal q2 = om.getHeightM() != null ? om.getHeightM() : (mat.getDefaultHeightM() != null ? mat.getDefaultHeightM() : BigDecimal.ONE);
                     q1 = q1 != null ? q1 : BigDecimal.ZERO;
                     q2 = q2 != null ? q2 : BigDecimal.ZERO;
 

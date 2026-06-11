@@ -45,7 +45,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
            "LEFT JOIN FETCH o.client " +
            "LEFT JOIN FETCH o.manager " +
            "LEFT JOIN FETCH o.items i " +
-           "LEFT JOIN FETCH i.product " +
            "LEFT JOIN FETCH i.operations " +
            "LEFT JOIN FETCH o.materials m " +
            "LEFT JOIN FETCH m.material " +
@@ -55,4 +54,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
            "LEFT JOIN FETCH o.comments " +
            "WHERE o.id = ?1")
     Optional<Order> findByIdWithAllDetails(Long id);
+
+    Optional<Order> findByOrderNumber(String orderNumber);
 }

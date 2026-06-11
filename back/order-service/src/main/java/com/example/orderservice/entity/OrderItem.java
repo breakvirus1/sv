@@ -1,17 +1,14 @@
 package com.example.orderservice.entity;
 
-import com.example.orderservice.order.entity.OrderItemMaterial;
-import com.example.orderservice.order.entity.OrderItemOperation;
-import com.example.orderservice.product.Product;
+import com.example.orderservice.entity.OrderOperation;
+import com.example.orderservice.entity.OrderMaterial;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -63,20 +60,18 @@ public class OrderItem extends BaseEntity {
     /** Продукт-шаблон, на основе которого создана позиция */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
-    private Product product;
+    private Long productId;
 
     /** Параметры изделия в формате JSON (цвет, толщина, тип крепления и т.д.) */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String params;
 
-    /** Материалы, переопределённые для этой позиции (с возможностью отклонения от шаблона) */
+    /** Материалы, переопределённые для этой позиции */
     @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("id")
-    private List<OrderItemMaterial> materials = new ArrayList<>();
+    private Set<OrderMaterial> materials = new HashSet<>();
 
     /** Операции/работы, переопределённые для этой позиции */
     @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("id")
-    private Set<OrderItemOperation> operations = new HashSet<>();
+    private Set<OrderOperation> operations = new HashSet<>();
 }

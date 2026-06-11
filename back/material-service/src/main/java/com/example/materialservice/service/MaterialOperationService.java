@@ -48,7 +48,16 @@ public class MaterialOperationService {
 
         MaterialOperation operation = new MaterialOperation();
         operation.setMaterial(material);
-        applyFromCreateDto(operation, request);
+        operation.setName(request.getName());
+        operation.setDescription(request.getDescription());
+        operation.setOperationType(OperationType.valueOf(request.getOperationType()));
+        operation.setUnit(request.getUnit());
+        operation.setBasePrice(request.getBasePrice());
+        operation.setWasteCoefficient(request.getWasteCoefficient());
+        operation.setRequiresDimensions(request.getRequiresDimensions());
+        operation.setAllowsAdditionalMaterials(request.getAllowsAdditionalMaterials());
+        operation.setSortOrder(request.getSortOrder());
+        operation.setActive(request.getActive());
 
         MaterialOperation saved = operationRepository.save(operation);
         return mapToResponse(saved);
@@ -65,7 +74,16 @@ public class MaterialOperationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Операция не принадлежит материалу");
         }
 
-        applyFromUpdateDto(operation, request);
+        operation.setName(request.getName());
+        operation.setDescription(request.getDescription());
+        operation.setOperationType(OperationType.valueOf(request.getOperationType()));
+        operation.setUnit(request.getUnit());
+        operation.setBasePrice(request.getBasePrice());
+        operation.setWasteCoefficient(request.getWasteCoefficient());
+        operation.setRequiresDimensions(request.getRequiresDimensions());
+        operation.setAllowsAdditionalMaterials(request.getAllowsAdditionalMaterials());
+        operation.setSortOrder(request.getSortOrder());
+        operation.setActive(request.getActive());
         MaterialOperation saved = operationRepository.save(operation);
         return mapToResponse(saved);
     }
@@ -180,9 +198,9 @@ public class MaterialOperationService {
                 }
                 double marginWm = (lamMarginW != null ? lamMarginW.doubleValue() : 20) / 1000.0;
                 double marginHm = (lamMarginH != null ? lamMarginH.doubleValue() : 20) / 1000.0;
-                BigDecimal effW = width.add(BigDecimal.valueOf(2 * marginWm));
-                BigDecimal effH = height.add(BigDecimal.valueOf(2 * marginHm));
-                BigDecimal areaLam = effW.multiply(effH);
+                BigDecimal lamWidth = width.add(BigDecimal.valueOf(2 * marginWm));
+                BigDecimal lamHeight = height.add(BigDecimal.valueOf(2 * marginHm));
+                BigDecimal areaLam = lamWidth.multiply(lamHeight);
                 return areaLam.multiply(BigDecimal.valueOf(itemCount != null ? itemCount : 1));
 
             case WELDING:

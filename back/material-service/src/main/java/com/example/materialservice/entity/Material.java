@@ -65,4 +65,12 @@ public class Material extends BaseEntity {
      /** Список этапов операций, связанных с материалом (справочник) */
      @OneToMany(mappedBy = "material", cascade = CascadeType.ALL, orphanRemoval = true)
      private java.util.List<MaterialOperation> operations = new java.util.ArrayList<>();
+
+     /** Ширина по умолчанию (метры) */
+     @Column(name = "default_width_m", precision = 10, scale = 3)
+     private BigDecimal defaultWidthM;
+
+     /** Высота по умолчанию (метры) */
+     @Column(name = "default_height_m", precision = 10, scale = 3)
+     private BigDecimal defaultHeightM;
  }

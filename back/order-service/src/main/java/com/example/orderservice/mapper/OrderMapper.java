@@ -49,86 +49,8 @@ public interface OrderMapper {
     @Mapping(target = "operations", ignore = true)
     OrderItemResponse itemToDto(OrderItem item);
 
-    @AfterMapping
-    default void afterItemToDto(OrderItem entity, @MappingTarget OrderItemResponse dto) {
-        if (entity.getOperations() != null) {
-            dto.setOperations(entity.getOperations().stream()
-                .map(op -> new OrderOperationSummary(
-                    op.getOperationId(),
-                    op.getOperationName(),
-                    op.getPricePerUnit(),
-                    op.getCalculatedQuantity(),
-                    op.getSubtotal(),
-                    op.getWidthM(),
-                    op.getHeightM()))
-                .collect(Collectors.toList()));
-        }
-        if (entity.getFile() != null) {
-            dto.setFileId(entity.getFile().getId());
-        }
-    }
-
-    @Mapping(target = "workshop", ignore = true)
-    OrderStageResponse stageToDto(OrderStage stage);
-
-    @AfterMapping
-    default void afterStageToDto(OrderStage entity, @MappingTarget OrderStageResponse dto) {
-        if (entity.getWorkshop() != null) {
-            dto.setWorkshop(new WorkshopResponse(
-                entity.getWorkshop().getId(),
-                entity.getWorkshop().getName(),
-                entity.getWorkshop().getSortOrder(),
-                entity.getWorkshop().getOperationIds()));
-        }
-    }
-
-    ClientResponse clientToDto(com.example.clientservice.entity.Client client);
-
-    EmployeeResponse employeeToDto(com.example.employeeservice.entity.Employee employee);
-
-    MaterialResponse materialToDto(com.example.materialservice.entity.Material material);
-
     @Mapping(target = "operations", ignore = true)
-    @Mapping(target = "orderItemId", ignore = true)
     OrderMaterialResponse orderMaterialToDto(OrderMaterial orderMaterial);
-
-    @AfterMapping
-    default void afterOrderMaterialToDto(OrderMaterial entity, @MappingTarget OrderMaterialResponse dto) {
-        if (entity.getOrderItem() != null && entity.getOrderItem().getOperations() != null) {
-            dto.setOperations(entity.getOrderItem().getOperations().stream()
-                .map(op -> new OrderOperationSummary(
-                    op.getOperationId(),
-                    op.getOperationName(),
-                    op.getPricePerUnit(),
-                    op.getCalculatedQuantity(),
-                    op.getSubtotal(),
-                    op.getWidthM(),
-                    op.getHeightM()))
-                .collect(Collectors.toList()));
-        }
-        if (entity.getOrderItem() != null) {
-            dto.setOrderItemId(entity.getOrderItem().getId());
-        }
-    }
-
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "orderNumber", ignore = true)
-    @Mapping(target = "client", ignore = true)
-    @Mapping(target = "manager", ignore = true)
-    @Mapping(target = "items", ignore = true)
-    @Mapping(target = "stages", ignore = true)
-    @Mapping(target = "payments", ignore = true)
-    @Mapping(target = "comments", ignore = true)
-    @Mapping(target = "materials", ignore = true)
-    @Mapping(target = "totalAmount", constant = "0")
-    @Mapping(target = "paidAmount", constant = "0")
-    @Mapping(target = "debtAmount", constant = "0")
-    @Mapping(target = "status", constant = "DRAFT")
-    @Mapping(target = "productionStage", constant = "NOT_STARTED")
-    @Mapping(target = "hasDocuments", constant = "false")
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
-    Order toEntity(OrderCreateRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "orderNumber", ignore = true)
@@ -155,14 +77,24 @@ public interface OrderMapper {
     @Mapping(target = "isPartial", expression = "java(request.getIsPartial() != null ? request.getIsPartial() : false)")
     Payment toPaymentEntity(PaymentRequest request);
 
+    PaymentResponse paymentToDto(Payment payment);
+
+    @Mapping(target = "workshop", ignore = true)
+    OrderStageResponse stageToDto(OrderStage stage);
+
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "order", ignore = true)
     @Mapping(target = "material", ignore = true)
     @Mapping(target = "wasteCoefficient", ignore = true)
     @Mapping(target = "cost", ignore = true)
+    @Mapping(target = "operations", ignore = true)
     OrderMaterial toOrderMaterialEntity(OrderMaterialCreateRequest request);
 
-    PaymentResponse paymentToDto(Payment payment);
+    ClientResponse clientToDto(com.example.clientservice.entity.Client client);
+
+    EmployeeResponse employeeToDto(com.example.employeeservice.entity.Employee employee);
+
+    MaterialResponse materialToDto(com.example.materialservice.entity.Material material);
 
     @Mapping(target = "author", ignore = true)
     CommentResponse commentToDto(OrderComment comment);

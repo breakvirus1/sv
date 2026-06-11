@@ -57,6 +57,22 @@ public class OrderMaterial extends BaseEntity {
     @Column(name = "cost", precision = 12, scale = 2)
     private BigDecimal cost = BigDecimal.ZERO;
 
+    /** Стоимость с учётом priceplus */
+    @Column(name = "cost_priceplus", precision = 12, scale = 2)
+    private BigDecimal costPriceplus = BigDecimal.ZERO;
+
+    /** Ширина изделия в метрах */
+    @Column(name = "width_m", precision = 10, scale = 3)
+    private BigDecimal widthM;
+
+    /** Высота изделия в метрах */
+    @Column(name = "height_m", precision = 10, scale = 3)
+    private BigDecimal heightM;
+
+    /** Стоимость люверсов */
+    @Column(name = "eyelet_cost", precision = 12, scale = 2)
+    private BigDecimal eyeletCost = BigDecimal.ZERO;
+
     /** Операции, выполненные над этим материалом в заказе */
     @OneToMany(mappedBy = "orderMaterial", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<OrderMaterialOperation> operations = new HashSet<>();
