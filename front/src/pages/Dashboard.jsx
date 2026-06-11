@@ -29,8 +29,6 @@ const Dashboard = () => {
     },
   });
 
-  const navigate = useNavigate();
-
   const handleCreateOrder = () => {
     navigate('/orders/new');
   };
@@ -38,7 +36,7 @@ const Dashboard = () => {
   const totalRevenue = orders.reduce((sum, o) => sum + (o.paidAmount || 0), 0);
 
   return (
-    <Box sx={{ mt: 4, width: '1900px', mx: 'auto', overflowX: 'auto' }}>
+    <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h4">
           Панель управления

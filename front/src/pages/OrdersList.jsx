@@ -1,6 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
-import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
+import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
+import { DataGrid } from '@mui/x-data-grid';
 import {
   Box,
   Button,
@@ -68,109 +67,53 @@ const OrdersList = () => {
     enabled: !!user?.username,
   });
 
-  // Fetch full order details for composition column (materials + items)
-  const orderIds = useMemo(() => orders.map(o => o.id), [orders]);
-  const { data: ordersFullMap = {} } = useQuery({
-    queryKey: ['ordersFull', orderIds.join(',')],
-    queryFn: async () => {
-      if (!orders.length) return {};
-      const entries = await Promise.all(
-        orders.map(async order => {
-          try {
-            const { data } = await api.get(`/api/v1/orders/${order.id}`);
-            return [order.id, data];
-          } catch (e) {
-            return [order.id, null];
-          }
-        })
-      );
-      return Object.fromEntries(entries.filter(([_, d]) => d != null));
+  const managerId = currentEmployee?.id;
+
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['orders', { status: statusFilter, my: myOrders, managerId }],
+    queryFn: fetchOrders,
+    enabled: !!user,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.last ? undefined : allPages.length;
     },
-    enabled: orders.length > 0,
-    staleTime: 60_000,
+    refetchInterval: 30000,
+    retry: 1,
+    retryDelay: 1000,
   });
 
+  const allOrders = data?.pages?.flatMap(page => page.content) ?? [];
+  const totalCount = data?.pages?.[0]?.totalElements ?? 0;
+
+  useEffect(() => {
+    if (paginationModel.page > 0 && hasNextPage && !loadingRef.current) {
+      loadingRef.current = true;
+      fetchNextPage().finally(() => { loadingRef.current = false; });
+    }
+  }, [paginationModel.page]);
+
+  useEffect(() => {
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [statusFilter, myOrders, managerId]);
+
+  const [columnWidths, setColumnWidths] = useState(loadColumnWidths);
+
+  const handleColumnWidthChange = useCallback((params) => {
+    setColumnWidths(prev => {
+      const next = { ...prev, [params.colDef.field]: params.width };
+      saveColumnWidths(next);
+      return next;
+    });
+  }, []);
+
   const columns = [
-    { field: 'orderNumber', headerName: '№ заказа', width: 130 },
-    { field: 'client.name', headerName: 'Клиент', width: 200, valueGetter: (value, row) => row?.client?.name || '' },
-    { field: 'description', headerName: 'Описание', width: 300 },
-    {
-      field: 'totalAmount',
-      headerName: 'Сумма',
-      width: 120,
-      type: 'number',
-      valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
-    },
-    {
-      field: 'paidAmount',
-      headerName: 'Оплачено',
-      width: 120,
-      type: 'number',
-      valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
-    },
-    {
-      field: 'debtAmount',
-      headerName: 'Долг',
-      width: 100,
-      type: 'number',
-      valueFormatter: ({ value }) => `${value?.toFixed(2)} ₽`
-    },
-    {
-      field: 'status',
-      headerName: 'Статус',
-      width: 140,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          color={getStatusColor(params.value)}
-          size="small"
-        />
-      )
-    },
-    {
-      field: 'dueDate',
-      headerName: 'Срок',
-      width: 120,
-      type: 'date',
-      valueFormatter: ({ value }) => value || ''
-    },
-    { field: 'manager.fullName', headerName: 'Менеджер', width: 150, valueGetter: (value, row) => row?.manager?.fullName || '' },
-    {
-      field: 'composition',
-      headerName: 'Состав',
-      width: 350,
-      sortable: false,
-      renderCell: (params) => {
-        const orderDetails = ordersFullMap[params.row.id];
-        if (!orderDetails) {
-          return <Typography variant="body2" color="text.secondary">—</Typography>;
-        }
-        const materialNames = (orderDetails.materials || [])
-          .map(m => m.material?.name)
-          .filter(Boolean)
-          .join(', ');
-        const workNames = (orderDetails.items || [])
-          .map(i => i.name)
-          .join(', ');
-        return (
-          <Box sx={{ whiteSpace: 'normal', overflow: 'visible' }}>
-            {materialNames && (
-              <Typography variant="body2" color="text.secondary">
-                Материалы: {materialNames}
-              </Typography>
-            )}
-            {workNames && (
-              <Typography variant="body2" color="text.secondary">
-                Работы: {workNames}
-              </Typography>
-            )}
-            {!materialNames && !workNames && (
-              <Typography variant="body2" color="text.secondary">—</Typography>
-            )}
-          </Box>
-        );
-      }
-    },
+    { field: 'orderNumber', headerName: '№ заказа', flex: 0.8, minWidth: 100, resizable: true },
     {
       field: 'clientName',
       headerName: 'Клиент',
@@ -232,14 +175,39 @@ const OrdersList = () => {
           label={getStatusLabel(params.value)}
           color={getStatusColor(params.value)}
           size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/orders/${params.row.id}`);
-          }}
-        >
-          <Visibility />
-        </IconButton>,
-      ],
+        />
+      )
+    },
+    {
+      field: 'updatedAt',
+      headerName: 'Изменён',
+      flex: 1,
+      minWidth: 140,
+      resizable: true,
+      valueFormatter: ({ value }) => {
+        if (!value) return '';
+        const d = new Date(value);
+        return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+      }
+    },
+    {
+      field: 'dueDate',
+      headerName: 'Срок',
+      flex: 0.8,
+      minWidth: 90,
+      resizable: true,
+      type: 'date',
+      valueFormatter: ({ value }) => value || ''
+    },
+    {
+      field: 'workshopId',
+      headerName: 'Цех',
+      flex: 0.8,
+      minWidth: 80,
+      resizable: true,
+      renderCell: (params) => (
+        <Typography variant="body2">{params.value || '—'}</Typography>
+      )
     },
   ];
 
@@ -266,16 +234,21 @@ const OrdersList = () => {
   }
 
   return (
-    <Box sx={{ mt: 4, width: '1900px', mx: 'auto', overflowX: 'auto' }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h4">Заказы</Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => navigate('/orders/new')}
-        >
-          Новый заказ
-        </Button>
+    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5, height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
+        <Typography variant="h4">{getTitle()}</Typography>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Typography variant="body2" color="text.secondary">
+            Заказов: {totalCount}
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => navigate('/orders/new')}
+          >
+            Новый заказ
+          </Button>
+        </Box>
       </Box>
 
       <Paper sx={{ flex: 1, minHeight: 0, width: '100%', position: 'relative' }}>
@@ -300,28 +273,39 @@ const OrdersList = () => {
           }}
           pageSizeOptions={[PAGE_SIZE]}
           disableRowSelectionOnClick
-          rowHeight={80}
-          columnBuffer={3}
-          columnThreshold={3}
+          columnBuffer={8}
+          density="compact"
           sx={{
-            '& .MuiDataGrid-cell:hover': {
-              cursor: 'pointer',
-            },
-            '& .MuiDataGrid-columnHeaders': {
-              cursor: 'col-resize',
-            },
+            height: '100%',
+            border: 'none',
+            '& .MuiDataGrid-cell:hover': { cursor: 'pointer' },
+            '& .MuiDataGrid-columnSeparator': { visibility: 'visible', resize: 'horizontal' },
+            '& .MuiDataGrid-virtualScroller': { overflowX: 'auto' },
+          }}
+          onRowClick={(params) => navigate(`/orders/${params.id}`)}
+          onColumnWidthChange={handleColumnWidthChange}
+          slots={{
+            noRowsOverlay: () => (
+              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                <Typography color="text.secondary">Нет заказов</Typography>
+              </Box>
+            ),
           }}
           initialState={{
             sorting: {
-              sortModel: [{ field: 'createdAt', sort: 'desc' }]
+              sortModel: [{ field: 'updatedAt', sort: 'desc' }]
             },
             columns: {
-              columnVisibilityModel: {}
+              columnVisibilityModel: {},
+              dimensions: Object.entries(columnWidths).reduce((acc, [field, width]) => {
+                acc[field] = { width };
+                return acc;
+              }, {})
             }
           }}
         />
       </Paper>
-    </Box>
+    </Container>
   );
 };
 

@@ -5,28 +5,26 @@ import com.example.employeeservice.dto.EmployeeResponse;
 import com.example.employeeservice.entity.Employee;
 import com.example.materialservice.dto.MaterialResponse;
 import com.example.materialservice.entity.Material;
-import com.example.materialservice.entity.MaterialOperation;
-import com.example.materialservice.entity.OperationType;
 import com.example.orderservice.dto.*;
 import com.example.orderservice.entity.FileAttachment;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderComment;
 import com.example.orderservice.entity.OrderItem;
 import com.example.orderservice.entity.OrderMaterial;
-import com.example.orderservice.entity.OrderMaterialOperation;
+import com.example.orderservice.entity.OrderOperation;
+import com.example.orderservice.entity.OrderStage;
 import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.entity.Payment;
 import com.example.orderservice.entity.ProductionStage;
 import com.example.orderservice.entity.Workshop;
 import com.example.orderservice.mapper.OrderMapper;
-import com.example.orderservice.order.entity.OrderItemMaterial;
-import com.example.orderservice.order.entity.OrderItemOperation;
-import com.example.orderservice.product.Product;
-import com.example.orderservice.product.ProductMaterial;
-import com.example.orderservice.product.ProductOperation;
-import com.example.orderservice.product.repository.ProductRepository;
-import com.example.orderservice.repository.*;
-import com.example.orderservice.service.CalculatorService;
+import com.example.orderservice.repository.FileAttachmentRepository;
+import com.example.orderservice.repository.OrderCommentRepository;
+import com.example.orderservice.repository.OrderItemRepository;
+import com.example.orderservice.repository.OrderRepository;
+import com.example.orderservice.repository.OrderStageRepository;
+import com.example.orderservice.repository.PaymentRepository;
+import com.example.orderservice.repository.WorkshopRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -55,13 +53,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Set;
 import java.util.stream.Collectors;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Сервис для управления заказами.
@@ -81,13 +81,8 @@ public class OrderService {
     private final FileAttachmentRepository fileAttachmentRepository;
     private final WorkshopRepository workshopRepository;
     private final OrderMapper orderMapper;
-    private final ProductRepository productRepository;
-    private final CalculatorService calculatorService;
-    private final ObjectMapper objectMapper;
-
     @PersistenceContext
     private EntityManager entityManager;
-
     private final JdbcTemplate jdbcTemplate;
     private final RestTemplate restTemplate;
 
@@ -195,12 +190,18 @@ public OrderResponse getOrderById(Long id) {
      * Получить заказ по его номеру (orderNumber).
      */
     @Transactional(readOnly = true)
-    public OrderResponse getOrderById(Long id) {
-        Order order = orderRepository.findByIdWithAllDetails(id)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+    public OrderResponse getOrderByOrderNumber(String orderNumber) {
+        Order order = orderRepository.findByOrderNumber(orderNumber);
+        if (order == null) {
+            throw new NotFoundException("Заказ не найден");
+        }
+        checkWorkshopAccess(order);
+        return mapOrderResponse(order);
+    }
+
+    private OrderResponse mapOrderResponse(Order order) {
         OrderResponse response = orderMapper.toDto(order);
 
-        // Items with operations are mapped automatically via itemToDto (operations included)
         response.setItems(order.getItems().stream()
                 .map(item -> {
                     OrderItemResponse dto = orderMapper.itemToDto(item);
@@ -211,30 +212,23 @@ public OrderResponse getOrderById(Long id) {
                 })
                 .collect(Collectors.toList()));
 
-        // Stages
         response.setStages(order.getStages().stream()
                 .map(orderMapper::stageToDto)
                 .collect(Collectors.toList()));
 
-        // Payments
         response.setPayments(order.getPayments().stream()
                 .map(orderMapper::paymentToDto)
                 .collect(Collectors.toList()));
 
-        // Comments
         response.setComments(order.getComments().stream()
                 .map(orderMapper::commentToDto)
                 .collect(Collectors.toList()));
 
-        // Materials with operations
-        response.setMaterials(order.getMaterials().stream()
-                .map(mat -> {
-                    OrderMaterialResponse matRes = orderMapper.orderMaterialToDto(mat);
-                    matRes.setOperations(mat.getOperations().stream()
-                            .map(orderMapper::orderMaterialOperationToDto)
-                            .collect(Collectors.toList()));
-                    return matRes;
-                })
+        List<OrderMaterial> allMaterials = order.getItems().stream()
+                .flatMap(item -> item.getMaterials().stream())
+                .collect(Collectors.toList());
+        response.setMaterials(allMaterials.stream()
+                .map(orderMapper::orderMaterialToDto)
                 .collect(Collectors.toList()));
 
         return response;
@@ -309,186 +303,179 @@ public OrderResponse getOrderById(Long id) {
                          .collect(Collectors.toList());
                  calcRequest.put("operationIds", opIds);
 
-                // Обработка операций для материала
-                if (matReq.getOperations() != null && !matReq.getOperations().isEmpty()) {
-                    for (OrderOperationCreateRequest opReq : matReq.getOperations()) {
-                        MaterialOperation template = null;
-                        if (opReq.getMaterialOperationId() != null) {
-                            template = entityManager.find(MaterialOperation.class, opReq.getMaterialOperationId());
-                            if (template == null) {
-                                throw new RuntimeException("Операция не найдена: " + opReq.getMaterialOperationId());
-                            }
-                        }
-                        OrderMaterialOperation orderOp = new OrderMaterialOperation();
-                        orderOp.setOrder(saved);
-                        orderOp.setOrderMaterial(orderMaterial);
-                        orderOp.setTemplate(template);
-                        orderOp.setName(template != null ? template.getName() : "Операция");
-                        orderOp.setOperationType(template != null ? template.getOperationType().name() : null);
-                        orderOp.setBasePrice(template != null ? template.getBasePrice() : BigDecimal.ZERO);
-                        orderOp.setUnit(template != null ? template.getUnit() : "шт");
-                        orderOp.setWasteCoefficient(
-                                opReq.getWasteCoefficient() != null ? opReq.getWasteCoefficient() :
-                                        (template != null ? template.getWasteCoefficient() : BigDecimal.ONE)
-                        );
-                        BigDecimal operationQty;
-                        if (template != null) {
-                            BigDecimal width = matReq.getWidth();
-                            BigDecimal height = matReq.getHeight();
-                            Integer itemCnt = matReq.getItemCount();
-                            Map<String, Object> params = opReq.getParameters();
-                            switch (template.getOperationType()) {
-                                case EYELETS:
-                                    if (width == null || height == null) {
-                                        operationQty = BigDecimal.ONE;
-                                    } else {
-                                        CalculationHelper helper = new CalculationHelper(width, height);
-                                        Number step = null, edge = null;
-                                        if (params != null) {
-                                            Object s = params.get("step");
-                                            Object e = params.get("edgeDistance");
-                                            if (s instanceof Number) step = (Number) s;
-                                            if (e instanceof Number) edge = (Number) e;
-                                        }
-                                        BigDecimal baseQty = helper.eyeletCount(step, edge, itemCnt);
-                                        BigDecimal wasteCoef = opReq.getWasteCoefficient() != null ? opReq.getWasteCoefficient() : template.getWasteCoefficient();
-                                        operationQty = baseQty.multiply(wasteCoef);
-                                    }
-                                    break;
-                                case CUTTING:
-                                    if (width == null || height == null) {
-                                        operationQty = BigDecimal.ONE;
-                                    } else {
-                                        Number marginW = null, marginH = null, sidesNum = null;
-                                        if (params != null) {
-                                            if (params.get("marginWidth") instanceof Number) marginW = (Number) params.get("marginWidth");
-                                            if (params.get("marginHeight") instanceof Number) marginH = (Number) params.get("marginHeight");
-                                            if (params.get("sides") instanceof Number) sidesNum = (Number) params.get("sides");
-                                        }
-                                        int mw = marginW != null ? marginW.intValue() : 50;
-                                        int mh = marginH != null ? marginH.intValue() : 50;
-                                        int sides = sidesNum != null ? sidesNum.intValue() : 1;
-                                        BigDecimal widthMm = width.multiply(BigDecimal.valueOf(1000));
-                                        BigDecimal heightMm = height.multiply(BigDecimal.valueOf(1000));
-                                        BigDecimal extraAreaMm2 = BigDecimal.valueOf(mw).multiply(widthMm).multiply(BigDecimal.valueOf(sides))
-                                                .add(BigDecimal.valueOf(mh).multiply(heightMm).multiply(BigDecimal.valueOf(sides)));
-                                        int cnt = itemCnt != null ? itemCnt : 1;
-                                        operationQty = extraAreaMm2.divide(BigDecimal.valueOf(1_000_000), 4, RoundingMode.HALF_UP)
-                                                .multiply(BigDecimal.valueOf(cnt));
-                                    }
-                                    break;
-                                case PRINT:
-                                    if (width == null || height == null) {
-                                        operationQty = BigDecimal.ONE;
-                                    } else {
-                                        BigDecimal areaPerItem = width.multiply(height);
-                                        operationQty = areaPerItem.multiply(BigDecimal.valueOf(itemCnt != null ? itemCnt : 1));
-                                    }
-                                    break;
-                                case LAMINATION:
-                                    if (width == null || height == null) {
-                                        operationQty = BigDecimal.ONE;
-                                    } else {
-                                        Number lamMarginW = null, lamMarginH = null;
-                                        if (params != null) {
-                                            if (params.get("marginWidth") instanceof Number) lamMarginW = (Number) params.get("marginWidth");
-                                            if (params.get("marginHeight") instanceof Number) lamMarginH = (Number) params.get("marginHeight");
-                                        }
-                                        double marginWm = (lamMarginW != null ? lamMarginW.doubleValue() : 20) / 1000.0;
-                                        double marginHm = (lamMarginH != null ? lamMarginH.doubleValue() : 20) / 1000.0;
-                                        BigDecimal effW = width.add(BigDecimal.valueOf(2 * marginWm));
-                                        BigDecimal effH = height.add(BigDecimal.valueOf(2 * marginHm));
-                                        BigDecimal areaLam = effW.multiply(effH);
-                                        operationQty = areaLam.multiply(BigDecimal.valueOf(itemCnt != null ? itemCnt : 1));
-                                    }
-                                    break;
-                                case WELDING:
-                                    if (width == null || height == null) {
-                                        operationQty = BigDecimal.ONE;
-                                    } else {
-                                        BigDecimal perimeter = width.add(height).multiply(BigDecimal.valueOf(2));
-                                        operationQty = perimeter.multiply(BigDecimal.valueOf(itemCnt != null ? itemCnt : 1));
-                                    }
-                                    break;
-                                default:
-                                    operationQty = opReq.getQuantity() != null ? opReq.getQuantity() : BigDecimal.ONE;
-                                    break;
-                            }
-                        } else {
-                            operationQty = opReq.getQuantity() != null ? opReq.getQuantity() : BigDecimal.ONE;
-                        }
-                                    BigDecimal widthEye = matReq.getWidth();
-                                    BigDecimal heightEye = matReq.getHeight();
-                                    if (widthEye == null || heightEye == null) {
-                                        operationQty = BigDecimal.ONE;
-                                    } else {
-                                        CalculationHelper helper = new CalculationHelper(widthEye, heightEye);
-                                        BigDecimal baseQty = helper.eyeletCount(step, edge, matReq.getItemCount());
-                                        BigDecimal wasteCoef = opReq.getWasteCoefficient() != null ? opReq.getWasteCoefficient() : template.getWasteCoefficient();
-                                        operationQty = baseQty.multiply(wasteCoef);
-                                    }
-                                    break;
-                                case CUTTING:
-                                    Number marginWNum = null;
-                                    Number marginHNum = null;
-                                    Number sidesNum = null;
-                                    Map<String, Object> paramsCut = opReq.getParameters();
-                                    if (paramsCut != null) {
-                                        if (paramsCut.get("marginWidth") instanceof Number) marginWNum = (Number) paramsCut.get("marginWidth");
-                                        if (paramsCut.get("marginHeight") instanceof Number) marginHNum = (Number) paramsCut.get("marginHeight");
-                                        if (paramsCut.get("sides") instanceof Number) sidesNum = (Number) paramsCut.get("sides");
-                                    }
-                                    int marginW = marginWNum != null ? marginWNum.intValue() : 50;
-                                    int marginH = marginHNum != null ? marginHNum.intValue() : 50;
-                                    int sides = sidesNum != null ? sidesNum.intValue() : 1;
-                                    BigDecimal widthCut = matReq.getWidth();
-                                    BigDecimal heightCut = matReq.getHeight();
-                                    if (widthCut == null || heightCut == null) {
-                                        operationQty = BigDecimal.ONE;
-                                    } else {
-                                        // Convert to mm
-                                        BigDecimal widthMm = widthCut.multiply(BigDecimal.valueOf(1000));
-                                        BigDecimal heightMm = heightCut.multiply(BigDecimal.valueOf(1000));
-                                        BigDecimal extraAreaMm2 = BigDecimal.valueOf(marginW).multiply(widthMm).multiply(BigDecimal.valueOf(sides))
-                                                .add(BigDecimal.valueOf(marginH).multiply(heightMm).multiply(BigDecimal.valueOf(sides)));
-                                        int itemCount = matReq.getItemCount() != null ? matReq.getItemCount() : 1;
-                                        operationQty = extraAreaMm2.divide(BigDecimal.valueOf(1_000_000), 4, RoundingMode.HALF_UP)
-                                                .multiply(BigDecimal.valueOf(itemCount));
-                                    }
-                                    break;
-                                default:
-                                    operationQty = opReq.getQuantity() != null ? opReq.getQuantity() : BigDecimal.ONE;
-                                    break;
-                            }
-                        } else {
-                            operationQty = opReq.getQuantity() != null ? opReq.getQuantity() : BigDecimal.ONE;
-                        }
-                        orderOp.setQuantity(operationQty);
-                        BigDecimal opCost = orderOp.getBasePrice().multiply(operationQty).multiply(orderOp.getWasteCoefficient());
-                        orderOp.setCost(opCost);
-                        total = total.add(opCost);
+                  // Include eyelet parameters if present
+                  if (itemReq.getEyeletId() != null) {
+                      calcRequest.put("eyeletId", itemReq.getEyeletId());
+                  }
+                  if (itemReq.getEyeletStepCm() != null) {
+                      calcRequest.put("eyeletStepCm", itemReq.getEyeletStepCm());
+                  }
 
-                        // Add operation to material's operations list for cascade persist
-                        orderMaterial.getOperations().add(orderOp);
+                  // Include podvorot parameters if present
+                  if (itemReq.getPodvorotMmHorizontal() != null) {
+                      calcRequest.put("podvorotMmHorizontal", itemReq.getPodvorotMmHorizontal());
+                  }
+                  if (itemReq.getPodvorotMmVertical() != null) {
+                      calcRequest.put("podvorotMmVertical", itemReq.getPodvorotMmVertical());
+                  }
+                  if (itemReq.getPodvorotCountPerSide() != null) {
+                      calcRequest.put("podvorotCountPerSide", itemReq.getPodvorotCountPerSide());
+                  }
 
-                        // Стоимость дополнительных материалов
-                        if (opReq.getAdditionalMaterials() != null && !opReq.getAdditionalMaterials().isEmpty()) {
-                            for (Map.Entry<Long, BigDecimal> entry : opReq.getAdditionalMaterials().entrySet()) {
-                                Material addMat = entityManager.find(Material.class, entry.getKey());
-                                if (addMat != null) {
-                                    BigDecimal addMatCost = addMat.getPrice().multiply(entry.getValue());
-                                    total = total.add(addMatCost);
-                                }
-                            }
-                        }
+                // Prepare headers with JWT
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                if (jwtToken != null) {
+                    headers.setBearerAuth(jwtToken);
+                }
+                HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(calcRequest, headers);
+
+                // Call calculator service
+                Map<String, Object> calcResponse;
+                try {
+                    ResponseEntity<Map> response = restTemplate.exchange(
+                        calculatorUrl + "/api/v1/calculations/preview",
+                        HttpMethod.POST,
+                        requestEntity,
+                        Map.class
+                    );
+                    calcResponse = response.getBody();
+                } catch (RestClientException e) {
+                    throw new RuntimeException("Ошибка при расчете стоимости позиции: " + e.getMessage(), e);
+                }
+
+                if (calcResponse == null) {
+                    throw new RuntimeException("Пустой ответ от службы расчета");
+                }
+
+// Parse total price
+                Number totalPriceNum = (Number) calcResponse.get("totalPrice");
+                BigDecimal totalPrice = new BigDecimal(totalPriceNum.toString());
+
+                // Parse operations breakdown
+                List<Map<String, Object>> opsData = (List<Map<String, Object>>) calcResponse.get("operations");
+                BigDecimal operationsSubtotal = BigDecimal.ZERO;
+                List<OrderOperation> orderOps = new ArrayList<>();
+
+                // Build a map from operationId -> request operation for width/height lookup
+                Map<Long, OrderOperationRequest> reqOpMap = new HashMap<>();
+                if (itemReq.getOperations() != null) {
+                    for (OrderOperationRequest reqOp : itemReq.getOperations()) {
+                        reqOpMap.put(reqOp.getOperationId(), reqOp);
                     }
                 }
 
-                saved.getMaterials().add(orderMaterial);
-                total = total.add(cost);
+                if (opsData != null) {
+                    for (Map<String, Object> opMap : opsData) {
+                        Long opId = ((Number) opMap.get("operationId")).longValue();
+                        String opName = (String) opMap.get("operationName");
+                        Number qtyNum = (Number) opMap.get("quantity");
+                        Number priceNum = (Number) opMap.get("pricePerUnit");
+                        Number subtotalNum = (Number) opMap.get("subtotal");
+                        BigDecimal qty = new BigDecimal(qtyNum.toString());
+                        BigDecimal pricePerUnit = new BigDecimal(priceNum.toString());
+                        BigDecimal subtotal = new BigDecimal(subtotalNum.toString());
+                        operationsSubtotal = operationsSubtotal.add(subtotal);
+
+                        OrderOperation orderOp = new OrderOperation();
+                        orderOp.setOperationId(opId);
+                        orderOp.setOperationName(opName);
+                        orderOp.setPricePerUnit(pricePerUnit);
+                        orderOp.setCalculatedQuantity(qty);
+                        orderOp.setSubtotal(subtotal);
+
+                        // Attach width/height from request if provided
+                        OrderOperationRequest reqOp = reqOpMap.get(opId);
+                        if (reqOp != null) {
+                            orderOp.setWidthM(reqOp.getWidthM());
+                            orderOp.setHeightM(reqOp.getHeightM());
+                        }
+
+                        orderOps.add(orderOp);
+                    }
+                }
+
+                // Compute material cost from known formula to avoid double-counting eyelet hardware
+                BigDecimal wasteCoeff = material.getWasteCoefficient();
+                if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
+                BigDecimal materialPrice = material.getPrice();
+                BigDecimal height = itemReq.getHeightM() != null ? itemReq.getHeightM() : BigDecimal.ONE;
+                BigDecimal materialArea = itemReq.getWidthM().multiply(height);
+                BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff).setScale(2, RoundingMode.HALF_UP);
+
+                // Effective area = materialCost / (price * wasteCoeff) = materialArea
+                BigDecimal effectiveArea = materialArea.setScale(2, RoundingMode.HALF_UP);
+
+                // Compute eyelet hardware cost from calculator response (totalPrice includes it)
+                BigDecimal eyeletCost = totalPrice.subtract(operationsSubtotal).subtract(materialCost);
+
+                // Calculate cost with priceplus
+                BigDecimal priceplus = saved.getPriceplus() != null ? saved.getPriceplus() : BigDecimal.ZERO;
+                BigDecimal costPriceplus = totalPrice.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+
+                // Create OrderItem
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrder(saved);
+                orderItem.setName(material.getName() + " " + itemReq.getWidthM() + "x" + itemReq.getHeightM() + "m");
+                orderItem.setQuantity(1);
+                orderItem.setReadyDate(itemReq.getReadyDate());
+                orderItem.setPrice(totalPrice);
+                orderItem.setCost(totalPrice);
+
+                // Create OrderMaterial
+                OrderMaterial orderMaterial = new OrderMaterial();
+                orderMaterial.setOrder(order);
+                orderMaterial.setOrderItem(orderItem);
+                orderMaterial.setMaterial(material);
+                orderMaterial.setQuantity(effectiveArea);
+                orderMaterial.setWasteCoefficient(wasteCoeff);
+                orderMaterial.setCost(materialCost);
+                orderMaterial.setCostPriceplus(costPriceplus);
+                orderMaterial.setEyeletCost(eyeletCost.compareTo(BigDecimal.ZERO) > 0 ? eyeletCost : BigDecimal.ZERO);
+                orderMaterial.setWidthM(itemReq.getWidthM());
+                orderMaterial.setHeightM(itemReq.getHeightM());
+                order.getMaterials().add(orderMaterial);
+                orderItem.getMaterials().add(orderMaterial);
+
+                // Attach operations
+                for (OrderOperation op : orderOps) {
+                    op.setOrderItem(orderItem);
+                    orderItem.getOperations().add(op);
+                }
+
+                saved.getItems().add(orderItem);
+                // Only add to total if we need to calculate it (not provided)
+                if (request.getTotalAmount() == null) {
+                    total = total.add(totalPrice);
+                }
             }
-            saved.setTotalAmount(total);
-            // Cascade persist materials and their operations
+            // Only update total if we calculated it ourselves
+            if (request.getTotalAmount() == null) {
+                saved.setTotalAmount(total);
+            }
+            // Calculate totalWithPriceplus
+            BigDecimal priceplus = saved.getPriceplus() != null ? saved.getPriceplus() : BigDecimal.ZERO;
+            BigDecimal totalWithPriceplus = total.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+            saved.setTotalWithPriceplus(totalWithPriceplus.setScale(2, RoundingMode.HALF_UP));
+
+            // === ВАЛИДАЦИЯ РАСЧЕТОВ из calculation service (с минимальной погрешностью) ===
+            BigDecimal clientCalc = request.getClientTotalWithPriceplus() != null ? request.getClientTotalWithPriceplus() : request.getTotalAmount();
+            if (clientCalc != null) {
+                BigDecimal diff = totalWithPriceplus.subtract(clientCalc).abs();
+                BigDecimal tolerance = new BigDecimal("0.01");
+                if (diff.compareTo(tolerance) > 0) {
+                    throw new RuntimeException("Валидация расчетов не пройдена: расхождение фронтенда с calculation service = " + diff + " (допуск " + tolerance + "). Обновите форму.");
+                }
+                // Лог успешной валидации
+                System.out.println("=== ORDER VALIDATION PASSED ===");
+                System.out.println("Order ID: " + saved.getId());
+                System.out.println("Order number: " + saved.getOrderNumber());
+                System.out.println("Frontend total: " + clientCalc);
+                System.out.println("Backend total: " + totalWithPriceplus);
+                System.out.println("Difference: " + diff);
+                System.out.println("==============================");
+            }
+
             orderRepository.save(saved);
         }
 
@@ -882,7 +869,7 @@ OrderResponse response = mapOrderResponse(order);
     /**
      * Пересчитать общую сумму заказа на основе позиций.
      */
-    void recalculateTotalAmount(Long orderId) {
+    private void recalculateTotalAmount(Long orderId) {
         BigDecimal total = jdbcTemplate.queryForObject(
             "SELECT COALESCE(SUM(cost), 0) FROM order_items WHERE order_id = ? AND deleted = false",
             new Object[]{orderId},
@@ -934,142 +921,42 @@ private void recalculatePaidAmount(Long orderId) {
         );
     }
 
-    /**
-     * Добавить позицию (изделие) в заказ.
-     * Если указан productId, выполняется динамический расчёт материалов и операций
-     * на основе формулы продукта и переданных параметров (width, height, params).
-     * Допустимо только для заказов в статусе WAITING.
-     */
-    @Transactional
-    public OrderItemResponse addOrderItem(OrderItemCreateRequest request) {
-        Order order = orderRepository.findById(request.getOrderId())
-                .orElseThrow(() -> new RuntimeException("Заказ не найден: " + request.getOrderId()));
+    private OrderMaterialResponse mapOrderMaterial(OrderMaterial om) {
+        Material material = om.getMaterial();
+        MaterialResponse materialDto = om.getMaterial() != null ?
+                orderMapper.materialToDto(om.getMaterial()) :
+                null;
 
-        // dynamical calculator only for orders in WAITING status
-        if (order.getStatus() != OrderStatus.WAITING) {
-            throw new IllegalStateException("Добавление позиций возможно только для заказов в статусе 'Ожидание'");
+        // Populate operations from the linked order item (if any)
+        List<OrderOperationSummary> opSummaries = List.of();
+        OrderItem orderItem = om.getOrderItem();
+        if (orderItem != null && orderItem.getOperations() != null) {
+            opSummaries = orderItem.getOperations().stream()
+                .map(op -> new OrderOperationSummary(
+                    op.getOperationId(),
+                    op.getOperationName(),
+                    op.getPricePerUnit(),
+                    op.getCalculatedQuantity(),
+                    op.getSubtotal(),
+                    op.getWidthM(),
+                    op.getHeightM()))
+                .collect(Collectors.toList());
         }
 
-        OrderItem item = new OrderItem();
-        item.setOrder(order);
-        item.setName(request.getName() != null ? request.getName() : "Изделие");
-        item.setWidth(request.getWidth());
-        item.setHeight(request.getHeight());
-        item.setQuantity(request.getQuantity());
-        if (request.getParams() != null) {
-            try {
-                String paramsJson = objectMapper.writeValueAsString(request.getParams());
-                item.setParams(paramsJson);
-            } catch (Exception e) {
-                throw new RuntimeException("Ошибка сериализации params", e);
-            }
-        }
-        item.setReadyDate(request.getReadyDate());
-
-        if (request.getProductId() != null) {
-            Product product = productRepository.findById(request.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Продукт не найден: " + request.getProductId()));
-            item.setProduct(product);
-
-            // Динамический расчёт через CalculatorService
-            CalculateRequest calcReq = new CalculateRequest(
-                    request.getProductId(),
-                    request.getWidth(),
-                    request.getHeight(),
-                    request.getQuantity(),
-                    request.getParams()
-            );
-            CalculationResult calcResult = calculatorService.calculate(calcReq);
-
-            // Установка цены продажи (за единицу) и общей суммы (цена * количество)
-            BigDecimal unitSellingPrice = calcResult.getSellingPriceRecommended()
-                    .divide(BigDecimal.valueOf(request.getQuantity()), 2, BigDecimal.ROUND_HALF_UP);
-            item.setPrice(unitSellingPrice);
-            item.setCost(calcResult.getSellingPriceRecommended()); // total revenue
-
-            // Сохраняем позицию, чтобы получить ID
-            OrderItem savedItem = orderItemRepository.save(item);
-
-            // Создаём материалы и операции из результата расчёта
-            for (ComponentBreakdown comp : calcResult.getBreakdown()) {
-                if (comp.getMaterialId() != null) {
-                    Material material = entityManager.find(Material.class, comp.getMaterialId());
-                    if (material == null) continue;
-                    OrderItemMaterial oim = new OrderItemMaterial();
-                    oim.setOrderItem(savedItem);
-                    oim.setMaterial(material);
-                    oim.setQuantity(comp.getQuantity());
-                    // Коэффициент отхода берем из ProductMaterial
-                    ProductMaterial pm = product.getMaterials().stream()
-                            .filter(m -> m.getMaterial().getId().equals(comp.getMaterialId()))
-                            .findFirst()
-                            .orElse(null);
-                    oim.setWasteCoefficient(pm != null ? pm.getWasteCoefficient() : BigDecimal.ONE);
-                    oim.setCost(comp.getTotal());
-                    savedItem.getMaterials().add(oim);
-                } else {
-                    // Операция
-                    OrderItemOperation oio = new OrderItemOperation();
-                    oio.setOrderItem(savedItem);
-                    oio.setName(comp.getName());
-                    oio.setPricePerUnit(comp.getUnitPrice());
-                    oio.setQuantity(comp.getQuantity());
-                    oio.setCost(comp.getTotal());
-                    savedItem.getOperations().add(oio);
-                }
-            }
-
-            // Flush to ensure records are visible to JDBC queries
-            orderItemRepository.flush();
-
-            // Пересчитываем totals заказа
-            recalculateTotalAmount(order.getId());
-            recalculateOrderCostAndMargin(order.getId());
-
-            return orderMapper.itemToDto(savedItem);
-        } else {
-            // Без продукта — просто сохраняем позицию
-            OrderItem saved = orderItemRepository.save(item);
-            orderItemRepository.flush();
-            recalculateTotalAmount(order.getId());
-            return orderMapper.itemToDto(saved);
-        }
-    }
-
-    void recalculateOrderCostAndMargin(Long orderId) {
-        BigDecimal legacyMatCost = jdbcTemplate.queryForObject(
-                "SELECT COALESCE(SUM(cost),0) FROM order_materials WHERE order_id = ? AND deleted = false",
-                new Object[]{orderId}, BigDecimal.class);
-        BigDecimal orderMatOpCost = jdbcTemplate.queryForObject(
-                "SELECT COALESCE(SUM(cost),0) FROM order_material_operations WHERE order_id = ? AND deleted = false",
-                new Object[]{orderId}, BigDecimal.class);
-        BigDecimal newMatCost = jdbcTemplate.queryForObject(
-                "SELECT COALESCE(SUM(om.cost),0) FROM order_item_materials om " +
-                "JOIN order_items oi ON om.order_item_id = oi.id " +
-                "WHERE oi.order_id = ? AND oi.deleted = false",
-                new Object[]{orderId}, BigDecimal.class);
-        BigDecimal opCost = jdbcTemplate.queryForObject(
-                "SELECT COALESCE(SUM(oo.cost),0) FROM order_item_operations oo " +
-                "JOIN order_items oi ON oo.order_item_id = oi.id " +
-                "WHERE oi.order_id = ? AND oi.deleted = false",
-                new Object[]{orderId}, BigDecimal.class);
-
-        BigDecimal totalCost = legacyMatCost.add(orderMatOpCost).add(newMatCost).add(opCost);
-        orderRepository.updateCostPrice(orderId, totalCost);
-
-        // Пересчитываем маржу
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order != null && totalCost.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal totalAmount = order.getTotalAmount();
-            // Если totalAmount ещё не установлен, можно вычислить как totalCost * (1+margin) или наоборот.
-            // Здесь просто считаем маржу как (totalAmount - totalCost) / totalCost
-            if (totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal margin = totalAmount.subtract(totalCost)
-                        .divide(totalCost, 4, BigDecimal.ROUND_HALF_UP)
-                        .multiply(BigDecimal.valueOf(100));
-                orderRepository.updateMarginPercent(orderId, margin);
-            }
-        }
+        return new OrderMaterialResponse(
+                om.getId(),
+                materialDto,
+                om.getQuantity(),
+                om.getWidthM(),
+                om.getHeightM(),
+                om.getReadyDate(),
+                om.getWasteCoefficient(),
+                om.getCost(),
+                om.getCostPriceplus(),
+                om.getEyeletCost(),
+                opSummaries,
+                om.getOrderItem() != null ? om.getOrderItem().getId() : null
+        );
     }
 
     /**
