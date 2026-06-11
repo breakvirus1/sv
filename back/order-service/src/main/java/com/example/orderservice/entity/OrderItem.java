@@ -58,8 +58,7 @@ public class OrderItem extends BaseEntity {
     private LocalDate readyDate;
 
     /** Продукт-шаблон, на основе которого создана позиция */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id")
+    @Column(name = "product_id")
     private Long productId;
 
     /** Параметры изделия в формате JSON (цвет, толщина, тип крепления и т.д.) */

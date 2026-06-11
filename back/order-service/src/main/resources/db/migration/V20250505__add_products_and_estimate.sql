@@ -52,7 +52,7 @@ CREATE TABLE order_item_materials (
 );
 
 -- Операции в конкретной позиции заказа
-CREATE TABLE order_item_operations (
+CREATE TABLE IF NOT EXISTS order_item_operations (
     id BIGSERIAL PRIMARY KEY,
     order_item_id BIGINT NOT NULL,
     name VARCHAR(255) NOT NULL,
