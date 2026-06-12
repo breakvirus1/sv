@@ -69,10 +69,10 @@ class OrderServiceTest {
         @Test
         @DisplayName("Returns order when found")
         void returnsOrderWhenFound() {
-            when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+            when(orderRepository.findByIdWithAllDetails(1L)).thenReturn(Optional.of(testOrder));
             OrderResponse mappedResponse = new OrderResponse();
             mappedResponse.setId(1L);
-            when(orderMapper.toDto(testOrder)).thenReturn(mappedResponse);
+            when(orderMapper.toDto(any(Order.class))).thenReturn(mappedResponse);
 
             OrderResponse result = orderService.getOrderById(1L);
 
@@ -83,7 +83,7 @@ class OrderServiceTest {
         @Test
         @DisplayName("Throws NotFoundException when order not found")
         void throwsWhenNotFound() {
-            when(orderRepository.findById(999L)).thenReturn(Optional.empty());
+            when(orderRepository.findByIdWithAllDetails(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> orderService.getOrderById(999L))
                     .isInstanceOf(NotFoundException.class)

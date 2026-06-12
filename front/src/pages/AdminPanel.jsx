@@ -61,7 +61,7 @@ const AdminPanel = () => {
   const [workshopDialogOpen, setWorkshopDialogOpen] = useState(false);
   const [workshopDeleteDialogOpen, setWorkshopDeleteDialogOpen] = useState(false);
   const [selectedWorkshop, setSelectedWorkshop] = useState(null);
-  const [workshopForm, setWorkshopForm] = useState({ name: '', operationIds: [], materialIds: [] });
+  const [workshopForm, setWorkshopForm] = useState({ name: '', operationIds: [] });
 
   // ---- Employees state ----
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
@@ -226,7 +226,7 @@ const AdminPanel = () => {
   const resetClientForm = () => { setClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' }); setSelectedClient(null); };
   const resetMaterialForm = () => { setMaterialForm({ name: '', unit: '', price: '', wasteCoefficient: '1' }); setSelectedMaterial(null); };
   const resetOperationForm = () => { setOperationForm({ name: '', unit: 'SQUARE_METER', price: '', applicableTo: 'BANNER', isDefault: false, hemWidthMm: '', hemCount: '' }); setSelectedOperation(null); };
-  const resetWorkshopForm = () => { setWorkshopForm({ name: '', sortOrder: 0, operationIds: '', materialIds: '' }); setSelectedWorkshop(null); };
+  const resetWorkshopForm = () => { setWorkshopForm({ name: '', sortOrder: 0, operationIds: '' }); setSelectedWorkshop(null); };
   const resetEmployeeForm = () => { setEmployeeForm({ fullName: '', username: '', position: '', phone: '', email: '', workshopId: '' }); setSelectedEmployee(null); };
 
   const openClientDialog = (client = null) => {
@@ -248,7 +248,7 @@ const AdminPanel = () => {
     if (ws) {
       setSelectedWorkshop(ws);
       const toArr = (v) => Array.isArray(v) ? v.map(Number) : [];
-      setWorkshopForm({ name: ws.name || '', operationIds: toArr(ws.operationIds), materialIds: toArr(ws.materialIds) });
+      setWorkshopForm({ name: ws.name || '', operationIds: toArr(ws.operationIds) });
     } else { resetWorkshopForm(); }
     setWorkshopDialogOpen(true);
   };
@@ -277,7 +277,7 @@ const AdminPanel = () => {
   };
   const handleWorkshopSubmit = () => {
     if (!workshopForm.name) { showNotification('Введите название', 'error'); return; }
-    const payload = { name: workshopForm.name, operationIds: workshopForm.operationIds.map(Number), materialIds: workshopForm.materialIds.map(Number) };
+    const payload = { name: workshopForm.name, operationIds: workshopForm.operationIds.map(Number) };
     selectedWorkshop ? updateWorkshopMutation.mutate({ id: selectedWorkshop.id, data: payload }) : createWorkshopMutation.mutate(payload);
   };
   const handleEmployeeSubmit = () => {
@@ -406,14 +406,13 @@ const AdminPanel = () => {
       {workshopsData.length === 0 && <Typography>Нет цехов</Typography>}
       {workshopsData.length > 0 && (
         <TableContainer component={Paper}><Table size="small">
-          <TableHead><TableRow><TableCell>ID</TableCell><TableCell>Название</TableCell><TableCell>Операции</TableCell><TableCell>Материалы</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+          <TableHead><TableRow><TableCell>ID</TableCell><TableCell>Название</TableCell><TableCell>Операции</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
           <TableBody>
             {workshopsData.map((ws) => (
               <TableRow key={ws.id}>
                 <TableCell>{ws.id}</TableCell>
                 <TableCell>{ws.name}</TableCell>
                 <TableCell><Box display="flex" flexWrap="wrap" gap={0.5}>{(Array.isArray(ws.operationIds) ? ws.operationIds : []).map(id => { const op = operationsData.find(o => o.id === id); return <Chip key={id} label={op ? op.name : `#${id}`} size="small" variant="outlined" />; })}</Box></TableCell>
-                <TableCell><Box display="flex" flexWrap="wrap" gap={0.5}>{(Array.isArray(ws.materialIds) ? ws.materialIds : []).map(id => { const mat = materialsData.find(m => m.id === id); return <Chip key={id} label={mat ? mat.name : `#${id}`} size="small" variant="outlined" />; })}</Box></TableCell>
                 <TableCell align="right">
                   <IconButton size="small" onClick={() => openWorkshopDialog(ws)}><Edit /></IconButton>
                   <IconButton size="small" color="error" onClick={() => { setSelectedWorkshop(ws); setWorkshopDeleteDialogOpen(true); }}><Delete /></IconButton>
@@ -580,24 +579,6 @@ const AdminPanel = () => {
               <InputLabel>Добавить операцию</InputLabel>
               <Select value="" label="Добавить операцию" onChange={(e) => { const v = Number(e.target.value); if (v && !workshopForm.operationIds.includes(v)) { setWorkshopForm({ ...workshopForm, operationIds: [...workshopForm.operationIds, v] }); } }}>
                 {operationsData.filter(op => !(Array.isArray(workshopForm.operationIds) ? workshopForm.operationIds : []).includes(Number(op.id))).map(op => <MenuItem key={op.id} value={op.id}>{op.name}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Box>
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="subtitle2" gutterBottom>Материалы</Typography>
-            <Box display="flex" flexWrap="wrap" gap={1} mb={1}>
-              {(Array.isArray(workshopForm.materialIds) ? workshopForm.materialIds : []).map(id => {
-                const mat = materialsData.find(m => m.id === id);
-                return (
-                  <Chip key={id} label={mat ? mat.name : `#${id}`} size="small" variant="outlined"
-                    onDelete={() => setWorkshopForm({ ...workshopForm, materialIds: (Array.isArray(workshopForm.materialIds) ? workshopForm.materialIds : []).filter(x => x !== Number(id)) })} />
-                );
-              })}
-            </Box>
-            <FormControl fullWidth size="small" margin="dense">
-              <InputLabel>Добавить материал</InputLabel>
-              <Select value="" label="Добавить материал" onChange={(e) => { const v = Number(e.target.value); if (v && !workshopForm.materialIds.includes(v)) { setWorkshopForm({ ...workshopForm, materialIds: [...workshopForm.materialIds, v] }); } }}>
-                {materialsData.filter(m => !(Array.isArray(workshopForm.materialIds) ? workshopForm.materialIds : []).includes(Number(m.id))).map(m => <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>)}
               </Select>
             </FormControl>
           </Box>
