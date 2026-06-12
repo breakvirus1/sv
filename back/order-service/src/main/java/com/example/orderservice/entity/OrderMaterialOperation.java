@@ -5,24 +5,18 @@ import com.example.materialservice.entity.Material;
 import com.example.materialservice.entity.MaterialOperation;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
-/**
- * Операция, выполненная над материалом в заказе.
- * Хранит параметры операции на момент выполнения, с учётом коэффициента отходов,
- *价格 и других настроек. Ссылается на шаблон MaterialOperation.
- */
 @Entity
 @Table(name = "order_material_operations")
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter @Setter @AllArgsConstructor @NoArgsConstructor
+@Cache(region = "OrderMaterialOperation", usage = CacheConcurrencyStrategy.READ_WRITE)
 public class OrderMaterialOperation extends BaseEntity {
 
     /** Заказ (родительский) */

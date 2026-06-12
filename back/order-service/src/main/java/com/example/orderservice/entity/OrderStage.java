@@ -1,24 +1,16 @@
 package com.example.orderservice.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import java.time.LocalDate;
 
-/**
- * Сущность "Этап производства" — связь заказа с цехом.
- * Определяет, в каком цехе и в какой срок должен быть выполнен заказ.
- * Пример: Печать (цех "Печать") → срок 2024-12-01, ждать предыдущие = true.
- */
 @Entity
 @Table(name = "order_stages")
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter @Setter @AllArgsConstructor @NoArgsConstructor
+@Cache(region = "OrderStage", usage = CacheConcurrencyStrategy.READ_WRITE)
 public class OrderStage extends BaseEntity {
 
     /** Заказ, для которого предназначен этап */

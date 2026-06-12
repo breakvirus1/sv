@@ -2,10 +2,11 @@ package com.example.orderservice.entity;
 
 import com.example.clientservice.entity.Client;
 import com.example.employeeservice.entity.Employee;
-import com.example.materialservice.entity.Material;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.Where;
 import org.springframework.data.annotation.CreatedDate;
@@ -34,6 +35,7 @@ import java.util.Set;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@Cache(region = "Order", usage = CacheConcurrencyStrategy.READ_WRITE)
 @SQLDelete(sql = "UPDATE orders SET deleted = true WHERE id=?")
 @Where(clause = "deleted = false")
 public class Order extends BaseEntity {

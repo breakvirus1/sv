@@ -4,6 +4,8 @@ import com.example.orderservice.entity.OrderOperation;
 import com.example.orderservice.entity.OrderMaterial;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
@@ -11,17 +13,10 @@ import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Сущность "Позиция заказа" — конкретное изделие в заказе.
- * Пример: "Баннер 2,7x1,38м".
- * Связана с заказом и содержит материалы и работы, использованные для этой позиции.
- */
 @Entity
 @Table(name = "order_items")
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter @Setter @AllArgsConstructor @NoArgsConstructor
+@Cache(region = "OrderItem", usage = CacheConcurrencyStrategy.READ_WRITE)
 public class OrderItem extends BaseEntity {
 
     /** Заказ, к которому относится позиция */

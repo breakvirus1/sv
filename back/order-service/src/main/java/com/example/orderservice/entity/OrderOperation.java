@@ -1,22 +1,16 @@
 package com.example.orderservice.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import java.math.BigDecimal;
 
-/**
- * Сущность "Операция позиции заказа" — операция, примененная к позиции.
- */
 @Entity
 @Table(name = "order_item_operations")
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter @Setter @AllArgsConstructor @NoArgsConstructor
+@Cache(region = "OrderOperation", usage = CacheConcurrencyStrategy.READ_WRITE)
 public class OrderOperation extends BaseEntity {
 
     /** Позиция заказа */

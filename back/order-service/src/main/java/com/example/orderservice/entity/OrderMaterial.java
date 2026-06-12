@@ -2,28 +2,19 @@ package com.example.orderservice.entity;
 
 import com.example.materialservice.entity.Material;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Сущность "Материал в заказе" — связь заказа/позиции с материалом.
- * Хранит информацию об использовании материала для конкретного заказа.
- * Пример: для баннера 2,7x1,38м использован материал "Баннер лит. 450 гр/м2"
- * в количестве 5 м2 с коэффициентом отхода 1.2.
- */
 @Entity
 @Table(name = "order_materials")
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter @Setter @AllArgsConstructor @NoArgsConstructor
+@Cache(region = "OrderMaterial", usage = CacheConcurrencyStrategy.READ_WRITE)
 public class OrderMaterial extends BaseEntity {
 
     /** Заказ (если материал назначен на весь заказ, а не на позицию) */

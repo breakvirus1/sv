@@ -1,20 +1,17 @@
 package com.example.orderservice.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "workshops")
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter @Setter @AllArgsConstructor @NoArgsConstructor
+@Cache(region = "Workshop", usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Workshop extends BaseEntity {
 
     @Column(nullable = false, length = 100, unique = true)

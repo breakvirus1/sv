@@ -20,6 +20,15 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        cache:
+          use_second_level_cache: true
+          use_query_cache: true
+          region:
+            factory_class: org.hibernate.cache.jcache.JCacheRegionFactory
+          jakarta:
+            uri: classpath:ehcache.xml
+          javax:
+            missing_cache_strategy: fail
   flyway:
     enabled: true
     locations: classpath:db/migration

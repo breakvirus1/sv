@@ -1,25 +1,17 @@
 package com.example.orderservice.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/**
- * Сущность "Оплата" — запись об оплате заказа.
- * Может быть полной или частичной.
- * Пример: оплата "Безнал" на сумму 10 000 ₽ от 2024-12-01.
- */
 @Entity
 @Table(name = "payments")
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter @Setter @AllArgsConstructor @NoArgsConstructor
+@Cache(region = "Payment", usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Payment extends BaseEntity {
 
     /** Заказ, к которому относится оплата */

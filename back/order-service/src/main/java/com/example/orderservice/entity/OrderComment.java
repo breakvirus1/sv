@@ -2,22 +2,14 @@ package com.example.orderservice.entity;
 
 import com.example.employeeservice.entity.Employee;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
-/**
- * Сущность "Комментарий" — сообщение, связанное с заказом.
- * Может быть внешним (видимым клиенту) или внутренним (только для сотрудников).
- * Пример: "Просим ускорить печать", "Клиент согласен на доплату".
- */
 @Entity
 @Table(name = "order_comments")
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter @Setter @AllArgsConstructor @NoArgsConstructor
+@Cache(region = "OrderComment", usage = CacheConcurrencyStrategy.READ_WRITE)
 public class OrderComment extends BaseEntity {
 
     /** Заказ, к которому относится комментарий */

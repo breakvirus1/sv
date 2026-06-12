@@ -159,12 +159,12 @@ public class OrderService {
       * Получить детальную информацию о заказе со всеми связанными сущностями.
       */
     @Transactional(readOnly = true)
-public OrderResponse getOrderById(Long id) {
-         Order order = orderRepository.findById(id)
-                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
-         checkWorkshopAccess(order);
-         return mapOrderResponse(order);
-     }
+    public OrderResponse getOrderById(Long id) {
+        Order order = orderRepository.findByIdWithAllDetails(id)
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        checkWorkshopAccess(order);
+        return mapOrderResponse(order);
+    }
 
     private void checkWorkshopAccess(Order order) {
         if (!isProductionUser()) return;

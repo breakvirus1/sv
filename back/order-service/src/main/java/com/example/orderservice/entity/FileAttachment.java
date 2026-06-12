@@ -1,22 +1,14 @@
 package com.example.orderservice.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
-/**
- * Сущность "Файл" — вложение к заказу или позиции.
- * Файлы могут быть исходными макетами, доказательствами выполнения и т.д.
- * Хранятся в MinIO/S3, здесь — только метаданные.
- */
 @Entity
 @Table(name = "files")
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter @Setter @AllArgsConstructor @NoArgsConstructor
+@Cache(region = "FileAttachment", usage = CacheConcurrencyStrategy.READ_WRITE)
 public class FileAttachment extends BaseEntity {
 
     /** Уникальное имя файла в хранилище (номерЗаказа_менеджер_материал_операции_параметры.расширение) */
