@@ -1,4 +1,4 @@
 -- V15: Add file_id column to order_items for bidirectional @OneToOne with files table
-ALTER TABLE ordschema.order_items ADD COLUMN file_id BIGINT;
-ALTER TABLE ordschema.order_items ADD CONSTRAINT fk_order_items_file FOREIGN KEY (file_id) REFERENCES ordschema.files (id) ON DELETE SET NULL;
-CREATE INDEX idx_order_items_file ON ordschema.order_items(file_id);
+ALTER TABLE svtables.order_items ADD COLUMN IF NOT EXISTS file_id BIGINT;
+ALTER TABLE svtables.order_items ADD CONSTRAINT fk_order_items_file FOREIGN KEY (file_id) REFERENCES svtables.files (id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_order_items_file ON svtables.order_items(file_id);

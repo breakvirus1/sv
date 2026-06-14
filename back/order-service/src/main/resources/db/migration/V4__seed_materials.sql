@@ -1,7 +1,7 @@
 -- Flyway migration V4: Seed initial materials for order service
 
 -- Insert materials (same as calculator materials)
-INSERT INTO ordschema.materials (id, name, unit, price, waste_coefficient, created_at, updated_at, deleted) VALUES
+INSERT INTO svtables.materials (id, name, unit, price, waste_coefficient, created_at, updated_at, deleted) VALUES
 (1, 'Баннер Frontlit 440 г/м²', 'м2', 250.00, 1.100, NOW(), NOW(), false),
 (2, 'Баннер Blockout 510 г/м²', 'м2', 280.00, 1.100, NOW(), NOW(), false),
 (3, 'Плёнка monomer 80 мкм', 'м2', 200.00, 1.050, NOW(), NOW(), false),
@@ -15,4 +15,4 @@ ON CONFLICT (id) DO UPDATE SET
   deleted = EXCLUDED.deleted;
 
 -- Reset sequence
-SELECT setval('ordschema.materials_id_seq', (SELECT MAX(id) FROM ordschema.materials));
+SELECT setval('svtables.materials_id_seq', (SELECT MAX(id) FROM svtables.materials));

@@ -14,7 +14,7 @@ import java.math.BigDecimal;
  * Пример: клей для кармана, люверсы, скотч.
  */
 @Entity
-@Table(name = "operation_additional_materials")
+@Table(name = "operation_additional_materials", schema = "svtables")
 @Getter
 @Setter
 @AllArgsConstructor

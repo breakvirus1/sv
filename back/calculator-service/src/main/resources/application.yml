@@ -16,6 +16,7 @@ spring:
     enabled: true
     baseline-on-migrate: true
     baseline-version: 0
+    schemas: calculator
   jpa:
     hibernate:
       ddl-auto: none
@@ -24,6 +25,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        default_schema: svtables
 
   security:
     oauth2:

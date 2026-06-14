@@ -2,7 +2,7 @@
 -- Items 1-3 (banner/film) are sold by the running metre; height is unused (= 0).
 -- Item 4 (плитная плёнка) was also treated as 'м.п.' in the draft V4, so keep it consistent.
 
-UPDATE ordschema.materials
+UPDATE svtables.materials
 SET   unit              = 'м.п.',
       default_width_mm  = CASE id
                              WHEN 1  THEN 1600  -- Баннер Frontlit 440 г/м²  — рулон 1.60 м

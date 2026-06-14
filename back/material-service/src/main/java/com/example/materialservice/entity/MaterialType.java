@@ -5,5 +5,7 @@ package com.example.materialservice.entity;
  */
 public enum MaterialType {
     MATERIAL,
-    OPERATION
+    OPERATION,
+    BANNER,
+    PLENKA
 }

@@ -46,7 +46,7 @@ public class FileController {
         FileAttachment saved = fileAttachmentRepository.save(attachment);
 
         if (orderItemId != null) {
-            jdbcTemplate.update("UPDATE ordschema.order_items SET file_id = ? WHERE id = ?", saved.getId(), orderItemId);
+            jdbcTemplate.update("UPDATE svtables.order_items SET file_id = ? WHERE id = ?", saved.getId(), orderItemId);
         }
 
         return ResponseEntity.ok(saved);
@@ -84,7 +84,7 @@ public class FileController {
             return ResponseEntity.notFound().build();
         }
         if (file.getOrderItem() != null) {
-            jdbcTemplate.update("UPDATE ordschema.order_items SET file_id = NULL WHERE id = ?", file.getOrderItem().getId());
+            jdbcTemplate.update("UPDATE svtables.order_items SET file_id = NULL WHERE id = ?", file.getOrderItem().getId());
         }
         fileService.deleteFile(file);
         fileAttachmentRepository.delete(file);

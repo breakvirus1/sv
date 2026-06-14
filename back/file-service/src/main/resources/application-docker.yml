@@ -7,7 +7,7 @@ spring:
   jpa:
     properties:
       hibernate:
-        default_schema: ordschema
+        default_schema: svtables
   security:
     oauth2:
       resourceserver:

@@ -13,7 +13,10 @@ spring:
     baseline-version: 0
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
+    properties:
+      hibernate:
+        default_schema: svtables
   security:
     oauth2:
       resourceserver:

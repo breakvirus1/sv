@@ -860,7 +860,7 @@ OrderResponse response = mapOrderResponse(order);
      */
     private void recalculateTotalAmount(Long orderId) {
         BigDecimal total = jdbcTemplate.queryForObject(
-            "SELECT COALESCE(SUM(cost), 0) FROM ordschema.order_items WHERE order_id = ? AND deleted = false",
+            "SELECT COALESCE(SUM(cost), 0) FROM svtables.order_items WHERE order_id = ? AND deleted = false",
             new Object[]{orderId},
             BigDecimal.class
         );

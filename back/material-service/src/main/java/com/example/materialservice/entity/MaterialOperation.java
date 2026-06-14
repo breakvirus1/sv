@@ -17,7 +17,7 @@ import java.util.List;
  * Используется как этап в смете/заказе.
  */
 @Entity
-@Table(name = "material_operations")
+@Table(name = "material_operations", schema = "svtables")
 @Getter
 @Setter
 @AllArgsConstructor

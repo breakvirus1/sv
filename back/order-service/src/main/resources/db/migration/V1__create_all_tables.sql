@@ -4,12 +4,12 @@
 -- ============================================================
 
 -- Create schema first
-CREATE SCHEMA IF NOT EXISTS ordschema;
+CREATE SCHEMA IF NOT EXISTS svtables;
 
 -- ----------------------------
 -- 1. Clients table
 -- ----------------------------
-CREATE TABLE clients (
+CREATE TABLE IF NOT EXISTS svtables.clients (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     type VARCHAR(50),
@@ -24,12 +24,12 @@ CREATE TABLE clients (
     deleted BOOLEAN DEFAULT false
 );
 
-CREATE INDEX idx_clients_name ON clients(name);
+CREATE INDEX IF NOT EXISTS idx_clients_name ON svtables.clients(name);
 
 -- ----------------------------
 -- 2. Employees table
 -- ----------------------------
-CREATE TABLE employees (
+CREATE TABLE IF NOT EXISTS svtables.employees (
     id BIGSERIAL PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
     username VARCHAR(100) NOT NULL UNIQUE,
@@ -41,12 +41,12 @@ CREATE TABLE employees (
     deleted BOOLEAN DEFAULT false
 );
 
-CREATE INDEX idx_employees_username ON employees(username);
+CREATE INDEX IF NOT EXISTS idx_employees_username ON svtables.employees(username);
 
 -- ----------------------------
 -- 3. Workshops table
 -- ----------------------------
-CREATE TABLE workshops (
+CREATE TABLE IF NOT EXISTS svtables.workshops (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     sort_order INTEGER DEFAULT 0,
@@ -58,7 +58,7 @@ CREATE TABLE workshops (
 -- ----------------------------
 -- 4. Materials table
 -- ----------------------------
-CREATE TABLE materials (
+CREATE TABLE IF NOT EXISTS svtables.materials (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     unit VARCHAR(20),
@@ -72,7 +72,7 @@ CREATE TABLE materials (
 -- ----------------------------
 -- 5. Roles table
 -- ----------------------------
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS svtables.roles (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(20) NOT NULL
 );
@@ -80,7 +80,7 @@ CREATE TABLE roles (
 -- ----------------------------
 -- 6. Orders table
 -- ----------------------------
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS svtables.orders (
     id BIGSERIAL PRIMARY KEY,
     order_number VARCHAR(50) NOT NULL UNIQUE,
     client_id BIGINT NOT NULL,
@@ -101,19 +101,19 @@ CREATE TABLE orders (
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT false,
-    CONSTRAINT fk_orders_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_orders_manager FOREIGN KEY (manager_id) REFERENCES employees (id) ON DELETE SET NULL
+    CONSTRAINT fk_orders_client FOREIGN KEY (client_id) REFERENCES svtables.clients (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_orders_manager FOREIGN KEY (manager_id) REFERENCES svtables.employees (id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_orders_due_date ON orders(due_date);
-CREATE INDEX idx_orders_client ON orders(client_id);
-CREATE INDEX idx_orders_manager ON orders(manager_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON svtables.orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_due_date ON svtables.orders(due_date);
+CREATE INDEX IF NOT EXISTS idx_orders_client ON svtables.orders(client_id);
+CREATE INDEX IF NOT EXISTS idx_orders_manager ON svtables.orders(manager_id);
 
 -- ----------------------------
 -- 7. Order Items table
 -- ----------------------------
-CREATE TABLE order_items (
+CREATE TABLE IF NOT EXISTS svtables.order_items (
     id BIGSERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -124,15 +124,15 @@ CREATE TABLE order_items (
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT false,
-    CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
+    CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES svtables.orders (id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_order_items_order ON order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON svtables.order_items(order_id);
 
 -- ----------------------------
 -- 8. Order Stages table
 -- ----------------------------
-CREATE TABLE order_stages (
+CREATE TABLE IF NOT EXISTS svtables.order_stages (
     id BIGSERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL,
     workshop_id BIGINT NOT NULL,
@@ -144,17 +144,17 @@ CREATE TABLE order_stages (
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT false,
-    CONSTRAINT fk_order_stages_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
-    CONSTRAINT fk_order_stages_workshop FOREIGN KEY (workshop_id) REFERENCES workshops (id) ON DELETE RESTRICT
+    CONSTRAINT fk_order_stages_order FOREIGN KEY (order_id) REFERENCES svtables.orders (id) ON DELETE CASCADE,
+    CONSTRAINT fk_order_stages_workshop FOREIGN KEY (workshop_id) REFERENCES svtables.workshops (id) ON DELETE RESTRICT
 );
 
-CREATE INDEX idx_order_stages_order ON order_stages(order_id);
-CREATE INDEX idx_order_stages_workshop ON order_stages(workshop_id);
+CREATE INDEX IF NOT EXISTS idx_order_stages_order ON svtables.order_stages(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_stages_workshop ON svtables.order_stages(workshop_id);
 
 -- ----------------------------
 -- 9. Order Materials table
 -- ----------------------------
-CREATE TABLE order_materials (
+CREATE TABLE IF NOT EXISTS svtables.order_materials (
     id BIGSERIAL PRIMARY KEY,
     order_id BIGINT,
     order_item_id BIGINT,
@@ -165,19 +165,19 @@ CREATE TABLE order_materials (
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT false,
-    CONSTRAINT fk_order_materials_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
-    CONSTRAINT fk_order_materials_item FOREIGN KEY (order_item_id) REFERENCES order_items (id) ON DELETE CASCADE,
-    CONSTRAINT fk_order_materials_material FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE RESTRICT
+    CONSTRAINT fk_order_materials_order FOREIGN KEY (order_id) REFERENCES svtables.orders (id) ON DELETE CASCADE,
+    CONSTRAINT fk_order_materials_item FOREIGN KEY (order_item_id) REFERENCES svtables.order_items (id) ON DELETE CASCADE,
+    CONSTRAINT fk_order_materials_material FOREIGN KEY (material_id) REFERENCES svtables.materials (id) ON DELETE RESTRICT
 );
 
-CREATE INDEX idx_order_materials_order ON order_materials(order_id);
-CREATE INDEX idx_order_materials_item ON order_materials(order_item_id);
-CREATE INDEX idx_order_materials_material ON order_materials(material_id);
+CREATE INDEX IF NOT EXISTS idx_order_materials_order ON svtables.order_materials(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_materials_item ON svtables.order_materials(order_item_id);
+CREATE INDEX IF NOT EXISTS idx_order_materials_material ON svtables.order_materials(material_id);
 
 -- ----------------------------
 -- 10. Payments table
 -- ----------------------------
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS svtables.payments (
     id BIGSERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL,
     payment_date DATE NOT NULL,
@@ -188,15 +188,15 @@ CREATE TABLE payments (
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT false,
-    CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
+    CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES svtables.orders (id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_payments_order ON payments(order_id);
+CREATE INDEX IF NOT EXISTS idx_payments_order ON svtables.payments(order_id);
 
 -- ----------------------------
 -- 11. Order Comments table
 -- ----------------------------
-CREATE TABLE order_comments (
+CREATE TABLE IF NOT EXISTS svtables.order_comments (
     id BIGSERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL,
     author_id BIGINT,
@@ -205,16 +205,16 @@ CREATE TABLE order_comments (
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT false,
-    CONSTRAINT fk_order_comments_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
-    CONSTRAINT fk_order_comments_author FOREIGN KEY (author_id) REFERENCES employees (id) ON DELETE SET NULL
+    CONSTRAINT fk_order_comments_order FOREIGN KEY (order_id) REFERENCES svtables.orders (id) ON DELETE CASCADE,
+    CONSTRAINT fk_order_comments_author FOREIGN KEY (author_id) REFERENCES svtables.employees (id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_order_comments_order ON order_comments(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_comments_order ON svtables.order_comments(order_id);
 
 -- ----------------------------
 -- 12. Files table
 -- ----------------------------
-CREATE TABLE files (
+CREATE TABLE IF NOT EXISTS svtables.files (
     id BIGSERIAL PRIMARY KEY,
     file_name VARCHAR(255) NOT NULL,
     original_name VARCHAR(255),
@@ -228,9 +228,9 @@ CREATE TABLE files (
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT false,
-    CONSTRAINT fk_files_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
-    CONSTRAINT fk_files_order_item FOREIGN KEY (order_item_id) REFERENCES order_items (id) ON DELETE CASCADE
+    CONSTRAINT fk_files_order FOREIGN KEY (order_id) REFERENCES svtables.orders (id) ON DELETE CASCADE,
+    CONSTRAINT fk_files_order_item FOREIGN KEY (order_item_id) REFERENCES svtables.order_items (id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_files_order ON files(order_id);
-CREATE INDEX idx_files_order_item ON files(order_item_id);
+CREATE INDEX IF NOT EXISTS idx_files_order ON svtables.files(order_id);
+CREATE INDEX IF NOT EXISTS idx_files_order_item ON svtables.files(order_item_id);

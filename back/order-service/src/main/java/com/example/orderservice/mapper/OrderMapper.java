@@ -30,10 +30,36 @@ public interface OrderMapper {
     @AfterMapping
     default void afterToDto(Order order, @MappingTarget OrderResponse dto) {
         if (order.getClient() != null) {
-            dto.setClient(clientToDto(order.getClient()));
+            try {
+                com.example.clientservice.entity.Client client = order.getClient();
+                dto.setClient(new ClientResponse(
+                    client.getId(),
+                    client.getName(),
+                    client.getType() != null ? client.getType().name() : null,
+                    client.getContactPerson(),
+                    client.getPhone(),
+                    client.getEmail(),
+                    client.getInn(),
+                    client.getAddress(),
+                    client.getPriceplus()));
+            } catch (Exception e) {
+                // Ignore lazy loading errors
+            }
         }
         if (order.getManager() != null) {
-            dto.setManager(employeeToDto(order.getManager()));
+            try {
+                com.example.employeeservice.entity.Employee emp = order.getManager();
+                dto.setManager(new EmployeeResponse(
+                    emp.getId(),
+                    emp.getFullName(),
+                    emp.getPosition(),
+                    emp.getPhone(),
+                    emp.getEmail(),
+                    emp.getUsername(),
+                    emp.getWorkshopId()));
+            } catch (Exception e) {
+                // Ignore lazy loading errors
+            }
         }
     }
 

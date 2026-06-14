@@ -12,7 +12,7 @@ import org.hibernate.annotations.ColumnDefault;
  * Пример: "width" → "Ширина, мм", type: "NUMBER", unit: "мм"
  */
 @Entity
-@Table(name = "operation_parameters")
+@Table(name = "operation_parameters", schema = "svtables")
 @Getter
 @Setter
 @AllArgsConstructor

@@ -1,7 +1,9 @@
 -- Flyway migration V1: Create tables for calculator service
 
+CREATE SCHEMA IF NOT EXISTS calculator;
+
 -- Materials table (SINGLE_TABLE inheritance)
-CREATE TABLE calculator_materials (
+CREATE TABLE IF NOT EXISTS calculator.calculator_materials (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     price_per_square_meter DECIMAL(12,2),
@@ -13,7 +15,7 @@ CREATE TABLE calculator_materials (
 );
 
 -- Eyelets table
-CREATE TABLE calculator_eyelets (
+CREATE TABLE IF NOT EXISTS calculator.calculator_eyelets (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     price_per_piece DECIMAL(12,2) NOT NULL,
@@ -24,7 +26,7 @@ CREATE TABLE calculator_eyelets (
 );
 
 -- Operations table
-CREATE TABLE calculator_operations (
+CREATE TABLE IF NOT EXISTS calculator.calculator_operations (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     price DECIMAL(12,2) NOT NULL,
@@ -37,7 +39,7 @@ CREATE TABLE calculator_operations (
 );
 
 -- Calculations table
-CREATE TABLE calculator_calculations (
+CREATE TABLE IF NOT EXISTS calculator.calculator_calculations (
     id BIGSERIAL PRIMARY KEY,
     material_id BIGINT NOT NULL,
     width_m DECIMAL(10,4) NOT NULL,
@@ -50,12 +52,12 @@ CREATE TABLE calculator_calculations (
     eyelet_step_cm INTEGER DEFAULT 40,
     total_price DECIMAL(12,2),
     created_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (material_id) REFERENCES calculator_materials (id),
-    FOREIGN KEY (eyelet_id) REFERENCES calculator_eyelets (id)
+    FOREIGN KEY (material_id) REFERENCES calculator.calculator_materials (id),
+    FOREIGN KEY (eyelet_id) REFERENCES calculator.calculator_eyelets (id)
 );
 
 -- Calculation operations join table
-CREATE TABLE calculator_calculation_operations (
+CREATE TABLE IF NOT EXISTS calculator.calculator_calculation_operations (
     id BIGSERIAL PRIMARY KEY,
     calculation_id BIGINT NOT NULL,
     operation_id BIGINT NOT NULL,
@@ -63,12 +65,12 @@ CREATE TABLE calculator_calculation_operations (
     price_per_unit DECIMAL(12,2) NOT NULL,
     subtotal DECIMAL(12,2) NOT NULL,
     created_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (calculation_id) REFERENCES calculator_calculations (id) ON DELETE CASCADE,
-    FOREIGN KEY (operation_id) REFERENCES calculator_operations (id)
+    FOREIGN KEY (calculation_id) REFERENCES calculator.calculator_calculations (id) ON DELETE CASCADE,
+    FOREIGN KEY (operation_id) REFERENCES calculator.calculator_operations (id)
 );
 
 -- Indexes
-CREATE INDEX idx_calc_calculations_material ON calculator_calculations(material_id);
-CREATE INDEX idx_calc_calculations_eyelet ON calculator_calculations(eyelet_id);
-CREATE INDEX idx_calcops_calculation ON calculator_calculation_operations(calculation_id);
-CREATE INDEX idx_calcops_operation ON calculator_calculation_operations(operation_id);
+CREATE INDEX IF NOT EXISTS idx_calc_calculations_material ON calculator.calculator_calculations(material_id);
+CREATE INDEX IF NOT EXISTS idx_calc_calculations_eyelet ON calculator.calculator_calculations(eyelet_id);
+CREATE INDEX IF NOT EXISTS idx_calcops_calculation ON calculator.calculator_calculation_operations(calculation_id);
+CREATE INDEX IF NOT EXISTS idx_calcops_operation ON calculator.calculator_calculation_operations(operation_id);

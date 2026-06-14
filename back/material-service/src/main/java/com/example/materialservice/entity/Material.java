@@ -16,8 +16,8 @@ import java.math.BigDecimal;
  * Поддерживает мягкое удаление через @SQLDelete.
  */
 @Entity
-@Table(name = "materials", schema = "ordschema")
-@SQLDelete(sql = "UPDATE ordschema.materials SET deleted = true WHERE id=?")
+@Table(name = "materials", schema = "svtables")
+@SQLDelete(sql = "UPDATE svtables.materials SET deleted = true WHERE id=?")
 @Where(clause = "deleted = false")
 @Getter
 @Setter

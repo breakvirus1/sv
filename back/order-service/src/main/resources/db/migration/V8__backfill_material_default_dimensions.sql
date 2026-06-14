@@ -10,7 +10,7 @@
 --   effective quantity  = (width / 1000) * (height / 1000) %
 --   user can immediately see the area pre-filled.
 
-UPDATE ordschema.materials
+UPDATE svtables.materials
 SET  default_width_mm  = CASE id
         WHEN 1  THEN 1600   -- Баннер Frontlit 440 г/м²  — рулон 1.60 м
         WHEN 2  THEN 1070   -- Баннер Blockout 510 г/м² — рулон 1.07 м

@@ -2,4 +2,4 @@
 CREATE DATABASE keycloak_db;
 
 -- Создаем схему для приложений
-CREATE SCHEMA IF NOT EXISTS ordschema;
+CREATE SCHEMA IF NOT EXISTS svtables;

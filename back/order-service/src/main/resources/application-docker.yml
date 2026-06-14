@@ -9,11 +9,11 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     baseline-version: 0
-    schemas: ordschema
+    schemas: svtables
   jpa:
     properties:
       hibernate:
-        default_schema: ordschema
+        default_schema: svtables
         cache:
           use_second_level_cache: true
           use_query_cache: true
