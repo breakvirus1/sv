@@ -40,6 +40,7 @@ build/
 .vscode/
 .continue/
 .front/node_modules/
+.kilo/
 
 ### Node.js ###
 node_modules/
@@ -57,4 +58,11 @@ docker-compose.override.yml
 ### OS ###
 .DS_Store
 Thumbs.db
+
+### Compiled Archives ###
+*.jar
+*.war
+*.ear
+BOOT-INF/
+META-INF/
 

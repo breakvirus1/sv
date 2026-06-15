@@ -1,23 +1,20 @@
 package com.example.orderservice.entity;
 
-import com.example.orderservice.order.entity.OrderItemMaterial;
-import com.example.orderservice.order.entity.OrderItemOperation;
-import com.example.orderservice.product.Product;
 import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Сущность "Позиция заказа" — конкретное изделие в заказе.
  * Пример: "Баннер 2,7x1,38м".
- * Связана с заказом и содержит материалы и работы, использованные для этой позиции.
+ * Связана с заказом и содержит материалы, использованные для этой позиции.
  */
 @Entity
 @Table(name = "order_items")
@@ -36,15 +33,7 @@ public class OrderItem extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String name;
 
-    /** Ширина изделия (в метрах) */
-    @Column(name = "width", precision = 10, scale = 3)
-    private BigDecimal width;
-
-    /** Высота изделия (в метрах) */
-    @Column(name = "height", precision = 10, scale = 3)
-    private BigDecimal height;
-
-    /** Цена за единицу (продажная) */
+    /** Цена за единицу */
     @Column(name = "price", precision = 12, scale = 2)
     private BigDecimal price = BigDecimal.ZERO;
 
@@ -60,23 +49,16 @@ public class OrderItem extends BaseEntity {
     @Column(name = "ready_date")
     private LocalDate readyDate;
 
-    /** Продукт-шаблон, на основе которого создана позиция */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id")
-    private Product product;
-
-    /** Параметры изделия в формате JSON (цвет, толщина, тип крепления и т.д.) */
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
-    private String params;
-
-    /** Материалы, переопределённые для этой позиции (с возможностью отклонения от шаблона) */
+    /** Материалы, использованные для этой позиции */
     @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("id")
-    private List<OrderItemMaterial> materials = new ArrayList<>();
+    private List<OrderMaterial> materials = new ArrayList<>();
 
-    /** Операции/работы, переопределённые для этой позиции */
-    @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("id")
-    private Set<OrderItemOperation> operations = new HashSet<>();
+    /** Операции для этой позиции */
+    @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<OrderOperation> operations = new ArrayList<>();
+
+    /** Прикрепленный файл к позиции */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "file_id")
+    private FileAttachment file;
 }

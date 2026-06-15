@@ -4,22 +4,26 @@ import Navbar from './components/Navbar'
 import LoginPage from './pages/LoginPage'
 import Dashboard from './pages/Dashboard'
 import OrdersList from './pages/OrdersList'
+import ManagerOrderList from './pages/ManagerOrderList'
 import OrderDetail from './pages/OrderDetail'
 import OrderItemDetail from './pages/OrderItemDetail'
 import CallbackPage from './pages/CallbackPage'
 import AdminPanel from './pages/AdminPanel'
-import { useWindowsStore } from './store/windowsStore'
-import Window from './components/Window'
+import ProductionOrderList from './pages/ProductionOrderList'
+import ProductionOrdersPositionsList from './pages/ProductionOrdersPositionsList'
+import TestCalculations from './pages/TestCalculations'
+import CreateOrderForm from './components/CreateOrderForm'
 
 function App() {
   const { user, loading } = useAuth()
-  const windows = useWindowsStore((state) => state.windows)
 
   if (loading) {
     return <div className="container">Loading...</div>
   }
 
   const isAuthenticated = !!user
+  const isManager = user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_ADMIN')
+  const isProduction = user?.roles?.includes('ROLE_PRODUCTION')
   const hasPermission = user?.roles?.some(role =>
     ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_PRODUCTION', 'ROLE_ACCOUNTANT'].includes(role)
   )
@@ -30,15 +34,7 @@ function App() {
       <div className="relative min-h-screen">
         {/* Desktop icons area (optional) */}
         
-        {/* Window Manager - renders all open windows */}
-        <div 
-          className="fixed left-0 right-0 bottom-0" 
-          style={{ zIndex: 9999, top: '64px' }}
-        >
-          {windows.map((win) => (
-            <Window key={win.id} windowData={win} />
-          ))}
-        </div>
+
 
         {/* Navbar fixed at top */}
         <div className="relative" style={{ zIndex: 10000 }}>
@@ -48,26 +44,41 @@ function App() {
          {/* Page content as "desktop icons" or background */}
          <div className="pt-20" style={{ paddingLeft: 0, paddingRight: 0, maxWidth: '100%', margin: 0, width: '100%' }}>
           <Routes>
-            <Route path="/" element={
-              isAuthenticated ? <Dashboard /> : <Navigate to="/login" />
-            } />
-            <Route path="/login" element={
-              isAuthenticated ? <Navigate to="/orders" /> : <LoginPage />
-            } />
+             <Route path="/" element={
+               isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Dashboard />) : <Navigate to="/login" />
+             } />
+             <Route path="/login" element={
+               isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Navigate to="/orders" />) : <LoginPage />
+             } />
             <Route path="/callback" element={<CallbackPage />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
             } />
-            <Route path="/orders" element={
-              <ProtectedRoute>
-                <OrdersList />
+             <Route path="/orders" element={
+               <ProtectedRoute>
+                 <OrdersList />
+               </ProtectedRoute>
+             } />
+              <Route path="/production" element={
+                <ProtectedRoute>
+                  <ProductionOrderList />
+                </ProtectedRoute>
+              } />
+             <Route path="/production/positions" element={
+               <ProtectedRoute>
+                 <ProductionOrdersPositionsList />
+               </ProtectedRoute>
+             } />
+            <Route path="/manager" element={
+              <ProtectedRoute requiresManager={true}>
+                <ManagerOrderList />
               </ProtectedRoute>
             } />
             <Route path="/orders/new" element={
               <ProtectedRoute requiresManager={true}>
-                <OrderDetail mode="create" />
+                <CreateOrderForm />
               </ProtectedRoute>
             } />
             <Route path="/orders/:orderId/items/:itemId" element={
@@ -80,12 +91,22 @@ function App() {
                 <OrderDetail />
               </ProtectedRoute>
             } />
-            <Route path="/admin" element={
-              <ProtectedRoute requiresAdmin={true}>
-                <AdminPanel />
+            <Route path="/orders/:id/edit" element={
+              <ProtectedRoute requiresManager={true}>
+                <OrderDetail mode="edit" />
               </ProtectedRoute>
             } />
-          </Routes>
+             <Route path="/admin" element={
+               <ProtectedRoute requiresAdmin={true}>
+                 <AdminPanel />
+               </ProtectedRoute>
+             } />
+             <Route path="/test-calculations" element={
+               <ProtectedRoute>
+                 <TestCalculations />
+               </ProtectedRoute>
+             } />
+           </Routes>
         </div>
       </div>
     </div>
@@ -98,6 +119,9 @@ function App() {
     if (!user) return <Navigate to="/login" />
 
     if (requiresManager && !(user.roles?.includes('ROLE_MANAGER') || user.roles?.includes('ROLE_ADMIN'))) {
+      if (user.roles?.includes('ROLE_PRODUCTION')) {
+        return <Navigate to="/production" />
+      }
       return <Navigate to="/orders" />
     }
 

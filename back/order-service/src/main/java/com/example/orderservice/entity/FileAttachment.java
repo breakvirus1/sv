@@ -19,15 +19,11 @@ import lombok.Setter;
 @NoArgsConstructor
 public class FileAttachment extends BaseEntity {
 
-    /** Уникальное имя файла в хранилище (UUID + расширение) */
-    @Column(name = "file_name", nullable = false, length = 255)
+    /** Уникальное имя файла в хранилище (номерЗаказа_менеджер_материал_операции_параметры.расширение) */
+    @Column(name = "file_name", nullable = false, length = 500)
     private String fileName;
 
-    /** Оригинальное имя файла (как загрузил пользователь) */
-    @Column(name = "original_name", length = 255)
-    private String originalName;
-
-    /** Путь к файлу в хранилище (ключ в MinIO/S3) */
+    /** Путь к файлу в хранилище */
     @Column(name = "file_path", nullable = false, length = 500)
     private String filePath;
 
@@ -49,7 +45,7 @@ public class FileAttachment extends BaseEntity {
     private Order order;
 
     /** Позиция заказа, к которой прикреплен файл (может быть null) */
-    @ManyToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_item_id")
     private OrderItem orderItem;
 

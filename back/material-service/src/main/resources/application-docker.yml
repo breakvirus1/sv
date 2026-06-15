@@ -2,17 +2,17 @@ server:
   port: 8084
 
 spring:
-  application:
-    name: material-service
   datasource:
-    url: jdbc:postgresql://postgres:5432/svdb
-    username: postgres
-    password: 12345
+    url: jdbc:postgresql://${DB_HOST:postgres}:5432/svdb
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:12345}
+    driver-class-name: org.postgresql.Driver
   flyway:
-    enabled: true
+    enabled: false
   jpa:
-    hibernate:
-      ddl-auto: update
+    properties:
+      hibernate:
+        default_schema: ordschema
   security:
     oauth2:
       resourceserver:
@@ -23,14 +23,14 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://discovery-server:8761/eureka/
+      defaultZone: ${EUREKA_URL:http://discovery-server:8761/eureka/}
   instance:
     prefer-ip-address: true
 
 logging:
   level:
-    org.springframework.security: DEBUG
-    com.example.materialservice: DEBUG
+    org.springframework.security: INFO
+    com.example.materialservice: INFO
     liquibase: INFO
 
 springdoc:

@@ -32,7 +32,7 @@ public class EmployeeController {
 
     @Operation(summary = "Получить список сотрудников")
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
     public ResponseEntity<Page<EmployeeResponse>> getAllEmployees(
             @RequestParam(required = false) String q,
             Pageable pageable) {
@@ -78,6 +78,14 @@ public class EmployeeController {
     public ResponseEntity<EmployeeResponse> syncCurrentEmployee(@AuthenticationPrincipal Jwt jwt) {
         EmployeeResponse synced = employeeService.syncOrCreateFromKeycloak(jwt);
         return ResponseEntity.ok(synced);
+    }
+
+    @Operation(summary = "Синхронизировать всех пользователей из Keycloak (ADMIN)")
+    @PostMapping("/sync-all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> syncAllFromKeycloak() {
+        int created = employeeService.syncAllFromKeycloak();
+        return ResponseEntity.ok("Синхронизация завершена. Создано новых сотрудников: " + created);
     }
 
     @Operation(summary = "Удалить сотрудника")

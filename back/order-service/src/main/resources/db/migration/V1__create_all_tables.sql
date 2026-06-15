@@ -3,6 +3,9 @@
 -- All tables for microservices shared database
 -- ============================================================
 
+-- Create schema first
+CREATE SCHEMA IF NOT EXISTS ordschema;
+
 -- ----------------------------
 -- 1. Clients table
 -- ----------------------------
@@ -15,6 +18,7 @@ CREATE TABLE clients (
     email VARCHAR(255),
     inn VARCHAR(100),
     address VARCHAR(255),
+    priceplus DECIMAL(10, 2),
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT false

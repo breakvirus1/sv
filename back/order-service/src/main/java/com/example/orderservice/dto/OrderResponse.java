@@ -44,10 +44,16 @@ public class OrderResponse {
     private LocalDate dueDate;
     /** Менеджер */
     private EmployeeResponse manager;
+    /** Процент добавки клиента (priceplus) */
+    private BigDecimal priceplus;
+    /** Общая сумма заказа с учетом priceplus */
+    private BigDecimal totalWithPriceplus;
     /** Наличие документов */
     private Boolean hasDocuments;
     /** Дата создания */
     private LocalDateTime createdAt;
+    /** Дата последнего изменения */
+    private LocalDateTime updatedAt;
     /** Позиции заказа (заполняется только в детальном виде) */
     private List<OrderItemResponse> items;
     /** Этапы производства (заполняется только в детальном виде) */

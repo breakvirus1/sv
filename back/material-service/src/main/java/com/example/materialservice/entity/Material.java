@@ -5,29 +5,34 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 
 import java.math.BigDecimal;
 
 /**
  * Сущность "Материал" — номенклатура материалов и операций.
- * Примеры: "Баннер лит. 450 гр/м2", "Проварка периметра", "Установка люверса".
  * Используется для расчета себестоимости заказов.
+ * Поддерживает мягкое удаление через @SQLDelete.
  */
 @Entity
-@Table(name = "materials")
+@Table(name = "materials", schema = "ordschema")
+@SQLDelete(sql = "UPDATE ordschema.materials SET deleted = true WHERE id=?")
+@Where(clause = "deleted = false")
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 public class Material extends BaseEntity {
 
-    /** Артикул материала (уникальный) */
-    @Column(name = "article", unique = true, length = 100)
-    private String article;
-
     /** Наименование материала или операции */
     @Column(nullable = false, length = 255)
     private String name;
+
+    /** Тип записи — материал или операция */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", length = 20)
+    private MaterialType type;
 
     /** Единица измерения: "м2", "шт", "п.м." и т.д. */
     @Column(name = "unit", length = 20)
@@ -41,19 +46,11 @@ public class Material extends BaseEntity {
     @Column(name = "waste_coefficient", precision = 5, scale = 3)
     private BigDecimal wasteCoefficient = BigDecimal.ONE;
 
-    /** Поставщик материала */
-    @Column(name = "supplier", length = 150)
-    private String supplier;
+    /** Ширина по умолчанию в метрах */
+    @Column(name = "default_width_m", precision = 10, scale = 4)
+    private BigDecimal defaultWidthM = BigDecimal.ZERO;
 
-    /** Текущий остаток на складе */
-    @Column(name = "current_stock", precision = 12, scale = 4)
-    private BigDecimal currentStock = BigDecimal.ZERO;
-
-     /** Минимальный остаток (точка заказа) */
-     @Column(name = "min_stock", precision = 12, scale = 4)
-     private BigDecimal minStock;
-
-     /** Список этапов операций, связанных с материалом (справочник) */
-     @OneToMany(mappedBy = "material", cascade = CascadeType.ALL, orphanRemoval = true)
-     private java.util.List<MaterialOperation> operations = new java.util.ArrayList<>();
- }
+    /** Высота по умолчанию в метрах */
+    @Column(name = "default_height_m", precision = 10, scale = 4)
+    private BigDecimal defaultHeightM = BigDecimal.ZERO;
+}

@@ -4,6 +4,12 @@ spring:
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:12345}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: false
+  jpa:
+    properties:
+      hibernate:
+        default_schema: ordschema
   security:
     oauth2:
       resourceserver:
@@ -11,7 +17,17 @@ spring:
           issuer-uri: http://localhost:8080/realms/print-sv
           jwk-set-uri: http://keycloak:8080/realms/print-sv/protocol/openid-connect/certs
 
+keycloak:
+  admin:
+    server-url: http://keycloak:8080
+
 eureka:
   client:
     service-url:
       defaultZone: ${EUREKA_URL:http://discovery-server:8761/eureka/}
+
+logging:
+  level:
+    com.example.employeeservice: INFO
+    org.springframework: INFO
+    org.hibernate: INFO

@@ -19,6 +19,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 
+/**
+ * REST Controller для управления заказами.
+ * Предоставляет CRUD операции, а также управление статусами и этапами.
+ */
 @RestController
 @RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
@@ -81,6 +85,19 @@ public class OrderController {
     }
 
     /**
+     * Получить заказ по номеру заказа (orderNumber).
+     * Формат номера: YYYYMMDDHHmmss (14 цифр).
+     * Доступно: ADMIN, MANAGER, PRODUCTION, ACCOUNTANT.
+     */
+    @Operation(summary = "Получить заказ по номеру")
+    @GetMapping("/number/{orderNumber}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+    public ResponseEntity<OrderResponse> getOrderByNumber(
+            @Parameter(description = "Номер заказа") @PathVariable String orderNumber) {
+        return ResponseEntity.ok(orderService.getOrderByOrderNumber(orderNumber));
+    }
+
+    /**
      * Создать новый заказ.
      * Доступно: ADMIN, MANAGER.
      */
@@ -137,25 +154,74 @@ public class OrderController {
     @Operation(summary = "Добавить оплату к заказу")
     @PostMapping("/{id}/payments")
     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
-    public ResponseEntity<Void> addPayment(
+    public ResponseEntity<PaymentResponse> addPayment(
             @Parameter(description = "ID заказа") @PathVariable Long id,
             @RequestBody PaymentRequest payment) {
-        orderService.addPayment(id, payment);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        PaymentResponse response = orderService.addPayment(id, payment);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-     /**
-      * Добавить комментарий к заказу.
-      * Доступно: ADMIN, MANAGER, PRODUCTION.
-      */
-     @Operation(summary = "Добавить комментарий к заказу")
-     @PostMapping("/{id}/comments")
-     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
-     public ResponseEntity<CommentResponse> addComment(
-             @Parameter(description = "ID заказа") @PathVariable Long id,
-             @RequestBody CommentRequest request) {
-         // Author will be extracted from authentication token in the service
-         CommentResponse comment = orderService.addComment(id, request, null);
-         return new ResponseEntity<>(comment, HttpStatus.CREATED);
-     }
- }
+    /**
+     * Добавить комментарий к заказу.
+     * Доступно: ADMIN, MANAGER, PRODUCTION.
+     */
+    @Operation(summary = "Добавить комментарий к заказу")
+    @PostMapping("/{id}/comments")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    public ResponseEntity<CommentResponse> addComment(
+            @Parameter(description = "ID заказа") @PathVariable Long id,
+            @RequestBody CommentRequest request) {
+        // Author will be extracted from authentication token in the service
+        CommentResponse comment = orderService.addComment(id, request, null);
+        return new ResponseEntity<>(comment, HttpStatus.CREATED);
+    }
+
+
+    // ===================== POSITION HELPERS (frontend EditOrder.jsx) =====================
+
+    /**
+     * Получить информацию о существующей позиции заказа (материал в заказе).
+     * Подтягивает ширину и высоту: если в заказе не заданы, берёт defaultWidthMm/defaultHeightMm из справочника.
+     *
+     * Пример: GET /api/v1/orders/1/positions/7/default
+     */
+    @Operation(summary = "Получить информацию о существующей позиции заказа")
+    @GetMapping("/{id}/positions/{orderMaterialId}/default")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    public ResponseEntity<ItemPositionInfo> getItemPositionInfo(
+            @Parameter(description = "ID заказа") @PathVariable Long id,
+            @Parameter(description = "ID записи материала в заказе") @PathVariable Long orderMaterialId) {
+        ItemPositionInfo info = orderService.getItemPositionInfo(id, orderMaterialId);
+        return ResponseEntity.ok(info);
+    }
+
+    /**
+     * Рассчитать общую стоимость отрытого редактором заказа по существующим материалам.
+     * Используется для отображения суммы пока заказ не сохранён.
+     *
+     * Пример: GET /api/v1/orders/1/total-open
+     */
+    @Operation(summary = "Получить открытую сумму отредактированного заказа")
+    @GetMapping("/{id}/total-open")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+    public ResponseEntity<java.math.BigDecimal> getTotalOpen(
+            @Parameter(description = "ID заказа") @PathVariable Long id) {
+        java.math.BigDecimal total = orderService.calculateOpenOrderTotal(id);
+        return ResponseEntity.ok(total);
+    }
+
+    /**
+     * Получить расчитанные позиции заказа с учетом priceplus и общую сумму.
+     * Используется фронтендом для отображения расчетов в реальном времени.
+     *
+     * Пример: GET /api/v1/orders/1/calculated
+     */
+    @Operation(summary = "Получить позиции заказа с расчетами priceplus")
+    @GetMapping("/{id}/calculated")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+    public ResponseEntity<CalculatedOrderResponse> getCalculatedOrder(
+            @Parameter(description = "ID заказа") @PathVariable Long id) {
+        CalculatedOrderResponse response = orderService.getCalculatedOrder(id);
+        return ResponseEntity.ok(response);
+    }
+}

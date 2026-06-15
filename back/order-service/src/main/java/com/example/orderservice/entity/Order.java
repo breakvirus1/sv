@@ -74,7 +74,7 @@ public class Order extends BaseEntity {
     /** Текущий статус заказа */
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 30)
-    private OrderStatus status = OrderStatus.WAITING;
+    private OrderStatus status = OrderStatus.DRAFT;
 
     /** Текущая стадия производства */
     @Enumerated(EnumType.STRING)
@@ -93,6 +93,14 @@ public class Order extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manager_id")
     private Employee manager;
+
+    /** Процент добавки клиента (priceplus) */
+    @Column(name = "priceplus", precision = 10, scale = 2)
+    private BigDecimal priceplus;
+
+    /** Общая сумма заказа с учетом priceplus (рассчитывается из позиций) */
+    @Column(name = "total_with_priceplus", precision = 12, scale = 2)
+    private BigDecimal totalWithPriceplus = BigDecimal.ZERO;
 
     /** Дата и время запуска заказа в производство */
     @Column(name = "launched_at")

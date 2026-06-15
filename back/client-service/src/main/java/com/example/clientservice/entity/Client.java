@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 /**
  * Сущность "Клиент" — физическое лицо (частник) или компания.
  * Примеры: "Частник", "Монолит-1", "Компания Высота".
@@ -47,4 +49,8 @@ public class Client extends BaseEntity {
     /** Юридический/почтовый адрес */
     @Column(length = 255)
     private String address;
+
+    /** Процент добавки к сумме заказа */
+    @Column(name = "priceplus", precision = 10, scale = 2)
+    private BigDecimal priceplus;
 }

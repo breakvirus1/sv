@@ -19,10 +19,6 @@ public class OrderItemResponse {
     private Long id;
     /** Наименование изделия */
     private String name;
-    /** Ширина изделия (м) */
-    private BigDecimal width;
-    /** Высота изделия (м) */
-    private BigDecimal height;
     /** Цена за единицу */
     private BigDecimal price;
     /** Количество */
@@ -31,12 +27,12 @@ public class OrderItemResponse {
     private BigDecimal cost;
     /** Дата готовности позиции */
     private LocalDate readyDate;
-    /** ID продукта-шаблона (если позиция создана из шаблона) */
-    private Long productId;
-    /** Продукт-шаблон (вложенный объект, опционально) */
-    private Object product;
-    /** Параметры изделия (JSON) */
-    private String params;
-    /** Операции, выполненные над этой позицией */
-    private List<OrderItemOperationDTO> operations;
+    /** Операции, применённые к этой позиции */
+    private List<OrderOperationSummary> operations;
+
+    /** URL прикреплённого файла */
+    private String fileUrl;
+
+    /** ID прикреплённого файла */
+    private Long fileId;
 }
