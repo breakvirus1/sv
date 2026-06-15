@@ -718,9 +718,9 @@ class OrderServiceTest {
                 // Создаём заказ
                 Order order = new Order();
                 order.setId(300L + seed);
-                order.setMaterials(List.of(om));
+                order.setMaterials(new java.util.HashSet<>(List.of(om)));
                 order.setPriceplus(priceplus);
-                order.setItems(new java.util.ArrayList<>());
+                order.setItems(new java.util.HashSet<>());
                 order.setDeleted(false);
 
                 // Операции (каждый 3-й заказ)

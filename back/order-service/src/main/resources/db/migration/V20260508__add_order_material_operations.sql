@@ -3,7 +3,7 @@
 -- Хранит операции, выполненные над материалом в заказе
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS order_material_operations (
+CREATE TABLE IF NOT EXISTS ordschema.order_material_operations (
     id BIGSERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL,
     order_material_id BIGINT NOT NULL,
@@ -21,11 +21,11 @@ CREATE TABLE IF NOT EXISTS order_material_operations (
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT FALSE,
-    CONSTRAINT fk_order_material_operations_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
-    CONSTRAINT fk_order_material_operations_material FOREIGN KEY (order_material_id) REFERENCES order_materials (id) ON DELETE CASCADE,
-    CONSTRAINT fk_order_material_operations_template FOREIGN KEY (material_operation_id) REFERENCES material_operations (id) ON DELETE SET NULL
+    CONSTRAINT fk_order_material_operations_order FOREIGN KEY (order_id) REFERENCES ordschema.orders (id) ON DELETE CASCADE,
+    CONSTRAINT fk_order_material_operations_material FOREIGN KEY (order_material_id) REFERENCES ordschema.order_materials (id) ON DELETE CASCADE,
+    CONSTRAINT fk_order_material_operations_template FOREIGN KEY (material_operation_id) REFERENCES ordschema.material_operations (id) ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_order_material_operations_order ON order_material_operations(order_id);
-CREATE INDEX IF NOT EXISTS idx_order_material_operations_material ON order_material_operations(order_material_id);
-CREATE INDEX IF NOT EXISTS idx_order_material_operations_template ON order_material_operations(material_operation_id);
+CREATE INDEX IF NOT EXISTS idx_order_material_operations_order ON ordschema.order_material_operations(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_material_operations_material ON ordschema.order_material_operations(order_material_id);
+CREATE INDEX IF NOT EXISTS idx_order_material_operations_template ON ordschema.order_material_operations(material_operation_id);

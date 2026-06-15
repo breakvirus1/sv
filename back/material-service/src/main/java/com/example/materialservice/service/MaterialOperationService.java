@@ -28,16 +28,10 @@ public class MaterialOperationService {
     private final MaterialRepository materialRepository;
 
     public List<MaterialOperationResponse> getOperationsByMaterialId(Long materialId) {
-        Material material = materialRepository.findById(materialId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден"));
-        return material.getOperations().stream()
-                .filter(op -> Boolean.TRUE.equals(op.getActive()))
-                .sorted((a, b) -> {
-                    int cmp = Integer.compare(a.getSortOrder() != null ? a.getSortOrder() : 0,
-                                              b.getSortOrder() != null ? b.getSortOrder() : 0);
-                    if (cmp == 0) return a.getId().compareTo(b.getId());
-                    return cmp;
-                })
+        if (!materialRepository.existsById(materialId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден");
+        }
+        return operationRepository.findByMaterialIdAndActiveTrueOrderBySortOrderAsc(materialId).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -180,9 +174,9 @@ public class MaterialOperationService {
                 }
                 double marginWm = (lamMarginW != null ? lamMarginW.doubleValue() : 20) / 1000.0;
                 double marginHm = (lamMarginH != null ? lamMarginH.doubleValue() : 20) / 1000.0;
-                BigDecimal effW = width.add(BigDecimal.valueOf(2 * marginWm));
-                BigDecimal effH = height.add(BigDecimal.valueOf(2 * marginHm));
-                BigDecimal areaLam = effW.multiply(effH);
+                BigDecimal effWlam = width.add(BigDecimal.valueOf(2 * marginWm));
+                BigDecimal effHlam = height.add(BigDecimal.valueOf(2 * marginHm));
+                BigDecimal areaLam = effWlam.multiply(effHlam);
                 return areaLam.multiply(BigDecimal.valueOf(itemCount != null ? itemCount : 1));
 
             case WELDING:
@@ -195,6 +189,34 @@ public class MaterialOperationService {
                 // Для остальных типов возвращаем 1 или quantityFormula если будет добавлен позже
                 return BigDecimal.ONE;
         }
+    }
+
+    private void applyFromCreateDto(MaterialOperation operation, MaterialOperationCreateRequest request) {
+        operation.setName(request.getName());
+        operation.setDescription(request.getDescription());
+        operation.setOperationType(OperationType.valueOf(request.getOperationType()));
+        operation.setBasePrice(request.getBasePrice());
+        operation.setUnit(request.getUnit());
+        operation.setWasteCoefficient(request.getWasteCoefficient());
+        operation.setRequiresDimensions(request.getRequiresDimensions());
+        operation.setAllowsAdditionalMaterials(request.getAllowsAdditionalMaterials());
+        operation.setQuantityFormula(request.getQuantityFormula());
+        operation.setSortOrder(request.getSortOrder());
+        operation.setActive(request.getActive());
+    }
+
+    private void applyFromUpdateDto(MaterialOperation operation, MaterialOperationUpdateRequest request) {
+        operation.setName(request.getName());
+        operation.setDescription(request.getDescription());
+        operation.setOperationType(OperationType.valueOf(request.getOperationType()));
+        operation.setBasePrice(request.getBasePrice());
+        operation.setUnit(request.getUnit());
+        operation.setWasteCoefficient(request.getWasteCoefficient());
+        operation.setRequiresDimensions(request.getRequiresDimensions());
+        operation.setAllowsAdditionalMaterials(request.getAllowsAdditionalMaterials());
+        operation.setQuantityFormula(request.getQuantityFormula());
+        operation.setSortOrder(request.getSortOrder());
+        operation.setActive(request.getActive());
     }
 
     private MaterialOperationResponse mapToResponse(MaterialOperation op) {

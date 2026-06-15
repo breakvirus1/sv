@@ -13,8 +13,8 @@ import java.math.BigDecimal;
  * Хранит информацию о диаметре и цене за штуку.
  */
 @Entity
-@Table(name = "calculator_eyelets")
-@SQLDelete(sql = "UPDATE calculator_eyelets SET deleted = true WHERE id=?")
+@Table(name = "calculator_eyelets", schema = "calculator")
+@SQLDelete(sql = "UPDATE calculator.calculator_eyelets SET deleted = true WHERE id=?")
 @Where(clause = "deleted = false")
 @Getter
 @Setter

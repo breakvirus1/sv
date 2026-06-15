@@ -18,14 +18,6 @@ public class EstimateController {
         return ResponseEntity.ok(estimateService.calculateEstimate(orderItemId));
     }
 
-    @PostMapping("/items/{orderItemId}/estimate/from-product")
-    public ResponseEntity<OrderEstimateDTO> createFromProduct(
-            @PathVariable Long orderItemId,
-            @RequestBody Long productId) {
-        // Можно сразу сохранить, но по спецификации возвращаем расчёт из продукта
-        return ResponseEntity.ok(estimateService.calculateFromProduct(productId));
-    }
-
     @PostMapping("/items/{orderItemId}/estimate")
     public ResponseEntity<OrderEstimateDTO> saveEstimate(
             @PathVariable Long orderItemId,

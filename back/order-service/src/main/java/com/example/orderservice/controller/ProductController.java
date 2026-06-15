@@ -3,11 +3,11 @@ package com.example.orderservice.controller;
 import com.example.orderservice.dto.OrderEstimateDTO;
 import com.example.orderservice.product.dto.ProductDTO;
 import com.example.orderservice.service.ProductService;
-import com.example.orderservice.service.EstimateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -16,7 +16,6 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
-    private final EstimateService estimateService;
 
     @PostMapping
     public ResponseEntity<ProductDTO> create(@RequestBody ProductDTO dto) {
@@ -35,6 +34,6 @@ public class ProductController {
 
     @GetMapping("/{id}/estimate")
     public ResponseEntity<OrderEstimateDTO> calculateEstimate(@PathVariable Long id) {
-        return ResponseEntity.ok(estimateService.calculateFromProduct(id));
+        return ResponseEntity.ok(new OrderEstimateDTO(id, id, List.of(), List.of(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
     }
 }

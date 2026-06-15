@@ -1,5 +1,5 @@
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-COPY target/discovery-server-0.0.1-SNAPSHOT-exec.jar app.jar
+COPY back/discovery-server/target/discovery-server-0.0.1-SNAPSHOT-exec.jar app.jar
 EXPOSE 8761
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

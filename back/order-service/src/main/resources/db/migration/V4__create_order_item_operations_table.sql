@@ -6,7 +6,7 @@
 -- ----------------------------
 -- 13. Order Operations table
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS order_item_operations (
+CREATE TABLE IF NOT EXISTS ordschema.order_item_operations (
     id BIGSERIAL PRIMARY KEY,
     order_item_id BIGINT NOT NULL,
     operation_id BIGINT NOT NULL,
@@ -17,9 +17,9 @@ CREATE TABLE IF NOT EXISTS order_item_operations (
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT false,
-    CONSTRAINT fk_order_operations_order_item FOREIGN KEY (order_item_id) 
-        REFERENCES order_items (id) ON DELETE CASCADE
+    CONSTRAINT fk_order_operations_order_item FOREIGN KEY (order_item_id)
+        REFERENCES ordschema.order_items (id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_order_operations_order_item ON order_item_operations(order_item_id);
-CREATE INDEX idx_order_operations_operation_id ON order_item_operations(operation_id);
+CREATE INDEX IF NOT EXISTS idx_order_operations_order_item ON ordschema.order_item_operations(order_item_id);
+CREATE INDEX IF NOT EXISTS idx_order_operations_operation_id ON ordschema.order_item_operations(operation_id);

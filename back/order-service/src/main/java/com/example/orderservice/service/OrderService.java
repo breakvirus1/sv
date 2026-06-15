@@ -869,7 +869,7 @@ OrderResponse response = mapOrderResponse(order);
     /**
      * Пересчитать общую сумму заказа на основе позиций.
      */
-    private void recalculateTotalAmount(Long orderId) {
+    public void recalculateTotalAmount(Long orderId) {
         BigDecimal total = jdbcTemplate.queryForObject(
             "SELECT COALESCE(SUM(cost), 0) FROM order_items WHERE order_id = ? AND deleted = false",
             new Object[]{orderId},
@@ -1108,9 +1108,25 @@ return new CalculatedOrderResponse(
                   orderId,
                   priceplus,
                   totalWithoutPriceplus.setScale(2, RoundingMode.HALF_UP),
-                  totalWithPriceplus.setScale(2, RoundingMode.HALF_UP),
-                  materials
-          );
-      }
+                   totalWithPriceplus.setScale(2, RoundingMode.HALF_UP),
+                   materials
+           );
+       }
 
+    public OrderItemResponse addOrderItem(OrderItemCreateRequest request) {
+        Order order = orderRepository.findById(request.getOrderId())
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        OrderItem item = new OrderItem();
+        item.setOrder(order);
+        item.setName(request.getName() != null ? request.getName() : "Позиция");
+        item.setQuantity(request.getQuantity() != null ? request.getQuantity() : 1);
+        item.setReadyDate(request.getReadyDate());
+        item.setPrice(BigDecimal.ZERO);
+        item.setCost(BigDecimal.ZERO);
+
+        OrderItem saved = orderItemRepository.save(item);
+        recalculateTotalAmount(order.getId());
+        return orderMapper.itemToDto(saved);
+    }
 }
