@@ -29,6 +29,9 @@ public class CalculationService {
     private final CalculationMapper calculationMapper;
 
     public CalculationResponseDto createAndCalculate(CalculationRequestDto request) {
+        if (request.getMaterialId() == null) {
+            throw new BadRequestException("materialId обязателен");
+        }
         Material material = materialRepository.findByIdAndDeletedFalse(request.getMaterialId())
                 .orElseThrow(() -> new BadRequestException("Материал не найден"));
 
@@ -47,6 +50,9 @@ public class CalculationService {
      * Используется order-service для расчёта итогов по материалам и операциям.
      */
     public CalculationResponseDto calculateWithoutSaving(CalculationRequestDto request) {
+        if (request.getMaterialId() == null) {
+            throw new BadRequestException("materialId обязателен");
+        }
         Material material = materialRepository.findByIdAndDeletedFalse(request.getMaterialId())
                 .orElseThrow(() -> new BadRequestException("Материал не найден"));
 

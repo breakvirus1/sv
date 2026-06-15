@@ -10,6 +10,12 @@ const toMeters = (value, unit) => {
 };
 
 const calculateItemCostBackend = async (materialId, widthM, heightM, operations = [], eyeletId = null, eyeletStepCm = 40, podvorotMmHorizontal = null, podvorotMmVertical = null, podvorotCountPerSide = 2) => {
+  if (!materialId) {
+    throw new Error('materialId is required');
+  }
+  if (!widthM || widthM <= 0) {
+    throw new Error('widthM must be greater than 0');
+  }
   const payload = {
     materialId,
     widthM,
@@ -29,6 +35,9 @@ const calculateItemCostBackend = async (materialId, widthM, heightM, operations 
 const recalculateOrderBackend = async (items, priceplusPercent = 0) => {
   const promises = items.map(async (item) => {
     const materialId = item.material?.id || item.materialId;
+    if (!materialId) {
+      throw new Error('materialId is required for calculation');
+    }
     const unit = item.unit || 'м';
     const widthM = toMeters(item.widthM ?? item.qty1value ?? 0, unit);
     const heightM = toMeters(item.heightM ?? item.qty2value ?? 0, unit);
