@@ -68,8 +68,6 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
-      client-service:
-        condition: service_started
     networks:
       - sv-network
     environment:
