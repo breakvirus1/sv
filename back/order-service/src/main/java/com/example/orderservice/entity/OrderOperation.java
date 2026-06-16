@@ -33,7 +33,7 @@ public class OrderOperation extends BaseEntity {
     private String operationName;
 
     /** Цена операции за единицу */
-    @Column(name = "price_per_unit", precision = 12, scale = 2)
+    @Column(precision = 12, scale = 2)
     private BigDecimal pricePerUnit;
 
     /** Рассчитанное количество */
