@@ -57,12 +57,16 @@ public class GatewayConfig {
                    .path("/api/v1/admin/operations/**")
                    .uri("http://calculator-service:8086")
                )
-             .route("admin-order-service", r -> r
-                 .path("/api/v1/admin/orders/**")
-                 .uri("http://order-service:8081")
-             )
-            .build();
-        log.info("Custom routes configured: order-service, client-service, employee-service, material-service, calculator-service, and admin endpoints");
+              .route("admin-order-service", r -> r
+                  .path("/api/v1/admin/orders/**")
+                  .uri("http://order-service:8081")
+              )
+              .route("admin-generate-data-service", r -> r
+                  .path("/api/v1/admin/generate/**")
+                  .uri("http://generate-data-service:8090")
+              )
+             .build();
+        log.info("Custom routes configured: order-service, client-service, employee-service, material-service, calculator-service, generate-data-service, and admin endpoints");
         return routes;
     }
 }

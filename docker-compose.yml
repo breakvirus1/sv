@@ -178,6 +178,27 @@ services:
     volumes:
       - ./uploads:/app/uploads
 
+  generate-data-service:
+    build:
+      context: .
+      dockerfile: back/generate-data-service/Dockerfile
+    ports:
+      - "8090:8090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+      keycloak:
+        condition: service_started
+    networks:
+      - sv-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_URL=http://discovery-server:8761/eureka/
+      - DB_HOST=postgres
+      - KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv
+
   api-gateway:
     build:
       context: .
