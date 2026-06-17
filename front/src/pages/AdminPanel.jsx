@@ -509,7 +509,7 @@ const AdminPanel = () => {
   );
 
   const renderGenerateTab = () => (
-    <GenerateTab onGenerate={handleGenerate} />
+    <GenerateTab onGenerate={handleGenerate} onDelete={handleDelete} />
   );
 
   return (

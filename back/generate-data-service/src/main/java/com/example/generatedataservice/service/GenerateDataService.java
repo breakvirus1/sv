@@ -230,7 +230,8 @@ public class GenerateDataService {
     public int deleteAllOrders() {
         return dataAccessRepository.deleteAllOrders();
     }
-}
+
+    private void generateOrderMaterials(Long orderId, List<DataAccessRepository.MaterialInfo> materials) {
         int itemCount = 1 + random.nextInt(3);
         for (int j = 0; j < itemCount; j++) {
             DataAccessRepository.MaterialInfo mat = materials.get(random.nextInt(materials.size()));
