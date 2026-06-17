@@ -60,27 +60,28 @@ public class DataAccessRepository {
     }
 
     public int deleteAllClients() {
-        return jdbcTemplate.update("UPDATE ordschema.clients SET deleted = true WHERE deleted = false");
+        return jdbcTemplate.update("DELETE FROM ordschema.clients");
     }
 
     public int deleteAllEmployees() {
-        return jdbcTemplate.update("UPDATE ordschema.employees SET deleted = true WHERE deleted = false");
+        return jdbcTemplate.update("DELETE FROM ordschema.employees");
     }
 
     public int deleteAllMaterials() {
-        return jdbcTemplate.update("UPDATE ordschema.materials SET deleted = true WHERE deleted = false");
+        return jdbcTemplate.update("DELETE FROM ordschema.materials");
     }
 
     public int deleteAllWorkshops() {
-        return jdbcTemplate.update("UPDATE ordschema.workshops SET deleted = true WHERE deleted = false");
+        return jdbcTemplate.update("DELETE FROM ordschema.workshops");
     }
 
     public int deleteAllOperations() {
-        return jdbcTemplate.update("UPDATE calculator.calculator_operations SET deleted = true WHERE deleted = false");
+        return jdbcTemplate.update("DELETE FROM calculator.calculator_operations");
     }
 
     public int deleteAllOrders() {
-        return jdbcTemplate.update("UPDATE ordschema.orders SET deleted = true WHERE deleted = false");
+        jdbcTemplate.update("DELETE FROM ordschema.order_materials WHERE order_id IN (SELECT id FROM ordschema.orders)");
+        return jdbcTemplate.update("DELETE FROM ordschema.orders");
     }
 
     public static class MaterialInfo {
