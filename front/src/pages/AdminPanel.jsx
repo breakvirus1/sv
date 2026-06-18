@@ -68,7 +68,7 @@ const AdminPanel = () => {
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [employeeDeleteDialogOpen, setEmployeeDeleteDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [employeeForm, setEmployeeForm] = useState({ fullName: '', username: '', position: '', phone: '', email: '', workshopId: '' });
+  const [employeeForm, setEmployeeForm] = useState({ fullName: '', username: '', position: '', phone: '', email: '', workshopId: '', managerCashPercent: '' });
   const [syncing, setSyncing] = useState(false);
 
   // ---- Generation state ----
@@ -269,7 +269,7 @@ const AdminPanel = () => {
   const resetMaterialForm = () => { setMaterialForm({ name: '', unit: '', price: '', wasteCoefficient: '1' }); setSelectedMaterial(null); };
   const resetOperationForm = () => { setOperationForm({ name: '', unit: 'SQUARE_METER', price: '', applicableTo: 'BANNER', isDefault: false, hemWidthMm: '', hemCount: '' }); setSelectedOperation(null); };
   const resetWorkshopForm = () => { setWorkshopForm({ name: '', sortOrder: 0, operationIds: '' }); setSelectedWorkshop(null); };
-  const resetEmployeeForm = () => { setEmployeeForm({ fullName: '', username: '', position: '', phone: '', email: '', workshopId: '' }); setSelectedEmployee(null); };
+  const resetEmployeeForm = () => { setEmployeeForm({ fullName: '', username: '', position: '', phone: '', email: '', workshopId: '', managerCashPercent: '' }); setSelectedEmployee(null); };
 
   const openClientDialog = (client = null) => {
     if (client) { setSelectedClient(client); setClientForm({ name: client.name || '', type: client.type || 'PRIVATE', contactPerson: client.contactPerson || '', phone: client.phone || '', email: client.email || '' }); } else { resetClientForm(); }
@@ -297,7 +297,7 @@ const AdminPanel = () => {
   const openEmployeeDialog = (emp = null) => {
     if (emp) {
       setSelectedEmployee(emp);
-      setEmployeeForm({ fullName: emp.fullName || '', username: emp.username || '', position: emp.position || '', phone: emp.phone || '', email: emp.email || '', workshopId: emp.workshopId || '' });
+      setEmployeeForm({ fullName: emp.fullName || '', username: emp.username || '', position: emp.position || '', phone: emp.phone || '', email: emp.email || '', workshopId: emp.workshopId || '', managerCashPercent: emp.managerCashPercent != null ? emp.managerCashPercent.toString() : '' });
     } else { resetEmployeeForm(); }
     setEmployeeDialogOpen(true);
   };
@@ -324,7 +324,7 @@ const AdminPanel = () => {
   };
   const handleEmployeeSubmit = () => {
     if (!employeeForm.username) { showNotification('Введите логин', 'error'); return; }
-    const payload = { ...employeeForm, workshopId: employeeForm.workshopId ? parseInt(employeeForm.workshopId) : null };
+    const payload = { ...employeeForm, workshopId: employeeForm.workshopId ? parseInt(employeeForm.workshopId) : null, managerCashPercent: employeeForm.managerCashPercent ? parseFloat(employeeForm.managerCashPercent) : null };
     selectedEmployee ? updateEmployeeMutation.mutate({ id: selectedEmployee.id, data: payload }) : createEmployeeMutation.mutate(payload);
   };
 
@@ -485,7 +485,7 @@ const AdminPanel = () => {
       {employeesData.length === 0 && <Typography>Нет сотрудников</Typography>}
       {employeesData.length > 0 && (
         <TableContainer component={Paper}><Table size="small">
-          <TableHead><TableRow><TableCell>ID</TableCell><TableCell>ФИО</TableCell><TableCell>Логин</TableCell><TableCell>Должность</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell>Цех</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+          <TableHead><TableRow><TableCell>ID</TableCell><TableCell>ФИО</TableCell><TableCell>Логин</TableCell><TableCell>Должность</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell>Цех</TableCell><TableCell>% заработка</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
           <TableBody>
             {employeesData.map((emp) => (
               <TableRow key={emp.id}>
@@ -496,6 +496,7 @@ const AdminPanel = () => {
                 <TableCell>{emp.phone || '-'}</TableCell>
                 <TableCell>{emp.email || '-'}</TableCell>
                 <TableCell>{emp.workshopId ? `#${emp.workshopId} ${getWorkshopName(emp.workshopId)}` : '-'}</TableCell>
+                <TableCell>{emp.managerCashPercent != null ? `${emp.managerCashPercent}%` : '-'}</TableCell>
                 <TableCell align="right">
                   <IconButton size="small" onClick={() => openEmployeeDialog(emp)}><Edit /></IconButton>
                   <IconButton size="small" color="error" onClick={() => { setSelectedEmployee(emp); setEmployeeDeleteDialogOpen(true); }}><Delete /></IconButton>
@@ -632,6 +633,7 @@ const AdminPanel = () => {
           <TextField fullWidth margin="dense" label="Должность" value={employeeForm.position} onChange={(e) => setEmployeeForm({ ...employeeForm, position: e.target.value })} />
           <TextField fullWidth margin="dense" label="Телефон" value={employeeForm.phone} onChange={(e) => setEmployeeForm({ ...employeeForm, phone: e.target.value })} />
           <TextField fullWidth margin="dense" label="Email" value={employeeForm.email} onChange={(e) => setEmployeeForm({ ...employeeForm, email: e.target.value })} />
+          <TextField fullWidth margin="dense" label="Процент заработка менеджера (managerCashPercent)" type="number" value={employeeForm.managerCashPercent} onChange={(e) => setEmployeeForm({ ...employeeForm, managerCashPercent: e.target.value })} inputProps={{ min: 0, max: 100, step: 0.01 }} />
           <FormControl fullWidth margin="dense"><InputLabel>Цех</InputLabel>
             <Select value={employeeForm.workshopId} label="Цех" onChange={(e) => setEmployeeForm({ ...employeeForm, workshopId: e.target.value })}>
               <MenuItem value="">Не назначен</MenuItem>

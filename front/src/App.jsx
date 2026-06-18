@@ -13,6 +13,7 @@ import ProductionOrderList from './pages/ProductionOrderList'
 import ProductionOrdersPositionsList from './pages/ProductionOrdersPositionsList'
 import TestCalculations from './pages/TestCalculations'
 import CreateOrderForm from './components/CreateOrderForm'
+import ManagerOrderDetail from './pages/ManagerOrderDetail'
 
 function App() {
   const { user, loading } = useAuth()
@@ -89,6 +90,11 @@ function App() {
             <Route path="/orders/:id" element={
               <ProtectedRoute>
                 <OrderDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/manager/orders/:id" element={
+              <ProtectedRoute requiresManager={true}>
+                <ManagerOrderDetail />
               </ProtectedRoute>
             } />
             <Route path="/orders/:id/edit" element={

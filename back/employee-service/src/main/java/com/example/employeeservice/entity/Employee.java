@@ -42,4 +42,8 @@ public class Employee extends BaseEntity {
     /** ID цеха, к которому привязан сотрудник */
     @Column(name = "workshop_id")
     private Long workshopId;
+
+    /** Процент заработка менеджера от priceplus (настраивается админом) */
+    @Column(name = "manager_cash_percent", precision = 5, scale = 2)
+    private java.math.BigDecimal managerCashPercent;
 }

@@ -15,4 +15,5 @@ public class EmployeeResponse {
     private String email;
     private String username;
     private Long workshopId;
+    private java.math.BigDecimal managerCashPercent;
 }

@@ -177,7 +177,8 @@ public interface OrderMapper {
                 entity.getAuthor().getPhone(),
                 entity.getAuthor().getEmail(),
                 entity.getAuthor().getUsername(),
-                entity.getAuthor().getWorkshopId()));
+                entity.getAuthor().getWorkshopId(),
+                entity.getAuthor().getManagerCashPercent()));
         }
     }
 

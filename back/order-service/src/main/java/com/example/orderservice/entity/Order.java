@@ -102,6 +102,10 @@ public class Order extends BaseEntity {
     @Column(name = "total_with_priceplus", precision = 12, scale = 2)
     private BigDecimal totalWithPriceplus = BigDecimal.ZERO;
 
+    /** Заработок менеджера с priceplus (рассчитывается при статусе READY) */
+    @Column(name = "cash_from_priceplus", precision = 12, scale = 2)
+    private BigDecimal cashFromPriceplus;
+
     /** Дата и время запуска заказа в производство */
     @Column(name = "launched_at")
     private LocalDateTime launchedAt;

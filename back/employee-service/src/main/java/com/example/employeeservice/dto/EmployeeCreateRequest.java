@@ -14,4 +14,5 @@ public class EmployeeCreateRequest {
     private String phone;
     private String email;
     private Long workshopId;
+    private java.math.BigDecimal managerCashPercent;
 }

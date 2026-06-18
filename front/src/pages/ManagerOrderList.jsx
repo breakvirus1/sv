@@ -278,7 +278,7 @@ const ManagerOrderList = () => {
             '& .MuiDataGrid-columnSeparator': { visibility: 'visible', resize: 'horizontal' },
             '& .MuiDataGrid-virtualScroller': { overflowX: 'auto' },
           }}
-          onRowClick={(params) => navigate(`/orders/${params.id}`)}
+          onRowClick={(params) => navigate(`/manager/orders/${params.id}`)}
           onColumnWidthChange={handleColumnWidthChange}
           slots={{
             noRowsOverlay: () => (

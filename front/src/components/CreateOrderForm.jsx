@@ -417,12 +417,20 @@ const handleClose = () => {
   };
 
   const [totalOrderAmount, setTotalOrderAmount] = useState(0);
+  const [cashFromPriceplus, setCashFromPriceplus] = useState(0);
 
   const calculateTotals = async () => {
     if (formData.items.length === 0) return;
     try {
       const result = await recalculateOrderLocally(formData.items, priceplus);
       setTotalOrderAmount(result.totalWithPriceplus);
+      if (currentEmployee) {
+        const totalWithout = result.totalWithoutPriceplus || 0;
+        const totalWith = result.totalWithPriceplus || 0;
+        const priceplusAmount = totalWith - totalWithout;
+        const mgrPercent = currentEmployee.managerCashPercent != null ? Number(currentEmployee.managerCashPercent) : 0;
+        setCashFromPriceplus(priceplusAmount * mgrPercent / 100);
+      }
     } catch (err) {
       console.error('Calculation error:', err);
     }
@@ -430,7 +438,7 @@ const handleClose = () => {
 
   useEffect(() => {
     calculateTotals();
-  }, [formData.items, priceplus]);
+  }, [formData.items, priceplus, currentEmployee]);
 
 const handleSubmit = async (e) => {
     e.preventDefault();
@@ -822,21 +830,43 @@ const handleSubmit = async (e) => {
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
-          <Box
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 1,
-              px: 2,
-              py: 1,
-              fontSize: '1.25rem',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-            }}
-          >
-            Сумма: {totalOrderAmount.toFixed(2)} ₽{workshopTags ? '   ' + workshopTags : ''}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+                px: 2,
+                py: 1,
+                fontSize: '1.25rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
+              Сумма: {totalOrderAmount.toFixed(2)} ₽{workshopTags ? '   ' + workshopTags : ''}
+            </Box>
+            {currentEmployee && cashFromPriceplus > 0 && (
+              <Box
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'success.main',
+                  borderRadius: 1,
+                  px: 2,
+                  py: 1,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: 'success.dark',
+                  bgcolor: '#e8f5e9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                Твой заработок с заказа: {cashFromPriceplus.toFixed(2)} ₽
+              </Box>
+            )}
           </Box>
         </Box>
 

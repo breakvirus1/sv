@@ -508,8 +508,31 @@ public OrderResponse getOrderById(Long id) {
                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
         order.setStatus(OrderStatus.valueOf(status));
+
+        if (OrderStatus.valueOf(status) == OrderStatus.READY) {
+            order.setReadyAt(LocalDateTime.now());
+            calculateCashFromPriceplus(order);
+        }
+
         Order saved = orderRepository.save(order);
         return orderMapper.toDto(saved);
+    }
+
+    private void calculateCashFromPriceplus(Order order) {
+        if (order.getManager() == null || order.getManager().getManagerCashPercent() == null
+                || order.getManager().getManagerCashPercent().compareTo(BigDecimal.ZERO) <= 0) {
+            order.setCashFromPriceplus(BigDecimal.ZERO);
+            return;
+        }
+        if (order.getTotalWithPriceplus() == null || order.getTotalAmount() == null) {
+            order.setCashFromPriceplus(BigDecimal.ZERO);
+            return;
+        }
+        BigDecimal priceplusAmount = order.getTotalWithPriceplus().subtract(order.getTotalAmount());
+        BigDecimal managerShare = priceplusAmount
+                .multiply(order.getManager().getManagerCashPercent())
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        order.setCashFromPriceplus(managerShare);
     }
 
     /**
@@ -909,7 +932,7 @@ private void recalculatePaidAmount(Long orderId) {
     private CommentResponse mapComment(OrderComment comment) {
         Employee author = comment.getAuthor();
         EmployeeResponse authorDto = author != null ?
-                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername(), author.getWorkshopId()) :
+                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername(), author.getWorkshopId(), author.getManagerCashPercent()) :
                 null;
 
         return new CommentResponse(

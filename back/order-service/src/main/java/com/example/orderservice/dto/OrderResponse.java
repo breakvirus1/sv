@@ -48,6 +48,8 @@ public class OrderResponse {
     private BigDecimal priceplus;
     /** Общая сумма заказа с учетом priceplus */
     private BigDecimal totalWithPriceplus;
+    /** Заработок менеджера с priceplus */
+    private BigDecimal cashFromPriceplus;
     /** Наличие документов */
     private Boolean hasDocuments;
     /** Дата создания */
