@@ -37,6 +37,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import ClientInfo from '../components/ClientInfo';
 import { isM2 } from '../utils/orderUtils';
+import { recalculateOrderLocally } from '../services/calculationService';
 
 
 const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
@@ -162,15 +163,38 @@ const { data: operationsData = [] } = useQuery({
     console.log('Count:', materialsData.length);
   }, [materialsData]);
 
-  // Итоговые суммы берём из calculatedData (расчёт на бэкенде)
-  const baseTotalWithoutPriceplus = calculatedData?.totalWithoutPriceplus ?? 0;
-  const backendPriceplus = calculatedData?.priceplus ?? 0;
-  const priceplusDiff = priceplus - backendPriceplus;
-  const liveTotalWithoutPriceplus = baseTotalWithoutPriceplus;
-  const liveTotalWithPriceplus = baseTotalWithoutPriceplus * (1 + priceplus / 100);
-  const totalOrderAmount = liveTotalWithPriceplus;
+  // ── Онлайн расчёт итоговой суммы при изменении позиций ──
+  const [liveTotalWithPriceplus, setLiveTotalWithPriceplus] = useState(0);
+  const [liveTotalWithoutPriceplus, setLiveTotalWithoutPriceplus] = useState(0);
 
-  console.log('=== ИТОГОВАЯ СУММА ЗАКАЗА (from backend calculatedData) ===');
+  const calculateTotals = async () => {
+    if (formData.items.length === 0) {
+      setLiveTotalWithPriceplus(0);
+      setLiveTotalWithoutPriceplus(0);
+      return;
+    }
+    try {
+      const result = await recalculateOrderLocally(formData.items, priceplus);
+      setLiveTotalWithoutPriceplus(result.totalWithoutPriceplus);
+      setLiveTotalWithPriceplus(result.totalWithPriceplus);
+    } catch (err) {
+      console.error('Calculation error:', err);
+    }
+  };
+
+  useEffect(() => {
+    calculateTotals();
+  }, [formData.items, priceplus]);
+
+  // Fallback на данные с бэкенда если онлайн расчёт ещё не выполнен
+  const backendTotalWithoutPriceplus = calculatedData?.totalWithoutPriceplus ?? 0;
+  const backendTotalWithPriceplus = calculatedData?.totalWithPriceplus ?? 0;
+  const displayTotalWithoutPriceplus = liveTotalWithoutPriceplus || backendTotalWithoutPriceplus;
+  const displayTotalWithPriceplus = liveTotalWithPriceplus || backendTotalWithPriceplus;
+
+  console.log('=== ИТОГОВАЯ СУММА ЗАКАЗА ===');
+  console.log('Live totalWithPriceplus:', liveTotalWithPriceplus);
+  console.log('Live totalWithoutPriceplus:', liveTotalWithoutPriceplus);
   console.log('Backend totalWithPriceplus:', calculatedData?.totalWithPriceplus);
   console.log('Backend totalWithoutPriceplus:', calculatedData?.totalWithoutPriceplus);
 
@@ -212,7 +236,7 @@ const { data: operationsData = [] } = useQuery({
           orderItemId: mat.orderItemId,
           materialId: String(mat.material?.id || ''),
           qty1value: mat.widthM != null ? mat.widthM.toString() : '',
-          unit: 'м',
+          unit: 'мм',
           qty2value: mat.heightM != null ? mat.heightM.toString() : '',
           readyDate: mat.readyDate || '',
           cost: mat.cost != null ? Number(mat.cost) : null,
@@ -317,7 +341,7 @@ const { data: operationsData = [] } = useQuery({
           });
           return prev;
         }
-        const nextItems = [...prev.items, { materialId: candidateId, qty1value: '', unit: 'м', qty2value: '', readyDate: '', operations: [] }];
+        const nextItems = [...prev.items, { materialId: candidateId, qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [] }];
         pendingDimRef.current.set(newIndex, candidateId);
         api.get(`/api/v1/materials/${candidateId}`)
           .then(r => {
@@ -339,7 +363,7 @@ const { data: operationsData = [] } = useQuery({
           .finally(() => pendingDimRef.current.delete(newIndex));
         return { ...prev, items: nextItems };
       }
-      return { ...prev, items: [...prev.items, { materialId: '', qty1value: '', unit: 'м', qty2value: '', readyDate: '', operations: [] }] };
+      return { ...prev, items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [] }] };
     });
   };
 
@@ -861,12 +885,7 @@ value={priceplus}
 
             {/* Positions CRUD Section */}
             <Grid item xs={12}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h6">Позиции заказа</Typography>
-                <Button startIcon={<Add />} onClick={addItem} variant="outlined">
-                  Добавить позицию
-                </Button>
-              </Box>
+              <Typography variant="h6" mb={2}>Позиции заказа</Typography>
 
               <TableContainer component={Paper} variant="outlined">
                 <Table size="small">
@@ -1031,13 +1050,20 @@ value={priceplus}
                     gap: 1,
                   }}
                 >
-                  Сумма: {liveTotalWithPriceplus.toFixed(2)} ₽
+                  Сумма: {displayTotalWithPriceplus.toFixed(2)} ₽
                   <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                    (без наценки: {liveTotalWithoutPriceplus.toFixed(2)})
+                    (без наценки: {displayTotalWithoutPriceplus.toFixed(2)})
                   </Typography>
                 </Box>
                 <Box display="flex" gap={2}>
-                  <Button onClick={() => navigate(`/orders/${orderData.id}`)}>Отмена</Button>
+                  <Button
+                    onClick={addItem}
+                    variant="outlined"
+                    startIcon={<Add />}
+                    disabled={formData.items.length >= 20}
+                  >
+                    Добавить позицию
+                  </Button>
                   <Button
                     type="submit"
                     variant="contained"

@@ -79,7 +79,8 @@ const OrderDetail = ({ mode = 'view' }) => {
       const response = await api.get(endpoint);
       return response.data;
     },
-    enabled: mode !== 'create'
+    enabled: mode !== 'create',
+    refetchOnMount: 'always'
   });
 
   const { data: calculatedData } = useQuery({
@@ -88,7 +89,8 @@ const OrderDetail = ({ mode = 'view' }) => {
       const response = await api.get(`/api/v1/orders/${id}/calculated`);
       return response.data;
     },
-    enabled: mode !== 'create' && !!order
+    enabled: mode !== 'create' && !!order,
+    refetchOnMount: 'always'
   });
 
   const { data: clientsData = [] } = useQuery({
