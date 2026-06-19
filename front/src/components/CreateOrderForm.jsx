@@ -421,6 +421,8 @@ const handleClose = () => {
 
   const calculateTotals = async () => {
     if (formData.items.length === 0) return;
+    const hasValidItems = formData.items.every(item => item.materialId && parseFloat(item.qty1value) > 0);
+    if (!hasValidItems) return;
     try {
       const result = await recalculateOrderLocally(formData.items, priceplus);
       setTotalOrderAmount(result.totalWithPriceplus);
@@ -429,6 +431,7 @@ const handleClose = () => {
         const totalWith = result.totalWithPriceplus || 0;
         const priceplusAmount = totalWith - totalWithout;
         const mgrPercent = currentEmployee.managerCashPercent != null ? Number(currentEmployee.managerCashPercent) : 0;
+        console.log('[DEBUG] calculateTotals:', { totalWithout, totalWith, priceplusAmount, mgrPercent, cash: priceplusAmount * mgrPercent / 100 });
         setCashFromPriceplus(priceplusAmount * mgrPercent / 100);
       }
     } catch (err) {
