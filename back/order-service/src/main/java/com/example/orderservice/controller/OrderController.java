@@ -135,9 +135,16 @@ public class OrderController {
     }
 
     /**
-     * Обновить стадию производства.
-     * Доступно: ADMIN, PRODUCTION.
+     * Закрыть заказ.
+     * Доступно только для ADMIN.
      */
+    @Operation(summary = "Закрыть заказ")
+    @PutMapping("/{id}/close")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<OrderResponse> closeOrder(
+            @Parameter(description = "ID заказа") @PathVariable Long id) {
+        return ResponseEntity.ok(orderService.updateStatus(id, OrderStatus.CLOSED.name()));
+    }
     @Operation(summary = "Обновить стадию производства")
     @PutMapping("/{id}/stage")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRODUCTION')")
@@ -211,11 +218,16 @@ public class OrderController {
     }
 
     /**
-     * Получить расчитанные позиции заказа с учетом priceplus и общую сумму.
-     * Используется фронтендом для отображения расчетов в реальном времени.
-     *
-     * Пример: GET /api/v1/orders/1/calculated
+     * Получить статистику заработка менеджера.
+     * Включает заработок с заказов READY и IN_PROGRESS.
      */
+    @Operation(summary = "Получить статистику заработка менеджера")
+    @GetMapping("/manager-earnings/{managerId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ManagerEarningsResponse> getManagerEarnings(
+            @Parameter(description = "ID менеджера") @PathVariable Long managerId) {
+        return ResponseEntity.ok(orderService.getManagerEarnings(managerId));
+    }
     @Operation(summary = "Получить позиции заказа с расчетами priceplus")
     @GetMapping("/{id}/calculated")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")

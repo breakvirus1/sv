@@ -18,6 +18,7 @@ import com.example.orderservice.entity.Payment;
 import com.example.orderservice.entity.ProductionStage;
 import com.example.orderservice.entity.Workshop;
 import com.example.orderservice.mapper.OrderMapper;
+import com.example.orderservice.repository.EmployeeRepository;
 import com.example.orderservice.repository.FileAttachmentRepository;
 import com.example.orderservice.repository.OrderCommentRepository;
 import com.example.orderservice.repository.OrderItemRepository;
@@ -85,6 +86,7 @@ public class OrderService {
     private EntityManager entityManager;
     private final JdbcTemplate jdbcTemplate;
     private final RestTemplate restTemplate;
+    private final EmployeeRepository employeeRepository;
 
     @Value("${calculator.service.url}")
     private String calculatorUrl;
@@ -932,7 +934,7 @@ private void recalculatePaidAmount(Long orderId) {
     private CommentResponse mapComment(OrderComment comment) {
         Employee author = comment.getAuthor();
         EmployeeResponse authorDto = author != null ?
-                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername(), author.getWorkshopId(), author.getManagerCashPercent()) :
+                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername(), author.getWorkshopId(), author.getManagerCashPercent(), null) :
                 null;
 
         return new CommentResponse(
@@ -1151,5 +1153,66 @@ return new CalculatedOrderResponse(
         OrderItem saved = orderItemRepository.save(item);
         recalculateTotalAmount(order.getId());
         return orderMapper.itemToDto(saved);
+    }
+
+    /**
+     * Получить статистику заработка менеджера.
+     * Считает заработок с заказов READY (уже начислено), IN_PROGRESS и APPROVAL (потенциальный).
+     * Заказы со статусом CLOSED исключаются.
+     */
+    public ManagerEarningsResponse getManagerEarnings(Long managerId) {
+        Employee employee = employeeRepository.findById(managerId)
+                .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
+
+        BigDecimal managerCashPercent = employee.getManagerCashPercent();
+        if (managerCashPercent == null || managerCashPercent.compareTo(BigDecimal.ZERO) <= 0) {
+            return new ManagerEarningsResponse(
+                    managerId, employee.getFullName(), BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                    0, 0, 0);
+        }
+
+        // READY orders - already calculated cashFromPriceplus
+        List<Order> readyOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, OrderStatus.READY);
+        BigDecimal readyEarnings = readyOrders.stream()
+                .map(o -> o.getCashFromPriceplus() != null ? o.getCashFromPriceplus() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // IN_PROGRESS orders - calculate potential earnings
+        List<Order> inProgressOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, OrderStatus.IN_PROGRESS);
+        BigDecimal inProgressEarnings = inProgressOrders.stream()
+                .map(o -> calculatePotentialCash(o, managerCashPercent))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // APPROVAL orders - calculate potential earnings
+        List<Order> approvalOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, OrderStatus.APPROVAL);
+        BigDecimal approvalEarnings = approvalOrders.stream()
+                .map(o -> calculatePotentialCash(o, managerCashPercent))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new ManagerEarningsResponse(
+                managerId,
+                employee.getFullName(),
+                managerCashPercent,
+                readyEarnings,
+                inProgressEarnings,
+                approvalEarnings,
+                readyOrders.size(),
+                inProgressOrders.size(),
+                approvalOrders.size()
+        );
+    }
+
+    /**
+     * Рассчитать потенциальный заработок менеджера с заказа в работе.
+     */
+    private BigDecimal calculatePotentialCash(Order order, BigDecimal managerCashPercent) {
+        if (order.getTotalWithPriceplus() == null || order.getTotalAmount() == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal priceplusAmount = order.getTotalWithPriceplus().subtract(order.getTotalAmount());
+        return priceplusAmount
+                .multiply(managerCashPercent)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
     }
 }

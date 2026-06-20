@@ -12,7 +12,9 @@ public enum OrderStatus {
     /** В работе */
     IN_PROGRESS("В работе"),
     /** Заказ готов */
-    READY("Готов");
+    READY("Готов"),
+    /** Заказ закрыт */
+    CLOSED("Закрыт");
 
     private final String displayName;
 

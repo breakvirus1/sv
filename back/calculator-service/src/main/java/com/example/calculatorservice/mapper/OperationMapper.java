@@ -15,7 +15,7 @@ import org.mapstruct.ReportingPolicy;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface OperationMapper {
 
-    @Mapping(target = "unit", source = "unit.displayName")
+    @Mapping(target = "unit", expression = "java(operation.getUnit() != null ? operation.getUnit().getDisplayName() : null)")
     @Mapping(target = "applicableTo", source = "applicableTo")
     @Mapping(target = "default", source = "default")
     OperationDto toDto(Operation operation);

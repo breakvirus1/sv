@@ -68,6 +68,7 @@ const AdminPanel = () => {
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [employeeDeleteDialogOpen, setEmployeeDeleteDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [employeeRoles, setEmployeeRoles] = useState([]);
   const [employeeForm, setEmployeeForm] = useState({ fullName: '', username: '', position: '', phone: '', email: '', workshopId: '', managerCashPercent: '' });
   const [syncing, setSyncing] = useState(false);
 
@@ -294,11 +295,25 @@ const AdminPanel = () => {
     } else { resetWorkshopForm(); }
     setWorkshopDialogOpen(true);
   };
-  const openEmployeeDialog = (emp = null) => {
+  const openEmployeeDialog = async (emp = null) => {
     if (emp) {
       setSelectedEmployee(emp);
       setEmployeeForm({ fullName: emp.fullName || '', username: emp.username || '', position: emp.position || '', phone: emp.phone || '', email: emp.email || '', workshopId: emp.workshopId || '', managerCashPercent: emp.managerCashPercent != null ? emp.managerCashPercent.toString() : '' });
-    } else { resetEmployeeForm(); }
+      // Fetch roles from API
+      if (emp.username) {
+        try {
+          const r = await api.get(`/api/v1/employees/roles/${emp.username}`);
+          setEmployeeRoles(r.data || []);
+        } catch (e) {
+          setEmployeeRoles([]);
+        }
+      } else {
+        setEmployeeRoles([]);
+      }
+    } else {
+      resetEmployeeForm();
+      setEmployeeRoles([]);
+    }
     setEmployeeDialogOpen(true);
   };
 
@@ -324,8 +339,9 @@ const AdminPanel = () => {
   };
   const handleEmployeeSubmit = () => {
     if (!employeeForm.username) { showNotification('Введите логин', 'error'); return; }
+    if (!selectedEmployee) { showNotification('Создание новых сотрудников запрещено', 'error'); return; }
     const payload = { ...employeeForm, workshopId: employeeForm.workshopId ? parseInt(employeeForm.workshopId) : null, managerCashPercent: employeeForm.managerCashPercent ? parseFloat(employeeForm.managerCashPercent) : null };
-    selectedEmployee ? updateEmployeeMutation.mutate({ id: selectedEmployee.id, data: payload }) : createEmployeeMutation.mutate(payload);
+    updateEmployeeMutation.mutate({ id: selectedEmployee.id, data: payload });
   };
 
   const startEditMaterial = (mat) => { setEditingMaterialId(mat.id); setEditMaterialForm({ name: mat.name, unit: mat.unit, price: mat.price, wasteCoefficient: mat.wasteCoefficient }); };
@@ -479,13 +495,12 @@ const AdminPanel = () => {
           <Button variant="outlined" startIcon={syncing ? <CircularProgress size={16} /> : <Sync />} onClick={() => syncKeycloakMutation.mutate()} disabled={syncing}>
             {syncing ? 'Синхронизация...' : 'Синхронизировать из Keycloak'}
           </Button>
-          <Button variant="contained" startIcon={<Add />} onClick={() => openEmployeeDialog()}>Добавить сотрудника</Button>
         </Box>
       </Box>
       {employeesData.length === 0 && <Typography>Нет сотрудников</Typography>}
       {employeesData.length > 0 && (
         <TableContainer component={Paper}><Table size="small">
-          <TableHead><TableRow><TableCell>ID</TableCell><TableCell>ФИО</TableCell><TableCell>Логин</TableCell><TableCell>Должность</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell>Цех</TableCell><TableCell>% заработка</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+          <TableHead><TableRow><TableCell>ID</TableCell><TableCell>ФИО</TableCell><TableCell>Логин</TableCell><TableCell>Должность</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell>Роли</TableCell><TableCell>Цех</TableCell><TableCell>% заработка</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
           <TableBody>
             {employeesData.map((emp) => (
               <TableRow key={emp.id}>
@@ -495,6 +510,14 @@ const AdminPanel = () => {
                 <TableCell>{emp.position || '-'}</TableCell>
                 <TableCell>{emp.phone || '-'}</TableCell>
                 <TableCell>{emp.email || '-'}</TableCell>
+                <TableCell>
+                  <Box display="flex" flexWrap="wrap" gap={0.5}>
+                    {(emp.roles || []).map(role => (
+                      <Chip key={role} label={role.replace('ROLE_', '')} size="small" variant="outlined" />
+                    ))}
+                    {(!emp.roles || emp.roles.length === 0) && '-'}
+                  </Box>
+                </TableCell>
                 <TableCell>{emp.workshopId ? `#${emp.workshopId} ${getWorkshopName(emp.workshopId)}` : '-'}</TableCell>
                 <TableCell>{emp.managerCashPercent != null ? `${emp.managerCashPercent}%` : '-'}</TableCell>
                 <TableCell align="right">
@@ -633,13 +656,17 @@ const AdminPanel = () => {
           <TextField fullWidth margin="dense" label="Должность" value={employeeForm.position} onChange={(e) => setEmployeeForm({ ...employeeForm, position: e.target.value })} />
           <TextField fullWidth margin="dense" label="Телефон" value={employeeForm.phone} onChange={(e) => setEmployeeForm({ ...employeeForm, phone: e.target.value })} />
           <TextField fullWidth margin="dense" label="Email" value={employeeForm.email} onChange={(e) => setEmployeeForm({ ...employeeForm, email: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Процент заработка менеджера (managerCashPercent)" type="number" value={employeeForm.managerCashPercent} onChange={(e) => setEmployeeForm({ ...employeeForm, managerCashPercent: e.target.value })} inputProps={{ min: 0, max: 100, step: 0.01 }} />
-          <FormControl fullWidth margin="dense"><InputLabel>Цех</InputLabel>
-            <Select value={employeeForm.workshopId} label="Цех" onChange={(e) => setEmployeeForm({ ...employeeForm, workshopId: e.target.value })}>
-              <MenuItem value="">Не назначен</MenuItem>
-              {workshopsData.map((ws) => <MenuItem key={ws.id} value={ws.id}>{ws.name}</MenuItem>)}
-            </Select>
-          </FormControl>
+          {employeeRoles.includes('ROLE_MANAGER') && (
+            <TextField fullWidth margin="dense" label="Процент заработка менеджера (managerCashPercent)" type="number" value={employeeForm.managerCashPercent} onChange={(e) => setEmployeeForm({ ...employeeForm, managerCashPercent: e.target.value })} inputProps={{ min: 0, max: 100, step: 0.01 }} />
+          )}
+          {!selectedEmployee || employeeRoles.includes('ROLE_PRODUCTION') ? (
+            <FormControl fullWidth margin="dense"><InputLabel>Цех</InputLabel>
+              <Select value={employeeForm.workshopId} label="Цех" onChange={(e) => setEmployeeForm({ ...employeeForm, workshopId: e.target.value })}>
+                <MenuItem value="">Не назначен</MenuItem>
+                {workshopsData.map((ws) => <MenuItem key={ws.id} value={ws.id}>{ws.name}</MenuItem>)}
+              </Select>
+            </FormControl>
+          ) : null}
         </DialogContent>
         <DialogActions><Button onClick={() => setEmployeeDialogOpen(false)}>Отмена</Button><Button onClick={handleEmployeeSubmit} variant="contained" disabled={!employeeForm.username}>Сохранить</Button></DialogActions>
       </Dialog>

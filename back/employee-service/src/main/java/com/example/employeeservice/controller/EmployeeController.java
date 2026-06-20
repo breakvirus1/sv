@@ -19,6 +19,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * REST Controller для управления сотрудниками.
  */
@@ -94,5 +96,12 @@ public class EmployeeController {
     public ResponseEntity<Void> deleteEmployee(@Parameter(description = "ID сотрудника") @PathVariable Long id) {
         employeeService.deleteEmployee(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Получить роли сотрудника из Keycloak по username")
+    @GetMapping("/roles/{username}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<List<String>> getEmployeeRoles(@PathVariable String username) {
+        return ResponseEntity.ok(employeeService.getKeycloakRolesForUser(username));
     }
 }

@@ -84,6 +84,7 @@ public interface OrderMapper {
 
     ClientResponse clientToDto(com.example.clientservice.entity.Client client);
 
+    @Mapping(target = "roles", ignore = true)
     EmployeeResponse employeeToDto(com.example.employeeservice.entity.Employee employee);
 
     MaterialResponse materialToDto(com.example.materialservice.entity.Material material);
@@ -178,7 +179,8 @@ public interface OrderMapper {
                 entity.getAuthor().getEmail(),
                 entity.getAuthor().getUsername(),
                 entity.getAuthor().getWorkshopId(),
-                entity.getAuthor().getManagerCashPercent()));
+                entity.getAuthor().getManagerCashPercent(),
+                null));
         }
     }
 

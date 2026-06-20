@@ -4,6 +4,7 @@ import com.example.calculatorservice.dto.request.CalculationRequestDto;
 import com.example.calculatorservice.dto.response.CalculationResponseDto;
 import com.example.calculatorservice.entity.*;
 import com.example.calculatorservice.exception.BadRequestException;
+import com.example.calculatorservice.mapper.CalculationMapper;
 import com.example.calculatorservice.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,8 +34,12 @@ class CalculationServiceTest {
     @Mock private OperationRepository operationRepository;
     @Mock private CalculationRepository calculationRepository;
 
-    private final com.example.calculatorservice.mapper.CalculationMapper calculationMapper =
-            Mappers.getMapper(com.example.calculatorservice.mapper.CalculationMapper.class);
+    private CalculationMapper calculationMapper;
+
+    @BeforeEach
+    void setUpMapper() {
+        calculationMapper = Mappers.getMapper(CalculationMapper.class);
+    }
 
     private CalculationService calculationService;
 

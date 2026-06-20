@@ -6,12 +6,14 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
+import { Dashboard } from '@mui/icons-material';
 
 const statusGroups = [
   { key: 'DRAFT', label: 'Черновики' },
   { key: 'APPROVAL', label: 'На согласовании' },
   { key: 'IN_PROGRESS', label: 'В работе' },
   { key: 'READY', label: 'Готовы' },
+  { key: 'CLOSED', label: 'Закрытые' },
 ];
 
 const Navbar = () => {
@@ -175,19 +177,33 @@ const Navbar = () => {
                </>
              )}
 
-            {/* Admin Panel button - only for ADMIN role */}
-            {user?.roles?.includes('ROLE_ADMIN') && (
-              <Button
-                variant="outlined"
-                color="inherit"
-                size="small"
-                onClick={() => navigate('/admin')}
-                startIcon={<AdminPanelSettings />}
-                sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
-              >
-                Admin Panel
-              </Button>
-            )}
+             {/* Admin Panel button - only for ADMIN role */}
+             {user?.roles?.includes('ROLE_ADMIN') && (
+               <Button
+                 variant="outlined"
+                 color="inherit"
+                 size="small"
+                 onClick={() => navigate('/admin')}
+                 startIcon={<AdminPanelSettings />}
+                 sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
+               >
+                 Admin Panel
+               </Button>
+             )}
+
+               {/* Manager Dashboard button - only for ROLE_MANAGER */}
+               {user?.roles?.includes('ROLE_MANAGER') && !user?.roles?.includes('ROLE_ADMIN') && (
+                 <Button
+                   variant="outlined"
+                   color="inherit"
+                   size="small"
+                   onClick={() => navigate('/manager/dashboard')}
+                   startIcon={<Dashboard />}
+                   sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
+                 >
+                   Кабинет
+                 </Button>
+               )}
 
              {/* Create Order button with dropdown - only for manager/admin */}
              {isManager && (

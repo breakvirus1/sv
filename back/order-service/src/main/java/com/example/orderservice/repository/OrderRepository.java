@@ -1,6 +1,7 @@
 package com.example.orderservice.repository;
 
 import com.example.orderservice.entity.Order;
+import com.example.orderservice.entity.OrderStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -12,6 +13,9 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.data.repository.query.Param;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
 
@@ -41,4 +45,16 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 
     @EntityGraph(attributePaths = {"client", "manager"})
     Page<Order> findAll(Specification<Order> spec, Pageable pageable);
+
+    /**
+     * Найти все заказы менеджера с указанным статусом.
+     */
+    @EntityGraph(attributePaths = {"client", "manager"})
+    List<Order> findByManagerIdAndStatus(Long managerId, OrderStatus status);
+
+    /**
+     * Найти все заказы менеджера с указанным статусом (только неудалённые).
+     */
+    @EntityGraph(attributePaths = {"client", "manager"})
+    List<Order> findByManagerIdAndStatusAndDeletedFalse(Long managerId, OrderStatus status);
 }

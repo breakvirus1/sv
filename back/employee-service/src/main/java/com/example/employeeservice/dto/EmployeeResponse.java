@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -16,4 +18,5 @@ public class EmployeeResponse {
     private String username;
     private Long workshopId;
     private java.math.BigDecimal managerCashPercent;
+    private List<String> roles;
 }

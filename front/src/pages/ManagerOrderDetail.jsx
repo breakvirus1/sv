@@ -51,91 +51,13 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   const { user } = useAuth();
   const username = user?.username;
   const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+  const isManager = user?.roles?.includes('ROLE_MANAGER');
 
-  // ── Create mode state ──
-  const [formData, setFormData] = useState({
-    clientId: '',
-    description: '',
-    orderDate: new Date().toISOString().split('T')[0],
-    dueDate: '',
-    items: []
-  });
-  const [priceplus, setPriceplus] = useState(0);
-  const [totalAmount, setTotalAmount] = useState(0);
+  // Проверка прав на редактирование: автор заказа или ADMIN
+  const canEdit = !!(currentEmployee && order?.manager && (isAdmin || currentEmployee.id === order.manager.id));
 
-  // ── Helper to determine endpoint based on identifier ──
-  const getOrderEndpoint = (identifier) => {
-    if (/^\d{14}$/.test(identifier)) {
-      return `/api/v1/orders/number/${identifier}`;
-    }
-    return `/api/v1/orders/${identifier}`;
-  };
-
-  // ── Queries: Order, Calculated Data, Clients, Materials, Employees ──
-  const { data: order, isLoading, error } = useQuery({
-    queryKey: ['order', id],
-    queryFn: async () => {
-      const endpoint = getOrderEndpoint(id);
-      const response = await api.get(endpoint);
-      return response.data;
-    },
-    enabled: mode !== 'create',
-    refetchOnMount: 'always'
-  });
-
-  const { data: calculatedData } = useQuery({
-    queryKey: ['order-calculated', id],
-    queryFn: async () => {
-      const response = await api.get(`/api/v1/orders/${id}/calculated`);
-      return response.data;
-    },
-    enabled: mode !== 'create' && !!order,
-    refetchOnMount: 'always'
-  });
-
-  const { data: clientsData = [] } = useQuery({
-    queryKey: ['clients'],
-    queryFn: async () => {
-      const response = await api.get('/api/v1/clients?size=100');
-      return response.data.content || [];
-    },
-    enabled: mode === 'create'
-  });
-
-  const { data: materialsData = [] } = useQuery({
-    queryKey: ['materials'],
-    queryFn: async () => {
-      const response = await api.get('/api/v1/materials?size=100');
-      return response.data.content || [];
-    },
-    enabled: mode === 'create'
-  });
-
-  const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
-    queryKey: ['currentEmployee', username],
-    queryFn: async () => {
-      if (!username) return null;
-      const response = await api.get(`/api/v1/employees?size=1&q=${username}`);
-      const data = response.data.content || [];
-      return data.length > 0 ? data[0] : null;
-    },
-    enabled: !!username
-  });
-
-const { data: employeesData = [] } = useQuery({
-    queryKey: ['employees'],
-    queryFn: async () => {
-      const response = await api.get('/api/v1/employees?size=100');
-      return response.data.content || [];
-    },
-    enabled: mode === 'edit'
-  });
-
-// Получаем итоговую сумму из заказа (totalAmount from orders table)
-    const totalOrderAmount = order?.totalAmount ?? 0;
-
-    // Проверка прав на редактирование: автор заказа или ADMIN
-    const canEdit = !!(currentEmployee && order?.manager && (isAdmin || currentEmployee.id === order.manager.id));
+  // Менеджер не хозяин заказа - скрыть кнопки статуса и оплаты
+  const isManagerNotOwner = isManager && !canEdit && !isAdmin;
 
     // ==================== State ====================
     const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -528,12 +450,16 @@ const { data: employeesData = [] } = useQuery({
               Редактировать
             </Button>
           )}
-          <Button variant="outlined" onClick={() => { setNewStatus(order?.status); setStatusDialogOpen(true); }}>
-            Изменить статус
-          </Button>
-          <Button variant="contained" startIcon={<Payment />} onClick={() => setPaymentDialogOpen(true)}>
-            Добавить оплату
-          </Button>
+          {!isManagerNotOwner && (
+            <Button variant="outlined" onClick={() => { setNewStatus(order?.status); setStatusDialogOpen(true); }}>
+              Изменить статус
+            </Button>
+          )}
+          {!isManagerNotOwner && (
+            <Button variant="contained" startIcon={<Payment />} onClick={() => setPaymentDialogOpen(true)}>
+              Добавить оплату
+            </Button>
+          )}
         </Box>
       </Box>
 

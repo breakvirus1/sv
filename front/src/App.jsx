@@ -14,6 +14,7 @@ import ProductionOrdersPositionsList from './pages/ProductionOrdersPositionsList
 import TestCalculations from './pages/TestCalculations'
 import CreateOrderForm from './components/CreateOrderForm'
 import ManagerOrderDetail from './pages/ManagerOrderDetail'
+import ManagerDashboard from './pages/ManagerDashboard'
 
 function App() {
   const { user, loading } = useAuth()
@@ -95,6 +96,11 @@ function App() {
             <Route path="/manager/orders/:id" element={
               <ProtectedRoute requiresManager={true}>
                 <ManagerOrderDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/manager/dashboard" element={
+              <ProtectedRoute requiresManager={true}>
+                <ManagerDashboard />
               </ProtectedRoute>
             } />
             <Route path="/orders/:id/edit" element={

@@ -10,9 +10,9 @@ import {
   CircularProgress,
   Alert
 } from '@mui/material';
-import { Add, Person } from '@mui/icons-material';
+import { Add, Person, Close } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useMutation } from '@tanstack/react-query';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -49,6 +49,7 @@ const fetchOrders = async ({ pageParam = 0, queryKey }) => {
 const OrdersList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('ROLE_ADMIN');
   const [searchParams] = useSearchParams();
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: PAGE_SIZE });
   const loadingRef = useRef(false);
@@ -209,7 +210,37 @@ const OrdersList = () => {
         <Typography variant="body2">{params.value || '—'}</Typography>
       )
     },
+    ...(isAdmin ? [{
+      field: 'actions',
+      headerName: 'Действия',
+      flex: 0.8,
+      minWidth: 100,
+      sortable: false,
+      renderCell: (params) => (
+        params.row?.status !== 'CLOSED' ? (
+          <Button
+            size="small"
+            color="error"
+            startIcon={<Close />}
+            onClick={(e) => { e.stopPropagation(); handleCloseOrder(params.row.id); }}
+          >
+            Закрыть
+          </Button>
+        ) : null
+      )
+    }] : []),
   ];
+
+  const closeOrderMutation = useMutation({
+    mutationFn: (orderId) => api.put(`/api/v1/orders/${orderId}/close`),
+    onSuccess: () => {
+      fetchNextPage();
+    },
+  });
+
+  const handleCloseOrder = (orderId) => {
+    closeOrderMutation.mutate(orderId);
+  };
 
   const getTitle = () => {
     if (myOrders) return 'Мои заказы';

@@ -13,7 +13,6 @@ import lombok.Setter;
  */
 @Entity
 @Table(name = "roles")
-@AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
@@ -27,6 +26,14 @@ public class Role {
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private ERole name;
+
+    public Role(ERole name) {
+        this.name = name;
+    }
+
+    public ERole getRoleName() {
+        return name;
+    }
 
     /**
      * Возвращает строковое представление роли.

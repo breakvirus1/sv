@@ -7,6 +7,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Сущность "Сотрудник" — исполнитель или менеджер.
  * Примеры: "Мохирёва Наталья", "Шипилов Станислав".
@@ -46,4 +49,14 @@ public class Employee extends BaseEntity {
     /** Процент заработка менеджера от priceplus (настраивается админом) */
     @Column(name = "manager_cash_percent", precision = 5, scale = 2)
     private java.math.BigDecimal managerCashPercent;
+
+    /** Роли сотрудника (синхронизируются из Keycloak) */
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "employee_roles",
+        schema = "public",
+        joinColumns = @JoinColumn(name = "employee_id"),
+        inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<Role> roles = new HashSet<>();
 }
