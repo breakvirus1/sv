@@ -500,7 +500,7 @@ const AdminPanel = () => {
       {employeesData.length === 0 && <Typography>Нет сотрудников</Typography>}
       {employeesData.length > 0 && (
         <TableContainer component={Paper}><Table size="small">
-          <TableHead><TableRow><TableCell>ID</TableCell><TableCell>ФИО</TableCell><TableCell>Логин</TableCell><TableCell>Должность</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell>Роли</TableCell><TableCell>Цех</TableCell><TableCell>% заработка</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+           <TableHead><TableRow><TableCell>ID</TableCell><TableCell>ФИО</TableCell><TableCell>Логин</TableCell><TableCell>Должность</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell>Роль</TableCell><TableCell>Роли</TableCell><TableCell>Цех</TableCell><TableCell>% заработка</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
           <TableBody>
             {employeesData.map((emp) => (
               <TableRow key={emp.id}>
@@ -510,6 +510,7 @@ const AdminPanel = () => {
                 <TableCell>{emp.position || '-'}</TableCell>
                 <TableCell>{emp.phone || '-'}</TableCell>
                 <TableCell>{emp.email || '-'}</TableCell>
+                <TableCell>{emp.roleId ? <Chip label={`#${emp.roleId}`} size="small" color="primary" /> : '-'}</TableCell>
                 <TableCell>
                   <Box display="flex" flexWrap="wrap" gap={0.5}>
                     {(emp.roles || []).map(role => (

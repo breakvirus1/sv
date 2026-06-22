@@ -180,7 +180,7 @@ public interface OrderMapper {
                 entity.getAuthor().getUsername(),
                 entity.getAuthor().getWorkshopId(),
                 entity.getAuthor().getManagerCashPercent(),
-                null));
+                null, null));
         }
     }
 

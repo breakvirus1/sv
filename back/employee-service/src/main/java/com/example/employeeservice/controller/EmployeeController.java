@@ -86,8 +86,8 @@ public class EmployeeController {
     @PostMapping("/sync-all")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> syncAllFromKeycloak() {
-        int created = employeeService.syncAllFromKeycloak();
-        return ResponseEntity.ok("Синхронизация завершена. Создано новых сотрудников: " + created);
+        String result = employeeService.syncAllFromKeycloak();
+        return ResponseEntity.ok("Синхронизация завершена. " + result);
     }
 
     @Operation(summary = "Удалить сотрудника")

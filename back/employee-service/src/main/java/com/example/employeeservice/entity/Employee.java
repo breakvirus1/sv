@@ -50,6 +50,10 @@ public class Employee extends BaseEntity {
     @Column(name = "manager_cash_percent", precision = 5, scale = 2)
     private java.math.BigDecimal managerCashPercent;
 
+    /** ID основной роли из public.roles (синхронизируется из Keycloak) */
+    @Column(name = "role_id")
+    private Long roleId;
+
     /** Роли сотрудника (синхронизируются из Keycloak) */
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

@@ -181,17 +181,23 @@ public class EmployeeService {
         // Sync roles from Keycloak
         List<String> kcRoles = fetchKeycloakRolesForUsernames(List.of(username)).getOrDefault(username, List.of());
         java.util.Set<Role> roles = new java.util.HashSet<>();
+        Long firstRoleId = null;
         for (String roleName : kcRoles) {
+            ERole eRole = mapKeycloakRoleName(roleName);
+            if (eRole == null) continue;
             try {
-                ERole eRole = ERole.valueOf(roleName);
                 Role role = roleRepository.findByName(eRole)
                         .orElseGet(() -> roleRepository.save(new Role(eRole)));
                 roles.add(role);
-            } catch (IllegalArgumentException e) {
-                // Skip unknown roles
+                if (firstRoleId == null) {
+                    firstRoleId = role.getId();
+                }
+            } catch (Exception e) {
+                // Skip problematic roles
             }
         }
         employee.setRoles(roles);
+        employee.setRoleId(firstRoleId);
 
         Employee saved = employeeRepository.save(employee);
         EmployeeResponse dto = employeeMapper.toDto(saved);
@@ -200,7 +206,7 @@ public class EmployeeService {
     }
 
     @Transactional
-    public int syncAllFromKeycloak() {
+    public String syncAllFromKeycloak() {
         RestTemplate restTemplate = new RestTemplate();
 
         String adminToken = obtainAdminToken(restTemplate);
@@ -220,10 +226,47 @@ public class EmployeeService {
         Set<String> existingUsernames = employeeRepository.findAllUsernames();
 
         int created = 0;
+        int updated = 0;
         for (var kcUser : kcUsers) {
             String username = (String) kcUser.get("username");
             if (username == null) continue;
-            if (existingUsernames.contains(username)) continue;
+
+            List<String> kcRoles = fetchUserRoles(restTemplate, adminToken, username);
+            java.util.Set<Role> roles = new java.util.HashSet<>();
+            Long firstRoleId = null;
+            for (String roleName : kcRoles) {
+                ERole eRole = mapKeycloakRoleName(roleName);
+                if (eRole == null) continue;
+                try {
+                    Role role = roleRepository.findByName(eRole)
+                            .orElseGet(() -> roleRepository.save(new Role(eRole)));
+                    roles.add(role);
+                    if (firstRoleId == null) {
+                        firstRoleId = role.getId();
+                    }
+                } catch (Exception e) {
+                    // Skip problematic roles
+                }
+            }
+
+            if (existingUsernames.contains(username)) {
+                Employee existing = employeeRepository.findByUsername(username).orElse(null);
+                if (existing != null) {
+                    existing.setRoles(roles);
+                    existing.setRoleId(firstRoleId);
+                    if (kcUser.get("firstName") != null) {
+                        String firstName = (String) kcUser.get("firstName");
+                        String lastName = (String) kcUser.get("lastName");
+                        existing.setFullName(firstName + " " + (lastName != null ? lastName : ""));
+                    }
+                    if (kcUser.get("email") != null) {
+                        existing.setEmail((String) kcUser.get("email"));
+                    }
+                    employeeRepository.save(existing);
+                    updated++;
+                }
+                continue;
+            }
 
             Employee employee = new Employee();
             employee.setUsername(username);
@@ -233,28 +276,32 @@ public class EmployeeService {
                     ? (firstName + " " + (lastName != null ? lastName : "")).trim()
                     : username);
             employee.setEmail((String) kcUser.get("email"));
-
-            // Fetch and assign roles from Keycloak
-            List<String> kcRoles = fetchUserRoles(restTemplate, adminToken, username);
-            java.util.Set<Role> roles = new java.util.HashSet<>();
-            for (String roleName : kcRoles) {
-                try {
-                    ERole eRole = ERole.valueOf(roleName);
-                    Role role = roleRepository.findByName(eRole)
-                            .orElseGet(() -> roleRepository.save(new Role(eRole)));
-                    roles.add(role);
-                } catch (IllegalArgumentException e) {
-                    // Skip unknown roles
-                }
-            }
             employee.setRoles(roles);
+            employee.setRoleId(firstRoleId);
 
             employeeRepository.save(employee);
             existingUsernames.add(username);
             created++;
         }
 
-        return created;
+        return "created=" + created + ", updated=" + updated;
+    }
+
+    private ERole mapKeycloakRoleName(String kcRoleName) {
+        if (kcRoleName == null) return null;
+        switch (kcRoleName) {
+            case "ADMIN":       return ERole.ROLE_ADMIN;
+            case "MANAGER":     return ERole.ROLE_MANAGER;
+            case "PRODUCTION":  return ERole.ROLE_PRODUCTION;
+            case "ACCOUNTANT":  return ERole.ROLE_ACCOUNTANT;
+            case "USER":        return ERole.ROLE_USER;
+            default:
+                try {
+                    return ERole.valueOf(kcRoleName);
+                } catch (IllegalArgumentException e) {
+                    return null;
+                }
+        }
     }
 
     private String obtainAdminToken(RestTemplate restTemplate) {

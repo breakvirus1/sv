@@ -18,5 +18,6 @@ public class EmployeeResponse {
     private String username;
     private Long workshopId;
     private java.math.BigDecimal managerCashPercent;
+    private Long roleId;
     private List<String> roles;
 }

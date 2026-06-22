@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 public interface EmployeeMapper {
 
     @Mapping(target = "roles", expression = "java(mapRoles(employee.getRoles()))")
+    @Mapping(target = "roleId", source = "roleId")
     EmployeeResponse toDto(Employee employee);
 
     @Mapping(target = "id", ignore = true)
@@ -26,6 +27,7 @@ public interface EmployeeMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "roles", ignore = true)
+    @Mapping(target = "roleId", ignore = true)
     Employee toEntity(EmployeeCreateRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -33,6 +35,7 @@ public interface EmployeeMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "roles", ignore = true)
+    @Mapping(target = "roleId", ignore = true)
     void updateEntityFromRequest(EmployeeUpdateRequest request, @MappingTarget Employee employee);
 
     default List<String> mapRoles(Set<Role> roles) {

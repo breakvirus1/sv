@@ -934,7 +934,7 @@ private void recalculatePaidAmount(Long orderId) {
     private CommentResponse mapComment(OrderComment comment) {
         Employee author = comment.getAuthor();
         EmployeeResponse authorDto = author != null ?
-                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername(), author.getWorkshopId(), author.getManagerCashPercent(), null) :
+                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername(), author.getWorkshopId(), author.getManagerCashPercent(), null, null) :
                 null;
 
         return new CommentResponse(
