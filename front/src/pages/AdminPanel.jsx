@@ -657,10 +657,10 @@ const AdminPanel = () => {
           <TextField fullWidth margin="dense" label="Должность" value={employeeForm.position} onChange={(e) => setEmployeeForm({ ...employeeForm, position: e.target.value })} />
           <TextField fullWidth margin="dense" label="Телефон" value={employeeForm.phone} onChange={(e) => setEmployeeForm({ ...employeeForm, phone: e.target.value })} />
           <TextField fullWidth margin="dense" label="Email" value={employeeForm.email} onChange={(e) => setEmployeeForm({ ...employeeForm, email: e.target.value })} />
-          {employeeRoles.includes('ROLE_MANAGER') && (
+          {(employeeRoles.includes('ROLE_MANAGER') || employeeRoles.includes('manager')) && (
             <TextField fullWidth margin="dense" label="Процент заработка менеджера (managerCashPercent)" type="number" value={employeeForm.managerCashPercent} onChange={(e) => setEmployeeForm({ ...employeeForm, managerCashPercent: e.target.value })} inputProps={{ min: 0, max: 100, step: 0.01 }} />
           )}
-          {!selectedEmployee || employeeRoles.includes('ROLE_PRODUCTION') ? (
+          {!selectedEmployee || employeeRoles.includes('ROLE_PRODUCTION') || employeeRoles.includes('production') ? (
             <FormControl fullWidth margin="dense"><InputLabel>Цех</InputLabel>
               <Select value={employeeForm.workshopId} label="Цех" onChange={(e) => setEmployeeForm({ ...employeeForm, workshopId: e.target.value })}>
                 <MenuItem value="">Не назначен</MenuItem>
