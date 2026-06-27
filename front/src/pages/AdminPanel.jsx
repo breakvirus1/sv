@@ -295,21 +295,11 @@ const AdminPanel = () => {
     } else { resetWorkshopForm(); }
     setWorkshopDialogOpen(true);
   };
-  const openEmployeeDialog = async (emp = null) => {
+  const openEmployeeDialog = (emp = null) => {
     if (emp) {
       setSelectedEmployee(emp);
       setEmployeeForm({ fullName: emp.fullName || '', username: emp.username || '', position: emp.position || '', phone: emp.phone || '', email: emp.email || '', workshopId: emp.workshopId || '', managerCashPercent: emp.managerCashPercent != null ? emp.managerCashPercent.toString() : '' });
-      // Fetch roles from API
-      if (emp.username) {
-        try {
-          const r = await api.get(`/api/v1/employees/roles/${emp.username}`);
-          setEmployeeRoles(r.data || []);
-        } catch (e) {
-          setEmployeeRoles([]);
-        }
-      } else {
-        setEmployeeRoles([]);
-      }
+      setEmployeeRoles(Array.isArray(emp.roles) ? emp.roles : []);
     } else {
       resetEmployeeForm();
       setEmployeeRoles([]);
