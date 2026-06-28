@@ -6,7 +6,7 @@
 -- ----------------------------
 -- 13. Material Operations table (reference operations for materials)
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS ordschema.material_operations (
+CREATE TABLE IF NOT EXISTS svschema.material_operations (
     id BIGSERIAL PRIMARY KEY,
     material_id BIGINT NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS ordschema.material_operations (
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT false,
     CONSTRAINT fk_material_operations_material FOREIGN KEY (material_id)
-        REFERENCES ordschema.materials (id) ON DELETE CASCADE
+        REFERENCES svschema.materials (id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_material_operations_material ON ordschema.material_operations(material_id);
-CREATE INDEX IF NOT EXISTS idx_material_operations_active ON ordschema.material_operations(active);
+CREATE INDEX IF NOT EXISTS idx_material_operations_material ON svschema.material_operations(material_id);
+CREATE INDEX IF NOT EXISTS idx_material_operations_active ON svschema.material_operations(active);

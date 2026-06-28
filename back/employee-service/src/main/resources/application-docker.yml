@@ -9,11 +9,13 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     baseline-version: 0
-    schemas: public
+    schemas: svschema
+    out-of-order: true
+    validate-on-migrate: false
   jpa:
     properties:
       hibernate:
-        default_schema: ordschema
+        default_schema: svschema
   security:
     oauth2:
       resourceserver:

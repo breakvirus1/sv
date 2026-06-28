@@ -3,7 +3,7 @@
 
 CREATE SCHEMA IF NOT EXISTS calculator;
 
-CREATE TABLE IF NOT EXISTS calculator.calculator_eyelets (
+CREATE TABLE IF NOT EXISTS svschema.calculator_eyelets (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     price_per_piece DECIMAL(12,2) NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS calculator.calculator_eyelets (
     deleted BOOLEAN DEFAULT FALSE
 );
 
-CREATE TABLE IF NOT EXISTS calculator.calculator_operations (
+CREATE TABLE IF NOT EXISTS svschema.calculator_operations (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     price DECIMAL(12,2) NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS calculator.calculator_operations (
     deleted BOOLEAN DEFAULT FALSE
 );
 
-CREATE TABLE IF NOT EXISTS calculator.calculator_calculations (
+CREATE TABLE IF NOT EXISTS svschema.calculator_calculations (
     id BIGSERIAL PRIMARY KEY,
     material_id BIGINT NOT NULL,
     width_m DECIMAL(10,4) NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS calculator.calculator_calculations (
     deleted BOOLEAN DEFAULT FALSE
 );
 
-CREATE TABLE IF NOT EXISTS calculator.calculator_calculation_operations (
+CREATE TABLE IF NOT EXISTS svschema.calculator_calculation_operations (
     id BIGSERIAL PRIMARY KEY,
     calculation_id BIGINT NOT NULL,
     operation_id BIGINT NOT NULL,
@@ -52,11 +52,11 @@ CREATE TABLE IF NOT EXISTS calculator.calculator_calculation_operations (
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT FALSE,
-    CONSTRAINT fk_calc_ops_calculation FOREIGN KEY (calculation_id) REFERENCES calculator.calculator_calculations (id) ON DELETE CASCADE,
-    CONSTRAINT fk_calc_ops_operation FOREIGN KEY (operation_id) REFERENCES calculator.calculator_operations (id)
+    CONSTRAINT fk_calc_ops_calculation FOREIGN KEY (calculation_id) REFERENCES svschema.calculator_calculations (id) ON DELETE CASCADE,
+    CONSTRAINT fk_calc_ops_operation FOREIGN KEY (operation_id) REFERENCES svschema.calculator_operations (id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_calc_calculations_material ON calculator.calculator_calculations(material_id);
-CREATE INDEX IF NOT EXISTS idx_calc_calculations_eyelet ON calculator.calculator_calculations(eyelet_id);
-CREATE INDEX IF NOT EXISTS idx_calcops_calculation ON calculator.calculator_calculation_operations(calculation_id);
-CREATE INDEX IF NOT EXISTS idx_calcops_operation ON calculator.calculator_calculation_operations(operation_id);
+CREATE INDEX IF NOT EXISTS idx_calc_calculations_material ON svschema.calculator_calculations(material_id);
+CREATE INDEX IF NOT EXISTS idx_calc_calculations_eyelet ON svschema.calculator_calculations(eyelet_id);
+CREATE INDEX IF NOT EXISTS idx_calcops_calculation ON svschema.calculator_calculation_operations(calculation_id);
+CREATE INDEX IF NOT EXISTS idx_calcops_operation ON svschema.calculator_calculation_operations(operation_id);

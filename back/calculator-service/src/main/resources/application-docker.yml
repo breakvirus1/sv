@@ -5,11 +5,13 @@ spring:
     password: ${DB_PASSWORD:12345}
     driver-class-name: org.postgresql.Driver
   flyway:
-    schemas: calculator
+    schemas: svschema
+    table: flyway_calculator_schema_history
+    validate-on-migrate: false
   jpa:
     properties:
       hibernate:
-        default_schema: calculator
+        default_schema: svschema
   security:
     oauth2:
       resourceserver:

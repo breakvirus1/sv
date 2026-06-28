@@ -1,1 +1,1 @@
-ALTER TABLE IF EXISTS ordschema.employees ADD COLUMN IF NOT EXISTS workshop_id BIGINT;
+ALTER TABLE IF EXISTS svschema.employees ADD COLUMN IF NOT EXISTS workshop_id BIGINT;
