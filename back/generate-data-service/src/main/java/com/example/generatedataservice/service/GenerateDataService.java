@@ -249,7 +249,7 @@ public class GenerateDataService {
             }
 
             jdbcTemplate.update(
-                "INSERT INTO ordschema.order_materials (order_id, material_id, quantity, width_m, height_m, ready_date, deleted) VALUES (?, ?, ?, ?, ?, ?, false)",
+                "INSERT INTO svschema.order_materials (order_id, material_id, quantity, width_m, height_m, ready_date, deleted) VALUES (?, ?, ?, ?, ?, ?, false)",
                 orderId, mat.getId(), quantity,
                 BigDecimal.valueOf(1 + random.nextInt(5)),
                 BigDecimal.valueOf(1 + random.nextInt(5)),

@@ -58,7 +58,7 @@ public class Employee extends BaseEntity {
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "employee_roles",
-        schema = "public",
+        schema = "svschema",
         joinColumns = @JoinColumn(name = "employee_id"),
         inverseJoinColumns = @JoinColumn(name = "role_id")
     )

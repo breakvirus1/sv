@@ -16,21 +16,21 @@ public class DataAccessRepository {
 
     public List<Long> fetchClientIds() {
         return jdbcTemplate.query(
-            "SELECT id FROM ordschema.clients WHERE deleted = false",
+            "SELECT id FROM svschema.clients WHERE deleted = false",
             (rs, rowNum) -> rs.getLong("id")
         );
     }
 
     public List<Long> fetchEmployeeIds() {
         return jdbcTemplate.query(
-            "SELECT id FROM ordschema.employees WHERE deleted = false",
+            "SELECT id FROM svschema.employees WHERE deleted = false",
             (rs, rowNum) -> rs.getLong("id")
         );
     }
 
     public List<MaterialInfo> fetchMaterials() {
         return jdbcTemplate.query(
-            "SELECT id, name, unit, price FROM ordschema.materials WHERE deleted = false",
+            "SELECT id, name, unit, price FROM svschema.materials WHERE deleted = false",
             (rs, rowNum) -> new MaterialInfo(
                 rs.getLong("id"),
                 rs.getString("name"),
@@ -42,46 +42,46 @@ public class DataAccessRepository {
 
     public List<Long> fetchWorkshopIds() {
         return jdbcTemplate.query(
-            "SELECT id FROM ordschema.workshops WHERE deleted = false",
+            "SELECT id FROM svschema.workshops WHERE deleted = false",
             (rs, rowNum) -> rs.getLong("id")
         );
     }
 
     public List<Long> fetchOperationIds() {
         return jdbcTemplate.query(
-            "SELECT id FROM calculator.calculator_operations WHERE deleted = false",
+            "SELECT id FROM svschema.calculator_operations WHERE deleted = false",
             (rs, rowNum) -> rs.getLong("id")
         );
     }
 
     public Long countOrders() {
-        Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ordschema.orders WHERE deleted = false", Long.class);
+        Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM svschema.orders WHERE deleted = false", Long.class);
         return count != null ? count : 0L;
     }
 
     public int deleteAllClients() {
-        return jdbcTemplate.update("DELETE FROM ordschema.clients");
+        return jdbcTemplate.update("DELETE FROM svschema.clients");
     }
 
     public int deleteAllEmployees() {
-        return jdbcTemplate.update("DELETE FROM ordschema.employees");
+        return jdbcTemplate.update("DELETE FROM svschema.employees");
     }
 
     public int deleteAllMaterials() {
-        return jdbcTemplate.update("DELETE FROM ordschema.materials");
+        return jdbcTemplate.update("DELETE FROM svschema.materials");
     }
 
     public int deleteAllWorkshops() {
-        return jdbcTemplate.update("DELETE FROM ordschema.workshops");
+        return jdbcTemplate.update("DELETE FROM svschema.workshops");
     }
 
     public int deleteAllOperations() {
-        return jdbcTemplate.update("DELETE FROM calculator.calculator_operations");
+        return jdbcTemplate.update("DELETE FROM svschema.calculator_operations");
     }
 
     public int deleteAllOrders() {
-        jdbcTemplate.update("DELETE FROM ordschema.order_materials WHERE order_id IN (SELECT id FROM ordschema.orders)");
-        return jdbcTemplate.update("DELETE FROM ordschema.orders");
+        jdbcTemplate.update("DELETE FROM svschema.order_materials WHERE order_id IN (SELECT id FROM svschema.orders)");
+        return jdbcTemplate.update("DELETE FROM svschema.orders");
     }
 
     public static class MaterialInfo {

@@ -12,7 +12,7 @@ import lombok.Setter;
  * Связана с User через ManyToMany.
  */
 @Entity
-@Table(name = "roles", schema = "public")
+@Table(name = "roles", schema = "svschema")
 @NoArgsConstructor
 @Getter
 @Setter

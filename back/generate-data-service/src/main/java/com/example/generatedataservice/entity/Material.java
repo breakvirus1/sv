@@ -9,7 +9,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "materials", schema = "ordschema")
+@Table(name = "materials", schema = "svschema")
 @Getter @Setter @AllArgsConstructor @NoArgsConstructor
 public class Material extends BaseEntity {
 

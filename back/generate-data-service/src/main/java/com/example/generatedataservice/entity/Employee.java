@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "employees", schema = "ordschema")
+@Table(name = "employees", schema = "svschema")
 @Getter @Setter @AllArgsConstructor @NoArgsConstructor
 public class Employee extends BaseEntity {
 

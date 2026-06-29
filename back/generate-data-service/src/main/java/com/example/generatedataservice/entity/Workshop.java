@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "workshops", schema = "ordschema")
+@Table(name = "workshops", schema = "svschema")
 @Getter @Setter @AllArgsConstructor @NoArgsConstructor
 public class Workshop extends BaseEntity {
 

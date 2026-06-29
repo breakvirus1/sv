@@ -12,7 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "orders", schema = "ordschema")
+@Table(name = "orders", schema = "svschema")
 @Getter @Setter
 @EntityListeners(AuditingEntityListener.class)
 public class Order {
