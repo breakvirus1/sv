@@ -2,14 +2,10 @@
 set -e
 
 echo "=== Stopping all containers and removing volumes ==="
-docker compose down -v
+docker compose down
 
 echo "=== Building microservices with Maven ==="
-if [[ "$1" == "--skip-tests" ]]; then
-  mvn clean install -DskipTests
-else
-  mvn clean install
-fi
+mvn clean install
 
 echo "=== Rebuilding Docker containers (no cache) ==="
 docker compose build --no-cache

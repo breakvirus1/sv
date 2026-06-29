@@ -3,7 +3,7 @@
 -- All tables for microservices shared database
 -- ============================================================
 
-CREATE SCHEMA IF NOT EXISTS ordschema;
+CREATE SCHEMA IF NOT EXISTS svschema;
 
 -- ----------------------------
 -- 1. Clients table
@@ -37,7 +37,10 @@ CREATE TABLE IF NOT EXISTS svschema.employees (
     email VARCHAR(255),
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
-    deleted BOOLEAN DEFAULT false
+    deleted BOOLEAN DEFAULT false,
+    workshop_id BIGINT,
+    manager_cash_percent NUMERIC(5,2),
+    role_id BIGINT
 );
 
 CREATE INDEX IF NOT EXISTS idx_employees_username ON svschema.employees(username);

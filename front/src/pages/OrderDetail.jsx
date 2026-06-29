@@ -53,6 +53,17 @@ const OrderDetail = ({ mode = 'view' }) => {
   const isAdmin = user?.roles?.includes('ROLE_ADMIN');
   const isManager = user?.roles?.includes('ROLE_MANAGER');
 
+  const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
+    queryKey: ['currentEmployee', username],
+    queryFn: async () => {
+      if (!username) return null;
+      const response = await api.get('/api/v1/employees?size=1&q=' + username);
+      const data = response.data.content || [];
+      return data.length > 0 ? data[0] : null;
+    },
+    enabled: !!username,
+  });
+
   // Проверка прав на редактирование: автор заказа или ADMIN
   const canEdit = !!(currentEmployee && order?.manager && (isAdmin || currentEmployee.id === order.manager.id));
 

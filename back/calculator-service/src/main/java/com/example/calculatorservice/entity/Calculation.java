@@ -16,8 +16,8 @@ import java.util.List;
  * Содержит параметры заказа (размеры, DPI, подворот, люверсы) и итоговую цену.
  */
 @Entity
-@Table(name = "calculator_calculations", schema = "calculator")
-@SQLDelete(sql = "UPDATE calculator.calculator_calculations SET deleted = true WHERE id=?")
+@Table(name = "calculator_calculations", schema = "svschema")
+@SQLDelete(sql = "UPDATE svschema.calculator_calculations SET deleted = true WHERE id=?")
 @Where(clause = "deleted = false")
 @Getter
 @Setter

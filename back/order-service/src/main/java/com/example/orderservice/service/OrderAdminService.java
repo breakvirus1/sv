@@ -26,10 +26,10 @@ public class OrderAdminService {
 
     public List<Order> generateTestOrders(int count) {
         // Fetch IDs of existing clients, employees, and materials
-        List<Long> clientIds = jdbcTemplate.query("SELECT id FROM ordschema.clients WHERE deleted = false", (rs, rowNum) -> rs.getLong("id"));
-        List<Long> employeeIds = jdbcTemplate.query("SELECT id FROM ordschema.employees WHERE deleted = false", (rs, rowNum) -> rs.getLong("id"));
+        List<Long> clientIds = jdbcTemplate.query("SELECT id FROM svschema.clients WHERE deleted = false", (rs, rowNum) -> rs.getLong("id"));
+        List<Long> employeeIds = jdbcTemplate.query("SELECT id FROM svschema.employees WHERE deleted = false", (rs, rowNum) -> rs.getLong("id"));
         List<MaterialInfo> materials = jdbcTemplate.query(
-            "SELECT id, name, unit, price FROM ordschema.materials WHERE deleted = false",
+            "SELECT id, name, unit, price FROM svschema.materials WHERE deleted = false",
             (rs, rowNum) -> new MaterialInfo(
                 rs.getLong("id"),
                 rs.getString("name"),

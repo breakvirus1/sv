@@ -7,7 +7,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "calculator_operations", schema = "calculator")
+@Table(name = "calculator_operations", schema = "svschema")
 @Getter @Setter
 public class Operation extends BaseEntity {
 

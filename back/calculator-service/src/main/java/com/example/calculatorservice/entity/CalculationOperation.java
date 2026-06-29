@@ -12,8 +12,8 @@ import java.math.BigDecimal;
  * Позиция расчёта — связь между расчётом и операцией с рассчитанными значениями.
  */
 @Entity
-@Table(name = "calculator_calculation_operations", schema = "calculator")
-@SQLDelete(sql = "UPDATE calculator.calculator_calculation_operations SET deleted = true WHERE id=?")
+@Table(name = "calculator_calculation_operations", schema = "svschema")
+@SQLDelete(sql = "UPDATE svschema.calculator_calculation_operations SET deleted = true WHERE id=?")
 @Where(clause = "deleted = false")
 @Getter
 @Setter

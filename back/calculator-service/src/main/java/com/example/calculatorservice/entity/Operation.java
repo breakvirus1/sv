@@ -13,8 +13,8 @@ import java.math.BigDecimal;
  * Примеры: печать, резка, подворот, установка люверсов, сварка, ламинация.
  */
 @Entity
-@Table(name = "calculator_operations", schema = "calculator")
-@SQLDelete(sql = "UPDATE calculator.calculator_operations SET deleted = true WHERE id=?")
+@Table(name = "calculator_operations", schema = "svschema")
+@SQLDelete(sql = "UPDATE svschema.calculator_operations SET deleted = true WHERE id=?")
 @Where(clause = "deleted = false")
 @Getter
 @Setter

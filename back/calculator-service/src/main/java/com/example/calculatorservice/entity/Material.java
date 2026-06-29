@@ -14,8 +14,8 @@ import java.math.BigDecimal;
  * Цена указывается за 1 м².
  */
 @Entity
-@Table(name = "materials", schema = "ordschema")
-@SQLDelete(sql = "UPDATE ordschema.materials SET deleted = true WHERE id=?")
+@Table(name = "materials", schema = "svschema")
+@SQLDelete(sql = "UPDATE svschema.materials SET deleted = true WHERE id=?")
 @Where(clause = "deleted = false")
 @Getter
 @Setter
