@@ -2,7 +2,6 @@ package com.example.orderservice.controller;
 
 import com.example.orderservice.dto.*;
 import com.example.orderservice.entity.Order;
-import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.entity.ProductionStage;
 import com.example.orderservice.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -50,7 +49,7 @@ public class OrderController {
 
          if (status != null) {
              spec = spec.and((root, query, cb) ->
-                     cb.equal(root.get("status"), OrderStatus.valueOf(status)));
+                      cb.equal(root.get("status"), ProductionStage.valueOf(status)));
          }
          if (managerId != null) {
              spec = spec.and((root, query, cb) ->
@@ -143,7 +142,7 @@ public class OrderController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OrderResponse> closeOrder(
             @Parameter(description = "ID заказа") @PathVariable Long id) {
-        return ResponseEntity.ok(orderService.updateStatus(id, OrderStatus.CLOSED.name()));
+        return ResponseEntity.ok(orderService.updateStatus(id, ProductionStage.CLOSED.name()));
     }
     @Operation(summary = "Обновить стадию производства")
     @PutMapping("/{id}/stage")

@@ -13,9 +13,8 @@ import com.example.orderservice.entity.OrderItem;
 import com.example.orderservice.entity.OrderMaterial;
 import com.example.orderservice.entity.OrderOperation;
 import com.example.orderservice.entity.OrderStage;
-import com.example.orderservice.entity.OrderStatus;
-import com.example.orderservice.entity.Payment;
 import com.example.orderservice.entity.ProductionStage;
+import com.example.orderservice.entity.Payment;
 import com.example.orderservice.entity.Workshop;
 import com.example.orderservice.mapper.OrderMapper;
 import com.example.orderservice.repository.EmployeeRepository;
@@ -273,8 +272,8 @@ public OrderResponse getOrderById(Long id) {
         order.setTotalAmount(providedTotal);
         order.setPaidAmount(BigDecimal.ZERO);
         order.setDebtAmount(BigDecimal.ZERO);
-        order.setStatus(OrderStatus.DRAFT);
-        order.setProductionStage(ProductionStage.NOT_STARTED);
+        order.setStatus(ProductionStage.DRAFT);
+        order.setProductionStage(ProductionStage.DRAFT);
 
         Order saved = orderRepository.save(order);
 
@@ -509,9 +508,9 @@ public OrderResponse getOrderById(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
-        order.setStatus(OrderStatus.valueOf(status));
+        order.setStatus(ProductionStage.valueOf(status));
 
-        if (OrderStatus.valueOf(status) == OrderStatus.READY) {
+        if (ProductionStage.valueOf(status) == ProductionStage.READY) {
             order.setReadyAt(LocalDateTime.now());
             calculateCashFromPriceplus(order);
         }
@@ -1157,7 +1156,7 @@ return new CalculatedOrderResponse(
 
     /**
      * Получить статистику заработка менеджера.
-     * Считает заработок с заказов READY (уже начислено), IN_PROGRESS и APPROVAL (потенциальный).
+     * Считает заработок с заказов READY (уже начислено) и IN_PROGRESS (потенциальный).
      * Заказы со статусом CLOSED исключаются.
      */
     public ManagerEarningsResponse getManagerEarnings(Long managerId) {
@@ -1168,25 +1167,18 @@ return new CalculatedOrderResponse(
         if (managerCashPercent == null || managerCashPercent.compareTo(BigDecimal.ZERO) <= 0) {
             return new ManagerEarningsResponse(
                     managerId, employee.getFullName(), BigDecimal.ZERO,
-                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                    0, 0, 0);
+                    BigDecimal.ZERO, BigDecimal.ZERO,
+                    0, 0);
         }
 
         // READY orders - already calculated cashFromPriceplus
-        List<Order> readyOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, OrderStatus.READY);
+        List<Order> readyOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, ProductionStage.READY);
         BigDecimal readyEarnings = readyOrders.stream()
                 .map(o -> o.getCashFromPriceplus() != null ? o.getCashFromPriceplus() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // IN_PROGRESS orders - calculate potential earnings
-        List<Order> inProgressOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, OrderStatus.IN_PROGRESS);
+        List<Order> inProgressOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, ProductionStage.IN_PROGRESS);
         BigDecimal inProgressEarnings = inProgressOrders.stream()
-                .map(o -> calculatePotentialCash(o, managerCashPercent))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // APPROVAL orders - calculate potential earnings
-        List<Order> approvalOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, OrderStatus.APPROVAL);
-        BigDecimal approvalEarnings = approvalOrders.stream()
                 .map(o -> calculatePotentialCash(o, managerCashPercent))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -1196,10 +1188,8 @@ return new CalculatedOrderResponse(
                 managerCashPercent,
                 readyEarnings,
                 inProgressEarnings,
-                approvalEarnings,
                 readyOrders.size(),
-                inProgressOrders.size(),
-                approvalOrders.size()
+                inProgressOrders.size()
         );
     }
 

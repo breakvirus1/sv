@@ -58,11 +58,11 @@ public class Order {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 30)
-    private OrderStatus status = OrderStatus.DRAFT;
+    private ProductionStage status = ProductionStage.DRAFT;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "production_stage", length = 50)
-    private ProductionStage productionStage = ProductionStage.NOT_STARTED;
+    private ProductionStage productionStage = ProductionStage.DRAFT;
 
     @Column(name = "order_date")
     private LocalDate orderDate;

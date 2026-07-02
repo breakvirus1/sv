@@ -1,7 +1,7 @@
 package com.example.orderservice.repository;
 
 import com.example.orderservice.entity.Order;
-import com.example.orderservice.entity.OrderStatus;
+import com.example.orderservice.entity.ProductionStage;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -50,11 +50,11 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
      * Найти все заказы менеджера с указанным статусом.
      */
     @EntityGraph(attributePaths = {"client", "manager"})
-    List<Order> findByManagerIdAndStatus(Long managerId, OrderStatus status);
+    List<Order> findByManagerIdAndStatus(Long managerId, ProductionStage status);
 
     /**
      * Найти все заказы менеджера с указанным статусом (только неудалённые).
      */
     @EntityGraph(attributePaths = {"client", "manager"})
-    List<Order> findByManagerIdAndStatusAndDeletedFalse(Long managerId, OrderStatus status);
+    List<Order> findByManagerIdAndStatusAndDeletedFalse(Long managerId, ProductionStage status);
 }

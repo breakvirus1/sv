@@ -23,12 +23,8 @@ public class ManagerEarningsResponse {
     private BigDecimal readyEarnings;
     /** Сумма заработка с заказов со статусом IN_PROGRESS (потенциальный заработок) */
     private BigDecimal inProgressEarnings;
-    /** Сумма заработка с заказов со статусом APPROVAL (потенциальный заработок) */
-    private BigDecimal approvalEarnings;
     /** Количество заказов со статусом READY */
     private int readyOrdersCount;
     /** Количество заказов со статусом IN_PROGRESS */
     private int inProgressOrdersCount;
-    /** Количество заказов со статусом APPROVAL */
-    private int approvalOrdersCount;
 }

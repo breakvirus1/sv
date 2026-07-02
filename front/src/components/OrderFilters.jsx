@@ -71,9 +71,9 @@ const OrderFilters = ({ filters, onFilterChange }) => {
         >
           <MenuItem value="">Все</MenuItem>
           <MenuItem value="DRAFT">Черновик</MenuItem>
-          <MenuItem value="APPROVAL">Согласование</MenuItem>
           <MenuItem value="IN_PROGRESS">В работе</MenuItem>
           <MenuItem value="READY">Готов</MenuItem>
+          <MenuItem value="CLOSED">Закрыт</MenuItem>
         </Select>
       </FormControl>
 

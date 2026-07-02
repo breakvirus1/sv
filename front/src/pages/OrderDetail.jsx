@@ -35,6 +35,7 @@ import { ArrowBack, Add, Payment, Delete, Edit } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import OrderInfoCard from '../components/OrderInfoCard';
 
 const OrderDetail = ({ mode = 'view' }) => {
   const { id } = useParams();
@@ -794,35 +795,8 @@ const OrderDetail = ({ mode = 'view' }) => {
       </Box>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom>Информация о заказе</Typography>
-            <Box display="flex" flexDirection="column" gap={2}>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Клиент</Typography>
-                <Typography variant="body1">{order?.client?.name}</Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Описание</Typography>
-                <Typography variant="body1">{order?.description || '—'}</Typography>
-              </Box>
-              <Divider />
-              <Box>
-                <Typography variant="body2" color="text.secondary">Сумма</Typography>
-                <Typography variant="h6">{order?.totalAmount?.toFixed(2)} ₽</Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Оплачено</Typography>
-                <Typography variant="body1" color="success.main">{order?.paidAmount?.toFixed(2)} ₽</Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Долг</Typography>
-                <Typography variant="body1" color="error.main">{order?.debtAmount?.toFixed(2)} ₽</Typography>
-              </Box>
-            </Box>
-          </Paper>
-
-          {/* Tabs */}
+        <Grid item xs={12}>
+          <OrderInfoCard order={order} />
           <Paper sx={{ mt: 3 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
@@ -847,33 +821,6 @@ const OrderDetail = ({ mode = 'view' }) => {
               {activeTab === 3 && (
                 <CommentsTab comments={order?.comments || []} />
               )}
-            </Box>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>Детали</Typography>
-            <Box display="flex" flexDirection="column" gap={2}>
-              <div>
-                <Typography variant="body2" color="text.secondary">Дата заказа</Typography>
-                <Typography variant="body1">{order?.orderDate || '—'}</Typography>
-              </div>
-              <div>
-                <Typography variant="body2" color="text.secondary">Срок сдачи</Typography>
-                <Typography variant="body1">{order?.dueDate || '—'}</Typography>
-              </div>
-              <div>
-                <Typography variant="body2" color="text.secondary">Менеджер</Typography>
-                <Typography variant="body1">{order?.manager?.fullName || '—'}</Typography>
-              </div>
-              <Divider />
-              <div>
-                <Typography variant="body2" color="text.secondary">Изменен</Typography>
-                <Typography variant="body1">
-                  {new Date(order?.updatedAt).toLocaleString()}
-                </Typography>
-              </div>
             </Box>
           </Paper>
         </Grid>

@@ -185,7 +185,7 @@ public class GenerateDataService {
             order.setManagerId(employeeIds.get(random.nextInt(employeeIds.size())));
             order.setOrderDate(LocalDate.now().minusDays(random.nextInt(30)));
             order.setDueDate(LocalDate.now().plusDays(random.nextInt(60) + 7));
-            order.setStatus(OrderStatus.values()[random.nextInt(OrderStatus.values().length)]);
+            order.setStatus(ProductionStage.values()[random.nextInt(ProductionStage.values().length)]);
             order.setProductionStage(ProductionStage.values()[random.nextInt(ProductionStage.values().length)]);
             order.setDescription("Тестовый заказ #" + (existingCount + i + 1));
             order.setTotalAmount(BigDecimal.valueOf(1000 + random.nextInt(50000)));

@@ -125,7 +125,7 @@ public interface OrderMapper {
     @Mapping(target = "paidAmount", constant = "0")
     @Mapping(target = "debtAmount", constant = "0")
     @Mapping(target = "status", constant = "DRAFT")
-    @Mapping(target = "productionStage", constant = "NOT_STARTED")
+    @Mapping(target = "productionStage", constant = "DRAFT")
     @Mapping(target = "hasDocuments", constant = "false")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

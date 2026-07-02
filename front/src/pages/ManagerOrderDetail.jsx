@@ -37,7 +37,7 @@ import { getStatusColor, getStatusLabel, isM2, isLinearMeter } from '../utils/or
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-import OrderDetailsCard from '../components/OrderDetailsCard';
+import OrderInfoCard from '../components/OrderInfoCard';
 import PositionsTab from '../components/PositionsTab';
 import StagesTab from '../components/StagesTab';
 import PaymentsTab from '../components/PaymentsTab';
@@ -512,32 +512,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom>Информация о заказе</Typography>
-            <Box display="flex" flexDirection="column" gap={2}>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Клиент</Typography>
-                <Typography variant="body1">{order?.client?.name}</Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Описание</Typography>
-                <Typography variant="body1">{order?.description || '—'}</Typography>
-              </Box>
-              <Divider />
-              <Box>
-                <Typography variant="body2" color="text.secondary">Сумма</Typography>
-                <Typography variant="h6">{order?.totalAmount?.toFixed(2)} ₽</Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Оплачено</Typography>
-                <Typography variant="body1" color="success.main">{order?.paidAmount?.toFixed(2)} ₽</Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">Долг</Typography>
-                <Typography variant="body1" color="error.main">{order?.debtAmount?.toFixed(2)} ₽</Typography>
-              </Box>
-            </Box>
-          </Paper>
+          <OrderInfoCard order={order} calculatedData={calculatedData} onClientInfoClick={(clientId) => setClientInfoDialog({ open: true, clientId })} />
           <Paper sx={{ mt: 3 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
@@ -556,7 +531,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <OrderDetailsCard order={order} calculatedData={calculatedData} />
           {order?.cashFromPriceplus != null && (
             <Paper sx={{ p: 3, mt: 2, bgcolor: '#e8f5e9' }}>
               <Typography variant="h6" gutterBottom color="success.dark">Твой заработок</Typography>

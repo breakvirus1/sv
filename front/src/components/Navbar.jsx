@@ -10,7 +10,6 @@ import { Dashboard } from '@mui/icons-material';
 
 const statusGroups = [
   { key: 'DRAFT', label: 'Черновики' },
-  { key: 'APPROVAL', label: 'На согласовании' },
   { key: 'IN_PROGRESS', label: 'В работе' },
   { key: 'READY', label: 'Готовы' },
   { key: 'CLOSED', label: 'Закрытые' },

@@ -236,7 +236,7 @@ class OrderControllerTest {
         @WithMockUser(roles = "MANAGER")
         void managerCannotUpdateStage() throws Exception {
             mockMvc.perform(put("/api/v1/orders/1/stage")
-                            .param("stage", "PRINTING"))
+                            .param("stage", "IN_PROGRESS"))
                     .andExpect(status().isForbidden());
         }
     }

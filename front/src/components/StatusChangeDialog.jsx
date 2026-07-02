@@ -10,9 +10,9 @@ import {
 
 const statusOptions = [
   { value: 'DRAFT', label: 'Черновик' },
-  { value: 'APPROVAL', label: 'Согласование' },
   { value: 'IN_PROGRESS', label: 'В работе' },
-  { value: 'READY', label: 'Готов' }
+  { value: 'READY', label: 'Готов' },
+  { value: 'CLOSED', label: 'Закрыт' }
 ];
 
 const StatusChangeDialog = ({ open, onClose, onSave, currentStatus }) => {

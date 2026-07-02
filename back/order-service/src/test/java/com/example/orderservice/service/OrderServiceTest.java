@@ -139,7 +139,7 @@ class OrderServiceTest {
             OrderResponse result = orderService.updateStatus(1L, "READY");
 
             assertThat(result).isNotNull();
-            verify(orderRepository).save(argThat(o -> o.getStatus() == OrderStatus.READY));
+            verify(orderRepository).save(argThat(o -> o.getStatus() == ProductionStage.READY));
         }
 
         @Test
@@ -159,17 +159,17 @@ class OrderServiceTest {
     class UpdateProductionStage {
 
         @Test
-        @DisplayName("Updates production stage to PRINTING")
-        void updatesStageToPrinting() {
+        @DisplayName("Updates production stage to IN_PROGRESS")
+        void updatesStageToInProgress() {
             when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
             when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
             OrderResponse mappedResponse = new OrderResponse();
             when(orderMapper.toDto(any(Order.class))).thenReturn(mappedResponse);
 
-            OrderResponse result = orderService.updateProductionStage(1L, "PRINTING");
+            OrderResponse result = orderService.updateProductionStage(1L, "IN_PROGRESS");
 
             assertThat(result).isNotNull();
-            verify(orderRepository).save(argThat(o -> o.getProductionStage() == ProductionStage.PRINTING));
+            verify(orderRepository).save(argThat(o -> o.getProductionStage() == ProductionStage.IN_PROGRESS));
         }
     }
 
@@ -651,11 +651,11 @@ class OrderServiceTest {
     class EntityDefaults {
 
         @Test
-        @DisplayName("Order defaults: status=DRAFT, productionStage=NOT_STARTED")
+        @DisplayName("Order defaults: status=DRAFT, productionStage=DRAFT")
         void orderDefaults() {
             Order order = new Order();
-            assertThat(order.getStatus()).isEqualTo(OrderStatus.DRAFT);
-            assertThat(order.getProductionStage()).isEqualTo(ProductionStage.NOT_STARTED);
+            assertThat(order.getStatus()).isEqualTo(ProductionStage.DRAFT);
+            assertThat(order.getProductionStage()).isEqualTo(ProductionStage.DRAFT);
             assertThat(order.getTotalAmount()).isEqualByComparingTo(BigDecimal.ZERO);
             assertThat(order.getPaidAmount()).isEqualByComparingTo(BigDecimal.ZERO);
             assertThat(order.getDebtAmount()).isEqualByComparingTo(BigDecimal.ZERO);
