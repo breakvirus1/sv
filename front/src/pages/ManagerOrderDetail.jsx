@@ -23,17 +23,20 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from '@mui/material';
 import { ArrowBack, Edit, Payment, Delete, Add, Info } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getStatusColor, getStatusLabel, isM2, isLinearMeter } from '../utils/orderUtils';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import ClientInfo from '../components/ClientInfo';
 
-// Компоненты
-import OrderInfoCard from '../components/OrderInfoCard';
 import OrderDetailsCard from '../components/OrderDetailsCard';
 import PositionsTab from '../components/PositionsTab';
 import StagesTab from '../components/StagesTab';
@@ -53,29 +56,87 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   const isAdmin = user?.roles?.includes('ROLE_ADMIN');
   const isManager = user?.roles?.includes('ROLE_MANAGER');
 
-  // Проверка прав на редактирование: автор заказа или ADMIN
-  const canEdit = !!(currentEmployee && order?.manager && (isAdmin || currentEmployee.id === order.manager.id));
+  const { data: currentEmployee, refetch: refetchEmployee } = useQuery({
+    queryKey: ['currentEmployee', username],
+    queryFn: async () => {
+      if (!username) return null;
+      const response = await api.get(`/api/v1/employees?size=1&q=${username}`);
+      const data = response.data.content || [];
+      return data.length > 0 ? data[0] : null;
+    },
+    enabled: !!username
+  });
 
-  // Менеджер не хозяин заказа - скрыть кнопки статуса и оплаты
+  const { data: order, isLoading, error } = useQuery({
+    queryKey: ['order', id],
+    queryFn: async () => {
+      const response = await api.get(`/api/v1/orders/${id}`);
+      return response.data;
+    },
+    enabled: mode === 'view' && !!id
+  });
+
+  const { data: clientsData = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/clients?size=100');
+      return response.data.content || [];
+    },
+    enabled: mode === 'create'
+  });
+
+  const { data: materialsData = [] } = useQuery({
+    queryKey: ['materials'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/materials?size=100');
+      return response.data.content || [];
+    },
+    enabled: mode === 'create'
+  });
+
+  const [formData, setFormData] = useState({
+    clientId: '',
+    description: '',
+    orderDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    items: []
+  });
+  const [priceplus, setPriceplus] = useState(0);
+  const [calculatedData, setCalculatedData] = useState({ total: 0, cashFromPriceplus: 0 });
+
+  const totalOrderAmount = useMemo(() => {
+    if (mode !== 'create') return 0;
+    let total = 0;
+    formData.items.forEach(item => {
+      const material = materialsData.find(m => m.id === parseInt(item.materialId));
+      if (material) {
+        const toMeters = (v, u) => u === 'мм' ? (parseFloat(v) || 0) / 1000 : (parseFloat(v) || 0);
+        const widthM = toMeters(item.qty1value, item.qty1unit);
+        const heightM = isM2(material) ? toMeters(item.qty2value, item.qty2unit) : 0;
+        const wasteCoeff = material.wasteCoefficient || 1;
+        total += widthM * (heightM || 1) * material.price * wasteCoeff;
+      }
+    });
+    return total * (1 + priceplus / 100);
+  }, [formData.items, materialsData, priceplus, mode]);
+
+  const canEdit = !!(currentEmployee && order?.manager && (isAdmin || currentEmployee.id === order.manager.id));
   const isManagerNotOwner = isManager && !canEdit && !isAdmin;
 
-    // ==================== State ====================
-    const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-    const [activeTab, setActiveTab] = useState(0);
-    const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-    const [newStatus, setNewStatus] = useState('');
-    const [clientDialogOpen, setClientDialogOpen] = useState(false);
-    const [newClientForm, setNewClientForm] = useState({
-      name: '',
-      type: 'PRIVATE',
-      contactPerson: '',
-      phone: '',
-      email: ''
-    });
-    const [clientInfoDialog, setClientInfoDialog] = useState({ open: false, clientId: null });
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [activeTab, setActiveTab] = useState(0);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState('');
+  const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({
+    name: '',
+    type: 'PRIVATE',
+    contactPerson: '',
+    phone: '',
+    email: ''
+  });
 
-   // ==================== Mutations ====================
   const createClientMutation = useMutation({
     mutationFn: (client) => api.post('/api/v1/clients', client),
     onSuccess: (response) => {
@@ -83,7 +144,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
       setClientDialogOpen(false);
       setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' });
       setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
-},
+    },
     onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
   });
 
@@ -92,13 +153,11 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
       if (!currentEmployee) {
         throw new Error('Менеджер не определен. Перелогинитесь.');
       }
-      // Конвертация значения в метры в зависимости от единицы измерения
       const toMeters = (value, unit) => {
         const v = parseFloat(value) || 0;
         return unit === 'мм' ? v / 1000 : v;
       };
 
-      // Формирование массива материалов заказа из формы
       const orderMaterials = formData.items.map(item => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
         if (!material) throw new Error('Материал не выбран');
@@ -114,7 +173,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
         };
       });
 
-      // Расчет итогов для логирования
       let frontendTotal = 0;
       formData.items.forEach((item, idx) => {
         const material = materialsData.find(m => m.id === parseInt(item.materialId));
@@ -125,7 +183,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
           const materialCost = widthM * (heightM || 1) * material.price * wasteCoeff;
           const opsCost = (item.operations || []).reduce((sum, op) => sum + (op.subtotal || 0), 0);
           frontendTotal += materialCost + opsCost;
-          console.log(`[CreateOrder] Item ${idx}: material=${material.name}, w=${widthM}, h=${heightM}, wasteCoeff=${wasteCoeff}, matCost=${materialCost.toFixed(2)}, opsCost=${opsCost.toFixed(2)}`);
         }
       });
       const frontendTotalWithPriceplus = frontendTotal * (1 + priceplus / 100);
@@ -140,25 +197,12 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
         items: orderMaterials
       };
 
-      console.log('=== CREATE ORDER SUBMIT ===');
-      console.log('Client ID:', formData.clientId);
-      console.log('Items count:', formData.items.length);
-      console.log('Priceplus:', priceplus);
-      console.log('Frontend total (without priceplus):', frontendTotal.toFixed(2));
-      console.log('Frontend total (with priceplus):', frontendTotalWithPriceplus.toFixed(2));
-      console.log('Payload:', JSON.stringify(orderData, null, 2));
-
       const response = await api.post('/api/v1/orders', orderData);
-
-      console.log('=== CREATE ORDER RESPONSE ===');
-      console.log('Created order ID:', response.data.id);
-      console.log('Created order number:', response.data.orderNumber);
-      console.log('Saved priceplus:', response.data.priceplus);
-      console.log('Saved totalAmount (without priceplus):', response.data.totalAmount);
-      console.log('Saved totalWithPriceplus:', response.data.totalWithPriceplus);
-      console.log('Comparison - Frontend vs Backend totalWithPriceplus:');
-      console.log('  Frontend:', frontendTotalWithPriceplus.toFixed(2));
-      console.log('  Backend:', response.data.totalWithPriceplus?.toFixed(2));
+      setCalculatedData({
+        total: frontendTotalWithPriceplus,
+        cashFromPriceplus: currentEmployee.managerCashPercent ? frontendTotal * currentEmployee.managerCashPercent / 100 : 0
+      });
+      return response;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -191,7 +235,13 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
     }
   });
 
-  // ==================== Effects ====================
+  useEffect(() => {
+    if (mode === 'view' && order) {
+      const total = order.items?.reduce((sum, item) => sum + (item.totalPrice || 0), 0) || 0;
+      setCalculatedData({ total, cashFromPriceplus: order.cashFromPriceplus || 0 });
+    }
+  }, [mode, order]);
+
   useEffect(() => {
     if (mode === 'create' && username && !currentEmployee) {
       api.post('/api/v1/employees/sync')
@@ -200,7 +250,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
     }
   }, [mode, username, currentEmployee, refetchEmployee]);
 
-  // ==================== Handlers ====================
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
@@ -262,7 +311,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
     createOrderMutation.mutate();
   };
 
-  // ==================== Render ====================
   if (mode === 'create') {
     return (
       <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
@@ -304,7 +352,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
                 <TextField fullWidth label="Описание" name="description" multiline rows={3} value={formData.description} onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} margin="normal" />
               </Grid>
 
-              {/* Positions */}
               <Grid item xs={12}>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                   <Typography variant="h6">Позиции заказа</Typography>
@@ -341,7 +388,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
                             </TableCell>
                             <TableCell>
                               <Box display="flex" gap={0.5} alignItems="center">
-                                <TextField size="small" type="number" value={item.qty1value} onChange={(e) => updateItem(index, 'qty1value', e.target.value)} inputProps={{ min: 0, step: 0.001 }}                         placeholder={isM2(material) ? 'Ширина' : 'Длина'} sx={{ width: 100 }} />
+                                <TextField size="small" type="number" value={item.qty1value} onChange={(e) => updateItem(index, 'qty1value', e.target.value)} inputProps={{ min: 0, step: 0.001 }} placeholder={isM2(material) ? 'Ширина' : 'Длина'} sx={{ width: 100 }} />
                                 <Select size="small" value={item.qty1unit || 'м'} onChange={(e) => updateItem(index, 'qty1unit', e.target.value)} sx={{ width: 70 }}>
                                   <MenuItem value="м">м</MenuItem>
                                   <MenuItem value="мм">мм</MenuItem>
@@ -465,7 +512,32 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          <OrderInfoCard order={order} onClientInfoClick={(clientId) => setClientInfoDialog({ open: true, clientId })} />
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom>Информация о заказе</Typography>
+            <Box display="flex" flexDirection="column" gap={2}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Клиент</Typography>
+                <Typography variant="body1">{order?.client?.name}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Описание</Typography>
+                <Typography variant="body1">{order?.description || '—'}</Typography>
+              </Box>
+              <Divider />
+              <Box>
+                <Typography variant="body2" color="text.secondary">Сумма</Typography>
+                <Typography variant="h6">{order?.totalAmount?.toFixed(2)} ₽</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Оплачено</Typography>
+                <Typography variant="body1" color="success.main">{order?.paidAmount?.toFixed(2)} ₽</Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Долг</Typography>
+                <Typography variant="body1" color="error.main">{order?.debtAmount?.toFixed(2)} ₽</Typography>
+              </Box>
+            </Box>
+          </Paper>
           <Paper sx={{ mt: 3 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
@@ -474,12 +546,12 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
               <Tab label="Комментарии" />
             </Tabs>
             <Divider />
-<Box sx={{ p: 3 }}>
-               {activeTab === 0 && <PositionsTab materials={order?.materials || []} items={order?.items || []} orderId={order?.id} calculatedData={calculatedData} />}
-               {activeTab === 1 && <StagesTab stages={order?.stages || []} />}
-               {activeTab === 2 && <PaymentsTab payments={order?.payments || []} />}
-               {activeTab === 3 && <CommentsTab comments={order?.comments || []} />}
-             </Box>
+            <Box sx={{ p: 3 }}>
+              {activeTab === 0 && <PositionsTab materials={order?.materials || []} items={order?.items || []} orderId={order?.id} calculatedData={calculatedData} />}
+              {activeTab === 1 && <StagesTab stages={order?.stages || []} />}
+              {activeTab === 2 && <PaymentsTab payments={order?.payments || []} />}
+              {activeTab === 3 && <CommentsTab comments={order?.comments || []} />}
+            </Box>
           </Paper>
         </Grid>
 
@@ -508,18 +580,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
         onClose={() => setPaymentDialogOpen(false)}
         onSubmit={(data) => addPaymentMutation.mutate(data)}
       />
-
-      <Dialog open={clientInfoDialog.open} onClose={() => setClientInfoDialog({ open: false, clientId: null })} maxWidth="sm" fullWidth>
-        <DialogTitle>Информация о клиенте</DialogTitle>
-        <DialogContent>
-          <ClientInfo clientId={clientInfoDialog.clientId} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setClientInfoDialog({ open: false, clientId: null })}>
-            Закрыть
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Snackbar open={notification.open} autoHideDuration={6000} onClose={() => setNotification({ ...notification, open: false })}>
         <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
