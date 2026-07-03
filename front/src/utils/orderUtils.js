@@ -7,7 +7,8 @@ export const getStatusColor = (status) => {
     DRAFT: 'default',
     IN_PROGRESS: 'primary',
     READY: 'success',
-    CLOSED: 'error'
+    CLOSED: 'error',
+    NOT_STARTED: 'warning'
   };
   return colors[status] || 'default';
 };
@@ -17,7 +18,8 @@ export const getStatusLabel = (status) => {
     DRAFT: 'Черновик',
     IN_PROGRESS: 'В работе',
     READY: 'Готов',
-    CLOSED: 'Закрыт'
+    CLOSED: 'Закрыт',
+    NOT_STARTED: 'Не запущен'
   };
   return labels[status] || status;
 };

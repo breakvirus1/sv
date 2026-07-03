@@ -35,6 +35,7 @@ import { ArrowBack, Add, Payment, Delete, Edit } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import OrderInfoCard from '../components/OrderInfoCard';
 
 const OrderDetail = ({ mode = 'view' }) => {
@@ -624,7 +625,7 @@ const OrderDetail = ({ mode = 'view' }) => {
   }
 
   // ==================== View Mode JSX ====================
-  const statusOptions = ['WAITING', 'LAUNCHED', 'IN_PROGRESS', 'READY', 'ACCEPTED', 'CLOSED'];
+  const statusOptions = ['DRAFT', 'NOT_STARTED', 'IN_PROGRESS', 'READY', 'CLOSED'];
 
   if (isLoading) {
     return (
@@ -840,7 +841,7 @@ const OrderDetail = ({ mode = 'view' }) => {
           >
             {statusOptions.map((status) => (
               <MenuItem key={status} value={status}>
-                {status}
+                {getStatusLabel(status)}
               </MenuItem>
             ))}
           </TextField>
@@ -875,19 +876,6 @@ const OrderDetail = ({ mode = 'view' }) => {
       </Snackbar>
     </Container>
   );
-};
-
-// ==================== Helper Components ====================
-const getStatusColor = (status) => {
-  const colors = {
-    WAITING: 'warning',
-    LAUNCHED: 'info',
-    IN_PROGRESS: 'primary',
-    READY: 'success',
-    ACCEPTED: 'success',
-    CLOSED: 'default'
-  };
-  return colors[status] || 'default';
 };
 
 const PositionsTab = ({ materials = [], items = [] }) => {
