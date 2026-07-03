@@ -625,7 +625,7 @@ const OrderDetail = ({ mode = 'view' }) => {
   }
 
   // ==================== View Mode JSX ====================
-  const statusOptions = ['DRAFT', 'NOT_STARTED', 'IN_PROGRESS', 'READY', 'CLOSED'];
+  const statusOptions = ['DRAFT', 'IN_PROGRESS', 'READY', 'CLOSED'];
 
   if (isLoading) {
     return (

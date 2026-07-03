@@ -12,8 +12,7 @@ const statusOptions = [
   { value: 'DRAFT', label: 'Черновик' },
   { value: 'IN_PROGRESS', label: 'В работе' },
   { value: 'READY', label: 'Готов' },
-  { value: 'CLOSED', label: 'Закрыт' },
-  { value: 'NOT_STARTED', label: 'Не запущен' }
+  { value: 'CLOSED', label: 'Закрыт' }
 ];
 
 const StatusChangeDialog = ({ open, onClose, onSave, currentStatus }) => {

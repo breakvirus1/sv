@@ -13,9 +13,7 @@ public enum ProductionStage {
     /** Заказ готов к передаче/доставке */
     READY("Готов"),
     /** Заказ закрыт */
-    CLOSED("Закрыт"),
-    /** Заказ не запущен */
-    NOT_STARTED("Не запущен");
+    CLOSED("Закрыт");
 
     private final String displayName;
 
