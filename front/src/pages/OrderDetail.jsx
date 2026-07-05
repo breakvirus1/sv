@@ -29,9 +29,10 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Snackbar
+  Snackbar,
+  Link
 } from '@mui/material';
-import { ArrowBack, Add, Payment, Delete, Edit } from '@mui/icons-material';
+import { ArrowBack, Add, Payment, Delete, Edit, Download } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -932,6 +933,22 @@ const PositionsTab = ({ materials = [], items = [] }) => {
     return Array.from(map.values());
   }, [rawList]);
 
+  const downloadFile = async (fileUrl) => {
+    try {
+      const response = await api.get(fileUrl, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileUrl.split('/').pop() || 'file');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
+  };
+
   if (!displayList?.length) {
     return <Typography>Нет позиций в заказе</Typography>;
   }
@@ -989,6 +1006,18 @@ const PositionsTab = ({ materials = [], items = [] }) => {
                     </Typography>
                   </Box>
                 ))}
+              </Box>
+            )}
+            {entry.fileUrl && (
+              <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Link
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); downloadFile(entry.fileUrl); }}
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                >
+                  <Download fontSize="small" />
+                  {entry.fileUrl.split('/').pop()}
+                </Link>
               </Box>
             )}
           </Paper>

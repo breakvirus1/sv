@@ -65,6 +65,7 @@ public interface OrderMapper {
         }
         if (entity.getFile() != null) {
             dto.setFileId(entity.getFile().getId());
+            dto.setFileUrl(entity.getFile().getFileUrl());
         }
     }
 

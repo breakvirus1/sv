@@ -6,14 +6,21 @@ import com.example.fileservice.service.FileService;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.awt.Desktop;
+import java.io.IOException;
 import java.net.MalformedURLException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/files")
@@ -68,6 +75,38 @@ public class FileController {
         } catch (MalformedURLException e) {
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    @GetMapping("/show/{fileName:.+}")
+    public ResponseEntity<Map<String, String>> showInFolder(@PathVariable String fileName) {
+        Path filePath = fileService.getFilePath(fileName);
+        try {
+            if (!Desktop.isDesktopSupported()) {
+                return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(Map.of("parentDir", filePath.getParent().toString()));
+            }
+            Desktop desktop = Desktop.getDesktop();
+            if (!desktop.isSupported(Desktop.Action.OPEN)) {
+                return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(Map.of("parentDir", filePath.getParent().toString()));
+            }
+            Path parentDir = filePath.getParent();
+            if (parentDir != null && Files.exists(parentDir)) {
+                desktop.open(parentDir.toFile());
+                return ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(Collections.singletonMap("status", "opened"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("error", e.getMessage()));
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Collections.singletonMap("error", "File not found"));
     }
 
     @GetMapping("/order-item/{orderItemId}")

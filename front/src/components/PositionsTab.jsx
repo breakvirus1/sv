@@ -1,5 +1,6 @@
 import { Box, Paper, Typography, Chip, Link, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import { Download } from '@mui/icons-material';
+import api from '../services/api';
 
 const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) => {
   const positions = calculatedData?.materials || ((materials && materials.length > 0) ? materials : items);
@@ -12,6 +13,22 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
   const isMaterialBased = (materials && materials.length > 0) || isCalculated;
 
   const fmt = (v) => v != null ? `${Number(v).toFixed(2)} ₽` : '—';
+
+  const downloadFile = async (fileUrl) => {
+    try {
+      const response = await api.get(fileUrl, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileUrl.split('/').pop() || 'file');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
+  };
 
   return (
     <Box>
@@ -107,9 +124,8 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
             {pos.fileUrl && (
               <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
                 <Link
-                  href={pos.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); downloadFile(pos.fileUrl); }}
                   sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
                 >
                   <Download fontSize="small" />

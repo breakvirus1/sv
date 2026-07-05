@@ -31,4 +31,6 @@ public class OrderMaterialResponse {
     private List<OrderOperationSummary> operations;
     /** ID позиции заказа (OrderItem) */
     private Long orderItemId;
+    /** URL прикреплённого файла */
+    private String fileUrl;
 }

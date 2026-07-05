@@ -228,8 +228,24 @@ public OrderResponse getOrderById(Long id) {
         List<OrderMaterial> allMaterials = order.getItems().stream()
                 .flatMap(item -> item.getMaterials().stream())
                 .collect(Collectors.toList());
+
+        List<Long> materialOrderItemIds = allMaterials.stream()
+                .filter(om -> om.getOrderItem() != null)
+                .map(om -> om.getOrderItem().getId())
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, String> fileUrlByItemId = fileAttachmentRepository.findByOrderItem_IdIn(materialOrderItemIds)
+                .stream()
+                .collect(Collectors.toMap(f -> f.getOrderItem().getId(), FileAttachment::getFileUrl));
+
         response.setMaterials(allMaterials.stream()
                 .map(orderMapper::orderMaterialToDto)
+                .peek(dto -> {
+                    if (dto.getOrderItemId() != null && fileUrlByItemId.containsKey(dto.getOrderItemId())) {
+                        dto.setFileUrl(fileUrlByItemId.get(dto.getOrderItemId()));
+                    }
+                })
                 .collect(Collectors.toList()));
 
         return response;
@@ -967,6 +983,11 @@ private void recalculatePaidAmount(Long orderId) {
                 .collect(Collectors.toList());
         }
 
+        String fileUrl = null;
+        if (om.getOrderItem() != null && om.getOrderItem().getFile() != null) {
+            fileUrl = om.getOrderItem().getFile().getFileUrl();
+        }
+
         return new OrderMaterialResponse(
                 om.getId(),
                 materialDto,
@@ -979,7 +1000,8 @@ private void recalculatePaidAmount(Long orderId) {
                 om.getCostPriceplus(),
                 om.getEyeletCost(),
                 opSummaries,
-                om.getOrderItem() != null ? om.getOrderItem().getId() : null
+                om.getOrderItem() != null ? om.getOrderItem().getId() : null,
+                fileUrl
         );
     }
 
