@@ -23,7 +23,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress,
+  CircularProgress, LinearProgress,
   Menu,
   Checkbox,
   FormControlLabel,
@@ -53,6 +53,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     items: []
   });
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [uploadProgresses, setUploadProgresses] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [priceplus, setPriceplus] = useState(0);
 
@@ -545,11 +546,18 @@ const handleSubmit = async (e) => {
           fileFormData.append('materialName', materialName);
           fileFormData.append('operationNames', operationNames);
           fileFormData.append('operationParams', operationParamsList);
+          setUploadProgresses(prev => ({ ...prev, [i]: 0 }));
           try {
             await api.post('/api/files/upload', fileFormData, {
               headers: { 'Content-Type': 'multipart/form-data' },
+              onUploadProgress: (event) => {
+                const percent = Math.round((event.loaded * 100) / event.total);
+                setUploadProgresses(prev => ({ ...prev, [i]: percent }));
+              },
             });
+            setUploadProgresses(prev => ({ ...prev, [i]: null }));
           } catch (fileErr) {
+            setUploadProgresses(prev => ({ ...prev, [i]: null }));
             console.error('File upload error for item', i, fileErr);
           }
         }
@@ -777,47 +785,59 @@ const handleSubmit = async (e) => {
                             InputLabelProps={{ shrink: true }}
                           />
                         </TableCell>
-                        <TableCell>
-                          <Button
-                            component="label"
-                            variant="outlined"
-                            size="small"
-                            startIcon={<AttachFile />}
-                            sx={{ fontSize: '0.75rem', px: 1 }}
-                          >
-                            {item.fileName || 'Файл'}
-                            <input
-                              type="file"
-                              hidden
-                              onChange={(e) => {
-                                if (e.target.files && e.target.files[0]) {
-                                  const file = e.target.files[0];
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    items: prev.items.map((it, i) =>
-                                      i === index ? { ...it, file, fileName: file.name } : it
-                                    )
-                                  }));
-                                }
-                              }}
-                            />
-                          </Button>
-                          {item.fileName && (
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => setFormData(prev => ({
-                                ...prev,
-                                items: prev.items.map((it, i) =>
-                                  i === index ? { ...it, file: null, fileName: '' } : it
-                                )
-                              }))}
-                              sx={{ ml: 0.5 }}
-                            >
-                              <Delete fontSize="small" />
-                            </IconButton>
-                          )}
-                        </TableCell>
+                         <TableCell>
+                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                               <Button
+                                 component="label"
+                                 variant="outlined"
+                                 size="small"
+                                 startIcon={<AttachFile />}
+                                 sx={{ fontSize: '0.75rem', px: 1 }}
+                               >
+                                 {item.fileName || 'Файл'}
+                                 <input
+                                   type="file"
+                                   hidden
+                                   onChange={(e) => {
+                                     if (e.target.files && e.target.files[0]) {
+                                       const file = e.target.files[0];
+                                       setFormData(prev => ({
+                                         ...prev,
+                                         items: prev.items.map((it, i) =>
+                                           i === index ? { ...it, file, fileName: file.name } : it
+                                         )
+                                       }));
+                                     }
+                                   }}
+                                 />
+                               </Button>
+                               {item.fileName && (
+                                 <IconButton
+                                   size="small"
+                                   color="error"
+                                   onClick={() => setFormData(prev => ({
+                                     ...prev,
+                                     items: prev.items.map((it, i) =>
+                                       i === index ? { ...it, file: null, fileName: '' } : it
+                                     )
+                                   }))}
+                                   sx={{ ml: 0.5 }}
+                                 >
+                                   <Delete fontSize="small" />
+                                 </IconButton>
+                               )}
+                             </Box>
+                             {uploadProgresses[index] != null && uploadProgresses[index] >= 0 && (
+                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }}>
+                                 <LinearProgress variant="determinate" value={uploadProgresses[index] || 0} sx={{ height: 6, flex: 1 }} />
+                                 <Typography variant="caption" sx={{ fontSize: '0.65rem', minWidth: 30, textAlign: 'right' }}>
+                                   {uploadProgresses[index]}%
+                                 </Typography>
+                               </Box>
+                             )}
+                           </Box>
+                         </TableCell>
                         <TableCell>
                           <IconButton onClick={() => removeItem(index)} color="error" size="small">
                             <Delete fontSize="small" />
