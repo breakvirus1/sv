@@ -160,18 +160,17 @@ const OrderRow = ({ order, onNavigate }) => {
                 <Box display="flex" flexDirection="column" gap={1}>
                   {displayOrder.items.map((item, index) => (
                     item.fileUrl && (
-                      <Box key={index} display="flex" alignItems="center" gap={1}>
-                        <AttachFile fontSize="small" color="action" />
-                        <Link
-                          onClick={(e) => { e.stopPropagation(); downloadFile(item.fileUrl); }}
-                          sx={{ cursor: 'pointer' }}
-                          rel="noopener noreferrer"
-                          sx={{ cursor: 'pointer' }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {item.name || `Файл ${index + 1}`}
-                        </Link>
-                      </Box>
+                        <Box key={index} display="flex" alignItems="center" gap={1}>
+                          <AttachFile fontSize="small" color="action" />
+                          <Link
+                            href="#"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); downloadFile(item.fileUrl); }}
+                            sx={{ cursor: 'pointer' }}
+                            rel="noopener noreferrer"
+                          >
+                            {item.name || `Файл ${index + 1}`}
+                          </Link>
+                        </Box>
                     )
                   ))}
                 </Box>
