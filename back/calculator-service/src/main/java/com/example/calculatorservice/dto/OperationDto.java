@@ -9,7 +9,6 @@ public class OperationDto {
     private String name;
     private BigDecimal price;
     private String unit;
-    private String applicableTo;
     private boolean isDefault;
     private Integer hemWidthMm;
     private Integer hemCount;

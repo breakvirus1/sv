@@ -1,6 +1,5 @@
 package com.example.calculatorservice.service;
 
-import com.example.calculatorservice.entity.ApplicableType;
 import com.example.calculatorservice.entity.Operation;
 import com.example.calculatorservice.exception.ResourceNotFoundException;
 import com.example.calculatorservice.repository.OperationRepository;
@@ -17,10 +16,6 @@ public class OperationService {
 
     public List<Operation> getAllOperations() {
         return operationRepository.findAll();
-    }
-
-    public List<Operation> getOperationsByApplicableType(ApplicableType applicableTo) {
-        return operationRepository.findByApplicableTo(applicableTo);
     }
 
      public Operation getOperationById(Long id) {

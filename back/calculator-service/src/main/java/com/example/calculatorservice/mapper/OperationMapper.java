@@ -16,7 +16,6 @@ import org.mapstruct.ReportingPolicy;
 public interface OperationMapper {
 
     @Mapping(target = "unit", expression = "java(operation.getUnit() != null ? operation.getUnit().getDisplayName() : null)")
-    @Mapping(target = "applicableTo", source = "applicableTo")
     @Mapping(target = "default", source = "default")
     OperationDto toDto(Operation operation);
 

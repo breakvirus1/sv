@@ -33,11 +33,6 @@ public class Operation extends BaseEntity {
     @Column(name = "unit_type", length = 20)
     private UnitType unit;
 
-    /** Применимость операции: к баннеру, плёнке или обоим */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "applicable_to", length = 20)
-    private ApplicableType applicableTo;
-
     /** Флаг, указывающий, является ли операция часто используемой */
     @Column(name = "is_default")
     private boolean isDefault = false;

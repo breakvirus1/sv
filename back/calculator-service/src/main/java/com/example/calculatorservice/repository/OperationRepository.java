@@ -8,6 +8,5 @@ import java.util.List;
 
 @Repository
 public interface OperationRepository extends JpaRepository<Operation, Long> {
-    List<Operation> findByApplicableTo(com.example.calculatorservice.entity.ApplicableType applicableTo);
     List<Operation> findByIsDefaultTrue();
 }

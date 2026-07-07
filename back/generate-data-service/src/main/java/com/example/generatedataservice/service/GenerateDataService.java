@@ -58,7 +58,6 @@ public class GenerateDataService {
         "Печать 720 dpi", "Печать 1440 dpi", "Резка плоттерная", "Подворот",
         "Установка люверсов", "Сварка", "Ламинация", "УФ-лакировка", "Тиснение", "Фрезеровка"
     };
-    private static final ApplicableType[] APPLICABLE_TYPES = { ApplicableType.BANNER, ApplicableType.PLENKA, ApplicableType.BOTH };
     private static final UnitType[] UNIT_TYPES = { UnitType.SQUARE_METER, UnitType.LINEAR_METER, UnitType.PIECE };
     private static final String[] WORKSHOP_NAMES = {
         "Цех печати", "Цех резки", "Цех сборки", "Цех ламинации", "Цех упаковки"
@@ -130,7 +129,6 @@ public class GenerateDataService {
             operation.setName(OPERATION_NAMES[random.nextInt(OPERATION_NAMES.length)] + " " + (i + 1));
             operation.setPrice(BigDecimal.valueOf(50 + random.nextInt(5000)));
             operation.setUnit(UNIT_TYPES[random.nextInt(UNIT_TYPES.length)]);
-            operation.setApplicableTo(APPLICABLE_TYPES[random.nextInt(APPLICABLE_TYPES.length)]);
             operation.setIsDefault(random.nextBoolean());
             if (random.nextBoolean()) {
                 operation.setHemWidthMm(10 + random.nextInt(90));

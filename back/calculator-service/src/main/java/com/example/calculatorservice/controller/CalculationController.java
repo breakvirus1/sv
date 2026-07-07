@@ -78,22 +78,6 @@ public class CalculationController {
         );
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
-    @GetMapping("/operations/{applicableTo}")
-    public ResponseEntity<List<OperationDto>> getOperationsByApplicableType(@PathVariable String applicableTo) {
-        com.example.calculatorservice.entity.ApplicableType appType;
-        try {
-            appType = com.example.calculatorservice.entity.ApplicableType.valueOf(applicableTo);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        }
-        return ResponseEntity.ok(
-                operationService.getOperationsByApplicableType(appType).stream()
-                        .map(operationMapper::toDto)
-                        .toList()
-        );
-    }
-
      @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
      @PostMapping
      public ResponseEntity<CalculationResponseDto> createCalculation(

@@ -21,10 +21,6 @@ public class Operation extends BaseEntity {
     @Column(name = "unit_type", length = 20)
     private UnitType unit;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "applicable_to", length = 20)
-    private ApplicableType applicableTo;
-
     @Column(name = "is_default")
     private Boolean isDefault = false;
 

@@ -3,7 +3,7 @@ import {
   Box, Typography, Tabs, Tab, Paper, Table, TableHead, TableRow, TableCell,
   TableBody, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, FormControl, InputLabel, Select, MenuItem, CircularProgress, Alert,
-  Snackbar, Grid, Divider, TableContainer, Checkbox, Chip
+  Snackbar, Grid, Divider, TableContainer, Chip
 } from '@mui/material';
 import { Add, Edit, Delete, Refresh, Save, Cancel, Sync } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -50,13 +50,12 @@ const AdminPanel = () => {
   const [editMaterialForm, setEditMaterialForm] = useState({ name: '', unit: '', price: 0, wasteCoefficient: 1 });
 
   // ---- Operations state ----
-  const [operationFilter, setOperationFilter] = useState('ALL');
   const [operationDialogOpen, setOperationDialogOpen] = useState(false);
   const [operationDeleteDialogOpen, setOperationDeleteDialogOpen] = useState(false);
   const [selectedOperation, setSelectedOperation] = useState(null);
-  const [operationForm, setOperationForm] = useState({ name: '', unit: 'SQUARE_METER', price: '', applicableTo: 'BANNER', isDefault: false, hemWidthMm: '', hemCount: '' });
+  const [operationForm, setOperationForm] = useState({ name: '', unit: 'SQUARE_METER', price: '' });
   const [editingOperationId, setEditingOperationId] = useState(null);
-  const [editOperationForm, setEditOperationForm] = useState({ name: '', unit: 'SQUARE_METER', price: 0, applicableTo: 'BANNER', isDefault: false, hemWidthMm: null, hemCount: null });
+  const [editOperationForm, setEditOperationForm] = useState({ name: '', unit: 'SQUARE_METER', price: 0 });
 
   // ---- Workshops state ----
   const [workshopDialogOpen, setWorkshopDialogOpen] = useState(false);
@@ -268,7 +267,7 @@ const AdminPanel = () => {
 
   const resetClientForm = () => { setClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' }); setSelectedClient(null); };
   const resetMaterialForm = () => { setMaterialForm({ name: '', unit: '', price: '', wasteCoefficient: '1' }); setSelectedMaterial(null); };
-  const resetOperationForm = () => { setOperationForm({ name: '', unit: 'SQUARE_METER', price: '', applicableTo: 'BANNER', isDefault: false, hemWidthMm: '', hemCount: '' }); setSelectedOperation(null); };
+  const resetOperationForm = () => { setOperationForm({ name: '', unit: 'SQUARE_METER', price: '' }); setSelectedOperation(null); };
   const resetWorkshopForm = () => { setWorkshopForm({ name: '', sortOrder: 0, operationIds: '' }); setSelectedWorkshop(null); };
   const resetEmployeeForm = () => { setEmployeeForm({ fullName: '', username: '', position: '', phone: '', email: '', workshopId: '', managerCashPercent: '' }); setSelectedEmployee(null); };
 
@@ -283,7 +282,7 @@ const AdminPanel = () => {
   const openOperationDialog = (op = null) => {
     if (op) {
       setSelectedOperation(op);
-      setOperationForm({ name: op.name || '', unit: op.unit || 'SQUARE_METER', price: op.price ? op.price.toString() : '', applicableTo: op.applicableTo || 'BANNER', isDefault: op.isDefault || false, hemWidthMm: op.hemWidthMm ? op.hemWidthMm.toString() : '', hemCount: op.hemCount ? op.hemCount.toString() : '' });
+      setOperationForm({ name: op.name || '', unit: op.unit || 'SQUARE_METER', price: op.price ? op.price.toString() : '' });
     } else { resetOperationForm(); }
     setOperationDialogOpen(true);
   };
@@ -319,7 +318,7 @@ const AdminPanel = () => {
   };
   const handleOperationSubmit = () => {
     if (!operationForm.name) { showNotification('Введите название', 'error'); return; }
-    const payload = { name: operationForm.name, unit: operationForm.unit, price: operationForm.price ? parseFloat(operationForm.price) : 0, applicableTo: operationForm.applicableTo, isDefault: operationForm.isDefault, hemWidthMm: operationForm.hemWidthMm ? parseInt(operationForm.hemWidthMm) : null, hemCount: operationForm.hemCount ? parseInt(operationForm.hemCount) : null };
+    const payload = { name: operationForm.name, unit: operationForm.unit, price: operationForm.price ? parseFloat(operationForm.price) : 0 };
     selectedOperation ? updateOperationMutation.mutate({ id: selectedOperation.id, data: payload }) : createOperationMutation.mutate(payload);
   };
   const handleWorkshopSubmit = () => {
@@ -339,20 +338,17 @@ const AdminPanel = () => {
   const saveMaterialEdit = (id) => { updateMaterialMutation.mutate({ id, data: { name: editMaterialForm.name, unit: editMaterialForm.unit, price: editMaterialForm.price, wasteCoefficient: editMaterialForm.wasteCoefficient } }); setEditingMaterialId(null); };
   const handleEditMaterialChange = (field) => (e) => { const val = field === 'price' || field === 'wasteCoefficient' ? parseFloat(e.target.value) || 0 : e.target.value; setEditMaterialForm(p => ({ ...p, [field]: val })); };
 
-  const startEditOperation = (op) => { setEditingOperationId(op.id); setEditOperationForm({ name: op.name, unit: UNIT_DISPLAY_TO_ENUM[op.unit] || op.unit, price: op.price, applicableTo: op.applicableTo, isDefault: op.isDefault, hemWidthMm: op.hemWidthMm, hemCount: op.hemCount }); };
-  const cancelEditOperation = () => { setEditingOperationId(null); setEditOperationForm({ name: '', unit: 'SQUARE_METER', price: 0, applicableTo: 'BANNER', isDefault: false, hemWidthMm: null, hemCount: null }); };
-  const saveOperationEdit = (id) => { updateOperationMutation.mutate({ id, data: { name: editOperationForm.name, unit: editOperationForm.unit, price: editOperationForm.price, applicableTo: editOperationForm.applicableTo, isDefault: editOperationForm.isDefault, hemWidthMm: editOperationForm.hemWidthMm, hemCount: editOperationForm.hemCount } }); setEditingOperationId(null); };
+  const startEditOperation = (op) => { setEditingOperationId(op.id); setEditOperationForm({ name: op.name, unit: UNIT_DISPLAY_TO_ENUM[op.unit] || op.unit, price: op.price }); };
+  const cancelEditOperation = () => { setEditingOperationId(null); setEditOperationForm({ name: '', unit: 'SQUARE_METER', price: 0 }); };
+  const saveOperationEdit = (id) => { updateOperationMutation.mutate({ id, data: { name: editOperationForm.name, unit: editOperationForm.unit, price: editOperationForm.price } }); setEditingOperationId(null); };
   const handleEditOperationChange = (field) => (e) => {
     let val;
     if (field === 'price') val = parseFloat(e.target.value) || 0;
-    else if (field === 'isDefault') val = e.target.checked;
-    else if (field === 'hemWidthMm' || field === 'hemCount') val = e.target.value ? parseInt(e.target.value) : null;
     else val = e.target.value;
     setEditOperationForm(p => ({ ...p, [field]: val }));
   };
 
-  const handleOperationFilterChange = (e) => { setOperationFilter(e.target.value); };
-  const filteredOperations = operationsData.filter(op => operationFilter === 'ALL' || op.applicableTo === operationFilter);
+  const filteredOperations = operationsData;
 
   // ---- Render ----
   const renderClientsTab = () => (
@@ -411,9 +407,6 @@ const AdminPanel = () => {
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h6">Управление операциями</Typography>
         <Box display="flex" gap={2} alignItems="center">
-          <FormControl size="small" sx={{ minWidth: 180 }}><InputLabel>Фильтр по типу</InputLabel>
-            <Select value={operationFilter} label="Фильтр по типу" onChange={handleOperationFilterChange}><MenuItem value="ALL">Все</MenuItem><MenuItem value="BANNER">Баннер</MenuItem><MenuItem value="PLENKA">Пленка</MenuItem><MenuItem value="BOTH">Оба</MenuItem></Select>
-          </FormControl>
           <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetchOperations()}>Обновить</Button>
           <Button variant="contained" startIcon={<Add />} onClick={() => openOperationDialog()}>Добавить операцию</Button>
         </Box>
@@ -421,21 +414,17 @@ const AdminPanel = () => {
       {filteredOperations.length === 0 && <Typography>Нет операций</Typography>}
       {filteredOperations.length > 0 && (
         <TableContainer component={Paper}><Table size="small">
-          <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Цена</TableCell><TableCell>Ед. изм.</TableCell><TableCell>Применимо к</TableCell><TableCell>По умолчанию</TableCell><TableCell>Ширина подворота</TableCell><TableCell>Кол-во подворотов</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+          <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Цена</TableCell><TableCell>Ед. изм.</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
           <TableBody>
             {filteredOperations.map((op) => (
               <TableRow key={op.id}>
                 <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" value={editOperationForm.name} onChange={handleEditOperationChange('name')} /> : op.name}</TableCell>
                 <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" type="number" value={editOperationForm.price} onChange={handleEditOperationChange('price')} inputProps={{ step: 0.01 }} /> : `${op.price?.toFixed(2)} ₽`}</TableCell>
-                <TableCell>{editingOperationId === op.id ? <FormControl fullWidth size="small"><Select value={editOperationForm.unit} onChange={(e) => handleEditOperationChange('unit')(e)}><MenuItem value="SQUARE_METER">м²</MenuItem><MenuItem value="LINEAR_METER">п.м.</MenuItem><MenuItem value="PIECE">шт</MenuItem></Select></FormControl> : op.unit}</TableCell>
-                <TableCell>{editingOperationId === op.id ? <FormControl fullWidth size="small"><Select value={editOperationForm.applicableTo} onChange={(e) => handleEditOperationChange('applicableTo')(e)}><MenuItem value="BANNER">Баннер</MenuItem><MenuItem value="PLENKA">Пленка</MenuItem><MenuItem value="BOTH">Оба</MenuItem></Select></FormControl> : (op.applicableTo === 'BANNER' ? 'Баннер' : op.applicableTo === 'PLENKA' ? 'Пленка' : 'Оба')}</TableCell>
-                <TableCell>{editingOperationId === op.id ? <Checkbox checked={editOperationForm.isDefault} onChange={handleEditOperationChange('isDefault')} /> : (op.isDefault ? 'Да' : 'Нет')}</TableCell>
-                <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" type="number" value={editOperationForm.hemWidthMm != null ? editOperationForm.hemWidthMm : ''} onChange={handleEditOperationChange('hemWidthMm')} inputProps={{ min: 0 }} /> : (op.hemWidthMm || '-')}</TableCell>
-                <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" type="number" value={editOperationForm.hemCount != null ? editOperationForm.hemCount : ''} onChange={handleEditOperationChange('hemCount')} inputProps={{ min: 0 }} /> : (op.hemCount || '-')}</TableCell>
-                <TableCell align="right">
-                  {editingOperationId === op.id ? <><IconButton size="small" color="success" onClick={() => saveOperationEdit(op.id)}><Save /></IconButton><IconButton size="small" onClick={cancelEditOperation}><Cancel /></IconButton></> : <IconButton size="small" onClick={() => startEditOperation(op)}><Edit /></IconButton>}
-                  <IconButton size="small" color="error" onClick={() => { setSelectedOperation(op); setOperationDeleteDialogOpen(true); }}><Delete /></IconButton>
-                </TableCell>
+                 <TableCell>{editingOperationId === op.id ? <FormControl fullWidth size="small"><Select value={editOperationForm.unit} onChange={(e) => handleEditOperationChange('unit')(e)}><MenuItem value="SQUARE_METER">м²</MenuItem><MenuItem value="LINEAR_METER">п.м.</MenuItem><MenuItem value="PIECE">шт</MenuItem></Select></FormControl> : op.unit}</TableCell>
+                 <TableCell align="right">
+                   {editingOperationId === op.id ? <><IconButton size="small" color="success" onClick={() => saveOperationEdit(op.id)}><Save /></IconButton><IconButton size="small" onClick={cancelEditOperation}><Cancel /></IconButton></> : <IconButton size="small" onClick={() => startEditOperation(op)}><Edit /></IconButton>}
+                   <IconButton size="small" color="error" onClick={() => { setSelectedOperation(op); setOperationDeleteDialogOpen(true); }}><Delete /></IconButton>
+                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -593,12 +582,6 @@ const AdminPanel = () => {
             <Select value={operationForm.unit} label="Ед. изм." onChange={(e) => setOperationForm({ ...operationForm, unit: e.target.value })}><MenuItem value="SQUARE_METER">м²</MenuItem><MenuItem value="LINEAR_METER">п.м.</MenuItem><MenuItem value="PIECE">шт</MenuItem></Select>
           </FormControl>
           <TextField fullWidth margin="dense" label="Цена" type="number" value={operationForm.price} onChange={(e) => setOperationForm({ ...operationForm, price: e.target.value })} inputProps={{ step: 0.01 }} />
-          <FormControl fullWidth margin="dense"><InputLabel>Применимо к</InputLabel>
-            <Select value={operationForm.applicableTo} label="Применимо к" onChange={(e) => setOperationForm({ ...operationForm, applicableTo: e.target.value })}><MenuItem value="BANNER">Баннер</MenuItem><MenuItem value="PLENKA">Пленка</MenuItem><MenuItem value="BOTH">Оба</MenuItem></Select>
-          </FormControl>
-          <TextField fullWidth margin="dense" label="Ширина подворота (мм)" type="number" value={operationForm.hemWidthMm} onChange={(e) => setOperationForm({ ...operationForm, hemWidthMm: e.target.value })} inputProps={{ min: 0 }} placeholder="Необязательно" />
-          <TextField fullWidth margin="dense" label="Количество подворотов на сторону" type="number" value={operationForm.hemCount} onChange={(e) => setOperationForm({ ...operationForm, hemCount: e.target.value })} inputProps={{ min: 0 }} placeholder="Необязательно" />
-          <Box display="flex" alignItems="center" mt={1}><Checkbox checked={operationForm.isDefault} onChange={(e) => setOperationForm({ ...operationForm, isDefault: e.target.checked })} /><Typography>По умолчанию</Typography></Box>
         </DialogContent>
         <DialogActions><Button onClick={() => setOperationDialogOpen(false)}>Отмена</Button><Button onClick={handleOperationSubmit} variant="contained">Сохранить</Button></DialogActions>
       </Dialog>

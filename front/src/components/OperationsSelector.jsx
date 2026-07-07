@@ -1,10 +1,6 @@
 import React from 'react';
 
-const OperationsSelector = ({ operations, selectedOperations, onSelect, materialType, loading }) => {
-  const availableOperations = operations.filter(op =>
-    op.applicableTo === 'BOTH' || op.applicableTo === materialType
-  );
-
+const OperationsSelector = ({ operations, selectedOperations, onSelect, loading }) => {
   const handleToggle = (operation) => {
     const isSelected = selectedOperations.some(op => op.id === operation.id);
     if (isSelected) {
@@ -21,7 +17,7 @@ const OperationsSelector = ({ operations, selectedOperations, onSelect, material
         <p>Loading operations...</p>
       ) : (
         <div className="space-y-2">
-          {availableOperations.map(operation => (
+          {operations.map(operation => (
             <div key={operation.id} className="flex items-center">
               <input
                 type="checkbox"

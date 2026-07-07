@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS svschema.calculator_operations (
     name VARCHAR(255) NOT NULL,
     price DECIMAL(12,2) NOT NULL,
     unit_type VARCHAR(20) NOT NULL,
-    applicable_to VARCHAR(20) NOT NULL,
     is_default BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP,

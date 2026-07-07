@@ -11,22 +11,22 @@ INSERT INTO calculator_eyelets (name, price_per_piece, diameter_mm, created_at) 
 ('Люверс 10 мм', 15.00, 10, NOW());
 
 -- Sample operations
--- Printing operations (applicable to both)
-INSERT INTO calculator_operations (name, price, unit_type, applicable_to, is_default, created_at) VALUES
-('Печать 360 dpi', 180.00, 'SQUARE_METER', 'BOTH', TRUE, NOW()),
-('Печать 720 dpi', 220.00, 'SQUARE_METER', 'BOTH', TRUE, NOW()),
-('Печать 1440 dpi', 280.00, 'SQUARE_METER', 'BOTH', FALSE, NOW()),
-('Порезка по периметру', 35.00, 'LINEAR_METER', 'BOTH', TRUE, NOW());
+-- Printing operations
+INSERT INTO calculator_operations (name, price, unit_type, is_default, created_at) VALUES
+('Печать 360 dpi', 180.00, 'SQUARE_METER', TRUE, NOW()),
+('Печать 720 dpi', 220.00, 'SQUARE_METER', TRUE, NOW()),
+('Печать 1440 dpi', 280.00, 'SQUARE_METER', FALSE, NOW()),
+('Порезка по периметру', 35.00, 'LINEAR_METER', TRUE, NOW());
 
 -- Banner-specific operations
-INSERT INTO calculator_operations (name, price, unit_type, applicable_to, is_default, created_at) VALUES
-('Подворот', 45.00, 'LINEAR_METER', 'BANNER', TRUE, NOW()),
-('Установка люверсов', 8.00, 'PIECE', 'BANNER', TRUE, NOW()),
-('Проклейка / Сварка', 50.00, 'LINEAR_METER', 'BANNER', TRUE, NOW());
+INSERT INTO calculator_operations (name, price, unit_type, is_default, created_at) VALUES
+('Подворот', 45.00, 'LINEAR_METER', TRUE, NOW()),
+('Установка люверсов', 8.00, 'PIECE', TRUE, NOW()),
+('Проклейка / Сварка', 50.00, 'LINEAR_METER', TRUE, NOW());
 
 -- Film-specific operations
-INSERT INTO calculator_operations (name, price, unit_type, applicable_to, is_default, created_at) VALUES
-('Ламинация глянцевая', 220.00, 'SQUARE_METER', 'PLENKA', TRUE, NOW()),
-('Ламинация матовая', 200.00, 'SQUARE_METER', 'PLENKA', FALSE, NOW()),
-('Контурная резка', 45.00, 'LINEAR_METER', 'PLENKA', TRUE, NOW()),
-('Поклейка', 150.00, 'SQUARE_METER', 'PLENKA', TRUE, NOW());
+INSERT INTO calculator_operations (name, price, unit_type, is_default, created_at) VALUES
+('Ламинация глянцевая', 220.00, 'SQUARE_METER', TRUE, NOW()),
+('Ламинация матовая', 200.00, 'SQUARE_METER', FALSE, NOW()),
+('Контурная резка', 45.00, 'LINEAR_METER', TRUE, NOW()),
+('Поклейка', 150.00, 'SQUARE_METER', TRUE, NOW());
