@@ -81,8 +81,8 @@ public class MaterialService {
     }
 
     private void validateUnit(String unit) {
-        if (unit == null || (!unit.equals("м2") && !unit.equals("м.п."))) {
-            throw new IllegalArgumentException("Единица измерения должна быть 'м2' или 'м.п.'");
+        if (unit == null || (!unit.equals("м2") && !unit.equals("м.п.") && !unit.equals("шт"))) {
+            throw new IllegalArgumentException("Единица измерения должна быть 'м2', 'м.п.' или 'шт'");
         }
     }
 }

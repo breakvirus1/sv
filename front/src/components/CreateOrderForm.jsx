@@ -133,6 +133,24 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
+  const { data: operationGroupsData = [] } = useQuery({
+    queryKey: ['operation-groups'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/admin/operation-groups');
+      return response.data || [];
+    },
+  });
+
+  const groupKeywords = useMemo(
+    () => operationGroupsData.map(g => g.name.toLowerCase()),
+    [operationGroupsData]
+  );
+
+  const filteredOperationsData = useMemo(
+    () => operationsData.filter(op => !groupKeywords.some(kw => op.name.toLowerCase().includes(kw))),
+    [operationsData, groupKeywords]
+  );
+
   const { data: eyeletsData = [], error: eyeletsError } = useQuery({
     queryKey: ['eyelets'],
     queryFn: async () => {
@@ -244,10 +262,21 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
   const handleOpenOperationsDialog = (itemIndex) => {
     const item = formData.items[itemIndex];
+    const currentOpIds = item.operations.map(op => op.id);
+    const selectedGroupIds = [];
+    if (operationGroupsData.length > 0) {
+      operationGroupsData.forEach(group => {
+        const keyword = group.name.toLowerCase();
+        const hasMatching = item.operations.some(op => op.name.toLowerCase().includes(keyword));
+        if (hasMatching) {
+          selectedGroupIds.push('group_' + group.id);
+        }
+      });
+    }
     setOperationsDialog({
       open: true,
       itemIndex,
-      selectedOps: item.operations.map(op => op.id)
+      selectedOps: [...currentOpIds, ...selectedGroupIds]
     });
   };
 
@@ -267,22 +296,25 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
   const handleSaveOperationParams = () => {
     const { itemIndex, pendingOps, params } = operationParamsDialog;
-    // Объединяем pendingOps с их параметрами, преобразуя типы при необходимости
     const opsWithParams = pendingOps.map(op => {
+      if (String(op.id).startsWith('group_')) {
+        const selectedOpId = params[op.id]?.selectedOpId;
+        const selectedOp = operationsData.find(o => o.id === selectedOpId);
+        if (selectedOp) {
+          return { ...selectedOp, groupSelectedOpId: selectedOpId };
+        }
+        return null;
+      }
       const baseOp = operationsData.find(o => o.id === op.id);
       const opParams = params[op.id] || {};
-      // Преобразуем eyeletId в число если присутствует
       if (opParams.eyeletId !== undefined) {
         opParams.eyeletId = opParams.eyeletId ? parseInt(opParams.eyeletId, 10) : null;
       }
       return { ...baseOp, ...opParams };
-    });
+    }).filter(Boolean);
 
-    // Получаем существующие операции и обновляем/добавляем специальные
     const currentOps = formData.items[itemIndex].operations || [];
-    // Удаляем существующие специальные операции с теми же id чтобы избежать дубликатов
     const filteredOps = currentOps.filter(cop => !pendingOps.some(pop => pop.id === cop.id));
-    // Объединяем: существующие не-специальные операции + новые специальные с параметрами
     const finalOps = [...filteredOps, ...opsWithParams];
 
     updateItemOperations(itemIndex, finalOps);
@@ -290,6 +322,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   };
 
   const handleToggleOperation = (opId) => {
+    const item = operationsDialog.itemIndex != null ? formData.items[operationsDialog.itemIndex] : null;
+    const isHemLocked = item && item.operations.some(iop => String(iop.id) === String(opId) && iop.name && iop.name.toLowerCase().includes('подворот'));
+    if (isHemLocked) return;
     setOperationsDialog(prev => ({
       ...prev,
       selectedOps: prev.selectedOps.includes(opId)
@@ -300,17 +335,31 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
   const handleSaveOperations = () => {
     const { itemIndex, selectedOps } = operationsDialog;
-    const selectedOpsData = operationsData.filter(op => selectedOps.includes(op.id));
+    const selectedRegularIds = selectedOps.filter(id => String(id).startsWith('group_') === false);
+    const selectedGroupIds = selectedOps.filter(id => String(id).startsWith('group_'));
+    const selectedOpsData = operationsData.filter(op => selectedRegularIds.includes(op.id));
     const currentOps = formData.items[itemIndex].operations || [];
 
-    // Проверяем специальные операции (подворот или люверс) - нечувствительно к регистру
     const specialOps = selectedOpsData.filter(op =>
       op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
     );
 
-    if (specialOps.length > 0) {
-      // Проверяем, есть ли у специальных операций уже параметры в currentOps
-      const allAlreadyConfigured = specialOps.every(sop => {
+    const groupOps = [];
+    if (selectedGroupIds.length > 0) {
+      selectedGroupIds.forEach(sgId => {
+        const groupId = parseInt(sgId.replace('group_', ''), 10);
+        const group = operationGroupsData.find(g => g.id === groupId);
+        if (group) {
+          groupOps.push({ ...group, keyword: group.name.toLowerCase() });
+        }
+      });
+    }
+
+    const hasSpecialOps = specialOps.length > 0;
+    const hasGroupOps = groupOps.length > 0;
+
+    if (hasSpecialOps || hasGroupOps) {
+      const allAlreadyConfigured = (hasSpecialOps && specialOps.every(sop => {
         const existing = currentOps.find(cop => cop.id === sop.id);
         if (sop.name.toLowerCase().includes('люверс')) {
           return existing && existing.eyeletId;
@@ -319,26 +368,28 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           return existing && existing.hemWidthMm;
         }
         return false;
-      });
+      })) && (hasGroupOps && groupOps.every(go => {
+        const existing = currentOps.find(cop => cop.id === ('group_' + go.id));
+        return existing && existing.groupSelectedOpId;
+      }));
 
       if (allAlreadyConfigured) {
-        // Сохраняем существующие параметры для всех специальных операций
         const ops = selectedOpsData.map(op => {
           const existing = currentOps.find(cop => cop.id === op.id);
           return existing ? { ...op, ...existing } : op;
         });
-        updateItemOperations(itemIndex, ops);
+        const lockedHemOps = currentOps.filter(op => op.name && op.name.toLowerCase().includes('подворот'));
+        const mergedOps = [...ops.filter(o => !o.name || !o.name.toLowerCase().includes('подворот')), ...lockedHemOps];
+        updateItemOperations(itemIndex, mergedOps);
         handleCloseOperationsDialog();
         return;
       }
 
-      // Инициализируем параметры для всех специальных операций, сохраняя существующие если есть
+      const newPendingOps = [...specialOps];
       const initialParams = {};
-      const newPendingOps = [];
 
       specialOps.forEach(op => {
         const opId = op.id;
-        newPendingOps.push(op);
         const existing = currentOps.find(cop => cop.id === opId);
         if (op.name.toLowerCase().includes('подворот')) {
           if (existing && existing.hemWidthMm) {
@@ -367,6 +418,17 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         }
       });
 
+      groupOps.forEach(go => {
+        const syntheticId = 'group_' + go.id;
+        newPendingOps.push({ id: syntheticId, name: go.name });
+        const existing = currentOps.find(cop => cop.id === syntheticId);
+        if (existing && existing.groupSelectedOpId) {
+          initialParams[syntheticId] = { selectedOpId: existing.groupSelectedOpId };
+        } else {
+          initialParams[syntheticId] = { selectedOpId: '' };
+        }
+      });
+
       setOperationParamsDialog(prev => ({
         ...prev,
         open: true,
@@ -377,7 +439,6 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
       handleCloseOperationsDialog();
     } else {
-      // Нет специальных операций, сохраняем сразу
       updateItemOperations(itemIndex, selectedOpsData);
       handleCloseOperationsDialog();
     }
@@ -1023,18 +1084,52 @@ const handleSubmit = async (e) => {
         <DialogTitle>Выбрать операции</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, alignItems: 'flex-start' }}>
-            {operationsData.map(op => (
+            {operationGroupsData.map(group => (
               <FormControlLabel
-                key={op.id}
+                key={'group_' + group.id}
                 control={
                   <Checkbox
-                    checked={operationsDialog.selectedOps.includes(op.id)}
-                    onChange={() => handleToggleOperation(op.id)}
+                    checked={operationsDialog.selectedOps.includes('group_' + group.id)}
+                    onChange={() => handleToggleOperation('group_' + group.id)}
                   />
                 }
-                label={op.name}
+                label={group.name}
               />
             ))}
+            {(() => {
+              const currentItem = operationsDialog.itemIndex != null ? formData.items[operationsDialog.itemIndex] : null;
+              const lockedHem = currentItem?.operations?.find(op => op.name && op.name.toLowerCase().includes('подворот'));
+              if (lockedHem) {
+                return (
+                  <FormControlLabel
+                    key={lockedHem.id}
+                    control={
+                      <Checkbox
+                        checked
+                        disabled
+                      />
+                    }
+                    label={lockedHem.name + ' (обязательная)'}
+                  />
+                );
+              }
+              return null;
+            })()}
+            {filteredOperationsData.map(op => {
+              if (op.name && op.name.toLowerCase().includes('подворот')) return null;
+              return (
+                <FormControlLabel
+                  key={op.id}
+                  control={
+                    <Checkbox
+                      checked={operationsDialog.selectedOps.includes(op.id)}
+                      onChange={() => handleToggleOperation(op.id)}
+                    />
+                  }
+                  label={op.name}
+                />
+              );
+            })}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -1198,6 +1293,42 @@ const handleSubmit = async (e) => {
                     />
                   </Box>
                 );
+              } else if (String(op.id).startsWith('group_')) {
+                const groupName = op.name;
+                const params = operationParamsDialog.params[op.id] || { selectedOpId: '' };
+                const matchingOps = operationsData.filter(o => o.name.toLowerCase().includes(groupName.toLowerCase()));
+                return (
+                  <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom color="primary">
+                      {groupName}
+                    </Typography>
+                    <TextField
+                      select
+                      fullWidth
+                      margin="dense"
+                      label="Операции"
+                      value={params.selectedOpId}
+                      onChange={(e) => setOperationParamsDialog(prev => ({
+                        ...prev,
+                        params: {
+                          ...prev.params,
+                          [op.id]: {
+                            ...prev.params[op.id],
+                            selectedOpId: e.target.value
+                          }
+                        }
+                      }))}
+                      required
+                    >
+                      <MenuItem value="">Выберите операцию</MenuItem>
+                      {matchingOps.map(mop => (
+                        <MenuItem key={mop.id} value={mop.id}>
+                          {mop.name} — {mop.price} ₽/ {mop.unit}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Box>
+                );
               }
               const params = operationParamsDialog.params[op.id] || {};
               return (
@@ -1246,6 +1377,9 @@ const handleSubmit = async (e) => {
                 } else if (opName.includes('люверс')) {
                   const p = operationParamsDialog.params[op.id];
                   return p && p.eyeletId;
+                } else if (String(op.id).startsWith('group_')) {
+                  const p = operationParamsDialog.params[op.id];
+                  return p && p.selectedOpId;
                 }
                 return true;
               })

@@ -21,6 +21,7 @@ const ENTITY_TABS = [
   { label: 'Clients', value: 'clients' },
   { label: 'Materials', value: 'materials' },
   { label: 'Operations', value: 'operations' },
+  { label: 'Operation Groups', value: 'operationGroups' },
   { label: 'Workshops', value: 'workshops' },
   { label: 'Employees', value: 'employees' },
   { label: 'Generate Data', value: 'generate' }
@@ -57,6 +58,12 @@ const AdminPanel = () => {
   const [editingOperationId, setEditingOperationId] = useState(null);
   const [editOperationForm, setEditOperationForm] = useState({ name: '', unit: 'SQUARE_METER', price: 0 });
 
+  // ---- Operation Groups state ----
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupDeleteDialogOpen, setGroupDeleteDialogOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [groupForm, setGroupForm] = useState({ name: '' });
+
   // ---- Workshops state ----
   const [workshopDialogOpen, setWorkshopDialogOpen] = useState(false);
   const [workshopDeleteDialogOpen, setWorkshopDeleteDialogOpen] = useState(false);
@@ -84,25 +91,31 @@ const AdminPanel = () => {
   const { data: materialsData = [], refetch: refetchMaterials } = useQuery({
     queryKey: ['admin-materials'],
     queryFn: async () => { const r = await api.get('/api/v1/materials?size=100'); return r.data.content || []; },
-    enabled: tab === 1 || tab === 3
+    enabled: tab === 1 || tab === 4
   });
 
   const { data: operationsData = [], refetch: refetchOperations } = useQuery({
     queryKey: ['admin-operations'],
     queryFn: async () => { const r = await api.get('/api/v1/calculations/operations'); return r.data || []; },
-    enabled: tab === 2 || tab === 3
+    enabled: tab === 2 || tab === 4
+  });
+
+  const { data: operationGroupsData = [], refetch: refetchOperationGroups } = useQuery({
+    queryKey: ['admin-operation-groups'],
+    queryFn: async () => { const r = await api.get('/api/v1/admin/operation-groups'); return r.data || []; },
+    enabled: tab === 3
   });
 
   const { data: workshopsData = [], refetch: refetchWorkshops } = useQuery({
     queryKey: ['admin-workshops'],
     queryFn: async () => { const r = await api.get('/api/v1/workshops?size=100'); return r.data.content || []; },
-    enabled: tab === 3
+    enabled: tab === 4
   });
 
   const { data: employeesData = [], refetch: refetchEmployees } = useQuery({
     queryKey: ['admin-employees'],
     queryFn: async () => { const r = await api.get('/api/v1/employees?size=100'); return r.data.content || []; },
-    enabled: tab === 4
+    enabled: tab === 5
   });
 
   // ---- Client CRUD ----
@@ -153,6 +166,23 @@ const AdminPanel = () => {
   const deleteOperationMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/admin/operations/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-operations'] }); setOperationDeleteDialogOpen(false); showNotification('Операция удалена'); },
+    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+  });
+
+  // ---- Operation Group CRUD ----
+  const createGroupMutation = useMutation({
+    mutationFn: (g) => api.post('/api/v1/admin/operation-groups', g),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-operation-groups'] }); setGroupDialogOpen(false); showNotification('Группировка создана'); resetGroupForm(); },
+    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+  });
+  const updateGroupMutation = useMutation({
+    mutationFn: ({ id, data }) => api.put(`/api/v1/admin/operation-groups/${id}`, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-operation-groups'] }); setGroupDialogOpen(false); showNotification('Группировка обновлена'); setSelectedGroup(null); },
+    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+  });
+  const deleteGroupMutation = useMutation({
+    mutationFn: (id) => api.delete(`/api/v1/admin/operation-groups/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-operation-groups'] }); setGroupDeleteDialogOpen(false); showNotification('Группировка удалена'); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
@@ -268,6 +298,7 @@ const AdminPanel = () => {
   const resetClientForm = () => { setClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' }); setSelectedClient(null); };
   const resetMaterialForm = () => { setMaterialForm({ name: '', unit: '', price: '', wasteCoefficient: '1' }); setSelectedMaterial(null); };
   const resetOperationForm = () => { setOperationForm({ name: '', unit: 'SQUARE_METER', price: '' }); setSelectedOperation(null); };
+  const resetGroupForm = () => { setGroupForm({ name: '' }); setSelectedGroup(null); };
   const resetWorkshopForm = () => { setWorkshopForm({ name: '', sortOrder: 0, operationIds: '' }); setSelectedWorkshop(null); };
   const resetEmployeeForm = () => { setEmployeeForm({ fullName: '', username: '', position: '', phone: '', email: '', workshopId: '', managerCashPercent: '' }); setSelectedEmployee(null); };
 
@@ -282,9 +313,16 @@ const AdminPanel = () => {
   const openOperationDialog = (op = null) => {
     if (op) {
       setSelectedOperation(op);
-      setOperationForm({ name: op.name || '', unit: op.unit || 'SQUARE_METER', price: op.price ? op.price.toString() : '' });
+      setOperationForm({ name: op.name || '', unit: UNIT_DISPLAY_TO_ENUM[op.unit] || op.unit || 'SQUARE_METER', price: op.price ? op.price.toString() : '' });
     } else { resetOperationForm(); }
     setOperationDialogOpen(true);
+  };
+  const openGroupDialog = (gr = null) => {
+    if (gr) {
+      setSelectedGroup(gr);
+      setGroupForm({ name: gr.name || '' });
+    } else { resetGroupForm(); }
+    setGroupDialogOpen(true);
   };
   const openWorkshopDialog = (ws = null) => {
     if (ws) {
@@ -320,6 +358,11 @@ const AdminPanel = () => {
     if (!operationForm.name) { showNotification('Введите название', 'error'); return; }
     const payload = { name: operationForm.name, unit: operationForm.unit, price: operationForm.price ? parseFloat(operationForm.price) : 0 };
     selectedOperation ? updateOperationMutation.mutate({ id: selectedOperation.id, data: payload }) : createOperationMutation.mutate(payload);
+  };
+  const handleGroupSubmit = () => {
+    if (!groupForm.name) { showNotification('Введите слово группировки', 'error'); return; }
+    const payload = { name: groupForm.name };
+    selectedGroup ? updateGroupMutation.mutate({ id: selectedGroup.id, data: payload }) : createGroupMutation.mutate(payload);
   };
   const handleWorkshopSubmit = () => {
     if (!workshopForm.name) { showNotification('Введите название', 'error'); return; }
@@ -433,6 +476,32 @@ const AdminPanel = () => {
     </Box>
   );
 
+  const renderOperationGroupsTab = () => (
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h6">Группировки операций</Typography>
+        <Button variant="contained" startIcon={<Add />} onClick={() => openGroupDialog()}>Добавить группировку</Button>
+      </Box>
+      {operationGroupsData.length === 0 && <Typography>Нет группировок</Typography>}
+      {operationGroupsData.length > 0 && (
+        <TableContainer component={Paper}><Table size="small">
+          <TableHead><TableRow><TableCell>Слово</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+          <TableBody>
+            {operationGroupsData.map((grp) => (
+              <TableRow key={grp.id}>
+                <TableCell>{grp.name}</TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => openGroupDialog(grp)}><Edit /></IconButton>
+                  <IconButton size="small" color="error" onClick={() => { setSelectedGroup(grp); setGroupDeleteDialogOpen(true); }}><Delete /></IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table></TableContainer>
+      )}
+    </Box>
+  );
+
   const renderWorkshopsTab = () => (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -528,9 +597,10 @@ const AdminPanel = () => {
           {tab === 0 && renderClientsTab()}
           {tab === 1 && renderMaterialsTab()}
           {tab === 2 && renderOperationsTab()}
-          {tab === 3 && renderWorkshopsTab()}
-          {tab === 4 && renderEmployeesTab()}
-          {tab === 5 && renderGenerateTab()}
+          {tab === 3 && renderOperationGroupsTab()}
+          {tab === 4 && renderWorkshopsTab()}
+          {tab === 5 && renderEmployeesTab()}
+          {tab === 6 && renderGenerateTab()}
         </Box>
       </Paper>
 
@@ -588,6 +658,19 @@ const AdminPanel = () => {
       <Dialog open={operationDeleteDialogOpen} onClose={() => setOperationDeleteDialogOpen(false)}>
         <DialogTitle>Удалить операцию?</DialogTitle><DialogContent><Typography>Удалить "{selectedOperation?.name}"?</Typography></DialogContent>
         <DialogActions><Button onClick={() => setOperationDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedOperation && deleteOperationMutation.mutate(selectedOperation.id)} color="error" variant="contained">Удалить</Button></DialogActions>
+      </Dialog>
+
+      {/* Operation Group */}
+      <Dialog open={groupDialogOpen} onClose={() => setGroupDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{selectedGroup ? 'Редактировать группировку' : 'Новая группировка'}</DialogTitle>
+        <DialogContent>
+          <TextField autoFocus fullWidth margin="dense" label="Слово группировки" value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} helperText="Слово, по которому группируются операции (например, печать)" />
+        </DialogContent>
+        <DialogActions><Button onClick={() => setGroupDialogOpen(false)}>Отмена</Button><Button onClick={handleGroupSubmit} variant="contained">Сохранить</Button></DialogActions>
+      </Dialog>
+      <Dialog open={groupDeleteDialogOpen} onClose={() => setGroupDeleteDialogOpen(false)}>
+        <DialogTitle>Удалить группировку?</DialogTitle><DialogContent><Typography>Удалить "{selectedGroup?.name}"?</Typography></DialogContent>
+        <DialogActions><Button onClick={() => setGroupDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedGroup && deleteGroupMutation.mutate(selectedGroup.id)} color="error" variant="contained">Удалить</Button></DialogActions>
       </Dialog>
 
       {/* Workshop */}
