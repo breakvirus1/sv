@@ -10,6 +10,7 @@ import OrderItemDetail from './pages/OrderItemDetail'
 import CallbackPage from './pages/CallbackPage'
 import AdminPanel from './pages/AdminPanel'
 import ProductionOrderList from './pages/ProductionOrderList'
+import ProductionOrderDetail from './pages/ProductionOrderDetail'
 import ProductionOrdersPositionsList from './pages/ProductionOrdersPositionsList'
 import TestCalculations from './pages/TestCalculations'
 import CreateOrderForm from './components/CreateOrderForm'
@@ -68,11 +69,16 @@ function App() {
                   <ProductionOrderList />
                 </ProtectedRoute>
               } />
-             <Route path="/production/positions" element={
-               <ProtectedRoute>
-                 <ProductionOrdersPositionsList />
-               </ProtectedRoute>
-             } />
+              <Route path="/production/positions" element={
+                <ProtectedRoute>
+                  <ProductionOrdersPositionsList />
+                </ProtectedRoute>
+              } />
+              <Route path="/production/orders/:id" element={
+                <ProtectedRoute>
+                  <ProductionOrderDetail />
+                </ProtectedRoute>
+              } />
             <Route path="/manager" element={
               <ProtectedRoute requiresManager={true}>
                 <ManagerOrderList />

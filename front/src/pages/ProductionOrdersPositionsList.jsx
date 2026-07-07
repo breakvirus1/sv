@@ -328,7 +328,7 @@ const ProductionOrdersPositionsList = () => {
               position={item.position}
               order={item.order}
               index={item.index}
-              onNavigate={(id) => navigate(`/orders/${id}`)}
+              onNavigate={(id) => navigate(`/production/orders/${id}`)}
             />
           ))
         )}

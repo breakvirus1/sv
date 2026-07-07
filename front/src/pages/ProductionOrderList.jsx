@@ -280,7 +280,7 @@ const ProductionOrderList = () => {
             <OrderRow
               key={order.id}
               order={order}
-              onNavigate={(id) => navigate(`/orders/${id}`)}
+              onNavigate={(id) => navigate(`/production/orders/${id}`)}
             />
           ))
         )}
