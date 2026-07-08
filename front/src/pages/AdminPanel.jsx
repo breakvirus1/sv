@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box, Typography, Tabs, Tab, Paper, Table, TableHead, TableRow, TableCell,
   TableBody, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, FormControl, InputLabel, Select, MenuItem, CircularProgress, Alert,
-  Snackbar, Grid, Divider, TableContainer, Chip
+  Snackbar, Grid, Divider, TableContainer, Chip, Checkbox, FormControlLabel
 } from '@mui/material';
 import { Add, Edit, Delete, Refresh, Save, Cancel, Sync } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -50,6 +50,10 @@ const AdminPanel = () => {
   const [editingMaterialId, setEditingMaterialId] = useState(null);
   const [editMaterialForm, setEditMaterialForm] = useState({ name: '', unit: '', price: 0, wasteCoefficient: 1 });
 
+  const [materialOpsDialogOpen, setMaterialOpsDialogOpen] = useState(false);
+  const [selectedMaterialForOps, setSelectedMaterialForOps] = useState(null);
+  const [materialOpsSelected, setMaterialOpsSelected] = useState([]);
+
   // ---- Operations state ----
   const [operationDialogOpen, setOperationDialogOpen] = useState(false);
   const [operationDeleteDialogOpen, setOperationDeleteDialogOpen] = useState(false);
@@ -92,6 +96,16 @@ const AdminPanel = () => {
     queryKey: ['admin-materials'],
     queryFn: async () => { const r = await api.get('/api/v1/materials?size=100'); return r.data.content || []; },
     enabled: tab === 1 || tab === 4
+  });
+
+  const { data: materialOpsData = [], refetch: refetchMaterialOps } = useQuery({
+    queryKey: ['admin-material-ops', selectedMaterialForOps?.id],
+    queryFn: async () => {
+      if (!selectedMaterialForOps?.id) return [];
+      const r = await api.get(`/api/v1/admin/operations/materials/${selectedMaterialForOps.id}/operations`);
+      return r.data || [];
+    },
+    enabled: !!selectedMaterialForOps?.id
   });
 
   const { data: operationsData = [], refetch: refetchOperations } = useQuery({
@@ -152,7 +166,12 @@ const AdminPanel = () => {
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
-  // ---- Operation CRUD ----
+   const saveMaterialOperationsMutation = useMutation({
+    mutationFn: ({ materialId, operationIds }) => api.put(`/api/v1/admin/operations/materials/${materialId}/operations`, operationIds),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-material-ops'] }); showNotification('Операции материала обновлены'); },
+    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+  });
+
   const createOperationMutation = useMutation({
     mutationFn: (op) => api.post('/api/v1/admin/operations', op),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-operations'] }); setOperationDialogOpen(false); showNotification('Операция создана'); resetOperationForm(); },
@@ -349,12 +368,29 @@ const AdminPanel = () => {
     const payload = { ...clientForm };
     selectedClient ? updateClientMutation.mutate({ id: selectedClient.id, data: payload }) : createClientMutation.mutate(payload);
   };
-  const handleMaterialSubmit = () => {
-    if (!materialForm.name) { showNotification('Введите название', 'error'); return; }
-    const payload = { name: materialForm.name, unit: materialForm.unit, price: materialForm.price ? parseFloat(materialForm.price) : 0, wasteCoefficient: parseFloat(materialForm.wasteCoefficient) || 1 };
-    selectedMaterial ? updateMaterialMutation.mutate({ id: selectedMaterial.id, data: payload }) : createMaterialMutation.mutate(payload);
-  };
-  const handleOperationSubmit = () => {
+   const handleMaterialSubmit = () => {
+     if (!materialForm.name) { showNotification('Введите название', 'error'); return; }
+     const payload = { name: materialForm.name, unit: materialForm.unit, price: materialForm.price ? parseFloat(materialForm.price) : 0, wasteCoefficient: parseFloat(materialForm.wasteCoefficient) || 1 };
+     selectedMaterial ? updateMaterialMutation.mutate({ id: selectedMaterial.id, data: payload }) : createMaterialMutation.mutate(payload);
+   };
+   const openMaterialOpsDialog = (mat) => {
+     setSelectedMaterialForOps(mat);
+     setMaterialOpsDialogOpen(true);
+   };
+   const handleSaveMaterialOperations = () => {
+     if (!selectedMaterialForOps?.id) return;
+     const opIds = materialOpsSelected;
+     saveMaterialOperationsMutation.mutate({ materialId: selectedMaterialForOps.id, operationIds: opIds });
+     setMaterialOpsDialogOpen(false);
+     setSelectedMaterialForOps(null);
+     setMaterialOpsSelected([]);
+   };
+   const handleCloseMaterialOpsDialog = () => {
+     setMaterialOpsDialogOpen(false);
+     setSelectedMaterialForOps(null);
+     setMaterialOpsSelected([]);
+   };
+   const handleOperationSubmit = () => {
     if (!operationForm.name) { showNotification('Введите название', 'error'); return; }
     const payload = { name: operationForm.name, unit: operationForm.unit, price: operationForm.price ? parseFloat(operationForm.price) : 0 };
     selectedOperation ? updateOperationMutation.mutate({ id: selectedOperation.id, data: payload }) : createOperationMutation.mutate(payload);
@@ -391,7 +427,11 @@ const AdminPanel = () => {
     setEditOperationForm(p => ({ ...p, [field]: val }));
   };
 
-  const filteredOperations = operationsData;
+  useEffect(() => {
+      if (materialOpsData) {
+        setMaterialOpsSelected(materialOpsData.map(op => op.id));
+      }
+    }, [materialOpsData]);
 
   // ---- Render ----
   const renderClientsTab = () => (
@@ -435,6 +475,7 @@ const AdminPanel = () => {
                 <TableCell>{editingMaterialId === mat.id ? <TextField fullWidth size="small" type="number" value={editMaterialForm.wasteCoefficient} onChange={handleEditMaterialChange('wasteCoefficient')} inputProps={{ step: 0.1 }} /> : mat.wasteCoefficient?.toString()}</TableCell>
                 <TableCell align="right">
                   {editingMaterialId === mat.id ? <><IconButton size="small" color="success" onClick={() => saveMaterialEdit(mat.id)}><Save /></IconButton><IconButton size="small" onClick={cancelEditMaterial}><Cancel /></IconButton></> : <IconButton size="small" onClick={() => startEditMaterial(mat)}><Edit /></IconButton>}
+                  <Button size="small" variant="outlined" onClick={() => openMaterialOpsDialog(mat)}>Операции</Button>
                   <IconButton size="small" color="error" onClick={() => { setSelectedMaterial(mat); setMaterialDeleteDialogOpen(true); }}><Delete /></IconButton>
                 </TableCell>
               </TableRow>
@@ -454,12 +495,12 @@ const AdminPanel = () => {
           <Button variant="contained" startIcon={<Add />} onClick={() => openOperationDialog()}>Добавить операцию</Button>
         </Box>
       </Box>
-      {filteredOperations.length === 0 && <Typography>Нет операций</Typography>}
-      {filteredOperations.length > 0 && (
+      {operationsData.length === 0 && <Typography>Нет операций</Typography>}
+      {operationsData.length > 0 && (
         <TableContainer component={Paper}><Table size="small">
           <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Цена</TableCell><TableCell>Ед. изм.</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
           <TableBody>
-            {filteredOperations.map((op) => (
+            {operationsData.map((op) => (
               <TableRow key={op.id}>
                 <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" value={editOperationForm.name} onChange={handleEditOperationChange('name')} /> : op.name}</TableCell>
                 <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" type="number" value={editOperationForm.price} onChange={handleEditOperationChange('price')} inputProps={{ step: 0.01 }} /> : `${op.price?.toFixed(2)} ₽`}</TableCell>
@@ -638,12 +679,42 @@ const AdminPanel = () => {
         </DialogContent>
         <DialogActions><Button onClick={() => setMaterialDialogOpen(false)}>Отмена</Button><Button onClick={handleMaterialSubmit} variant="contained">Сохранить</Button></DialogActions>
       </Dialog>
-      <Dialog open={materialDeleteDialogOpen} onClose={() => setMaterialDeleteDialogOpen(false)}>
-        <DialogTitle>Удалить материал?</DialogTitle><DialogContent><Typography>Удалить "{selectedMaterial?.name}"?</Typography></DialogContent>
-        <DialogActions><Button onClick={() => setMaterialDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedMaterial && deleteMaterialMutation.mutate(selectedMaterial.id)} color="error" variant="contained">Удалить</Button></DialogActions>
-      </Dialog>
+       <Dialog open={materialDeleteDialogOpen} onClose={() => setMaterialDeleteDialogOpen(false)}>
+         <DialogTitle>Удалить материал?</DialogTitle><DialogContent><Typography>Удалить "{selectedMaterial?.name}"?</Typography></DialogContent>
+         <DialogActions><Button onClick={() => setMaterialDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedMaterial && deleteMaterialMutation.mutate(selectedMaterial.id)} color="error" variant="contained">Удалить</Button></DialogActions>
+       </Dialog>
+       <Dialog open={materialOpsDialogOpen} onClose={handleCloseMaterialOpsDialog} maxWidth="sm" fullWidth>
+         <DialogTitle>Операции для "{selectedMaterialForOps?.name}"</DialogTitle>
+         <DialogContent>
+           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, maxHeight: 400, overflow: 'auto' }}>
+             {operationsData.map(op => (
+               <FormControlLabel
+                 key={op.id}
+                 control={
+                   <Checkbox
+                     checked={materialOpsSelected.includes(op.id)}
+                     onChange={(e) => {
+                       if (e.target.checked) {
+                         setMaterialOpsSelected(prev => [...prev, op.id]);
+                       } else {
+                         setMaterialOpsSelected(prev => prev.filter(id => id !== op.id));
+                       }
+                     }}
+                   />
+                 }
+                 label={op.name}
+               />
+             ))}
+             {operationsData.length === 0 && <Typography>Нет доступных операций</Typography>}
+           </Box>
+         </DialogContent>
+         <DialogActions>
+           <Button onClick={handleCloseMaterialOpsDialog}>Отмена</Button>
+           <Button onClick={handleSaveMaterialOperations} variant="contained">Сохранить</Button>
+         </DialogActions>
+       </Dialog>
 
-      {/* Operation */}
+       {/* Operation */}
       <Dialog open={operationDialogOpen} onClose={() => setOperationDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{selectedOperation ? 'Редактировать операцию' : 'Новая операция'}</DialogTitle>
         <DialogContent>

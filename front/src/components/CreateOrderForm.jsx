@@ -151,6 +151,24 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     [operationsData, groupKeywords]
   );
 
+  const currentDialogMaterialId = operationsDialog.itemIndex != null ? formData.items[operationsDialog.itemIndex]?.materialId : null;
+  const { data: materialOpsData = [] } = useQuery({
+    queryKey: ['material-operations', currentDialogMaterialId],
+    queryFn: async () => {
+      if (!currentDialogMaterialId) return [];
+      const r = await api.get(`/api/v1/admin/operations/materials/${currentDialogMaterialId}/operations`);
+      return r.data || [];
+    },
+    enabled: !!currentDialogMaterialId
+  });
+
+  const dialogOperations = useMemo(() => {
+    if (materialOpsData.length > 0) {
+      return materialOpsData.filter(op => !groupKeywords.some(kw => op.name.toLowerCase().includes(kw)));
+    }
+    return filteredOperationsData;
+  }, [materialOpsData, filteredOperationsData, groupKeywords]);
+
   const { data: eyeletsData = [], error: eyeletsError } = useQuery({
     queryKey: ['eyelets'],
     queryFn: async () => {
@@ -1115,7 +1133,7 @@ const handleSubmit = async (e) => {
               }
               return null;
             })()}
-            {filteredOperationsData.map(op => {
+            {dialogOperations.map(op => {
               if (op.name && op.name.toLowerCase().includes('подворот')) return null;
               return (
                 <FormControlLabel
@@ -1293,10 +1311,14 @@ const handleSubmit = async (e) => {
                     />
                   </Box>
                 );
-              } else if (String(op.id).startsWith('group_')) {
-                const groupName = op.name;
-                const params = operationParamsDialog.params[op.id] || { selectedOpId: '' };
-                const matchingOps = operationsData.filter(o => o.name.toLowerCase().includes(groupName.toLowerCase()));
+               } else if (String(op.id).startsWith('group_')) {
+                 const groupName = op.name;
+                 const params = operationParamsDialog.params[op.id] || { selectedOpId: '' };
+                 const groupMatchingOps = operationsData.filter(o => o.name.toLowerCase().includes(groupName.toLowerCase()));
+                 const materialMatchingOps = materialOpsData.length > 0
+                   ? materialOpsData.filter(o => o.name.toLowerCase().includes(groupName.toLowerCase()))
+                   : groupMatchingOps;
+                 const matchingOps = materialMatchingOps;
                 return (
                   <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom color="primary">
