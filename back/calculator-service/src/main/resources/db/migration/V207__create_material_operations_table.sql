@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS svschema.calculator_material_operations (
     id BIGSERIAL PRIMARY KEY,
     material_id BIGINT NOT NULL,
     operation_id BIGINT NOT NULL,
-    created_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT FALSE,
     CONSTRAINT fk_calc_mat_op_material FOREIGN KEY (material_id) REFERENCES svschema.materials (id),

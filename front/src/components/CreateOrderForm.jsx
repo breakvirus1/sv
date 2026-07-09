@@ -403,6 +403,18 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         return;
       }
 
+      const regularOpsToSave = selectedOpsData.filter(op =>
+        !op.name.toLowerCase().includes('подворот') && !op.name.toLowerCase().includes('люверс')
+      );
+      if (regularOpsToSave.length > 0) {
+        const mergedRegular = regularOpsToSave.map(op => {
+          const existing = currentOps.find(cop => cop.id === op.id);
+          return existing ? { ...op, ...existing } : op;
+        });
+        const lockedHemOps = currentOps.filter(op => op.name && op.name.toLowerCase().includes('подворот'));
+        updateItemOperations(itemIndex, [...mergedRegular, ...lockedHemOps]);
+      }
+
       const newPendingOps = [...specialOps];
       const initialParams = {};
 
@@ -1311,14 +1323,12 @@ const handleSubmit = async (e) => {
                     />
                   </Box>
                 );
-               } else if (String(op.id).startsWith('group_')) {
-                 const groupName = op.name;
-                 const params = operationParamsDialog.params[op.id] || { selectedOpId: '' };
-                 const groupMatchingOps = operationsData.filter(o => o.name.toLowerCase().includes(groupName.toLowerCase()));
-                 const materialMatchingOps = materialOpsData.length > 0
-                   ? materialOpsData.filter(o => o.name.toLowerCase().includes(groupName.toLowerCase()))
-                   : groupMatchingOps;
-                 const matchingOps = materialMatchingOps;
+                } else if (String(op.id).startsWith('group_')) {
+                  const groupName = op.name;
+                  const params = operationParamsDialog.params[op.id] || { selectedOpId: '' };
+                  const matchingOps = materialOpsData.length > 0
+                    ? materialOpsData.filter(o => o.name.toLowerCase().includes(groupName.toLowerCase()))
+                    : operationsData.filter(o => o.name.toLowerCase().includes(groupName.toLowerCase()));
                 return (
                   <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom color="primary">
