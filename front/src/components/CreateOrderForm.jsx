@@ -156,18 +156,34 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     queryKey: ['material-operations', currentDialogMaterialId],
     queryFn: async () => {
       if (!currentDialogMaterialId) return [];
-      const r = await api.get(`/api/v1/admin/operations/materials/${currentDialogMaterialId}/operations`);
+      const r = await api.get(`/api/v1/calculations/operations/by-material/${currentDialogMaterialId}`);
       return r.data || [];
     },
     enabled: !!currentDialogMaterialId
   });
 
   const dialogOperations = useMemo(() => {
-    if (materialOpsData.length > 0) {
-      return materialOpsData.filter(op => !groupKeywords.some(kw => op.name.toLowerCase().includes(kw)));
+    let ops = materialOpsData.length > 0 ? materialOpsData : operationsData;
+    const matId = operationsDialog.itemIndex != null ? formData.items[operationsDialog.itemIndex]?.materialId : null;
+    if (matId && materialOpsData.length === 0) {
+      const mat = materialsData.find(m => m.id === parseInt(matId));
+      if (mat) {
+        const matName = (mat.name || '').toLowerCase();
+        if (matName.includes('баннер')) {
+          ops = ops.filter(o => {
+            const on = (o.name || '').toLowerCase();
+            return on.includes('баннер') || on.includes('тиснение') || on.includes('уф') || on.includes('резка') || on.includes('сушка');
+          });
+        } else if (matName.includes('плёнка') || matName.includes('пленка')) {
+          ops = ops.filter(o => {
+            const on = (o.name || '').toLowerCase();
+            return on.includes('плёнка') || on.includes('пленка') || on.includes('реза') || on.includes('ламин');
+          });
+        }
+      }
     }
-    return filteredOperationsData;
-  }, [materialOpsData, filteredOperationsData, groupKeywords]);
+    return ops.filter(op => !groupKeywords.some(kw => op.name.toLowerCase().includes(kw)));
+  }, [materialOpsData, operationsData, groupKeywords, formData.items, operationsDialog.itemIndex, materialsData]);
 
   const { data: eyeletsData = [], error: eyeletsError } = useQuery({
     queryKey: ['eyelets'],

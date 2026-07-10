@@ -102,7 +102,7 @@ const AdminPanel = () => {
     queryKey: ['admin-material-ops', selectedMaterialForOps?.id],
     queryFn: async () => {
       if (!selectedMaterialForOps?.id) return [];
-      const r = await api.get(`/api/v1/admin/operations/materials/${selectedMaterialForOps.id}/operations`);
+      const r = await api.get(`/api/v1/calculations/operations/by-material/${selectedMaterialForOps.id}`);
       return r.data || [];
     },
     enabled: !!selectedMaterialForOps?.id
@@ -111,7 +111,7 @@ const AdminPanel = () => {
   const { data: operationsData = [], refetch: refetchOperations } = useQuery({
     queryKey: ['admin-operations'],
     queryFn: async () => { const r = await api.get('/api/v1/calculations/operations'); return r.data || []; },
-    enabled: tab === 2 || tab === 4
+    enabled: tab === 1 || tab === 2 || tab === 4
   });
 
   const { data: operationGroupsData = [], refetch: refetchOperationGroups } = useQuery({
@@ -167,7 +167,7 @@ const AdminPanel = () => {
   });
 
    const saveMaterialOperationsMutation = useMutation({
-    mutationFn: ({ materialId, operationIds }) => api.put(`/api/v1/admin/operations/materials/${materialId}/operations`, operationIds),
+    mutationFn: ({ materialId, operationIds }) => api.put(`/api/v1/calculations/materials/${materialId}/operations`, operationIds),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-material-ops'] }); showNotification('Операции материала обновлены'); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });

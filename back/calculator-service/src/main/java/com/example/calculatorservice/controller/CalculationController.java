@@ -78,6 +78,23 @@ public class CalculationController {
         );
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @GetMapping("/operations/by-material/{materialId}")
+    public ResponseEntity<List<OperationDto>> getOperationsByMaterial(@PathVariable Long materialId) {
+        return ResponseEntity.ok(
+                operationService.getOperationsByMaterialId(materialId).stream()
+                        .map(operationMapper::toDto)
+                        .toList()
+        );
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PutMapping("/materials/{materialId}/operations")
+    public ResponseEntity<Void> setMaterialOperations(@PathVariable Long materialId, @RequestBody List<Long> operationIds) {
+        operationService.setMaterialOperations(materialId, operationIds);
+        return ResponseEntity.ok().build();
+    }
+
      @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
      @PostMapping
      public ResponseEntity<CalculationResponseDto> createCalculation(
