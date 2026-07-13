@@ -6,6 +6,7 @@ import com.example.calculatorservice.dto.request.AreaCalculationRequest;
 import com.example.calculatorservice.dto.request.CalculationRequestDto;
 import com.example.calculatorservice.dto.request.ItemCostRequest;
 import com.example.calculatorservice.dto.response.CalculationResponseDto;
+import com.example.calculatorservice.dto.GroupedOperationsResponse;
 import com.example.calculatorservice.entity.Eyelet;
 import com.example.calculatorservice.entity.Material;
 import com.example.calculatorservice.entity.MaterialType;
@@ -128,5 +129,17 @@ public class CalculationController {
     public ResponseEntity<CalculationResponseDto> preview(@Valid @RequestBody CalculationRequestDto request) {
         CalculationResponseDto dto = calculationService.calculateWithoutSaving(request);
         return ResponseEntity.ok(dto);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @GetMapping("/materials/{materialId}/grouped-operations")
+    public ResponseEntity<GroupedOperationsResponse> getGroupedOperations(@PathVariable Long materialId) {
+        return ResponseEntity.ok(operationService.getGroupedOperationsByMaterialId(materialId));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @GetMapping("/operations/grouped")
+    public ResponseEntity<GroupedOperationsResponse> getAllGroupedOperations() {
+        return ResponseEntity.ok(operationService.getGroupedOperationsByMaterialId(null));
     }
 }

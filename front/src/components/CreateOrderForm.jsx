@@ -27,6 +27,7 @@ import {
   Menu,
   Checkbox,
   FormControlLabel,
+  FormGroup,
   InputAdornment
 } from '@mui/material';
 import { Add, Delete, Save, AttachFile } from '@mui/icons-material';
@@ -133,22 +134,18 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
-  const { data: operationGroupsData = [] } = useQuery({
-    queryKey: ['operation-groups'],
+  const { data: groupedOperationsData = {} } = useQuery({
+    queryKey: ['grouped-operations'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/admin/operation-groups');
-      return response.data || [];
+      const response = await api.get('/api/v1/calculations/operations/grouped');
+      const groups = response.data?.groups || [];
+      return Object.fromEntries(groups.map(g => [g.id, g]));
     },
   });
 
-  const groupKeywords = useMemo(
-    () => operationGroupsData.map(g => g.name.toLowerCase()),
-    [operationGroupsData]
-  );
-
-  const filteredOperationsData = useMemo(
-    () => operationsData.filter(op => !groupKeywords.some(kw => op.name.toLowerCase().includes(kw))),
-    [operationsData, groupKeywords]
+  const allGroupedOpsFlat = useMemo(
+    () => Object.values(groupedOperationsData).flatMap(g => (g.operations || [])),
+    [groupedOperationsData]
   );
 
   const { data: eyeletsData = [], error: eyeletsError } = useQuery({
@@ -263,20 +260,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const handleOpenOperationsDialog = (itemIndex) => {
     const item = formData.items[itemIndex];
     const currentOpIds = item.operations.map(op => op.id);
-    const selectedGroupIds = [];
-    if (operationGroupsData.length > 0) {
-      operationGroupsData.forEach(group => {
-        const keyword = group.name.toLowerCase();
-        const hasMatching = item.operations.some(op => op.name.toLowerCase().includes(keyword));
-        if (hasMatching) {
-          selectedGroupIds.push('group_' + group.id);
-        }
-      });
-    }
     setOperationsDialog({
       open: true,
       itemIndex,
-      selectedOps: [...currentOpIds, ...selectedGroupIds]
+      selectedOps: [...currentOpIds]
     });
   };
 
@@ -297,14 +284,6 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const handleSaveOperationParams = () => {
     const { itemIndex, pendingOps, params } = operationParamsDialog;
     const opsWithParams = pendingOps.map(op => {
-      if (String(op.id).startsWith('group_')) {
-        const selectedOpId = params[op.id]?.selectedOpId;
-        const selectedOp = operationsData.find(o => o.id === selectedOpId);
-        if (selectedOp) {
-          return { ...selectedOp, groupSelectedOpId: selectedOpId };
-        }
-        return null;
-      }
       const baseOp = operationsData.find(o => o.id === op.id);
       const opParams = params[op.id] || {};
       if (opParams.eyeletId !== undefined) {
@@ -335,31 +314,17 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
   const handleSaveOperations = () => {
     const { itemIndex, selectedOps } = operationsDialog;
-    const selectedRegularIds = selectedOps.filter(id => String(id).startsWith('group_') === false);
-    const selectedGroupIds = selectedOps.filter(id => String(id).startsWith('group_'));
-    const selectedOpsData = operationsData.filter(op => selectedRegularIds.includes(op.id));
+    const selectedOpsData = operationsData.filter(op => selectedOps.includes(op.id));
     const currentOps = formData.items[itemIndex].operations || [];
 
     const specialOps = selectedOpsData.filter(op =>
       op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
     );
 
-    const groupOps = [];
-    if (selectedGroupIds.length > 0) {
-      selectedGroupIds.forEach(sgId => {
-        const groupId = parseInt(sgId.replace('group_', ''), 10);
-        const group = operationGroupsData.find(g => g.id === groupId);
-        if (group) {
-          groupOps.push({ ...group, keyword: group.name.toLowerCase() });
-        }
-      });
-    }
-
     const hasSpecialOps = specialOps.length > 0;
-    const hasGroupOps = groupOps.length > 0;
 
-    if (hasSpecialOps || hasGroupOps) {
-      const allAlreadyConfigured = (hasSpecialOps && specialOps.every(sop => {
+    if (hasSpecialOps) {
+      const allAlreadyConfigured = specialOps.every(sop => {
         const existing = currentOps.find(cop => cop.id === sop.id);
         if (sop.name.toLowerCase().includes('люверс')) {
           return existing && existing.eyeletId;
@@ -368,10 +333,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           return existing && existing.hemWidthMm;
         }
         return false;
-      })) && (hasGroupOps && groupOps.every(go => {
-        const existing = currentOps.find(cop => cop.id === ('group_' + go.id));
-        return existing && existing.groupSelectedOpId;
-      }));
+      });
 
       if (allAlreadyConfigured) {
         const ops = selectedOpsData.map(op => {
@@ -393,8 +355,8 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         const existing = currentOps.find(cop => cop.id === opId);
         if (op.name.toLowerCase().includes('подворот')) {
           if (existing && existing.hemWidthMm) {
-            initialParams[opId] = { 
-              hemWidthMm: existing.hemWidthMm, 
+            initialParams[opId] = {
+              hemWidthMm: existing.hemWidthMm,
               hemCount: existing.hemCount || 2,
               widthMm: existing.widthMm,
               heightMm: existing.heightMm
@@ -406,8 +368,8 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           }
         } else if (op.name.toLowerCase().includes('люверс')) {
           if (existing && existing.eyeletId) {
-            initialParams[opId] = { 
-              eyeletId: existing.eyeletId, 
+            initialParams[opId] = {
+              eyeletId: existing.eyeletId,
               eyeletStepCm: existing.eyeletStepCm || 40,
               widthMm: existing.widthMm,
               heightMm: existing.heightMm
@@ -415,17 +377,6 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           } else {
             initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: null, heightMm: null };
           }
-        }
-      });
-
-      groupOps.forEach(go => {
-        const syntheticId = 'group_' + go.id;
-        newPendingOps.push({ id: syntheticId, name: go.name });
-        const existing = currentOps.find(cop => cop.id === syntheticId);
-        if (existing && existing.groupSelectedOpId) {
-          initialParams[syntheticId] = { selectedOpId: existing.groupSelectedOpId };
-        } else {
-          initialParams[syntheticId] = { selectedOpId: '' };
         }
       });
 
@@ -1083,19 +1034,7 @@ const handleSubmit = async (e) => {
       <Dialog open={operationsDialog.open} onClose={handleCloseOperationsDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Выбрать операции</DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, alignItems: 'flex-start' }}>
-            {operationGroupsData.map(group => (
-              <FormControlLabel
-                key={'group_' + group.id}
-                control={
-                  <Checkbox
-                    checked={operationsDialog.selectedOps.includes('group_' + group.id)}
-                    onChange={() => handleToggleOperation('group_' + group.id)}
-                  />
-                }
-                label={group.name}
-              />
-            ))}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1, alignItems: 'stretch' }}>
             {(() => {
               const currentItem = operationsDialog.itemIndex != null ? formData.items[operationsDialog.itemIndex] : null;
               const lockedHem = currentItem?.operations?.find(op => op.name && op.name.toLowerCase().includes('подворот'));
@@ -1115,21 +1054,57 @@ const handleSubmit = async (e) => {
               }
               return null;
             })()}
-            {filteredOperationsData.map(op => {
-              if (op.name && op.name.toLowerCase().includes('подворот')) return null;
-              return (
-                <FormControlLabel
-                  key={op.id}
-                  control={
-                    <Checkbox
-                      checked={operationsDialog.selectedOps.includes(op.id)}
-                      onChange={() => handleToggleOperation(op.id)}
+            {Object.values(groupedOperationsData).map(group => (
+              <Box key={group.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, width: '100%' }}>
+                <Typography variant="subtitle2" color="primary" gutterBottom>
+                  {group.name}
+                </Typography>
+                <FormGroup>
+                  {(group.operations || []).filter(op => op.name && !op.name.toLowerCase().includes('подворот')).map(op => (
+                    <FormControlLabel
+                      key={op.id}
+                      control={
+                        <Checkbox
+                          checked={operationsDialog.selectedOps.includes(op.id)}
+                          onChange={() => handleToggleOperation(op.id)}
+                        />
+                      }
+                      label={op.name}
                     />
-                  }
-                  label={op.name}
-                />
+                  ))}
+                </FormGroup>
+              </Box>
+            ))}
+            {(() => {
+              const groupedOpIds = new Set(
+                Object.values(groupedOperationsData).flatMap(g => (g.operations || []).map(op => op.id))
               );
-            })}
+              const ungroupedOps = allGroupedOpsFlat.filter(
+                op => !groupedOpIds.has(op.id) && op.name && !op.name.toLowerCase().includes('подворот')
+              );
+              if (ungroupedOps.length === 0) return null;
+              return (
+                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, width: '100%' }}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Без группы
+                  </Typography>
+                  <FormGroup>
+                    {ungroupedOps.map(op => (
+                      <FormControlLabel
+                        key={op.id}
+                        control={
+                          <Checkbox
+                            checked={operationsDialog.selectedOps.includes(op.id)}
+                            onChange={() => handleToggleOperation(op.id)}
+                          />
+                        }
+                        label={op.name}
+                      />
+                    ))}
+                  </FormGroup>
+                </Box>
+              );
+            })()}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -1293,42 +1268,6 @@ const handleSubmit = async (e) => {
                     />
                   </Box>
                 );
-              } else if (String(op.id).startsWith('group_')) {
-                const groupName = op.name;
-                const params = operationParamsDialog.params[op.id] || { selectedOpId: '' };
-                const matchingOps = operationsData.filter(o => o.name.toLowerCase().includes(groupName.toLowerCase()));
-                return (
-                  <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom color="primary">
-                      {groupName}
-                    </Typography>
-                    <TextField
-                      select
-                      fullWidth
-                      margin="dense"
-                      label="Операции"
-                      value={params.selectedOpId}
-                      onChange={(e) => setOperationParamsDialog(prev => ({
-                        ...prev,
-                        params: {
-                          ...prev.params,
-                          [op.id]: {
-                            ...prev.params[op.id],
-                            selectedOpId: e.target.value
-                          }
-                        }
-                      }))}
-                      required
-                    >
-                      <MenuItem value="">Выберите операцию</MenuItem>
-                      {matchingOps.map(mop => (
-                        <MenuItem key={mop.id} value={mop.id}>
-                          {mop.name} — {mop.price} ₽/ {mop.unit}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Box>
-                );
               }
               const params = operationParamsDialog.params[op.id] || {};
               return (
@@ -1377,9 +1316,6 @@ const handleSubmit = async (e) => {
                 } else if (opName.includes('люверс')) {
                   const p = operationParamsDialog.params[op.id];
                   return p && p.eyeletId;
-                } else if (String(op.id).startsWith('group_')) {
-                  const p = operationParamsDialog.params[op.id];
-                  return p && p.selectedOpId;
                 }
                 return true;
               })

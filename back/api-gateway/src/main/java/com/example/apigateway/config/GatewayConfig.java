@@ -49,6 +49,10 @@ public class GatewayConfig {
                 .path("/api/v1/admin/employees/**")
                 .uri("http://employee-service:8083")
             )
+            .route("admin-material-operation-groups", r -> r
+                .path("/api/v1/admin/materials/*/operation-groups/**")
+                .uri("http://calculator-service:8086")
+            )
              .route("admin-material-service", r -> r
                  .path("/api/v1/admin/materials/**")
                  .uri("http://material-service:8084")

@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import GenerateTab from '../components/AdminPanel/GenerateTab';
+import MaterialsTab from '../components/AdminPanel/MaterialsTab';
 
 const UNIT_DISPLAY_TO_ENUM = {
   'м²': 'SQUARE_METER',
@@ -416,35 +417,6 @@ const AdminPanel = () => {
     </Box>
   );
 
-  const renderMaterialsTab = () => (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Управление материалами</Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => openMaterialDialog()}>Добавить материал</Button>
-      </Box>
-      {materialsData.length === 0 && <Typography>Нет данных</Typography>}
-      {materialsData.length > 0 && (
-        <TableContainer component={Paper}><Table size="small">
-          <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Ед. изм.</TableCell><TableCell>Цена</TableCell><TableCell>Коэф. отхода</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
-          <TableBody>
-            {materialsData.map((mat) => (
-              <TableRow key={mat.id}>
-                <TableCell>{editingMaterialId === mat.id ? <TextField fullWidth size="small" value={editMaterialForm.name} onChange={handleEditMaterialChange('name')} /> : mat.name}</TableCell>
-                <TableCell>{editingMaterialId === mat.id ? <FormControl fullWidth size="small"><Select value={editMaterialForm.unit} onChange={(e) => handleEditMaterialChange('unit')(e)}><MenuItem value="м2">м²</MenuItem><MenuItem value="м.п.">м.п.</MenuItem><MenuItem value="шт">шт</MenuItem></Select></FormControl> : mat.unit}</TableCell>
-                <TableCell>{editingMaterialId === mat.id ? <TextField fullWidth size="small" type="number" value={editMaterialForm.price} onChange={handleEditMaterialChange('price')} inputProps={{ step: 0.01 }} /> : `${mat.price?.toFixed(2)} ₽`}</TableCell>
-                <TableCell>{editingMaterialId === mat.id ? <TextField fullWidth size="small" type="number" value={editMaterialForm.wasteCoefficient} onChange={handleEditMaterialChange('wasteCoefficient')} inputProps={{ step: 0.1 }} /> : mat.wasteCoefficient?.toString()}</TableCell>
-                <TableCell align="right">
-                  {editingMaterialId === mat.id ? <><IconButton size="small" color="success" onClick={() => saveMaterialEdit(mat.id)}><Save /></IconButton><IconButton size="small" onClick={cancelEditMaterial}><Cancel /></IconButton></> : <IconButton size="small" onClick={() => startEditMaterial(mat)}><Edit /></IconButton>}
-                  <IconButton size="small" color="error" onClick={() => { setSelectedMaterial(mat); setMaterialDeleteDialogOpen(true); }}><Delete /></IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table></TableContainer>
-      )}
-    </Box>
-  );
-
   const renderOperationsTab = () => (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -595,7 +567,12 @@ const AdminPanel = () => {
         <Divider />
         <Box sx={{ p: 2 }}>
           {tab === 0 && renderClientsTab()}
-          {tab === 1 && renderMaterialsTab()}
+          {tab === 1 && <MaterialsTab
+            materialsData={materialsData}
+            onAddClick={() => openMaterialDialog()}
+            onEditClick={(mat) => openMaterialDialog(mat)}
+            onDeleteClick={(mat) => { setSelectedMaterial(mat); setMaterialDeleteDialogOpen(true); }}
+          />}
           {tab === 2 && renderOperationsTab()}
           {tab === 3 && renderOperationGroupsTab()}
           {tab === 4 && renderWorkshopsTab()}
