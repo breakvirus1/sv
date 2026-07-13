@@ -139,7 +139,7 @@ public class CalculationController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
     @GetMapping("/operations/grouped")
-    public ResponseEntity<GroupedOperationsResponse> getAllGroupedOperations() {
-        return ResponseEntity.ok(operationService.getGroupedOperationsByMaterialId(null));
+    public ResponseEntity<GroupedOperationsResponse> getAllGroupedOperations(@RequestParam(required = false) Long materialId) {
+        return ResponseEntity.ok(operationService.getGroupedOperationsByMaterialId(materialId));
     }
 }

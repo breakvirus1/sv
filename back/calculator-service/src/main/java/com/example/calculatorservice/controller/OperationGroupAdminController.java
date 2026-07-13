@@ -4,6 +4,8 @@ import com.example.calculatorservice.dto.OperationGroupCreateRequest;
 import com.example.calculatorservice.dto.OperationGroupDto;
 import com.example.calculatorservice.dto.OperationGroupUpdateRequest;
 import com.example.calculatorservice.entity.OperationGroup;
+import com.example.calculatorservice.exception.BadRequestException;
+import com.example.calculatorservice.repository.OperationGroupRepository;
 import com.example.calculatorservice.service.OperationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,7 @@ import java.util.List;
 public class OperationGroupAdminController {
 
     private final OperationService operationService;
+    private final OperationGroupRepository operationGroupRepository;
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping
@@ -32,6 +35,9 @@ public class OperationGroupAdminController {
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<OperationGroupDto> createOperationGroup(@RequestBody OperationGroupCreateRequest request) {
+        if (operationGroupRepository.findByNameIncludingDeleted(request.getName()).isPresent()) {
+            throw new BadRequestException("Группировка с таким названием уже существует");
+        }
         OperationGroup group = new OperationGroup();
         group.setName(request.getName());
         OperationGroup saved = operationService.save(group);
@@ -41,6 +47,9 @@ public class OperationGroupAdminController {
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<OperationGroupDto> updateOperationGroup(@PathVariable Long id, @RequestBody OperationGroupUpdateRequest request) {
+        operationGroupRepository.findByNameExcludingId(request.getName(), id).ifPresent(existing -> {
+            throw new BadRequestException("Группировка с таким названием уже существует");
+        });
         OperationGroup group = operationService.getOperationGroupById(id);
         group.setName(request.getName());
         OperationGroup updated = operationService.save(group);

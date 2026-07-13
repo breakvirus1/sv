@@ -8,6 +8,7 @@ import com.example.calculatorservice.dto.OperationDto;
 import com.example.calculatorservice.entity.MaterialOperationGroup;
 import com.example.calculatorservice.entity.Operation;
 import com.example.calculatorservice.entity.OperationGroup;
+import com.example.calculatorservice.exception.BadRequestException;
 import com.example.calculatorservice.exception.ResourceNotFoundException;
 import com.example.calculatorservice.repository.MaterialOperationGroupRepository;
 import com.example.calculatorservice.repository.OperationGroupRepository;
@@ -85,11 +86,7 @@ public class MaterialOperationGroupService {
     public MaterialOperationGroup createMaterialOperationGroup(MaterialOperationGroupCreateRequest request) {
         if (mogRepository.existsByMaterialIdAndOperationGroupIdAndOperationIdAndDeletedFalse(
                 request.getMaterialId(), request.getOperationGroupId(), request.getOperationId())) {
-            return mogRepository.findByMaterialIdAndDeletedFalse(request.getMaterialId()).stream()
-                    .filter(mog -> mog.getOperationGroupId().equals(request.getOperationGroupId())
-                            && mog.getOperationId().equals(request.getOperationId()))
-                    .findFirst()
-                    .orElse(null);
+            throw new BadRequestException("Связь материала с операцией уже существует");
         }
 
         MaterialOperationGroup mog = new MaterialOperationGroup();
@@ -108,11 +105,19 @@ public class MaterialOperationGroupService {
 
         List<MaterialOperationGroup> newMappings = new ArrayList<>();
         if (request.getOperationIds() != null) {
+            OperationGroup otherGroup = operationGroupRepository.findByName("Прочие")
+                    .orElseGet(() -> {
+                        OperationGroup g = new OperationGroup();
+                        g.setName("Прочие");
+                        return operationGroupRepository.save(g);
+                    });
+
             for (Long opId : request.getOperationIds()) {
                 Operation operation = operationRepository.findById(opId)
                         .orElseThrow(() -> new ResourceNotFoundException("Операция не найдена: " + opId));
 
                 List<OperationGroup> allGroups = operationGroupRepository.findAll();
+                boolean matched = false;
                 for (OperationGroup group : allGroups) {
                     if (operation.getName() != null &&
                             operation.getName().toLowerCase().contains(group.getName().toLowerCase())) {
@@ -121,8 +126,18 @@ public class MaterialOperationGroupService {
                         createReq.setOperationGroupId(group.getId());
                         createReq.setOperationId(opId);
                         MaterialOperationGroup saved = createMaterialOperationGroup(createReq);
-                        if (saved != null) newMappings.add(saved);
+                        newMappings.add(saved);
+                        matched = true;
                     }
+                }
+
+                if (!matched) {
+                    MaterialOperationGroupCreateRequest createReq = new MaterialOperationGroupCreateRequest();
+                    createReq.setMaterialId(materialId);
+                    createReq.setOperationGroupId(otherGroup.getId());
+                    createReq.setOperationId(opId);
+                    MaterialOperationGroup saved = createMaterialOperationGroup(createReq);
+                    newMappings.add(saved);
                 }
             }
         }

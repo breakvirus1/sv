@@ -76,16 +76,14 @@ public class OperationService {
                     .toList();
         }
 
-        Map<Long, Operation> operationMap = opsToShow.stream()
-                .collect(Collectors.toMap(com.example.calculatorservice.entity.BaseEntity::getId, op -> op));
-
         List<GroupedOperationsResponse.GroupDto> result = new java.util.ArrayList<>();
+        List<OperationDto> unmatched = new java.util.ArrayList<>();
 
         for (OperationGroup group : allGroups) {
             List<Operation> matchingOps = opsToShow.stream()
                     .filter(op -> op.getName() != null &&
                             op.getName().toLowerCase().contains(group.getName().toLowerCase()))
-                    .collect(Collectors.toList());
+                    .toList();
 
             if (matchingOps.isEmpty()) continue;
 
@@ -100,10 +98,45 @@ public class OperationService {
                         dto.setHemCount(op.getHemCount());
                         return dto;
                     })
-                    .collect(Collectors.toList());
+                    .toList();
 
             result.add(new GroupedOperationsResponse.GroupDto(
                     group.getId(), group.getName(), groupOperations
+            ));
+
+            unmatched.addAll(groupOperations);
+        }
+
+        Set<Long> matchedOpIds = unmatched.stream()
+                .map(com.example.calculatorservice.dto.OperationDto::getId)
+                .collect(Collectors.toSet());
+
+        List<Operation> remainingOps = opsToShow.stream()
+                .filter(op -> !matchedOpIds.contains(op.getId()))
+                .toList();
+
+        if (!remainingOps.isEmpty()) {
+            OperationGroup otherGroup = operationGroupRepository.findByName("Прочие")
+                    .orElseGet(() -> {
+                        OperationGroup g = new OperationGroup();
+                        g.setName("Прочие");
+                        return operationGroupRepository.save(g);
+                    });
+
+            List<OperationDto> otherOperations = remainingOps.stream()
+                    .map(op -> {
+                        OperationDto dto = new OperationDto();
+                        dto.setId(op.getId());
+                        dto.setName(op.getName());
+                        dto.setPrice(op.getPrice());
+                        dto.setUnit(op.getUnit() != null ? op.getUnit().getDisplayName() : null);
+                        dto.setHemWidthMm(op.getHemWidthMm());
+                        dto.setHemCount(op.getHemCount());
+                        return dto;
+                    })
+                    .toList();
+            result.add(new GroupedOperationsResponse.GroupDto(
+                    otherGroup.getId(), otherGroup.getName(), otherOperations
             ));
         }
 

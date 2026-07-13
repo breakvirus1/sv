@@ -143,9 +143,26 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
+  const dialogMaterialId = operationsDialog.open
+    ? formData.items[operationsDialog.itemIndex]?.materialId
+    : null;
+
+  const { data: materialGroupedOperations = {} } = useQuery({
+    queryKey: ['material-grouped-operations', dialogMaterialId],
+    queryFn: async () => {
+      if (!dialogMaterialId) return {};
+      const response = await api.get(`/api/v1/calculations/operations/grouped?materialId=${dialogMaterialId}`);
+      const groups = response.data?.groups || [];
+      return Object.fromEntries(groups.map(g => [g.id, g]));
+    },
+    enabled: operationsDialog.open && dialogMaterialId != null,
+  });
+
+  const dialogGroupedData = dialogMaterialId != null ? materialGroupedOperations : groupedOperationsData;
+
   const allGroupedOpsFlat = useMemo(
-    () => Object.values(groupedOperationsData).flatMap(g => (g.operations || [])),
-    [groupedOperationsData]
+    () => Object.values(dialogGroupedData).flatMap(g => (g.operations || [])),
+    [dialogGroupedData]
   );
 
   const { data: eyeletsData = [], error: eyeletsError } = useQuery({
@@ -1054,7 +1071,7 @@ const handleSubmit = async (e) => {
               }
               return null;
             })()}
-            {Object.values(groupedOperationsData).map(group => (
+            {Object.values(dialogGroupedData).map(group => (
               <Box key={group.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, width: '100%' }}>
                 <Typography variant="subtitle2" color="primary" gutterBottom>
                   {group.name}
@@ -1077,7 +1094,7 @@ const handleSubmit = async (e) => {
             ))}
             {(() => {
               const groupedOpIds = new Set(
-                Object.values(groupedOperationsData).flatMap(g => (g.operations || []).map(op => op.id))
+                Object.values(dialogGroupedData).flatMap(g => (g.operations || []).map(op => op.id))
               );
               const ungroupedOps = allGroupedOpsFlat.filter(
                 op => !groupedOpIds.has(op.id) && op.name && !op.name.toLowerCase().includes('подворот')
