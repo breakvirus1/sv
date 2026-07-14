@@ -38,6 +38,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import OrderInfoCard from '../components/OrderInfoCard';
+import EditOrder from './EditOrder';
 
 const OrderDetail = ({ mode = 'view' }) => {
   const { id } = useParams();
@@ -73,14 +74,6 @@ const OrderDetail = ({ mode = 'view' }) => {
    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
    const [newStatus, setNewStatus] = useState('');
 
-   // ==================== Edit Mode State ====================
-   const [editForm, setEditForm] = useState({
-     description: '',
-     orderDate: '',
-     dueDate: '',
-     managerId: null
-   });
-
   // ==================== Queries ====================
   // Clients (fetch when create mode)
   const { data: clientsData = [] } = useQuery({
@@ -111,28 +104,18 @@ const OrderDetail = ({ mode = 'view' }) => {
        const data = response.data.content || [];
        return data.length > 0 ? data[0] : null;
      },
-     enabled: mode === 'create' && !!username
-   });
+      enabled: mode === 'create' && !!username
+    });
 
-   // Employees list (for edit mode manager selection)
-   const { data: employeesData = [] } = useQuery({
-     queryKey: ['employees'],
+   // Order data (view mode)
+   const { data: order, isLoading, error } = useQuery({
+     queryKey: ['order', id],
      queryFn: async () => {
-       const response = await api.get('/api/v1/employees?size=100');
-       return response.data.content || [];
+       const response = await api.get(`/api/v1/orders/${id}`);
+       return response.data;
      },
-     enabled: mode === 'edit'
+     enabled: mode !== 'create'
    });
-
-  // Order data (view mode)
-  const { data: order, isLoading, error } = useQuery({
-    queryKey: ['order', id],
-    queryFn: async () => {
-      const response = await api.get(`/api/v1/orders/${id}`);
-      return response.data;
-    },
-    enabled: mode !== 'create'
-  });
 
   // ==================== Mutations ====================
   const createClientMutation = useMutation({
@@ -177,48 +160,19 @@ const OrderDetail = ({ mode = 'view' }) => {
        setPaymentDialogOpen(false);
        setNotification({ open: true, message: 'Оплата добавлена', severity: 'success' });
      }
-   });
+    });
 
-   const updateOrderMutation = useMutation({
-     mutationFn: (data) => api.put(`/api/v1/orders/${id}`, data),
-     onSuccess: () => {
-       queryClient.invalidateQueries({ queryKey: ['order', id] });
-       queryClient.invalidateQueries({ queryKey: ['orders'] });
-       setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
-       setTimeout(() => navigate(`/orders/${id}`), 1500);
-     },
-     onError: (err) => {
-       setNotification({ open: true, message: `Ошибка: ${err.response?.data?.message || err.message}`, severity: 'error' });
-     }
-   });
-
-   // ==================== Effects ====================
+    // ==================== Effects ====================
    // Ensure current employee is synced from Keycloak when in create mode
-   useEffect(() => {
-     if (mode === 'create' && username && !currentEmployee) {
-       api.post('/api/v1/employees/sync')
-         .then(() => refetchEmployee())
-         .catch(err => console.error('Employee sync failed:', err));
-     }
-   }, [mode, username, currentEmployee, refetchEmployee]);
+    useEffect(() => {
+      if (mode === 'create' && username && !currentEmployee) {
+        api.post('/api/v1/employees/sync')
+          .then(() => refetchEmployee())
+          .catch(err => console.error('Employee sync failed:', err));
+      }
+    }, [mode, username, currentEmployee, refetchEmployee]);
 
-   // Populate edit form when order is loaded in edit mode
-   useEffect(() => {
-     if (mode === 'edit' && order) {
-       const formatDate = (dateStr) => {
-         if (!dateStr) return '';
-         return dateStr.split('T')[0];
-       };
-       setEditForm({
-         description: order.description || '',
-         orderDate: formatDate(order.orderDate),
-         dueDate: formatDate(order.dueDate),
-         managerId: order.manager?.id ? String(order.manager.id) : ''
-       });
-     }
-   }, [mode, order]);
-
-  // ==================== Create Mode Handlers ====================
+   // ==================== Create Mode Handlers ====================
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
@@ -349,26 +303,9 @@ const OrderDetail = ({ mode = 'view' }) => {
      } finally {
        setIsSubmitting(false);
      }
-   };
+    };
 
-   // ==================== Edit Mode Handlers ====================
-   const handleEditChange = (e) => {
-     const { name, value } = e.target;
-     setEditForm(prev => ({ ...prev, [name]: value }));
-   };
-
-   const handleEditSubmit = (e) => {
-     e.preventDefault();
-     const payload = {
-       description: editForm.description,
-       orderDate: editForm.orderDate,
-       dueDate: editForm.dueDate || null,
-       managerId: editForm.managerId ? parseInt(editForm.managerId) : null
-     };
-     updateOrderMutation.mutate(payload);
-   };
-
-  // ==================== View Mode Handlers ====================
+   // ==================== View Mode Handlers ====================
   // They are directly used in JSX (no separate functions except existing)
   // Status change handler is inline in dialog? Actually in original view they used updateStatusMutation directly; we can keep as is.
 
@@ -644,115 +581,12 @@ const OrderDetail = ({ mode = 'view' }) => {
      );
    }
 
-   if (mode === 'edit') {
-     return (
-       <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
-         <Box display="flex" alignItems="center" gap={2} mb={3}>
-           <Button startIcon={<ArrowBack />} onClick={() => navigate(`/orders/${id}`)}>
-             Назад
-           </Button>
-           <Typography variant="h4">
-             Редактировать заказ #{order?.orderNumber}
-           </Typography>
-         </Box>
+    if (mode === 'edit') {
+      return <EditOrder order={order} onSuccess={() => navigate(`/orders/${id}`)} />;
+    }
 
-         <Paper sx={{ p: 4 }}>
-           <form onSubmit={handleEditSubmit}>
-             <Grid container spacing={3}>
-               <Grid item xs={12} md={6}>
-                 <TextField
-                   fullWidth
-                   label="Клиент"
-                   value={order?.client?.name || ''}
-                   margin="normal"
-                   disabled
-                 />
-               </Grid>
-               <Grid item xs={12} md={6}>
-                 <TextField
-                   fullWidth
-                   label="Дата заказа"
-                   name="orderDate"
-                   type="date"
-                   value={editForm.orderDate}
-                   onChange={handleEditChange}
-                   required
-                   margin="normal"
-                   InputLabelProps={{ shrink: true }}
-                 />
-               </Grid>
-               <Grid item xs={12} md={6}>
-                 <TextField
-                   fullWidth
-                   label="Срок сдачи"
-                   name="dueDate"
-                   type="date"
-                   value={editForm.dueDate}
-                   onChange={handleEditChange}
-                   margin="normal"
-                   InputLabelProps={{ shrink: true }}
-                 />
-               </Grid>
-               <Grid item xs={12} md={6}>
-                 <FormControl fullWidth margin="normal">
-                   <InputLabel>Менеджер</InputLabel>
-                   <Select
-                     name="managerId"
-                     value={editForm.managerId || ''}
-                     onChange={handleEditChange}
-                   >
-                     <MenuItem value="">Не назначен</MenuItem>
-                     {employeesData?.map((emp) => (
-                       <MenuItem key={emp.id} value={String(emp.id)}>
-                         {emp.fullName}
-                       </MenuItem>
-                     ))}
-                   </Select>
-                 </FormControl>
-               </Grid>
-               <Grid item xs={12}>
-                 <TextField
-                   fullWidth
-                   label="Описание"
-                   name="description"
-                   multiline
-                   rows={3}
-                   value={editForm.description}
-                   onChange={handleEditChange}
-                   margin="normal"
-                 />
-               </Grid>
-               <Grid item xs={12}>
-                 <Box display="flex" justifyContent="flex-end" gap={2}>
-                   <Button onClick={() => navigate(`/orders/${id}`)}>Отмена</Button>
-                   <Button
-                     type="submit"
-                     variant="contained"
-                     disabled={updateOrderMutation.isLoading}
-                   >
-                     {updateOrderMutation.isLoading ? 'Сохранение...' : 'Сохранить'}
-                   </Button>
-                 </Box>
-               </Grid>
-             </Grid>
-           </form>
-         </Paper>
-
-         <Snackbar
-           open={notification.open}
-           autoHideDuration={6000}
-           onClose={() => setNotification({ ...notification, open: false })}
-         >
-           <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
-             {notification.message}
-           </Alert>
-         </Snackbar>
-       </Container>
-     );
-   }
-
-  return (
-    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+   return (
+     <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={2}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
