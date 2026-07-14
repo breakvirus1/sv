@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -24,42 +23,100 @@ public class OperationService {
     private final OperationGroupRepository operationGroupRepository;
     private final MaterialOperationGroupRepository materialOperationGroupRepository;
 
+    /**
+     * Возвращает все операции из справочника.
+     *
+     * @return список всех операций
+     */
     public List<Operation> getAllOperations() {
         return operationRepository.findAll();
     }
 
+    /**
+     * Возвращает операцию по идентификатору.
+     *
+     * @param id идентификатор операции
+     * @return найденная операция
+     * @throws ResourceNotFoundException если операция не найдена
+     */
     public Operation getOperationById(Long id) {
         return operationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Операция не найдена"));
     }
 
+    /**
+     * Сохраняет операцию в базе данных (создаёт или обновляет).
+     *
+     * @param operation сущность операции
+     * @return сохранённая операция
+     */
     public Operation save(Operation operation) {
         return operationRepository.save(operation);
     }
 
+    /**
+     * Удаляет операцию по идентификатору.
+     *
+     * @param id идентификатор операции
+     */
     public void deleteOperation(Long id) {
         Operation operation = getOperationById(id);
         operationRepository.delete(operation);
     }
 
+    /**
+     * Возвращает все группировки операций из справочника.
+     *
+     * @return список всех группировок
+     */
     public List<OperationGroup> getAllOperationGroups() {
         return operationGroupRepository.findAll();
     }
 
+    /**
+     * Возвращает группировку операций по идентификатору.
+     *
+     * @param id идентификатор группировки
+     * @return найденная группировка
+     * @throws ResourceNotFoundException если группировка не найдена
+     */
     public OperationGroup getOperationGroupById(Long id) {
         return operationGroupRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Группировка операций не найдена"));
     }
 
+    /**
+     * Сохраняет группировку операций в базе данных (создаёт или обновляет).
+     *
+     * @param group сущность группировки
+     * @return сохранённая группировка
+     */
     public OperationGroup save(OperationGroup group) {
         return operationGroupRepository.save(group);
     }
 
+    /**
+     * Удаляет группировку операций по идентификатору.
+     *
+     * @param id идентификатор группировки
+     */
     public void deleteOperationGroup(Long id) {
         OperationGroup group = getOperationGroupById(id);
         operationGroupRepository.delete(group);
     }
 
+    /**
+     * Формирует сгруппированный ответ операций, опционально фильтруя их по материалу.
+     *
+     * <p>Если передан {@code materialId}, возвращаются только те операции, которые
+     * связаны с этим материалом через {@code material_operation_groups}. В противном случае
+     * возвращаются все операции. Операции распределяются по группам по совпадению
+     * названия операции с названием группировки (без учёта регистра). Операции, не
+     * попавшие ни в одну группу, попадают в группу «Прочие».</p>
+     *
+     * @param materialId идентификатор материала или {@code null}, если фильтр не требуется
+     * @return сгруппированный ответ операций
+     */
     public GroupedOperationsResponse getGroupedOperationsByMaterialId(Long materialId) {
         List<OperationGroup> allGroups = operationGroupRepository.findAll();
         List<Operation> allOperations = operationRepository.findAll();

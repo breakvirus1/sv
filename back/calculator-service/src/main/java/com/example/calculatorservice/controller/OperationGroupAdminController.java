@@ -22,6 +22,11 @@ public class OperationGroupAdminController {
     private final OperationService operationService;
     private final OperationGroupRepository operationGroupRepository;
 
+    /**
+     * Возвращает список всех группировок операций, включая удалённые.
+     *
+     * @return список DTO группировок операций
+     */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping
     public ResponseEntity<List<OperationGroupDto>> getAllOperationGroups() {
@@ -32,6 +37,15 @@ public class OperationGroupAdminController {
         );
     }
 
+    /**
+     * Создаёт новую группировку операций.
+     *
+     * <p>Проверяет уникальность названия среди всех записей, включая удалённые.
+     * Если группировка с таким названием уже существует, возвращает 400.</p>
+     *
+     * @param request запрос с названием новой группировки
+     * @return созданная группировка операций
+     */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<OperationGroupDto> createOperationGroup(@RequestBody OperationGroupCreateRequest request) {
@@ -44,6 +58,16 @@ public class OperationGroupAdminController {
         return ResponseEntity.ok(toDto(saved));
     }
 
+    /**
+     * Обновляет название группировки операций.
+     *
+     * <p>Проверяет, что новое название не занято другой группировкой
+     * (исключая текущую). Если название уже используется, возвращает 400.</p>
+     *
+     * @param id идентификатор группировки
+     * @param request запрос с новым названием
+     * @return обновлённая группировка операций
+     */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<OperationGroupDto> updateOperationGroup(@PathVariable Long id, @RequestBody OperationGroupUpdateRequest request) {
@@ -56,6 +80,12 @@ public class OperationGroupAdminController {
         return ResponseEntity.ok(toDto(updated));
     }
 
+    /**
+     * Удаляет группировку операций по идентификатору.
+     *
+     * @param id идентификатор группировки
+     * @return ответ 204 No Content
+     */
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteOperationGroup(@PathVariable Long id) {
@@ -63,6 +93,12 @@ public class OperationGroupAdminController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Преобразует сущность группировки операций в DTO.
+     *
+     * @param group сущность группировки
+     * @return DTO группировки операций
+     */
     private OperationGroupDto toDto(OperationGroup group) {
         OperationGroupDto dto = new OperationGroupDto();
         dto.setId(group.getId());

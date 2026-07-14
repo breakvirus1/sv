@@ -36,9 +36,6 @@ public class MaterialOperationGroupService {
         List<OperationGroup> allGroups = operationGroupRepository.findAll();
         List<Operation> allOperations = operationRepository.findAll();
 
-        Map<Long, Operation> operationMap = allOperations.stream()
-                .collect(Collectors.toMap(com.example.calculatorservice.entity.BaseEntity::getId, op -> op));
-
         List<MaterialOperationGroup> mappings = materialId != null
                 ? mogRepository.findAllByMaterialId(materialId)
                 : Collections.emptyList();
@@ -82,6 +79,17 @@ public class MaterialOperationGroupService {
         return new GroupedOperationsResponse(result);
     }
 
+    /**
+     * Создаёт связь материала с операцией через группировку.
+     *
+     * <p>Перед созданием проверяет, что такая связь ещё не существует
+     * (материал + группировка + операция). Если связь уже есть,
+     * выбрасывает {@link BadRequestException}.</p>
+     *
+     * @param request запрос с идентификаторами материала, группировки и операции
+     * @return созданная связь материала с операцией
+     * @throws BadRequestException если связь уже существует
+     */
     @Transactional
     public MaterialOperationGroup createMaterialOperationGroup(MaterialOperationGroupCreateRequest request) {
         if (mogRepository.existsByMaterialIdAndOperationGroupIdAndOperationIdAndDeletedFalse(
@@ -98,6 +106,21 @@ public class MaterialOperationGroupService {
         return mogRepository.save(mog);
     }
 
+    /**
+     * Обновляет набор операций для материала. Удаляет все существующие связи
+     * материала с операциями и создаёт новые на основе переданного списка
+     * идентификаторов операций.
+     *
+     * <p>Для каждой операции определяется подходящая группировка по совпадению
+     * названия операции с названием группировки (без учёта регистра). Если операция
+     * не попала ни в одну группу, она помещается в группу «Прочие». Если такой
+     * группы нет в базе, она создаётся автоматически.</p>
+     *
+     * @param materialId идентификатор материала
+     * @param request запрос с новым списком идентификаторов операций
+     * @return список созданных связей материала с операциями
+     * @throws ResourceNotFoundException если одна из операций не найдена
+     */
     @Transactional
     public List<MaterialOperationGroup> updateMaterialOperations(Long materialId, MaterialOperationGroupUpdateRequest request) {
         mogRepository.hardDeleteByMaterialId(materialId);
@@ -144,11 +167,23 @@ public class MaterialOperationGroupService {
         return newMappings;
     }
 
+    /**
+     * Возвращает все связи материала с операциями.
+     *
+     * @param materialId идентификатор материала
+     * @return список связей материала с операциями
+     */
     @Transactional(readOnly = true)
     public List<MaterialOperationGroup> getMaterialOperationGroups(Long materialId) {
         return mogRepository.findAllByMaterialId(materialId);
     }
 
+    /**
+     * Удаляет связь материала с операцией по идентификатору связи.
+     *
+     * @param id идентификатор связи material_operation_groups
+     * @throws ResourceNotFoundException если связь не найдена
+     */
     @Transactional
     public void deleteMaterialOperationGroup(Long id) {
         MaterialOperationGroup mog = mogRepository.findById(id)
@@ -156,6 +191,16 @@ public class MaterialOperationGroupService {
         mogRepository.delete(mog);
     }
 
+    /**
+     * Преобразует сущность связи материала с операцией в DTO.
+     *
+     * <p>Дополнительно загружает связанные сущности группировки и операции,
+     * чтобы вернуть полную информацию. Если связанная сущность не найдена,
+     * соответствующие поля в DTO останутся {@code null}.</p>
+     *
+     * @param mog сущность связи материала с операцией
+     * @return DTO связи материала с операцией
+     */
     public MaterialOperationGroupDto toDto(MaterialOperationGroup mog) {
         MaterialOperationGroupDto dto = new MaterialOperationGroupDto();
         dto.setId(mog.getId());
