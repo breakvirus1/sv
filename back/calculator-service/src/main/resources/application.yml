@@ -31,6 +31,10 @@ spring:
         jwt:
           jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/print-sv/protocol/openid-connect/certs}
 
+  material:
+    service:
+      url: ${MATERIAL_SERVICE_URL:http://localhost:8084/api/v1/materials}
+
 eureka:
   client:
     service-url:

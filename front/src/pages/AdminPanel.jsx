@@ -572,6 +572,7 @@ const AdminPanel = () => {
             onAddClick={() => openMaterialDialog()}
             onEditClick={(mat) => openMaterialDialog(mat)}
             onDeleteClick={(mat) => { setSelectedMaterial(mat); setMaterialDeleteDialogOpen(true); }}
+            onRefresh={refetchMaterials}
           />}
           {tab === 2 && renderOperationsTab()}
           {tab === 3 && renderOperationGroupsTab()}

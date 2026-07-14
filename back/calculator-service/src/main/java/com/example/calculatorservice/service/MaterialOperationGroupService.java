@@ -4,6 +4,8 @@ import com.example.calculatorservice.dto.GroupedOperationsResponse;
 import com.example.calculatorservice.dto.MaterialOperationGroupCreateRequest;
 import com.example.calculatorservice.dto.MaterialOperationGroupDto;
 import com.example.calculatorservice.dto.MaterialOperationGroupUpdateRequest;
+import com.example.calculatorservice.dto.MaterialWithOperationsCreateRequest;
+import com.example.calculatorservice.dto.MaterialWithOperationsResponse;
 import com.example.calculatorservice.dto.OperationDto;
 import com.example.calculatorservice.entity.MaterialOperationGroup;
 import com.example.calculatorservice.entity.Operation;
@@ -15,8 +17,18 @@ import com.example.calculatorservice.repository.OperationGroupRepository;
 import com.example.calculatorservice.repository.OperationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -30,6 +42,12 @@ public class MaterialOperationGroupService {
     private final MaterialOperationGroupRepository mogRepository;
     private final OperationGroupRepository operationGroupRepository;
     private final OperationRepository operationRepository;
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Value("${material.service.url}")
+    private String materialServiceUrl;
 
     @Transactional(readOnly = true)
     public GroupedOperationsResponse getGroupedOperations(Long materialId) {
@@ -235,5 +253,50 @@ public class MaterialOperationGroupService {
         }
 
         return dto;
+    }
+
+    @Transactional
+    public MaterialWithOperationsResponse createMaterialWithOperations(MaterialWithOperationsCreateRequest request) {
+        Map<String, Object> materialBody = new HashMap<>();
+        materialBody.put("name", request.getName());
+        materialBody.put("unit", request.getUnit());
+        materialBody.put("price", request.getPrice());
+        materialBody.put("wasteCoefficient", request.getWasteCoefficient());
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String token = null;
+        if (authentication != null && authentication.getCredentials() instanceof Jwt jwt) {
+            token = jwt.getTokenValue();
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        if (token != null) {
+            headers.setBearerAuth(token);
+        }
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(materialBody, headers);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> responseBody = restTemplate.exchange(
+                materialServiceUrl,
+                HttpMethod.POST,
+                entity,
+                Map.class
+        ).getBody();
+
+        if (responseBody == null || !responseBody.containsKey("id")) {
+            throw new RuntimeException("Не удалось создать материал");
+        }
+
+        Long materialId = ((Number) responseBody.get("id")).longValue();
+
+        if (request.getOperationIds() != null && !request.getOperationIds().isEmpty()) {
+            MaterialOperationGroupUpdateRequest updateRequest = new MaterialOperationGroupUpdateRequest();
+            updateRequest.setOperationIds(request.getOperationIds());
+            updateMaterialOperations(materialId, updateRequest);
+        }
+
+        return new MaterialWithOperationsResponse(materialId, request.getName());
     }
 }
