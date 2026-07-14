@@ -1071,27 +1071,33 @@ const handleSubmit = async (e) => {
               }
               return null;
             })()}
-            {Object.values(dialogGroupedData).map(group => (
-              <Box key={group.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, width: '100%' }}>
-                <Typography variant="subtitle2" color="primary" gutterBottom>
-                  {group.name}
-                </Typography>
-                <FormGroup>
-                  {(group.operations || []).filter(op => op.name && !op.name.toLowerCase().includes('подворот')).map(op => (
-                    <FormControlLabel
-                      key={op.id}
-                      control={
-                        <Checkbox
-                          checked={operationsDialog.selectedOps.includes(op.id)}
-                          onChange={() => handleToggleOperation(op.id)}
-                        />
-                      }
-                      label={op.name}
-                    />
-                  ))}
-                </FormGroup>
-              </Box>
-            ))}
+            {Object.values(dialogGroupedData)
+              .map(group => ({
+                ...group,
+                operations: (group.operations || []).filter(op => op.name && !op.name.toLowerCase().includes('подворот'))
+              }))
+              .filter(group => group.operations.length > 0)
+              .map(group => (
+                <Box key={group.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, width: '100%' }}>
+                  <Typography variant="subtitle2" color="primary" gutterBottom>
+                    {group.name}
+                  </Typography>
+                  <FormGroup>
+                    {group.operations.map(op => (
+                      <FormControlLabel
+                        key={op.id}
+                        control={
+                          <Checkbox
+                            checked={operationsDialog.selectedOps.includes(op.id)}
+                            onChange={() => handleToggleOperation(op.id)}
+                          />
+                        }
+                        label={op.name}
+                      />
+                    ))}
+                  </FormGroup>
+                </Box>
+              ))}
             {(() => {
               const groupedOpIds = new Set(
                 Object.values(dialogGroupedData).flatMap(g => (g.operations || []).map(op => op.id))
