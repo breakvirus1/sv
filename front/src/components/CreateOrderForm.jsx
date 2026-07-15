@@ -1074,7 +1074,7 @@ const handleSubmit = async (e) => {
             {Object.values(dialogGroupedData)
               .map(group => ({
                 ...group,
-                operations: (group.operations || []).filter(op => op.name && !op.name.toLowerCase().includes('подворот'))
+                operations: (group.operations || []).filter(op => op.name)
               }))
               .filter(group => group.operations.length > 0)
               .map(group => (
