@@ -150,4 +150,8 @@ public class Order extends BaseEntity {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private Set<OrderMaterial> materials = new HashSet<>();
+
+    /** История изменений заказа в виде текстового лога для человека */
+    @Column(name = "history", columnDefinition = "TEXT")
+    private String history;
 }

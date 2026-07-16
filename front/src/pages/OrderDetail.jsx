@@ -630,37 +630,56 @@ const OrderDetail = ({ mode = 'view' }) => {
         </Box>
       </Box>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <OrderInfoCard order={order} />
-          <Paper sx={{ mt: 3 }}>
-            <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
-              <Tab label="Позиции" />
-              <Tab label="Этапы" />
-              <Tab label="Оплаты" />
-              <Tab label="Комментарии" />
-            </Tabs>
-            <Divider />
-            <Box sx={{ p: 3 }}>
-              {activeTab === 0 && (
-                <PositionsTab 
-                  materials={order?.materials || []} 
-                  items={order?.items || []} 
-                />
-              )}
-              {activeTab === 1 && (
-                <StagesTab stages={order?.stages || []} />
-              )}
-              {activeTab === 2 && (
-                <PaymentsTab payments={order?.payments || []} />
-              )}
-              {activeTab === 3 && (
-                <CommentsTab comments={order?.comments || []} />
-              )}
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
+       <Grid container spacing={3}>
+         <Grid item xs={12}>
+           <OrderInfoCard order={order} />
+           <Paper sx={{ mt: 3 }}>
+             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
+               <Tab label="Позиции" />
+               <Tab label="Этапы" />
+               <Tab label="Оплаты" />
+               <Tab label="Комментарии" />
+             </Tabs>
+             <Divider />
+             <Box sx={{ p: 3 }}>
+               {activeTab === 0 && (
+                 <PositionsTab 
+                   materials={order?.materials || []} 
+                   items={order?.items || []} 
+                 />
+               )}
+               {activeTab === 1 && (
+                 <StagesTab stages={order?.stages || []} />
+               )}
+               {activeTab === 2 && (
+                 <PaymentsTab payments={order?.payments || []} />
+               )}
+               {activeTab === 3 && (
+                 <CommentsTab comments={order?.comments || []} />
+               )}
+             </Box>
+           </Paper>
+
+           {order?.history && (
+             <Paper sx={{ mt: 3 }}>
+               <Box sx={{ p: 2, bgcolor: 'background.default', borderBottom: '1px solid', borderColor: 'divider' }}>
+                 <Typography variant="subtitle2" color="text.secondary">
+                   История изменений
+                 </Typography>
+               </Box>
+               <Box sx={{ p: 3 }}>
+                 {(order.history.split('\n') || []).map((entry, idx) => (
+                   <Box key={idx} sx={{ mb: idx < (order.history.split('\n').length - 1) ? 2 : 0 }}>
+                     <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.8rem', margin: 0 }}>
+                       {entry}
+                     </Typography>
+                   </Box>
+                 ))}
+               </Box>
+             </Paper>
+           )}
+         </Grid>
+       </Grid>
 
       {/* Dialog for Status Change */}
       <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)}>

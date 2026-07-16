@@ -9,6 +9,7 @@ import {
   TextField,
   MenuItem,
   FormControl,
+  FormGroup,
   InputLabel,
   Select,
   Table,
@@ -123,7 +124,33 @@ const { data: operationsData = [] } = useQuery({
        const response = await api.get('/api/v1/calculations/operations');
        return response.data || [];
      }
-});
+   });
+
+   const { data: groupedOperationsData = {} } = useQuery({
+     queryKey: ['grouped-operations'],
+     queryFn: async () => {
+       const response = await api.get('/api/v1/calculations/operations/grouped');
+       const groups = response.data?.groups || [];
+       return Object.fromEntries(groups.map(g => [g.id, g]));
+     },
+   });
+
+   const dialogMaterialId = operationsDialog.open
+     ? formData.items[operationsDialog.itemIndex]?.materialId
+     : null;
+
+   const { data: materialGroupedOperations = {} } = useQuery({
+     queryKey: ['material-grouped-operations', dialogMaterialId],
+     queryFn: async () => {
+       if (!dialogMaterialId) return {};
+       const response = await api.get(`/api/v1/calculations/operations/grouped?materialId=${dialogMaterialId}`);
+       const groups = response.data?.groups || [];
+       return Object.fromEntries(groups.map(g => [g.id, g]));
+     },
+     enabled: operationsDialog.open && dialogMaterialId != null,
+   });
+
+   const dialogGroupedData = dialogMaterialId != null ? materialGroupedOperations : groupedOperationsData;
 
   const { data: eyeletsData = [] } = useQuery({
     queryKey: ['eyelets'],
@@ -235,9 +262,9 @@ const { data: operationsData = [] } = useQuery({
           id: mat.id,
           orderItemId: mat.orderItemId,
           materialId: String(mat.material?.id || ''),
-          qty1value: mat.widthM != null ? mat.widthM.toString() : '',
+          qty1value: mat.widthM != null ? (mat.widthM * 1000).toString() : '',
           unit: 'мм',
-          qty2value: mat.heightM != null ? mat.heightM.toString() : '',
+          qty2value: mat.heightM != null ? (mat.heightM * 1000).toString() : '',
           readyDate: mat.readyDate || '',
           cost: mat.cost != null ? Number(mat.cost) : null,
           operations: (mat.operations ?? []).map((op) => ({
@@ -246,7 +273,7 @@ const { data: operationsData = [] } = useQuery({
             name: op.operationName,
             subtotal: op.subtotal != null ? Number(op.subtotal) : null,
             widthM: op.widthM,
-            heightM: op.heightMm,
+            heightM: op.heightM,
           })),
           fileId: orderItem?.fileId || null,
           fileUrl: orderItem?.fileUrl || null,
@@ -1083,19 +1110,37 @@ value={priceplus}
       <Dialog open={operationsDialog.open} onClose={handleCloseOperationsDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Выбрать операции</DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, alignItems: 'flex-start' }}>
-            {operationsData.map(op => (
-              <FormControlLabel
-                key={op.id}
-                control={
-                  <Checkbox
-                    checked={operationsDialog.selectedOps.includes(op.id)}
-                    onChange={() => handleToggleOperation(op.id)}
-                  />
-                }
-                label={op.name}
-              />
-            ))}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
+            {Object.values(dialogGroupedData).length === 0 && (
+              <Typography color="text.secondary">Нет операций для выбранного материала</Typography>
+            )}
+            {Object.values(dialogGroupedData)
+              .map(group => ({
+                ...group,
+                operations: (group.operations || []).filter(op => op.name)
+              }))
+              .filter(group => group.operations.length > 0)
+              .map(group => (
+                <Box key={group.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, width: '100%' }}>
+                  <Typography variant="subtitle2" color="primary" gutterBottom>
+                    {group.name}
+                  </Typography>
+                  <FormGroup>
+                    {group.operations.map(op => (
+                      <FormControlLabel
+                        key={op.id}
+                        control={
+                          <Checkbox
+                            checked={operationsDialog.selectedOps.includes(op.id)}
+                            onChange={() => handleToggleOperation(op.id)}
+                          />
+                        }
+                        label={op.name}
+                      />
+                    ))}
+                  </FormGroup>
+                </Box>
+              ))}
           </Box>
         </DialogContent>
         <DialogActions>

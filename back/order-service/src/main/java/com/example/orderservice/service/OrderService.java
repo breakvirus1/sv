@@ -81,6 +81,7 @@ public class OrderService {
     private final FileAttachmentRepository fileAttachmentRepository;
     private final WorkshopRepository workshopRepository;
     private final OrderMapper orderMapper;
+    private final OrderHistoryService orderHistoryService;
     @PersistenceContext
     private EntityManager entityManager;
     private final JdbcTemplate jdbcTemplate;
@@ -494,6 +495,12 @@ public OrderResponse getOrderById(Long id) {
             }
 
             orderRepository.save(saved);
+            try {
+                String username = getCurrentUsername();
+                orderHistoryService.logCreation(saved.getId(), saved.getOrderNumber(), username);
+            } catch (Exception e) {
+                System.err.println("Failed to log order creation history: " + e.getMessage());
+            }
         }
 
         return getOrderById(saved.getId());
@@ -560,8 +567,17 @@ public OrderResponse getOrderById(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
+        ProductionStage oldStage = order.getProductionStage();
         order.setProductionStage(ProductionStage.valueOf(stage));
         Order saved = orderRepository.save(order);
+
+        try {
+            String username = getCurrentUsername();
+            orderHistoryService.logStageUpdate(id, stage, username);
+        } catch (Exception e) {
+            System.err.println("Failed to log stage update history: " + e.getMessage());
+        }
+
         return orderMapper.toDto(saved);
     }
 
@@ -572,6 +588,19 @@ public OrderResponse getOrderById(Long id) {
     public OrderResponse updateOrder(Long id, OrderUpdateRequest request) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+
+        Order oldOrder = new Order();
+        oldOrder.setDescription(order.getDescription());
+        oldOrder.setOrderDate(order.getOrderDate());
+        oldOrder.setDueDate(order.getDueDate());
+        oldOrder.setManager(order.getManager());
+        oldOrder.setPriceplus(order.getPriceplus());
+        oldOrder.setTotalAmount(order.getTotalAmount());
+        oldOrder.setTotalWithPriceplus(order.getTotalWithPriceplus());
+        oldOrder.setStatus(order.getStatus());
+        oldOrder.setProductionStage(order.getProductionStage());
+
+        String oldDescription = oldOrder.getDescription();
 
         if (request.getDescription() != null) {
             order.setDescription(request.getDescription());
@@ -591,9 +620,9 @@ public OrderResponse getOrderById(Long id) {
             order.setManager(manager);
         }
 
-if (request.getPriceplus() != null) {
-             order.setPriceplus(request.getPriceplus());
-         }
+        if (request.getPriceplus() != null) {
+            order.setPriceplus(request.getPriceplus());
+        }
 
         List<OrderMaterialCreateRequest> itemRequests = request.getItems();
         if (itemRequests != null) {
@@ -837,9 +866,16 @@ if (request.getPriceplus() != null) {
 
               orderRepository.save(order);
 
+              try {
+                  String username = getCurrentUsername();
+                  orderHistoryService.logUpdate(order.getId(), request.getDescription(), oldOrder, order, username);
+              } catch (Exception e) {
+                  System.err.println("Failed to log order history: " + e.getMessage());
+              }
+
          }
 
-OrderResponse response = mapOrderResponse(order);
+ OrderResponse response = mapOrderResponse(order);
          return response;
      }
 
@@ -856,7 +892,13 @@ OrderResponse response = mapOrderResponse(order);
 
         Payment saved = paymentRepository.save(payment);
 
-        // Пересчитаем оплаченную сумму и долг
+        try {
+            String username = getCurrentUsername();
+            orderHistoryService.logPayment(orderId, payment.getAmount(), username);
+        } catch (Exception e) {
+            System.err.println("Failed to log payment history: " + e.getMessage());
+        }
+
         recalculatePaidAmount(orderId);
         return orderMapper.paymentToDto(saved);
     }
@@ -880,6 +922,14 @@ OrderResponse response = mapOrderResponse(order);
         comment.setCreatedAt(LocalDateTime.now());
 
         OrderComment saved = orderCommentRepository.save(comment);
+
+        try {
+            String username = author != null ? author.getFullName() : getCurrentUsername();
+            orderHistoryService.logComment(orderId, comment.getMessage(), username);
+        } catch (Exception e) {
+            System.err.println("Failed to log comment history: " + e.getMessage());
+        }
+
         return orderMapper.commentToDto(saved);
     }
 

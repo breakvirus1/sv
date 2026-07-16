@@ -66,4 +66,6 @@ public class OrderResponse {
     private List<CommentResponse> comments;
     /** Материалы заказа (заполняется только в детальном виде) */
     private List<OrderMaterialResponse> materials;
+    /** История изменений заказа */
+    private String history;
 }
