@@ -94,7 +94,7 @@ public class MaterialOperationGroupService {
             ));
         }
 
-        return new GroupedOperationsResponse(result);
+        return new GroupedOperationsResponse(result, Collections.emptyList());
     }
 
     /**

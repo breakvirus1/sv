@@ -92,7 +92,8 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const [uploadingIndex, setUploadingIndex] = useState(null);
 
   // ── Состояния: Диалоги ──
-  const [operationsDialog, setOperationsDialog] = useState({ open: false, itemIndex: null, selectedOps: [] });
+  const [groupSelectionDialog, setGroupSelectionDialog] = useState({ open: false, itemIndex: null, selectedItems: [] });
+  const [operationSelectionDialogs, setOperationSelectionDialogs] = useState([]);
   const [operationParamsDialog, setOperationParamsDialog] = useState({
     open: false,
     itemIndex: null,
@@ -135,22 +136,24 @@ const { data: operationsData = [] } = useQuery({
      },
    });
 
-   const dialogMaterialId = operationsDialog.open
-     ? formData.items[operationsDialog.itemIndex]?.materialId
+   const dialogMaterialId = groupSelectionDialog.open
+     ? formData.items[groupSelectionDialog.itemIndex]?.materialId
      : null;
 
-   const { data: materialGroupedOperations = {} } = useQuery({
+   const { data: materialGroupedOperations = { groups: {}, ungroupedOperations: [] } } = useQuery({
      queryKey: ['material-grouped-operations', dialogMaterialId],
      queryFn: async () => {
-       if (!dialogMaterialId) return {};
+       if (!dialogMaterialId) return { groups: {}, ungroupedOperations: [] };
        const response = await api.get(`/api/v1/calculations/operations/grouped?materialId=${dialogMaterialId}`);
        const groups = response.data?.groups || [];
-       return Object.fromEntries(groups.map(g => [g.id, g]));
+       const ungrouped = response.data?.ungroupedOperations || [];
+       return { groups: Object.fromEntries(groups.map(g => [g.id, g])), ungroupedOperations: ungrouped };
      },
-     enabled: operationsDialog.open && dialogMaterialId != null,
+     enabled: groupSelectionDialog.open && dialogMaterialId != null,
    });
 
-   const dialogGroupedData = dialogMaterialId != null ? materialGroupedOperations : groupedOperationsData;
+   const dialogGroupedData = dialogMaterialId != null ? materialGroupedOperations.groups : groupedOperationsData.groups;
+   const dialogUngroupedOps = dialogMaterialId != null ? materialGroupedOperations.ungroupedOperations : groupedOperationsData.ungroupedOperations;
 
   const { data: eyeletsData = [] } = useQuery({
     queryKey: ['eyelets'],
@@ -508,17 +511,16 @@ setFormData(prev => {
 
   // ── Operations dialogs ──
 
-  const handleOpenOperationsDialog = (itemIndex) => {
-    const item = formData.items[itemIndex];
-    setOperationsDialog({
+  const handleOpenGroupSelectionDialog = (itemIndex) => {
+    setGroupSelectionDialog({
       open: true,
       itemIndex,
-      selectedOps: item.operations.map(op => op.id)
+      selectedItems: []
     });
   };
 
-  const handleCloseOperationsDialog = () => {
-    setOperationsDialog({ open: false, itemIndex: null, selectedOps: [] });
+  const handleCloseGroupSelectionDialog = () => {
+    setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
   };
 
   const handleCloseOperationParamsDialog = () => {
@@ -550,19 +552,78 @@ setFormData(prev => {
     handleCloseOperationParamsDialog();
   };
 
-  const handleToggleOperation = (opId) => {
-    setOperationsDialog(prev => ({
-      ...prev,
-      selectedOps: prev.selectedOps.includes(opId)
-        ? prev.selectedOps.filter(id => id !== opId)
-        : [...prev.selectedOps, opId]
-    }));
+  const handleToggleItem = (itemId, type) => {
+    setGroupSelectionDialog(prev => {
+      const exists = prev.selectedItems.find(item => item.id === itemId);
+      if (exists) {
+        return { ...prev, selectedItems: prev.selectedItems.filter(item => item.id !== itemId) };
+      }
+      return { ...prev, selectedItems: [...prev.selectedItems, { id: itemId, type }] };
+    });
   };
 
-  const handleSaveOperations = () => {
-    const { itemIndex, selectedOps } = operationsDialog;
+  const handleGroupSelectionConfirm = () => {
+    const { itemIndex, selectedItems } = groupSelectionDialog;
+    if (!selectedItems.length) {
+      handleCloseGroupSelectionDialog();
+      return;
+    }
+
+    const selectedGroups = selectedItems.filter(item => item.type === 'group');
+    const selectedUngrouped = selectedItems.filter(item => item.type === 'operation');
+
+    if (selectedUngrouped.length > 0) {
+      const ungroupedOpsData = dialogUngroupedOps.filter(op => selectedUngrouped.some(item => item.id === op.id));
+      const currentOps = formData.items[itemIndex]?.operations || [];
+      updateItemOperations(itemIndex, [...currentOps, ...ungroupedOpsData]);
+    }
+
+    if (selectedGroups.length === 0) {
+      handleCloseGroupSelectionDialog();
+      return;
+    }
+
+    const selectedGroupsData = Object.values(dialogGroupedData)
+      .filter(g => selectedGroups.some(item => item.id === g.id))
+      .filter(g => (g.operations || []).length > 0);
+
+    const dialogs = selectedGroupsData.map(g => ({
+      open: true,
+      groupId: g.id,
+      groupName: g.name,
+      operations: g.operations || [],
+      selectedOpId: null
+    }));
+
+    setOperationSelectionDialogs(dialogs);
+    setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
+  };
+
+  const handleOperationSelect = (groupId, opId) => {
+    setOperationSelectionDialogs(prev =>
+      prev.map(d =>
+        d.groupId === groupId ? { ...d, selectedOpId: opId } : d
+      )
+    );
+  };
+
+  const handleCloseOperationDialog = (groupId) => {
+    setOperationSelectionDialogs(prev => prev.filter(d => d.groupId !== groupId));
+  };
+
+  const handleSaveAllOperations = () => {
+    const itemIndex = groupSelectionDialog.itemIndex;
+    const selectedOps = operationSelectionDialogs
+      .filter(d => d.selectedOpId)
+      .map(d => d.selectedOpId);
+
+    if (!selectedOps.length) {
+      setOperationSelectionDialogs([]);
+      return;
+    }
+
     const selectedOpsData = operationsData.filter(op => selectedOps.includes(op.id));
-    const currentOps = formData.items[itemIndex].operations || [];
+    const currentOps = formData.items[itemIndex]?.operations || [];
 
     const specialOps = selectedOpsData.filter(op =>
       op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
@@ -582,7 +643,7 @@ setFormData(prev => {
           return existing ? { ...op, ...existing } : op;
         });
         updateItemOperations(itemIndex, ops);
-        handleCloseOperationsDialog();
+        setOperationSelectionDialogs([]);
         return;
       }
 
@@ -617,14 +678,14 @@ setFormData(prev => {
         pendingOps: newPendingOps,
         params: initialParams
       }));
-      handleCloseOperationsDialog();
+      setOperationSelectionDialogs([]);
     } else {
       const opsWithDimensions = selectedOpsData.map(op => {
         const existing = currentOps.find(cop => cop.id === op.id);
         return existing ? { ...op, ...existing } : { ...op, widthMm: null, heightMm: null };
       });
       updateItemOperations(itemIndex, opsWithDimensions);
-      handleCloseOperationsDialog();
+      setOperationSelectionDialogs([]);
     }
   };
 
@@ -989,7 +1050,7 @@ value={priceplus}
                             <Button
                               variant="outlined"
                               size="small"
-                              onClick={() => handleOpenOperationsDialog(index)}
+                              onClick={() => handleOpenGroupSelectionDialog(index)}
                               disabled={!material}
                             >
                               {item.operations.length > 0 ? `${item.operations.length} оп.` : 'Выбрать'}
@@ -1106,48 +1167,87 @@ value={priceplus}
         </form>
       </Paper>
 
-      {/* Operations selection dialog */}
-      <Dialog open={operationsDialog.open} onClose={handleCloseOperationsDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>Выбрать операции</DialogTitle>
+      {/* Group selection dialog */}
+      <Dialog open={groupSelectionDialog.open} onClose={handleCloseGroupSelectionDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Выбрать группы операций</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
             {Object.values(dialogGroupedData).length === 0 && (
               <Typography color="text.secondary">Нет операций для выбранного материала</Typography>
             )}
             {Object.values(dialogGroupedData)
-              .map(group => ({
-                ...group,
-                operations: (group.operations || []).filter(op => op.name)
-              }))
-              .filter(group => group.operations.length > 0)
+              .filter(group => (group.operations || []).length > 0)
               .map(group => (
                 <Box key={group.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, width: '100%' }}>
-                  <Typography variant="subtitle2" color="primary" gutterBottom>
-                    {group.name}
-                  </Typography>
-                  <FormGroup>
-                    {group.operations.map(op => (
-                      <FormControlLabel
-                        key={op.id}
-                        control={
-                          <Checkbox
-                            checked={operationsDialog.selectedOps.includes(op.id)}
-                            onChange={() => handleToggleOperation(op.id)}
-                          />
-                        }
-                        label={op.name}
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={groupSelectionDialog.selectedItems.some(item => item.id === group.id && item.type === 'group')}
+                        onChange={() => handleToggleItem(group.id, 'group')}
                       />
-                    ))}
-                  </FormGroup>
+                    }
+                    label={group.name}
+                  />
                 </Box>
               ))}
+            {dialogUngroupedOps.filter(op => op.name).map(op => (
+              <Box key={op.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, width: '100%' }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={groupSelectionDialog.selectedItems.some(item => item.id === op.id && item.type === 'operation')}
+                      onChange={() => handleToggleItem(op.id, 'operation')}
+                    />
+                  }
+                  label={op.name}
+                />
+              </Box>
+            ))}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseOperationsDialog}>Отмена</Button>
-          <Button onClick={handleSaveOperations} variant="contained">Сохранить</Button>
+          <Button onClick={handleCloseGroupSelectionDialog}>Отмена</Button>
+          <Button onClick={handleGroupSelectionConfirm} variant="contained">ОК</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Operation selection dialogs - one per selected group */}
+      {operationSelectionDialogs.map(dialog => (
+        <Dialog
+          key={dialog.groupId}
+          open={dialog.open}
+          onClose={() => handleCloseOperationDialog(dialog.groupId)}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Выбрать операцию: {dialog.groupName}</DialogTitle>
+          <DialogContent>
+            <FormControl fullWidth>
+              <InputLabel>Операция</InputLabel>
+              <Select
+                value={dialog.selectedOpId || ''}
+                label="Операция"
+                onChange={(e) => handleOperationSelect(dialog.groupId, e.target.value)}
+              >
+                <MenuItem value="">Выберите операцию</MenuItem>
+                {dialog.operations.map(op => (
+                  <MenuItem key={op.id} value={op.id}>{op.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => handleCloseOperationDialog(dialog.groupId)}>Отмена</Button>
+            <Button
+              onClick={handleSaveAllOperations}
+              variant="contained"
+              disabled={!operationSelectionDialogs.every(d => d.selectedOpId)}
+            >
+              Сохранить
+            </Button>
+          </DialogActions>
+        </Dialog>
+      ))}
 
       {/* Operation parameters dialog (podvorot, eyelets, dimensions) */}
       <Dialog open={operationParamsDialog.open} onClose={handleCloseOperationParamsDialog} maxWidth="xs" fullWidth>

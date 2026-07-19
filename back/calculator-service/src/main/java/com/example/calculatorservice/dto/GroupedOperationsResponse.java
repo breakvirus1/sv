@@ -11,6 +11,7 @@ import java.util.List;
 @NoArgsConstructor
 public class GroupedOperationsResponse {
     private List<GroupDto> groups;
+    private List<OperationDto> ungroupedOperations;
 
     @Data
     @AllArgsConstructor
