@@ -80,7 +80,6 @@ const ManagerOrderList = () => {
     isLoading,
     error,
     fetchNextPage,
-    hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
     queryKey: ['managerOrders', { status: statusFilter, my: myOrders, managerId }],
@@ -98,17 +97,26 @@ const ManagerOrderList = () => {
   const totalCount = data?.pages?.[0]?.totalElements ?? 0;
 
   useEffect(() => {
-    if (paginationModel.page > 0 && hasNextPage && !loadingRef.current) {
-      loadingRef.current = true;
-      fetchNextPage().finally(() => { loadingRef.current = false; });
-    }
-  }, [paginationModel.page]);
-
-  useEffect(() => {
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, [statusFilter, myOrders, managerId]);
 
   const [columnWidths, setColumnWidths] = useState(loadColumnWidths);
+
+  const prefetchPages = useCallback(async (targetPage) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      const loadedPages = data?.pages?.length ?? 0;
+      if (targetPage >= loadedPages) {
+        const pagesToFetch = targetPage - loadedPages + 1;
+        for (let i = 0; i < pagesToFetch; i++) {
+          await fetchNextPage();
+        }
+      }
+    } finally {
+      loadingRef.current = false;
+    }
+  }, [data?.pages?.length, fetchNextPage]);
 
   const handleColumnWidthChange = useCallback((params) => {
     setColumnWidths(prev => {
@@ -260,11 +268,8 @@ const ManagerOrderList = () => {
           loading={isLoading || isFetchingNextPage}
           paginationMode="server"
           paginationModel={paginationModel}
-          onPaginationModelChange={(model) => {
-            const needFetch = model.page > (data?.pages?.length ?? 0) - 1;
-            if (needFetch && hasNextPage) {
-              fetchNextPage();
-            }
+          onPaginationModelChange={async (model) => {
+            await prefetchPages(model.page);
             setPaginationModel(model);
           }}
           pageSizeOptions={[PAGE_SIZE]}

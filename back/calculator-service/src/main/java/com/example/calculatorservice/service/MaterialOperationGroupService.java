@@ -67,6 +67,7 @@ public class MaterialOperationGroupService {
                 : allOperations;
 
         List<GroupedOperationsResponse.GroupDto> result = new ArrayList<>();
+        List<OperationDto> ungroupedOperations = new ArrayList<>();
 
         for (OperationGroup group : allGroups) {
             List<Operation> matchingOps = opsToShow.stream()
@@ -94,7 +95,27 @@ public class MaterialOperationGroupService {
             ));
         }
 
-        return new GroupedOperationsResponse(result, Collections.emptyList());
+        Set<Long> groupedOpIds = result.stream()
+                .flatMap(g -> g.getOperations().stream())
+                .map(OperationDto::getId)
+                .collect(Collectors.toSet());
+
+        List<Operation> remainingOps = opsToShow.stream()
+                .filter(op -> !groupedOpIds.contains(op.getId()))
+                .toList();
+
+        for (Operation op : remainingOps) {
+            OperationDto dto = new OperationDto();
+            dto.setId(op.getId());
+            dto.setName(op.getName());
+            dto.setPrice(op.getPrice());
+            dto.setUnit(op.getUnit() != null ? op.getUnit().getDisplayName() : null);
+            dto.setHemWidthMm(op.getHemWidthMm());
+            dto.setHemCount(op.getHemCount());
+            ungroupedOperations.add(dto);
+        }
+
+        return new GroupedOperationsResponse(result, ungroupedOperations);
     }
 
     /**

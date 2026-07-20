@@ -130,7 +130,7 @@ public class OperationService {
         if (materialId == null) {
             List<OperationGroup> allGroups = operationGroupRepository.findAll();
             List<GroupedOperationsResponse.GroupDto> result = new java.util.ArrayList<>();
-            List<OperationDto> unmatched = new java.util.ArrayList<>();
+            List<OperationDto> ungroupedOperations = new java.util.ArrayList<>();
 
             for (OperationGroup group : allGroups) {
                 List<Operation> matchingOps = allOperations.stream()
@@ -156,12 +156,11 @@ public class OperationService {
                 result.add(new GroupedOperationsResponse.GroupDto(
                         group.getId(), group.getName(), groupOperations
                 ));
-
-                unmatched.addAll(groupOperations);
             }
 
-            Set<Long> matchedOpIds = unmatched.stream()
-                    .map(com.example.calculatorservice.dto.OperationDto::getId)
+            Set<Long> matchedOpIds = result.stream()
+                    .flatMap(g -> g.getOperations().stream())
+                    .map(OperationDto::getId)
                     .collect(Collectors.toSet());
 
             List<Operation> remainingOps = allOperations.stream()
@@ -169,31 +168,19 @@ public class OperationService {
                     .toList();
 
             if (!remainingOps.isEmpty()) {
-                OperationGroup otherGroup = operationGroupRepository.findByName("Прочие")
-                        .orElseGet(() -> {
-                            OperationGroup g = new OperationGroup();
-                            g.setName("Прочие");
-                            return operationGroupRepository.save(g);
-                        });
-
-                List<OperationDto> otherOperations = remainingOps.stream()
-                        .map(op -> {
-                            OperationDto dto = new OperationDto();
-                            dto.setId(op.getId());
-                            dto.setName(op.getName());
-                            dto.setPrice(op.getPrice());
-                            dto.setUnit(op.getUnit() != null ? op.getUnit().getDisplayName() : null);
-                            dto.setHemWidthMm(op.getHemWidthMm());
-                            dto.setHemCount(op.getHemCount());
-                            return dto;
-                        })
-                        .toList();
-                result.add(new GroupedOperationsResponse.GroupDto(
-                        otherGroup.getId(), otherGroup.getName(), otherOperations
-                ));
+                for (Operation op : remainingOps) {
+                    OperationDto dto = new OperationDto();
+                    dto.setId(op.getId());
+                    dto.setName(op.getName());
+                    dto.setPrice(op.getPrice());
+                    dto.setUnit(op.getUnit() != null ? op.getUnit().getDisplayName() : null);
+                    dto.setHemWidthMm(op.getHemWidthMm());
+                    dto.setHemCount(op.getHemCount());
+                    ungroupedOperations.add(dto);
+                }
             }
 
-            return new GroupedOperationsResponse(result, Collections.emptyList());
+            return new GroupedOperationsResponse(result, ungroupedOperations);
         }
 
         Map<Long, List<com.example.calculatorservice.entity.MaterialOperationGroup>> mappingsByGroup = mappings.stream()

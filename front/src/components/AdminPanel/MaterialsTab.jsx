@@ -29,6 +29,7 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
   const [opsDialogOpen, setOpsDialogOpen] = useState(false);
   const [opsDialogMaterial, setOpsDialogMaterial] = useState(null);
   const [groupedOps, setGroupedOps] = useState([]);
+  const [ungroupedOps, setUngroupedOps] = useState([]);
   const [selectedOpIds, setSelectedOpIds] = useState([]);
   const [opsLoading, setOpsLoading] = useState(false);
   const [opsError, setOpsError] = useState(null);
@@ -43,6 +44,7 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
   const openOpsDialog = async (mat) => {
     setOpsDialogMaterial(mat);
     setSelectedOpIds([]);
+    setUngroupedOps([]);
     setOpsError(null);
     setOpsDialogOpen(true);
     setOpsLoading(true);
@@ -52,7 +54,9 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
         api.get(`/api/v1/admin/materials/${mat.id}/operation-groups/all`)
       ]);
       const groups = groupedRes.data?.groups || [];
+      const ungrouped = groupedRes.data?.ungroupedOperations || [];
       setGroupedOps(groups);
+      setUngroupedOps(ungrouped);
 
       const existingIds = (mappingsRes.data || [])
         .map(m => m.operation?.id)
@@ -62,6 +66,7 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
       console.error('Failed to load operations:', e);
       setOpsError('Не удалось загрузить операции');
       setGroupedOps([]);
+      setUngroupedOps([]);
     } finally {
       setOpsLoading(false);
     }
@@ -91,6 +96,7 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
     setOpsDialogOpen(false);
     setOpsDialogMaterial(null);
     setGroupedOps([]);
+    setUngroupedOps([]);
     setSelectedOpIds([]);
     setOpsError(null);
   };
@@ -99,6 +105,7 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
     setCopyMaterial(mat);
     setCopyName(`Копия ${mat.name}`);
     setCopySelectedOpIds([]);
+    setUngroupedOps([]);
     setCopyError(null);
     setCopyDialogOpen(true);
     setOpsLoading(true);
@@ -108,7 +115,9 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
         api.get(`/api/v1/admin/materials/${mat.id}/operation-groups/all`)
       ]);
       const groups = groupedRes.data?.groups || [];
+      const ungrouped = groupedRes.data?.ungroupedOperations || [];
       setGroupedOps(groups);
+      setUngroupedOps(ungrouped);
 
       const existingIds = (mappingsRes.data || [])
         .map(m => m.operation?.id)
@@ -118,6 +127,7 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
       console.error('Failed to load operations:', e);
       setCopyError('Не удалось загрузить операции');
       setGroupedOps([]);
+      setUngroupedOps([]);
     } finally {
       setOpsLoading(false);
     }
@@ -156,6 +166,7 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
     setCopyMaterial(null);
     setCopyName('');
     setCopySelectedOpIds([]);
+    setUngroupedOps([]);
     setCopyError(null);
   };
 
@@ -218,7 +229,7 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
             </Box>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
-              {groupedOps.length === 0 && !opsError && (
+              {groupedOps.length === 0 && ungroupedOps.length === 0 && !opsError && (
                 <Typography color="text.secondary">Нет операций. Создайте операции и группировки в соответствующих вкладках.</Typography>
               )}
               {groupedOps.map(group => (
@@ -239,6 +250,24 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
                         label={op.name + (op.price != null ? ` — ${op.price} ₽` : '')}
                       />
                     ))}
+                  </FormGroup>
+                </Box>
+              ))}
+              {ungroupedOps.filter(op => op.name).map(op => (
+                <Box key={op.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                  <Typography variant="subtitle2" color="primary" gutterBottom>
+                    Без группы
+                  </Typography>
+                  <FormGroup>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={selectedOpIds.includes(op.id)}
+                          onChange={() => toggleOp(op.id)}
+                        />
+                      }
+                      label={op.name + (op.price != null ? ` — ${op.price} ₽` : '')}
+                    />
                   </FormGroup>
                 </Box>
               ))}
@@ -275,7 +304,7 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
             </Box>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
-              {groupedOps.length === 0 && !opsError && !copyError && (
+              {groupedOps.length === 0 && ungroupedOps.length === 0 && !opsError && !copyError && (
                 <Typography color="text.secondary">Нет операций. Создайте операции и группировки в соответствующих вкладках.</Typography>
               )}
               {groupedOps.map(group => (
@@ -296,6 +325,24 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
                         label={op.name + (op.price != null ? ` — ${op.price} ₽` : '')}
                       />
                     ))}
+                  </FormGroup>
+                </Box>
+              ))}
+              {ungroupedOps.filter(op => op.name).map(op => (
+                <Box key={op.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                  <Typography variant="subtitle2" color="primary" gutterBottom>
+                    Без группы
+                  </Typography>
+                  <FormGroup>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={copySelectedOpIds.includes(op.id)}
+                          onChange={() => toggleOpCopy(op.id)}
+                        />
+                      }
+                      label={op.name + (op.price != null ? ` — ${op.price} ₽` : '')}
+                    />
                   </FormGroup>
                 </Box>
               ))}
