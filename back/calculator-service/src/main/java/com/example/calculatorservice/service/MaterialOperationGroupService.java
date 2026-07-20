@@ -152,8 +152,7 @@ public class MaterialOperationGroupService {
      *
      * <p>Для каждой операции определяется подходящая группировка по совпадению
      * названия операции с названием группировки (без учёта регистра). Если операция
-     * не попала ни в одну группу, она помещается в группу «Прочие». Если такой
-     * группы нет в базе, она создаётся автоматически.</p>
+     * не попала ни в одну группу, она сохраняется без группировки (groupId = null).</p>
      *
      * @param materialId идентификатор материала
      * @param request запрос с новым списком идентификаторов операций
@@ -167,40 +166,26 @@ public class MaterialOperationGroupService {
 
         List<MaterialOperationGroup> newMappings = new ArrayList<>();
         if (request.getOperationIds() != null) {
-            OperationGroup otherGroup = operationGroupRepository.findByName("Прочие")
-                    .orElseGet(() -> {
-                        OperationGroup g = new OperationGroup();
-                        g.setName("Прочие");
-                        return operationGroupRepository.save(g);
-                    });
-
             for (Long opId : request.getOperationIds()) {
                 Operation operation = operationRepository.findById(opId)
                         .orElseThrow(() -> new ResourceNotFoundException("Операция не найдена: " + opId));
 
                 List<OperationGroup> allGroups = operationGroupRepository.findAll();
-                boolean matched = false;
+                Long matchedGroupId = null;
                 for (OperationGroup group : allGroups) {
                     if (operation.getName() != null &&
                             operation.getName().toLowerCase().contains(group.getName().toLowerCase())) {
-                        MaterialOperationGroupCreateRequest createReq = new MaterialOperationGroupCreateRequest();
-                        createReq.setMaterialId(materialId);
-                        createReq.setOperationGroupId(group.getId());
-                        createReq.setOperationId(opId);
-                        MaterialOperationGroup saved = createMaterialOperationGroup(createReq);
-                        newMappings.add(saved);
-                        matched = true;
+                        matchedGroupId = group.getId();
+                        break;
                     }
                 }
 
-                if (!matched) {
-                    MaterialOperationGroupCreateRequest createReq = new MaterialOperationGroupCreateRequest();
-                    createReq.setMaterialId(materialId);
-                    createReq.setOperationGroupId(otherGroup.getId());
-                    createReq.setOperationId(opId);
-                    MaterialOperationGroup saved = createMaterialOperationGroup(createReq);
-                    newMappings.add(saved);
-                }
+                MaterialOperationGroupCreateRequest createReq = new MaterialOperationGroupCreateRequest();
+                createReq.setMaterialId(materialId);
+                createReq.setOperationGroupId(matchedGroupId);
+                createReq.setOperationId(opId);
+                MaterialOperationGroup saved = createMaterialOperationGroup(createReq);
+                newMappings.add(saved);
             }
         }
         return newMappings;

@@ -153,7 +153,7 @@ const { data: operationsData = [] } = useQuery({
    });
 
   const dialogGroupedData = dialogMaterialId != null ? materialGroupedOperations.groups : groupedOperationsData.groups;
-  const dialogUngroupedOps = groupedOperationsData.ungroupedOperations || [];
+  const dialogUngroupedOps = dialogMaterialId != null ? materialGroupedOperations.ungroupedOperations : groupedOperationsData.ungroupedOperations;
 
   const { data: eyeletsData = [] } = useQuery({
     queryKey: ['eyelets'],
@@ -586,14 +586,18 @@ setFormData(prev => {
     }
   };
 
-  const handleCloseGroupSelectionDialog = () => {
+  const applyGroupSelection = () => {
     const selectedGroups = groupSelectionDialog.selectedItems.filter(item => item.type === 'group');
     
     if (selectedGroups.length > 0) {
       const selectedOps = Object.values(groupedOpSelections).filter(Boolean);
       if (selectedOps.length > 0) {
         const itemIndex = groupSelectionDialog.itemIndex;
-        const selectedOpsData = operationsData.filter(op => selectedOps.includes(op.id));
+        const selectedOpIds = selectedOps.map(id => {
+          const raw = typeof id === 'object' && id !== null ? id.id : id;
+          return typeof raw === 'string' ? Number(raw) : raw;
+        });
+        const selectedOpsData = operationsData.filter(op => selectedOpIds.includes(op.id));
         const currentOps = formData.items[itemIndex]?.operations || [];
 
         const specialOps = selectedOpsData.filter(op =>
@@ -609,11 +613,13 @@ setFormData(prev => {
           });
 
           if (allAlreadyConfigured) {
-            const ops = selectedOpsData.map(op => {
-              const existing = currentOps.find(cop => cop.id === op.id);
-              return existing ? { ...op, ...existing } : op;
+            const existingIds = new Set(currentOps.map(cop => cop.id));
+            const mergedOps = currentOps.map(cop => {
+              const selected = selectedOpsData.find(sop => sop.id === cop.id);
+              return selected ? { ...selected, ...cop } : cop;
             });
-            updateItemOperations(itemIndex, ops);
+            const newOps = selectedOpsData.filter(op => !existingIds.has(op.id));
+            updateItemOperations(itemIndex, [...mergedOps, ...newOps]);
           } else {
             const newPendingOps = [...specialOps];
             const initialParams = {};
@@ -647,15 +653,22 @@ setFormData(prev => {
             }));
           }
         } else {
-          const opsWithDimensions = selectedOpsData.map(op => {
-            const existing = currentOps.find(cop => cop.id === op.id);
-            return existing ? { ...op, ...existing } : { ...op, widthMm: null, heightMm: null };
+          const existingIds = new Set(currentOps.map(cop => cop.id));
+          const mergedOps = currentOps.map(cop => {
+            const selected = selectedOpsData.find(sop => sop.id === cop.id);
+            return selected ? { ...selected, ...cop } : cop;
           });
-          updateItemOperations(itemIndex, opsWithDimensions);
+          const newOps = selectedOpsData.filter(op => !existingIds.has(op.id));
+          updateItemOperations(itemIndex, [...mergedOps, ...newOps]);
         }
       }
     }
     
+    setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
+    setGroupedOpSelections({});
+  };
+
+  const handleCloseGroupSelectionDialog = () => {
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
     setGroupedOpSelections({});
   };
@@ -1186,7 +1199,7 @@ value={priceplus}
             {(dialogUngroupedOps || []).filter(op => op.name).length > 0 && (
               <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, mt: 1 }}>
                 <Typography variant="subtitle2" color="primary" gutterBottom>
-                  Прочие операции
+                  Операции без группы
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   {(dialogUngroupedOps || []).filter(op => op.name).map(op => {
@@ -1213,7 +1226,8 @@ value={priceplus}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseGroupSelectionDialog}>Закрыть</Button>
+          <Button onClick={handleCloseGroupSelectionDialog}>Отмена</Button>
+          <Button onClick={applyGroupSelection} variant="contained">ОК</Button>
         </DialogActions>
       </Dialog>
 

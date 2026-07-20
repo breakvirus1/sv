@@ -14,12 +14,6 @@ public interface OperationGroupRepository extends JpaRepository<OperationGroup, 
     List<OperationGroup> findAll();
     Optional<OperationGroup> findByName(String name);
 
-    @Query("SELECT g FROM OperationGroup g WHERE g.name = :name AND g.deleted = false")
-    Optional<OperationGroup> findActiveByName(@Param("name") String name);
-
     @Query("SELECT g FROM OperationGroup g WHERE g.name = :name AND g.id <> :id")
     Optional<OperationGroup> findByNameExcludingId(@Param("name") String name, @Param("id") Long id);
-
-    @Query("SELECT g FROM OperationGroup g WHERE g.name = :name")
-    Optional<OperationGroup> findByNameIncludingDeleted(@Param("name") String name);
 }

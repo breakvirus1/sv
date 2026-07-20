@@ -49,7 +49,7 @@ public class OperationGroupAdminController {
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<OperationGroupDto> createOperationGroup(@RequestBody OperationGroupCreateRequest request) {
-        if (operationGroupRepository.findByNameIncludingDeleted(request.getName()).isPresent()) {
+        if (operationGroupRepository.findByName(request.getName()).isPresent()) {
             throw new BadRequestException("Группировка с таким названием уже существует");
         }
         OperationGroup group = new OperationGroup();
