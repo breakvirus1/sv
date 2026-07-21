@@ -100,6 +100,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     pendingOps: [],
     params: {}
   });
+  const [opsBeforeDialog, setOpsBeforeDialog] = useState([]);
   const [clientInfoDialog, setClientInfoDialog] = useState({ open: false, clientId: null });
 
   // ── Запросы: Сотрудники, Материалы, Операции ──
@@ -153,7 +154,7 @@ const { data: operationsData = [] } = useQuery({
    });
 
   const dialogGroupedData = dialogMaterialId != null ? materialGroupedOperations.groups : groupedOperationsData.groups;
-  const dialogUngroupedOps = dialogMaterialId != null ? materialGroupedOperations.ungroupedOperations : groupedOperationsData.ungroupedOperations;
+  const dialogUngroupedOps = dialogMaterialId != null ? materialGroupedOperations.ungroupedOperations : (groupedOperationsData.ungroupedOperations || []);
 
   const { data: eyeletsData = [] } = useQuery({
     queryKey: ['eyelets'],
@@ -517,6 +518,7 @@ setFormData(prev => {
       itemIndex,
       selectedItems: []
     });
+    setOpsBeforeDialog(formData.items[itemIndex]?.operations || []);
   };
 
   const handleCloseOperationParamsDialog = () => {
@@ -588,79 +590,81 @@ setFormData(prev => {
 
   const applyGroupSelection = () => {
     const selectedGroups = groupSelectionDialog.selectedItems.filter(item => item.type === 'group');
+    const selectedOps = Object.values(groupedOpSelections).filter(Boolean);
+    const itemIndex = groupSelectionDialog.itemIndex;
+    const currentOps = formData.items[itemIndex]?.operations || [];
+    const newOps = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
+    const newSpecialOps = newOps.filter(op => op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')));
     
-    if (selectedGroups.length > 0) {
-      const selectedOps = Object.values(groupedOpSelections).filter(Boolean);
-      if (selectedOps.length > 0) {
-        const itemIndex = groupSelectionDialog.itemIndex;
-        const selectedOpIds = selectedOps.map(id => {
-          const raw = typeof id === 'object' && id !== null ? id.id : id;
-          return typeof raw === 'string' ? Number(raw) : raw;
+    if (selectedGroups.length > 0 || selectedOps.length > 0 || newSpecialOps.length > 0) {
+      const selectedOpIds = selectedOps.map(id => {
+        const raw = typeof id === 'object' && id !== null ? id.id : id;
+        return typeof raw === 'string' ? Number(raw) : raw;
+      });
+      const selectedOpsData = operationsData.filter(op => selectedOpIds.includes(op.id));
+
+      const specialOps = selectedOpsData.filter(op =>
+        op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
+      );
+
+      const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
+
+      if (allSpecialOps.length > 0) {
+        const allAlreadyConfigured = allSpecialOps.every(sop => {
+          const existing = currentOps.find(cop => cop.id === sop.id);
+          if (sop.name.toLowerCase().includes('люверс')) return existing && existing.eyeletId;
+          if (sop.name.toLowerCase().includes('подворот')) return existing && existing.hemWidthMm;
+          return false;
         });
-        const selectedOpsData = operationsData.filter(op => selectedOpIds.includes(op.id));
-        const currentOps = formData.items[itemIndex]?.operations || [];
 
-        const specialOps = selectedOpsData.filter(op =>
-          op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
-        );
-
-        if (specialOps.length > 0) {
-          const allAlreadyConfigured = specialOps.every(sop => {
-            const existing = currentOps.find(cop => cop.id === sop.id);
-            if (sop.name.toLowerCase().includes('люверс')) return existing && existing.eyeletId;
-            if (sop.name.toLowerCase().includes('подворот')) return existing && existing.hemWidthMm;
-            return false;
-          });
-
-          if (allAlreadyConfigured) {
-            const existingIds = new Set(currentOps.map(cop => cop.id));
-            const mergedOps = currentOps.map(cop => {
-              const selected = selectedOpsData.find(sop => sop.id === cop.id);
-              return selected ? { ...selected, ...cop } : cop;
-            });
-            const newOps = selectedOpsData.filter(op => !existingIds.has(op.id));
-            updateItemOperations(itemIndex, [...mergedOps, ...newOps]);
-          } else {
-            const newPendingOps = [...specialOps];
-            const initialParams = {};
-
-            specialOps.forEach(op => {
-              const opId = op.id;
-              const existing = currentOps.find(cop => String(cop.id) === String(opId));
-              if (op.name.toLowerCase().includes('подворот')) {
-                if (existing && existing.hemWidthMm) {
-                  initialParams[opId] = { hemWidthMm: existing.hemWidthMm, hemCount: existing.hemCount || 2, widthMm: existing.widthMm, heightMm: existing.heightMm };
-                } else {
-                  const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
-                  const defaultCount = op.hemCount != null ? op.hemCount : 2;
-                  initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-                }
-              } else if (op.name.toLowerCase().includes('люверс')) {
-                if (existing && existing.eyeletId) {
-                  initialParams[opId] = { eyeletId: existing.eyeletId, eyeletStepCm: existing.eyeletStepCm || 40, widthMm: existing.widthMm, heightMm: existing.heightMm };
-                } else {
-                  initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-                }
-              }
-            });
-
-            setOperationParamsDialog(prev => ({
-              ...prev,
-              open: true,
-              itemIndex,
-              pendingOps: newPendingOps,
-              params: initialParams
-            }));
-          }
-        } else {
+        if (allAlreadyConfigured) {
           const existingIds = new Set(currentOps.map(cop => cop.id));
           const mergedOps = currentOps.map(cop => {
-            const selected = selectedOpsData.find(sop => sop.id === cop.id);
+            const selected = allSpecialOps.find(sop => sop.id === cop.id);
             return selected ? { ...selected, ...cop } : cop;
           });
-          const newOps = selectedOpsData.filter(op => !existingIds.has(op.id));
-          updateItemOperations(itemIndex, [...mergedOps, ...newOps]);
+          const newSelectedOps = allSpecialOps.filter(op => !existingIds.has(op.id));
+          updateItemOperations(itemIndex, [...mergedOps, ...newSelectedOps]);
+        } else {
+          const newPendingOps = [...allSpecialOps];
+          const initialParams = {};
+
+          allSpecialOps.forEach(op => {
+            const opId = op.id;
+            const existing = currentOps.find(cop => String(cop.id) === String(opId));
+            if (op.name.toLowerCase().includes('подворот')) {
+              if (existing && existing.hemWidthMm) {
+                initialParams[opId] = { hemWidthMm: existing.hemWidthMm, hemCount: existing.hemCount || 2, widthMm: existing.widthMm, heightMm: existing.heightMm };
+              } else {
+                const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
+                const defaultCount = op.hemCount != null ? op.hemCount : 2;
+                initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
+              }
+            } else if (op.name.toLowerCase().includes('люверс')) {
+              if (existing && existing.eyeletId) {
+                initialParams[opId] = { eyeletId: existing.eyeletId, eyeletStepCm: existing.eyeletStepCm || 40, widthMm: existing.widthMm, heightMm: existing.heightMm };
+              } else {
+                initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
+              }
+            }
+          });
+
+          setOperationParamsDialog(prev => ({
+            ...prev,
+            open: true,
+            itemIndex,
+            pendingOps: newPendingOps,
+            params: initialParams
+          }));
         }
+      } else {
+        const existingIds = new Set(currentOps.map(cop => cop.id));
+        const mergedOps = currentOps.map(cop => {
+          const selected = selectedOpsData.find(sop => sop.id === cop.id);
+          return selected ? { ...selected, ...cop } : cop;
+        });
+        const newSelectedOps = selectedOpsData.filter(op => !existingIds.has(op.id));
+        updateItemOperations(itemIndex, [...mergedOps, ...newSelectedOps]);
       }
     }
     
@@ -669,6 +673,86 @@ setFormData(prev => {
   };
 
   const handleCloseGroupSelectionDialog = () => {
+    const itemIndex = groupSelectionDialog.itemIndex;
+    const selectedOps = Object.values(groupedOpSelections).filter(Boolean);
+    
+    if (selectedOps.length > 0 && itemIndex != null) {
+      const selectedOpsData = operationsData.filter(op => selectedOps.includes(op.id));
+      const currentOps = formData.items[itemIndex]?.operations || [];
+
+      const specialOps = selectedOpsData.filter(op =>
+        op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
+      );
+
+      if (specialOps.length > 0) {
+        const allAlreadyConfigured = specialOps.every(sop => {
+          const existing = currentOps.find(cop => cop.id === sop.id);
+          if (sop.name.toLowerCase().includes('люверс')) {
+            return existing && existing.eyeletId;
+          }
+          if (sop.name.toLowerCase().includes('подворот')) {
+            return existing && existing.hemWidthMm;
+          }
+          return false;
+        });
+
+        if (allAlreadyConfigured) {
+          const ops = selectedOpsData.map(op => {
+            const existing = currentOps.find(cop => cop.id === op.id);
+            return existing ? { ...op, ...existing } : op;
+          });
+          updateItemOperations(itemIndex, ops);
+        } else {
+          const newPendingOps = [...specialOps];
+          const initialParams = {};
+
+          specialOps.forEach(op => {
+            const opId = op.id;
+            const existing = currentOps.find(cop => String(cop.id) === String(opId));
+            if (op.name.toLowerCase().includes('подворот')) {
+              if (existing && existing.hemWidthMm) {
+                initialParams[opId] = {
+                  hemWidthMm: existing.hemWidthMm,
+                  hemCount: existing.hemCount || 2,
+                  widthMm: existing.widthMm,
+                  heightMm: existing.heightMm
+                };
+              } else {
+                const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
+                const defaultCount = op.hemCount != null ? op.hemCount : 2;
+                initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
+              }
+            } else if (op.name.toLowerCase().includes('люверс')) {
+              if (existing && existing.eyeletId) {
+                initialParams[opId] = {
+                  eyeletId: existing.eyeletId,
+                  eyeletStepCm: existing.eyeletStepCm || 40,
+                  widthMm: existing.widthMm,
+                  heightMm: existing.heightMm
+                };
+              } else {
+                initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
+              }
+            }
+          });
+
+          setOperationParamsDialog(prev => ({
+            ...prev,
+            open: true,
+            itemIndex,
+            pendingOps: newPendingOps,
+            params: initialParams
+          }));
+        }
+      } else {
+        const opsWithDimensions = selectedOpsData.map(op => {
+          const existing = currentOps.find(cop => cop.id === op.id);
+          return existing ? { ...op, ...existing } : { ...op, widthMm: null, heightMm: null };
+        });
+        updateItemOperations(itemIndex, opsWithDimensions);
+      }
+    }
+    
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
     setGroupedOpSelections({});
   };
@@ -781,6 +865,13 @@ const handleSubmit = async (e) => {
 
         const widthM = toMeters(item.qty1value, item.unit);
         const heightM = isM2(material) ? toMeters(item.qty2value, item.unit) : null;
+
+        if (widthM == null || widthM <= 0) {
+          throw new Error(`Ширина материала "${material.name}" должна быть больше нуля`);
+        }
+        if (isM2(material) && (heightM == null || heightM <= 0)) {
+          throw new Error(`Высота материала "${material.name}" должна быть больше нуля`);
+        }
 
         return {
           ...(item.id ? { id: item.id } : {}),
