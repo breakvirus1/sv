@@ -183,35 +183,34 @@ public class OperationService {
             return new GroupedOperationsResponse(result, ungroupedOperations);
         }
 
-        Map<Long, List<com.example.calculatorservice.entity.MaterialOperationGroup>> mappingsByGroup = mappings.stream()
+        List<com.example.calculatorservice.entity.MaterialOperationGroup> ungroupedMappings = mappings.stream()
+                .filter(m -> m.getOperationGroupId() == null)
+                .toList();
+
+        Map<Long, List<com.example.calculatorservice.entity.MaterialOperationGroup>> groupedMappings = mappings.stream()
+                .filter(m -> m.getOperationGroupId() != null)
                 .collect(Collectors.groupingBy(com.example.calculatorservice.entity.MaterialOperationGroup::getOperationGroupId));
 
-        List<GroupedOperationsResponse.GroupDto> result = new java.util.ArrayList<>();
-        List<OperationDto> ungroupedOperations = new java.util.ArrayList<>();
+        for (com.example.calculatorservice.entity.MaterialOperationGroup mog : ungroupedMappings) {
+            Operation op = allOperations.stream()
+                    .filter(o -> o.getId().equals(mog.getOperationId()))
+                    .findFirst()
+                    .orElse(null);
+            if (op != null) {
+                OperationDto dto = new OperationDto();
+                dto.setId(op.getId());
+                dto.setName(op.getName());
+                dto.setPrice(op.getPrice());
+                dto.setUnit(op.getUnit() != null ? op.getUnit().getDisplayName() : null);
+                dto.setHemWidthMm(op.getHemWidthMm());
+                dto.setHemCount(op.getHemCount());
+                ungroupedOperations.add(dto);
+            }
+        }
 
-        for (Map.Entry<Long, List<com.example.calculatorservice.entity.MaterialOperationGroup>> entry : mappingsByGroup.entrySet()) {
+        for (Map.Entry<Long, List<com.example.calculatorservice.entity.MaterialOperationGroup>> entry : groupedMappings.entrySet()) {
             Long groupId = entry.getKey();
             List<com.example.calculatorservice.entity.MaterialOperationGroup> groupMappings = entry.getValue();
-
-            if (groupId == null) {
-                for (com.example.calculatorservice.entity.MaterialOperationGroup mog : groupMappings) {
-                    Operation op = allOperations.stream()
-                            .filter(o -> o.getId().equals(mog.getOperationId()))
-                            .findFirst()
-                            .orElse(null);
-                    if (op != null) {
-                        OperationDto dto = new OperationDto();
-                        dto.setId(op.getId());
-                        dto.setName(op.getName());
-                        dto.setPrice(op.getPrice());
-                        dto.setUnit(op.getUnit() != null ? op.getUnit().getDisplayName() : null);
-                        dto.setHemWidthMm(op.getHemWidthMm());
-                        dto.setHemCount(op.getHemCount());
-                        ungroupedOperations.add(dto);
-                    }
-                }
-                continue;
-            }
 
             OperationGroup group = operationGroupRepository.findById(groupId).orElse(null);
             if (group == null) continue;
