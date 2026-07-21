@@ -183,6 +183,9 @@ public class OperationService {
             return new GroupedOperationsResponse(result, ungroupedOperations);
         }
 
+        List<GroupedOperationsResponse.GroupDto> result = new java.util.ArrayList<>();
+        List<OperationDto> ungroupedOperations = new java.util.ArrayList<>();
+
         List<com.example.calculatorservice.entity.MaterialOperationGroup> ungroupedMappings = mappings.stream()
                 .filter(m -> m.getOperationGroupId() == null)
                 .toList();
