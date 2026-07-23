@@ -310,6 +310,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       );
 
       const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
+      const regularOps = selectedOpsData.filter(op => !specialOps.some(sop => sop.id === op.id));
 
       if (allSpecialOps.length > 0) {
         const allAlreadyConfigured = allSpecialOps.every(sop => {
@@ -356,17 +357,22 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
             open: true,
             itemIndex,
             pendingOps: newPendingOps,
-            params: initialParams
+            params: initialParams,
+            pendingRegularOps: regularOps
           }));
         }
       } else {
-        const existingIds = new Set(currentOps.map(cop => cop.id));
-        const mergedOps = currentOps.map(cop => {
-          const selected = selectedOpsData.find(sop => sop.id === cop.id);
-          return selected ? { ...selected, ...cop } : cop;
-        });
-        const newSelectedOps = selectedOpsData.filter(op => !existingIds.has(op.id));
-        updateItemOperations(itemIndex, [...mergedOps, ...newSelectedOps]);
+        const configuredSpecialOps = currentOps.filter(op =>
+          op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс'))
+        );
+        const newOpsAdded = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
+        const selectedIds = new Set(selectedOpsData.map(op => op.id));
+        const finalOps = [
+          ...selectedOpsData,
+          ...configuredSpecialOps.filter(op => !selectedIds.has(op.id)),
+          ...newOpsAdded.filter(op => !selectedIds.has(op.id))
+        ];
+        updateItemOperations(itemIndex, finalOps);
       }
     }
     
@@ -390,6 +396,8 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
       );
 
+      const newOps = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
+      const newSpecialOps = newOps.filter(op => op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')));
       const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
       const regularOps = selectedOpsData.filter(op => !specialOps.some(sop => sop.id === op.id));
 
@@ -458,13 +466,17 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           }));
         }
       } else {
-        const existingIds = new Set(currentOps.map(cop => cop.id));
-        const mergedOps = currentOps.map(cop => {
-          const selected = selectedOpsData.find(sop => sop.id === cop.id);
-          return selected ? { ...selected, ...cop } : cop;
-        });
-        const newSelectedOps = selectedOpsData.filter(op => !existingIds.has(op.id));
-        updateItemOperations(itemIndex, [...mergedOps, ...newSelectedOps]);
+        const configuredSpecialOps = currentOps.filter(op =>
+          op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс'))
+        );
+        const newOpsAdded = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
+        const selectedIds = new Set(selectedOpsData.map(op => op.id));
+        const finalOps = [
+          ...selectedOpsData,
+          ...configuredSpecialOps.filter(op => !selectedIds.has(op.id)),
+          ...newOpsAdded.filter(op => !selectedIds.has(op.id))
+        ];
+        updateItemOperations(itemIndex, finalOps);
       }
     }
     

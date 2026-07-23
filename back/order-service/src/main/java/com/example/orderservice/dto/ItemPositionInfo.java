@@ -39,4 +39,16 @@ public class ItemPositionInfo {
      * Если в заказе высота не задана, возвращает defaultHeightMm справочника.
      */
     private BigDecimal heightMm;
+
+    private List<OperationInfo> operations;
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class OperationInfo {
+        private Long operationId;
+        private String operationName;
+        private BigDecimal widthM;
+        private BigDecimal heightM;
+    }
 }
