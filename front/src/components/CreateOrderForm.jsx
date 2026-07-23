@@ -81,6 +81,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     open: false,
     itemIndex: null,
     pendingOps: [],
+    pendingRegularOps: [],
     params: {}
   });
   const [opsBeforeDialog, setOpsBeforeDialog] = useState([]);
@@ -376,17 +377,24 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const handleCloseGroupSelectionDialog = () => {
     const itemIndex = groupSelectionDialog.itemIndex;
     const selectedOps = Object.values(groupedOpSelections).filter(Boolean);
-    
-    if (selectedOps.length > 0 && itemIndex != null) {
-      const selectedOpsData = operationsData.filter(op => selectedOps.includes(op.id));
+    const selectedOpIds = selectedOps.map(id => {
+      const raw = typeof id === 'object' && id !== null ? id.id : id;
+      return typeof raw === 'string' ? Number(raw) : raw;
+    });
+
+    if (selectedOpIds.length > 0 && itemIndex != null) {
+      const selectedOpsData = operationsData.filter(op => selectedOpIds.includes(op.id));
       const currentOps = formData.items[itemIndex]?.operations || [];
 
       const specialOps = selectedOpsData.filter(op =>
         op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
       );
 
-      if (specialOps.length > 0) {
-        const allAlreadyConfigured = specialOps.every(sop => {
+      const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
+      const regularOps = selectedOpsData.filter(op => !specialOps.some(sop => sop.id === op.id));
+
+      if (allSpecialOps.length > 0) {
+        const allAlreadyConfigured = allSpecialOps.every(sop => {
           const existing = currentOps.find(cop => cop.id === sop.id);
           if (sop.name.toLowerCase().includes('люверс')) {
             return existing && existing.eyeletId;
@@ -398,18 +406,19 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         });
 
         if (allAlreadyConfigured) {
-          const ops = selectedOpsData.map(op => {
-            const existing = currentOps.find(cop => cop.id === op.id);
-            return existing ? { ...op, ...existing } : op;
+          const existingIds = new Set(currentOps.map(cop => cop.id));
+          const mergedOps = currentOps.map(cop => {
+            const selected = allSpecialOps.find(sop => sop.id === cop.id);
+            return selected ? { ...selected, ...cop } : cop;
           });
-          const lockedHemOps = currentOps.filter(op => op.name && op.name.toLowerCase().includes('подворот'));
-          const mergedOps = [...ops.filter(o => !o.name || !o.name.toLowerCase().includes('подворот')), ...lockedHemOps];
-          updateItemOperations(itemIndex, mergedOps);
+          const newSpecialSelected = allSpecialOps.filter(op => !existingIds.has(op.id));
+          const newRegularSelected = regularOps.filter(op => !existingIds.has(op.id));
+          updateItemOperations(itemIndex, [...mergedOps, ...newSpecialSelected, ...newRegularSelected]);
         } else {
-          const newPendingOps = [...specialOps];
+          const newPendingOps = [...allSpecialOps];
           const initialParams = {};
 
-          specialOps.forEach(op => {
+          allSpecialOps.forEach(op => {
             const opId = op.id;
             const existing = currentOps.find(cop => String(cop.id) === String(opId));
             if (op.name.toLowerCase().includes('подворот')) {
@@ -444,15 +453,18 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
             open: true,
             itemIndex,
             pendingOps: newPendingOps,
-            params: initialParams
+            params: initialParams,
+            pendingRegularOps: regularOps
           }));
         }
       } else {
-        const opsWithDimensions = selectedOpsData.map(op => {
-          const existing = currentOps.find(cop => cop.id === op.id);
-          return existing ? { ...op, ...existing } : { ...op, widthMm: null, heightMm: null };
+        const existingIds = new Set(currentOps.map(cop => cop.id));
+        const mergedOps = currentOps.map(cop => {
+          const selected = selectedOpsData.find(sop => sop.id === cop.id);
+          return selected ? { ...selected, ...cop } : cop;
         });
-        updateItemOperations(itemIndex, opsWithDimensions);
+        const newSelectedOps = selectedOpsData.filter(op => !existingIds.has(op.id));
+        updateItemOperations(itemIndex, [...mergedOps, ...newSelectedOps]);
       }
     }
     
@@ -466,12 +478,13 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       open: false,
       itemIndex: null,
       pendingOps: [],
+      pendingRegularOps: [],
       params: {}
     }));
   };
 
   const handleSaveOperationParams = () => {
-    const { itemIndex, pendingOps, params } = operationParamsDialog;
+    const { itemIndex, pendingOps, pendingRegularOps, params } = operationParamsDialog;
     const opsWithParams = pendingOps.map(op => {
       const baseOp = operationsData.find(o => o.id === op.id);
       const opParams = params[op.id] || {};
@@ -483,7 +496,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
     const currentOps = formData.items[itemIndex]?.operations || [];
     const filteredOps = currentOps.filter(cop => !pendingOps.some(pop => pop.id === cop.id));
-    const finalOps = [...filteredOps, ...opsWithParams];
+    const finalOps = [...filteredOps, ...opsWithParams, ...pendingRegularOps];
 
     updateItemOperations(itemIndex, finalOps);
     handleCloseOperationParamsDialog();
@@ -628,8 +641,8 @@ const handleSubmit = async (e) => {
           heightM: isM2(material) ? heightM : null,
           operations: item.operations.map(op => ({
             operationId: op.id,
-            widthMm: op.widthMm != null ? op.widthMm : null,
-            heightMm: op.heightMm != null ? op.heightMm : null
+            widthM: op.widthMm != null ? op.widthMm / 1000 : null,
+            heightM: op.heightMm != null ? op.heightMm / 1000 : null
           })),
           readyDate: item.readyDate || null,
           ...(eyeletId !== null && { eyeletId }),
