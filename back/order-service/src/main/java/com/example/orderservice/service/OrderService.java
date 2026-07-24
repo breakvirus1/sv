@@ -1060,6 +1060,7 @@ private void recalculatePaidAmount(Long orderId) {
      * Подтягивает ширину и высоту: если в заказе не заданы, берёт defaultWidthMm/defaultHeightMm из справочника.
      * Используется фронтендом при редактировании линии заказа для подтягивания размеров из БД.
      */
+    @Transactional(readOnly = true)
     public ItemPositionInfo getItemPositionInfo(Long orderId, Long orderMaterialId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
@@ -1074,7 +1075,19 @@ private void recalculatePaidAmount(Long orderId) {
 
         MaterialResponse matResp = orderMapper.materialToDto(om.getMaterial());
 
-        return new ItemPositionInfo(om.getId(), matResp, widthM, heightM);
+        List<ItemPositionInfo.OperationInfo> ops = new java.util.ArrayList<>();
+        if (om.getOrderItem() != null && om.getOrderItem().getOperations() != null) {
+            for (com.example.orderservice.entity.OrderOperation op : om.getOrderItem().getOperations()) {
+                ops.add(new ItemPositionInfo.OperationInfo(
+                        op.getOperationId(),
+                        op.getOperationName(),
+                        op.getWidthM(),
+                        op.getHeightM()
+                ));
+            }
+        }
+
+        return new ItemPositionInfo(om.getId(), matResp, widthM, heightM, ops);
     }
 
     /**

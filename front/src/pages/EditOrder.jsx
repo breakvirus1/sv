@@ -98,6 +98,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     open: false,
     itemIndex: null,
     pendingOps: [],
+    pendingRegularOps: [],
     params: {}
   });
   const [opsBeforeDialog, setOpsBeforeDialog] = useState([]);
@@ -512,13 +513,112 @@ setFormData(prev => {
 
   // ── Operations dialogs ──
 
-  const handleOpenGroupSelectionDialog = (itemIndex) => {
+  const handleOpenGroupSelectionDialog = async (itemIndex) => {
+    const item = formData.items[itemIndex];
+    const currentOps = item?.operations || [];
+
+    const selectedItems = [];
+    const groupedOpSelections = {};
+
+    setOpsBeforeDialog(formData.items[itemIndex]?.operations || []);
+
+    // Pre-fetch grouped operations for this material directly to avoid timing issues
+    let materialGroupsMap = {};
+    let ungroupedOps = [];
+    if (item?.materialId) {
+      try {
+        const groupResp = await api.get(`/api/v1/calculations/operations/grouped?materialId=${item.materialId}`);
+        const groups = groupResp.data?.groups || [];
+        ungroupedOps = groupResp.data?.ungroupedOperations || [];
+        materialGroupsMap = Object.fromEntries(groups.map(g => [g.id, g]));
+      } catch (e) {
+        console.warn('Failed to load grouped operations for material:', item.materialId, e);
+      }
+    }
+
+    if (item?.id) {
+      try {
+        const response = await api.get(`/api/v1/orders/${orderData.id}/positions/${item.id}/default`);
+        const backendOps = response.data?.operations || [];
+        if (backendOps.length > 0) {
+          const seenGroups = new Set();
+          const processedOps = [];
+          backendOps.forEach(op => {
+            const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.operationId));
+            if (group) {
+              if (!seenGroups.has(group.id)) {
+                seenGroups.add(group.id);
+                selectedItems.push({ id: group.id, type: 'group' });
+                groupedOpSelections[group.id] = op.operationId;
+                processedOps.push({
+                  id: op.operationId,
+                  name: op.operationName,
+                  widthMm: op.widthM != null ? op.widthM * 1000 : null,
+                  heightMm: op.heightM != null ? op.heightM * 1000 : null
+                });
+              }
+            } else {
+              selectedItems.push({ id: op.operationId, type: 'operation' });
+              processedOps.push({
+                id: op.operationId,
+                name: op.operationName,
+                widthMm: op.widthM != null ? op.widthM * 1000 : null,
+                heightMm: op.heightM != null ? op.heightM * 1000 : null
+              });
+            }
+          });
+          setFormData(prev => ({
+            ...prev,
+            items: prev.items.map((it, i) =>
+              i === itemIndex ? { ...it, operations: processedOps } : it
+            )
+          }));
+        } else {
+          currentOps.forEach(op => {
+            const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.id));
+            if (group) {
+              if (!selectedItems.some(item => item.type === 'group' && item.id === group.id)) {
+                selectedItems.push({ id: group.id, type: 'group' });
+              }
+              groupedOpSelections[group.id] = op.id;
+            } else {
+              selectedItems.push({ id: op.id, type: 'operation' });
+            }
+          });
+        }
+      } catch (e) {
+        currentOps.forEach(op => {
+          const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.id));
+          if (group) {
+            if (!selectedItems.some(item => item.type === 'group' && item.id === group.id)) {
+              selectedItems.push({ id: group.id, type: 'group' });
+            }
+            groupedOpSelections[group.id] = op.id;
+          } else {
+            selectedItems.push({ id: op.id, type: 'operation' });
+          }
+        });
+      }
+    } else {
+      currentOps.forEach(op => {
+        const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.id));
+        if (group) {
+          if (!selectedItems.some(item => item.type === 'group' && item.id === group.id)) {
+            selectedItems.push({ id: group.id, type: 'group' });
+          }
+          groupedOpSelections[group.id] = op.id;
+        } else {
+          selectedItems.push({ id: op.id, type: 'operation' });
+        }
+      });
+    }
+
     setGroupSelectionDialog({
       open: true,
       itemIndex,
-      selectedItems: []
+      selectedItems
     });
-    setOpsBeforeDialog(formData.items[itemIndex]?.operations || []);
+    setGroupedOpSelections(groupedOpSelections);
   };
 
   const handleCloseOperationParamsDialog = () => {
@@ -527,12 +627,13 @@ setFormData(prev => {
       open: false,
       itemIndex: null,
       pendingOps: [],
+      pendingRegularOps: [],
       params: {}
     }));
   };
 
   const handleSaveOperationParams = () => {
-    const { itemIndex, pendingOps, params } = operationParamsDialog;
+    const { itemIndex, pendingOps, pendingRegularOps, params } = operationParamsDialog;
     const opsWithParams = pendingOps.map(op => {
       const baseOp = operationsData.find(o => o.id === op.id);
       const opParams = params[op.id] || {};
@@ -544,7 +645,7 @@ setFormData(prev => {
 
     const currentOps = formData.items[itemIndex]?.operations || [];
     const filteredOps = currentOps.filter(cop => !pendingOps.some(pop => pop.id === cop.id));
-    const finalOps = [...filteredOps, ...opsWithParams];
+    const finalOps = [...filteredOps, ...opsWithParams, ...pendingRegularOps];
 
     updateItemOperations(itemIndex, finalOps);
     handleCloseOperationParamsDialog();
@@ -562,16 +663,21 @@ setFormData(prev => {
 
   const handleToggleGroup = (groupId, groupName) => {
     const isSelected = groupSelectionDialog.selectedItems.some(item => item.type === 'group' && item.id === groupId);
-    
+
     if (isSelected) {
       setGroupSelectionDialog(prev => ({
         ...prev,
         selectedItems: prev.selectedItems.filter(item => !(item.type === 'group' && item.id === groupId))
       }));
+      setGroupedOpSelections(prev => {
+        const next = { ...prev };
+        delete next[groupId];
+        return next;
+      });
     } else {
       setGroupSelectionDialog(prev => ({
         ...prev,
-        selectedItems: [...prev.selectedItems, { id: groupId, type: 'group' }]
+        selectedItems: [...prev.selectedItems.filter(item => !(item.type === 'group' && item.id === groupId)), { id: groupId, type: 'group' }]
       }));
     }
   };
@@ -608,6 +714,7 @@ setFormData(prev => {
       );
 
       const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
+      const regularOps = selectedOpsData.filter(op => !specialOps.some(sop => sop.id === op.id));
 
       if (allSpecialOps.length > 0) {
         const allAlreadyConfigured = allSpecialOps.every(sop => {
@@ -623,8 +730,9 @@ setFormData(prev => {
             const selected = allSpecialOps.find(sop => sop.id === cop.id);
             return selected ? { ...selected, ...cop } : cop;
           });
-          const newSelectedOps = allSpecialOps.filter(op => !existingIds.has(op.id));
-          updateItemOperations(itemIndex, [...mergedOps, ...newSelectedOps]);
+          const newSpecialSelected = allSpecialOps.filter(op => !existingIds.has(op.id));
+          const newRegularSelected = regularOps.filter(op => !existingIds.has(op.id));
+          updateItemOperations(itemIndex, [...mergedOps, ...newSpecialSelected, ...newRegularSelected]);
         } else {
           const newPendingOps = [...allSpecialOps];
           const initialParams = {};
@@ -654,17 +762,22 @@ setFormData(prev => {
             open: true,
             itemIndex,
             pendingOps: newPendingOps,
-            params: initialParams
+            params: initialParams,
+            pendingRegularOps: regularOps
           }));
         }
       } else {
-        const existingIds = new Set(currentOps.map(cop => cop.id));
-        const mergedOps = currentOps.map(cop => {
-          const selected = selectedOpsData.find(sop => sop.id === cop.id);
-          return selected ? { ...selected, ...cop } : cop;
-        });
-        const newSelectedOps = selectedOpsData.filter(op => !existingIds.has(op.id));
-        updateItemOperations(itemIndex, [...mergedOps, ...newSelectedOps]);
+        const configuredSpecialOps = currentOps.filter(op =>
+          op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс'))
+        );
+        const newOpsAdded = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
+        const selectedIds = new Set(selectedOpsData.map(op => op.id));
+        const finalOps = [
+          ...selectedOpsData,
+          ...configuredSpecialOps.filter(op => !selectedIds.has(op.id)),
+          ...newOpsAdded.filter(op => !selectedIds.has(op.id))
+        ];
+        updateItemOperations(itemIndex, finalOps);
       }
     }
     
@@ -675,17 +788,26 @@ setFormData(prev => {
   const handleCloseGroupSelectionDialog = () => {
     const itemIndex = groupSelectionDialog.itemIndex;
     const selectedOps = Object.values(groupedOpSelections).filter(Boolean);
-    
-    if (selectedOps.length > 0 && itemIndex != null) {
-      const selectedOpsData = operationsData.filter(op => selectedOps.includes(op.id));
+    const selectedOpIds = selectedOps.map(id => {
+      const raw = typeof id === 'object' && id !== null ? id.id : id;
+      return typeof raw === 'string' ? Number(raw) : raw;
+    });
+
+    if (selectedOpIds.length > 0 && itemIndex != null) {
+      const selectedOpsData = operationsData.filter(op => selectedOpIds.includes(op.id));
       const currentOps = formData.items[itemIndex]?.operations || [];
 
       const specialOps = selectedOpsData.filter(op =>
         op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
       );
 
-      if (specialOps.length > 0) {
-        const allAlreadyConfigured = specialOps.every(sop => {
+      const newOps = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
+      const newSpecialOps = newOps.filter(op => op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')));
+      const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
+      const regularOps = selectedOpsData.filter(op => !specialOps.some(sop => sop.id === op.id));
+
+      if (allSpecialOps.length > 0) {
+        const allAlreadyConfigured = allSpecialOps.every(sop => {
           const existing = currentOps.find(cop => cop.id === sop.id);
           if (sop.name.toLowerCase().includes('люверс')) {
             return existing && existing.eyeletId;
@@ -697,16 +819,19 @@ setFormData(prev => {
         });
 
         if (allAlreadyConfigured) {
-          const ops = selectedOpsData.map(op => {
-            const existing = currentOps.find(cop => cop.id === op.id);
-            return existing ? { ...op, ...existing } : op;
+          const existingIds = new Set(currentOps.map(cop => cop.id));
+          const mergedOps = currentOps.map(cop => {
+            const selected = allSpecialOps.find(sop => sop.id === cop.id);
+            return selected ? { ...selected, ...cop } : cop;
           });
-          updateItemOperations(itemIndex, ops);
+          const newSpecialSelected = allSpecialOps.filter(op => !existingIds.has(op.id));
+          const newRegularSelected = regularOps.filter(op => !existingIds.has(op.id));
+          updateItemOperations(itemIndex, [...mergedOps, ...newSpecialSelected, ...newRegularSelected]);
         } else {
-          const newPendingOps = [...specialOps];
+          const newPendingOps = [...allSpecialOps];
           const initialParams = {};
 
-          specialOps.forEach(op => {
+          allSpecialOps.forEach(op => {
             const opId = op.id;
             const existing = currentOps.find(cop => String(cop.id) === String(opId));
             if (op.name.toLowerCase().includes('подворот')) {
@@ -741,24 +866,38 @@ setFormData(prev => {
             open: true,
             itemIndex,
             pendingOps: newPendingOps,
-            params: initialParams
+            params: initialParams,
+            pendingRegularOps: regularOps
           }));
         }
       } else {
-        const opsWithDimensions = selectedOpsData.map(op => {
-          const existing = currentOps.find(cop => cop.id === op.id);
-          return existing ? { ...op, ...existing } : { ...op, widthMm: null, heightMm: null };
-        });
-        updateItemOperations(itemIndex, opsWithDimensions);
+        const configuredSpecialOps = currentOps.filter(op =>
+          op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс'))
+        );
+        const newOpsAdded = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
+        const selectedIds = new Set(selectedOpsData.map(op => op.id));
+        const finalOps = [
+          ...selectedOpsData,
+          ...configuredSpecialOps.filter(op => !selectedIds.has(op.id)),
+          ...newOpsAdded.filter(op => !selectedIds.has(op.id))
+        ];
+        updateItemOperations(itemIndex, finalOps);
       }
     }
-    
+
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
     setGroupedOpSelections({});
   };
 
   const handleGroupedOpSelect = (groupId, opId) => {
-    setGroupedOpSelections(prev => ({ ...prev, [groupId]: opId }));
+    setGroupedOpSelections(prev => {
+      if (opId) {
+        return { ...prev, [groupId]: Number(opId) };
+      }
+      const next = { ...prev };
+      delete next[groupId];
+      return next;
+    });
   };
 
   const handleChange = (e) => {
@@ -911,11 +1050,10 @@ const handleSubmit = async (e) => {
 
       setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
 
-      // Немедленное обновление кэша
       queryClient.setQueryData(['order', orderData.id], response.data);
+      queryClient.invalidateQueries({ queryKey: ['order', orderData.id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
 
-      if (onSuccess) onSuccess();
       navigate(`/orders/${orderData.id}`);
     } catch (err) {
       setNotification({
@@ -1402,13 +1540,11 @@ value={priceplus}
                       required
                     >
                       <MenuItem value="">Выберите размер</MenuItem>
-                      {operationsData
-                        .filter(o => o.name.toLowerCase().includes('люверс'))
-                        .map(eyelet => (
-                          <MenuItem key={eyelet.id} value={eyelet.id}>
-                            {eyelet.name} — {eyelet.pricePerPiece} ₽/шт
-                          </MenuItem>
-                        ))}
+                      {eyeletsData.map(eyelet => (
+                        <MenuItem key={eyelet.id} value={eyelet.id}>
+                          {eyelet.name} — {eyelet.pricePerPiece} ₽/шт
+                        </MenuItem>
+                      ))}
                     </TextField>
                     <TextField
                       fullWidth margin="dense" label="Шаг установки (см)" type="number"
