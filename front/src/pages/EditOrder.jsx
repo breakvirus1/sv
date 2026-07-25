@@ -355,48 +355,10 @@ const { data: operationsData = [] } = useQuery({
   // ── CRUD ──
 
   const addItem = () => {
-    console.log('=== addItem ===');
-    console.log('Current items count:', formData.items.length);
-    setFormData(prev => {
-      const newIndex = prev.items.length;
-      const anyMaterial = prev.items.find(item => item.materialId);
-      if (anyMaterial && materialsData.length > 0) {
-        const candidateId = String(materialsData[0].id);
-        const existingCandidate = prev.items.find(item => item.materialId === candidateId);
-        if (existingCandidate) {
-          const matName = materialsData.find(m => m.id === parseInt(candidateId))?.name;
-          const idMsg = existingCandidate.id ? ` (позиция #${existingCandidate.id})` : '';
-          setNotification({
-            open: true,
-            message: `Материал "${matName}" уже выбран${idMsg}`,
-            severity: 'warning'
-          });
-          return prev;
-        }
-        const nextItems = [...prev.items, { materialId: candidateId, qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [] }];
-        pendingDimRef.current.set(newIndex, candidateId);
-        api.get(`/api/v1/materials/${candidateId}`)
-          .then(r => {
-            const m = r.data;
-            const wM = m.defaultWidthM != null ? parseFloat(m.defaultWidthM) : null;
-            const hM = m.defaultHeightM != null ? parseFloat(m.defaultHeightM) : null;
-            setFormData(pd => {
-              const curr = pd.items[newIndex];
-              if (!curr || curr.materialId !== candidateId) return pd;
-              return {
-                ...pd,
-                items: pd.items.map((it, i) =>
-                  i === newIndex ? { ...it, qty1value: wM != null ? wM.toString() : '', qty2value: hM != null ? hM.toString() : '' } : it
-                )
-              };
-            });
-          })
-          .catch(() => {})
-          .finally(() => pendingDimRef.current.delete(newIndex));
-        return { ...prev, items: nextItems };
-      }
-      return { ...prev, items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [] }] };
-    });
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [] }]
+    }));
   };
 
 const removeItem = (index) => {
@@ -1051,7 +1013,6 @@ const handleSubmit = async (e) => {
       setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
 
       queryClient.setQueryData(['order', orderData.id], response.data);
-      queryClient.invalidateQueries({ queryKey: ['order', orderData.id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
 
       navigate(`/orders/${orderData.id}`);
