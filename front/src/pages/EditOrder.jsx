@@ -422,11 +422,23 @@ setFormData(prev => {
           return prev;
         }
 
-        const next = prev.items.map((item, i) =>
-          i === index ? { ...item, materialId: value, qty1value: '', qty1unit: 'м', qty2value: '', qty2unit: 'м', readyDate: '', operations: [] } : item
-        );
+        const oldMat = materialsData.find(m => m.id === Number(currentItem?.materialId));
+        const newMat = materialsData.find(m => m.id === Number(value));
+        const sameMaterialUnit = (!oldMat || !newMat) ? true : (oldMat.unit === newMat.unit);
+        const next = prev.items.map((item, i) => {
+          if (i !== index) return item;
+          return {
+            ...item,
+            materialId: value,
+            unit: item.unit,
+            qty1value: sameMaterialUnit ? item.qty1value : '',
+            qty2value: sameMaterialUnit ? item.qty2value : '',
+            readyDate: '',
+            operations: []
+          };
+        });
 
-        pendingDimRef.current.set(index, value);
+        pendingDimRef.current.set(index, { materialId: value, preserveValues: sameMaterialUnit && (currentItem?.qty1value || currentItem?.qty2value) });
 
         api.get(`/api/v1/orders/${orderData?.id}/positions/${currentItem?.id || ''}/default`)
           .then(r => {
@@ -440,7 +452,15 @@ setFormData(prev => {
             setFormData(pd => {
               const currMatId = pd.items[index]?.materialId;
               if (currMatId !== value) return pd;
+
+              const pendingInfo = pendingDimRef.current.get(index);
+              const preserveValues = pendingInfo && typeof pendingInfo === 'object' && pendingInfo.preserveValues;
+              const hasExistingWidth = !!pd.items[index]?.qty1value;
+              const hasExistingHeight = !!pd.items[index]?.qty2value;
+
+              if (preserveValues && (hasExistingWidth || hasExistingHeight)) return pd;
               if (dwM == null && dhM == null) return pd;
+
               return {
                 ...pd,
                 items: pd.items.map((it, i) =>
@@ -450,7 +470,14 @@ setFormData(prev => {
             });
           })
           .catch(() => {})
-          .finally(() => pendingDimRef.current.delete(index));
+          .finally(() => {
+            if (typeof pendingDimRef.current.get(index) === 'object') {
+              delete pendingDimRef.current.get(index).preserveValues;
+            }
+            if (pendingDimRef.current.get(index) && !Object.keys(pendingDimRef.current.get(index) || {}).length) {
+              pendingDimRef.current.delete(index);
+            }
+          });
 
         return { ...prev, items: next };
       }
@@ -502,17 +529,20 @@ setFormData(prev => {
       try {
         const response = await api.get(`/api/v1/orders/${orderData.id}/positions/${item.id}/default`);
         const backendOps = response.data?.operations || [];
+        const currentOpsById = new Map(currentOps.map(op => [op.id || op.operationId, op]));
         if (backendOps.length > 0) {
           const seenGroups = new Set();
           const processedOps = [];
           backendOps.forEach(op => {
             const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.operationId));
+            const existingOp = currentOpsById.get(op.operationId) || currentOpsById.get(op.id);
             if (group) {
               if (!seenGroups.has(group.id)) {
                 seenGroups.add(group.id);
                 selectedItems.push({ id: group.id, type: 'group' });
                 groupedOpSelections[group.id] = op.operationId;
                 processedOps.push({
+                  ...(existingOp || {}),
                   id: op.operationId,
                   name: op.operationName,
                   widthMm: op.widthM != null ? op.widthM * 1000 : null,
@@ -522,6 +552,7 @@ setFormData(prev => {
             } else {
               selectedItems.push({ id: op.operationId, type: 'operation' });
               processedOps.push({
+                ...(existingOp || {}),
                 id: op.operationId,
                 name: op.operationName,
                 widthMm: op.widthM != null ? op.widthM * 1000 : null,
@@ -729,17 +760,9 @@ setFormData(prev => {
           }));
         }
       } else {
-        const configuredSpecialOps = currentOps.filter(op =>
-          op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс'))
-        );
-        const newOpsAdded = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
         const selectedIds = new Set(selectedOpsData.map(op => op.id));
-        const finalOps = [
-          ...selectedOpsData,
-          ...configuredSpecialOps.filter(op => !selectedIds.has(op.id)),
-          ...newOpsAdded.filter(op => !selectedIds.has(op.id))
-        ];
-        updateItemOperations(itemIndex, finalOps);
+        const preserveOps = currentOps.filter(op => !selectedIds.has(op.id));
+        updateItemOperations(itemIndex, [...selectedOpsData, ...preserveOps]);
       }
     }
     

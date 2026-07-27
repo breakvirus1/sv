@@ -57,6 +57,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -384,7 +385,16 @@ public OrderResponse getOrderById(Long id) {
                 }
 
                 if (opsData != null) {
+                    Set<Long> seenOpIds = new HashSet<>();
+                    List<Map<String, Object>> uniqueOpsData = new ArrayList<>();
                     for (Map<String, Object> opMap : opsData) {
+                        Long opId = ((Number) opMap.get("operationId")).longValue();
+                        if (seenOpIds.add(opId)) {
+                            uniqueOpsData.add(opMap);
+                        }
+                    }
+
+                    for (Map<String, Object> opMap : uniqueOpsData) {
                         Long opId = ((Number) opMap.get("operationId")).longValue();
                         String opName = (String) opMap.get("operationName");
                         Number qtyNum = (Number) opMap.get("quantity");
@@ -725,7 +735,16 @@ public OrderResponse getOrderById(Long id) {
                 }
 
                 if (opsData != null) {
+                    Set<Long> seenOpIds = new HashSet<>();
+                    List<Map<String, Object>> uniqueOpsData = new ArrayList<>();
                     for (Map<String, Object> opMap : opsData) {
+                        Long opId = ((Number) opMap.get("operationId")).longValue();
+                        if (seenOpIds.add(opId)) {
+                            uniqueOpsData.add(opMap);
+                        }
+                    }
+
+                    for (Map<String, Object> opMap : uniqueOpsData) {
                         Long opId = ((Number) opMap.get("operationId")).longValue();
                         String opName = (String) opMap.get("operationName");
                         Number qtyNum = (Number) opMap.get("quantity");
@@ -783,10 +802,23 @@ public OrderResponse getOrderById(Long id) {
                         // Update operations for the linked order item
                         OrderItem orderItem = om.getOrderItem();
                         if (orderItem != null) {
+                            Map<Long, OrderOperation> existingOpsById = orderItem.getOperations().stream()
+                                    .collect(Collectors.toMap(OrderOperation::getOperationId, op -> op));
                             orderItem.getOperations().clear();
                             for (OrderOperation op : orderOps) {
-                                op.setOrderItem(orderItem);
-                                orderItem.getOperations().add(op);
+                                OrderOperation existing = existingOpsById.get(op.getOperationId());
+                                if (existing != null) {
+                                    existing.setOperationName(op.getOperationName());
+                                    existing.setPricePerUnit(op.getPricePerUnit());
+                                    existing.setCalculatedQuantity(op.getCalculatedQuantity());
+                                    existing.setSubtotal(op.getSubtotal());
+                                    if (op.getWidthM() != null) existing.setWidthM(op.getWidthM());
+                                    if (op.getHeightM() != null) existing.setHeightM(op.getHeightM());
+                                    orderItem.getOperations().add(existing);
+                                } else {
+                                    op.setOrderItem(orderItem);
+                                    orderItem.getOperations().add(op);
+                                }
                             }
                             orderItem.setPrice(totalPrice);
                             orderItem.setCost(totalPrice);

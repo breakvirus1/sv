@@ -362,17 +362,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           }));
         }
       } else {
-        const configuredSpecialOps = currentOps.filter(op =>
-          op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс'))
-        );
-        const newOpsAdded = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
         const selectedIds = new Set(selectedOpsData.map(op => op.id));
-        const finalOps = [
-          ...selectedOpsData,
-          ...configuredSpecialOps.filter(op => !selectedIds.has(op.id)),
-          ...newOpsAdded.filter(op => !selectedIds.has(op.id))
-        ];
-        updateItemOperations(itemIndex, finalOps);
+        const preserveOps = currentOps.filter(op => !selectedIds.has(op.id));
+        updateItemOperations(itemIndex, [...selectedOpsData, ...preserveOps]);
       }
     }
     

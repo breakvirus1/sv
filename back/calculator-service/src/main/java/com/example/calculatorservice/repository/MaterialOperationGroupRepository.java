@@ -24,6 +24,9 @@ public interface MaterialOperationGroupRepository extends JpaRepository<Material
     boolean existsByMaterialIdAndOperationGroupIdAndOperationIdAndDeletedFalse(
             Long materialId, Long operationGroupId, Long operationId);
 
+    boolean existsByMaterialIdAndOperationIdAndDeletedFalse(
+            Long materialId, Long operationId);
+
     @Modifying
     @Query(value = "DELETE FROM svschema.material_operation_groups WHERE material_id = ?1", nativeQuery = true)
     int hardDeleteByMaterialId(Long materialId);
