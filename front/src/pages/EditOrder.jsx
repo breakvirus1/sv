@@ -621,6 +621,18 @@ setFormData(prev => {
     }
   };
 
+  const handleToggleUngroupedOp = (opId) => {
+    const itemIndex = groupSelectionDialog.itemIndex;
+    const currentOps = formData.items[itemIndex]?.operations || [];
+    const op = dialogUngroupedOps.find(o => o.id === opId);
+    
+    if (currentOps.some(cop => cop.id === opId)) {
+      updateItemOperations(itemIndex, currentOps.filter(cop => cop.id !== opId));
+    } else if (op) {
+      updateItemOperations(itemIndex, [...currentOps, op]);
+    }
+  };
+
   const applyGroupSelection = () => {
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
     setGroupedOpSelections({});
@@ -632,6 +644,21 @@ setFormData(prev => {
   };
 
   const handleGroupedOpSelect = (groupId, opId) => {
+    const itemIndex = groupSelectionDialog.itemIndex;
+    const currentOps = formData.items[itemIndex]?.operations || [];
+    const oldOpId = groupedOpSelections[groupId];
+
+    const newOps = currentOps.filter(op => op.id !== oldOpId);
+
+    if (opId) {
+      const newOp = (dialogGroupedData[groupId]?.operations || []).find(op => op.id === Number(opId));
+      if (newOp && !newOps.some(op => op.id === newOp.id)) {
+        newOps.push(newOp);
+      }
+    }
+
+    updateItemOperations(itemIndex, newOps);
+
     setGroupedOpSelections(prev => {
       if (opId) {
         return { ...prev, [groupId]: Number(opId) };
