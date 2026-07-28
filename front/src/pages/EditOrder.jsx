@@ -509,100 +509,34 @@ setFormData(prev => {
     const selectedItems = [];
     const groupedOpSelections = {};
 
-    setOpsBeforeDialog(formData.items[itemIndex]?.operations || []);
+    setOpsBeforeDialog([...currentOps]);
 
-    // Pre-fetch grouped operations for this material directly to avoid timing issues
-    let materialGroupsMap = {};
-    let ungroupedOps = [];
     if (item?.materialId) {
       try {
         const groupResp = await api.get(`/api/v1/calculations/operations/grouped?materialId=${item.materialId}`);
         const groups = groupResp.data?.groups || [];
-        ungroupedOps = groupResp.data?.ungroupedOperations || [];
-        materialGroupsMap = Object.fromEntries(groups.map(g => [g.id, g]));
-      } catch (e) {
-        console.warn('Failed to load grouped operations for material:', item.materialId, e);
-      }
-    }
+        const materialGroupsMap = Object.fromEntries(groups.map(g => [g.id, g]));
 
-    if (item?.id) {
-      try {
-        const response = await api.get(`/api/v1/orders/${orderData.id}/positions/${item.id}/default`);
-        const backendOps = response.data?.operations || [];
-        const currentOpsById = new Map(currentOps.map(op => [op.id || op.operationId, op]));
-        if (backendOps.length > 0) {
-          const seenGroups = new Set();
-          const processedOps = [];
-          backendOps.forEach(op => {
-            const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.operationId));
-            const existingOp = currentOpsById.get(op.operationId) || currentOpsById.get(op.id);
-            if (group) {
-              if (!seenGroups.has(group.id)) {
-                seenGroups.add(group.id);
-                selectedItems.push({ id: group.id, type: 'group' });
-                groupedOpSelections[group.id] = op.operationId;
-                processedOps.push({
-                  ...(existingOp || {}),
-                  id: op.operationId,
-                  name: op.operationName,
-                  widthMm: op.widthM != null ? op.widthM * 1000 : null,
-                  heightMm: op.heightM != null ? op.heightM * 1000 : null
-                });
-              }
-            } else {
-              selectedItems.push({ id: op.operationId, type: 'operation' });
-              processedOps.push({
-                ...(existingOp || {}),
-                id: op.operationId,
-                name: op.operationName,
-                widthMm: op.widthM != null ? op.widthM * 1000 : null,
-                heightMm: op.heightM != null ? op.heightM * 1000 : null
-              });
-            }
-          });
-          setFormData(prev => ({
-            ...prev,
-            items: prev.items.map((it, i) =>
-              i === itemIndex ? { ...it, operations: processedOps } : it
-            )
-          }));
-        } else {
-          currentOps.forEach(op => {
-            const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.id));
-            if (group) {
-              if (!selectedItems.some(item => item.type === 'group' && item.id === group.id)) {
-                selectedItems.push({ id: group.id, type: 'group' });
-              }
-              groupedOpSelections[group.id] = op.id;
-            } else {
-              selectedItems.push({ id: op.id, type: 'operation' });
-            }
-          });
-        }
-      } catch (e) {
         currentOps.forEach(op => {
-          const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.id));
+          const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.id || o.id === op.operationId));
           if (group) {
             if (!selectedItems.some(item => item.type === 'group' && item.id === group.id)) {
               selectedItems.push({ id: group.id, type: 'group' });
             }
-            groupedOpSelections[group.id] = op.id;
+            groupedOpSelections[group.id] = op.id || op.operationId;
           } else {
-            selectedItems.push({ id: op.id, type: 'operation' });
+            selectedItems.push({ id: op.id || op.operationId, type: 'operation' });
           }
+        });
+      } catch (e) {
+        console.warn('Failed to load grouped operations for material:', item.materialId, e);
+        currentOps.forEach(op => {
+          selectedItems.push({ id: op.id || op.operationId, type: 'operation' });
         });
       }
     } else {
       currentOps.forEach(op => {
-        const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.id));
-        if (group) {
-          if (!selectedItems.some(item => item.type === 'group' && item.id === group.id)) {
-            selectedItems.push({ id: group.id, type: 'group' });
-          }
-          groupedOpSelections[group.id] = op.id;
-        } else {
-          selectedItems.push({ id: op.id, type: 'operation' });
-        }
+        selectedItems.push({ id: op.id || op.operationId, type: 'operation' });
       });
     }
 
@@ -656,6 +590,12 @@ setFormData(prev => {
 
   const handleToggleGroup = (groupId, groupName) => {
     const isSelected = groupSelectionDialog.selectedItems.some(item => item.type === 'group' && item.id === groupId);
+    const itemIndex = groupSelectionDialog.itemIndex;
+    const currentOps = formData.items[itemIndex]?.operations || [];
+    const selectedOpId = groupedOpSelections[groupId];
+    const groupOp = selectedOpId != null
+      ? (dialogGroupedData[groupId]?.operations || []).find(op => op.id === selectedOpId)
+      : (dialogGroupedData[groupId]?.operations || []).find(op => op.id);
 
     if (isSelected) {
       setGroupSelectionDialog(prev => ({
@@ -667,209 +607,26 @@ setFormData(prev => {
         delete next[groupId];
         return next;
       });
+      if (groupOp) {
+        updateItemOperations(itemIndex, currentOps.filter(op => op.id !== groupOp.id));
+      }
     } else {
       setGroupSelectionDialog(prev => ({
         ...prev,
         selectedItems: [...prev.selectedItems.filter(item => !(item.type === 'group' && item.id === groupId)), { id: groupId, type: 'group' }]
       }));
-    }
-  };
-
-  const handleToggleUngroupedOp = (opId) => {
-    const itemIndex = groupSelectionDialog.itemIndex;
-    const currentOps = formData.items[itemIndex]?.operations || [];
-    const op = dialogUngroupedOps.find(o => o.id === opId);
-    
-    if (currentOps.some(cop => cop.id === opId)) {
-      updateItemOperations(itemIndex, currentOps.filter(cop => cop.id !== opId));
-    } else if (op) {
-      updateItemOperations(itemIndex, [...currentOps, op]);
+      if (groupOp) {
+        updateItemOperations(itemIndex, [...currentOps, groupOp]);
+      }
     }
   };
 
   const applyGroupSelection = () => {
-    const selectedGroups = groupSelectionDialog.selectedItems.filter(item => item.type === 'group');
-    const selectedOps = Object.values(groupedOpSelections).filter(Boolean);
-    const itemIndex = groupSelectionDialog.itemIndex;
-    const currentOps = formData.items[itemIndex]?.operations || [];
-    const newOps = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
-    const newSpecialOps = newOps.filter(op => op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')));
-    
-    if (selectedGroups.length > 0 || selectedOps.length > 0 || newSpecialOps.length > 0) {
-      const selectedOpIds = selectedOps.map(id => {
-        const raw = typeof id === 'object' && id !== null ? id.id : id;
-        return typeof raw === 'string' ? Number(raw) : raw;
-      });
-      const selectedOpsData = operationsData.filter(op => selectedOpIds.includes(op.id));
-
-      const specialOps = selectedOpsData.filter(op =>
-        op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
-      );
-
-      const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
-      const regularOps = selectedOpsData.filter(op => !specialOps.some(sop => sop.id === op.id));
-
-      if (allSpecialOps.length > 0) {
-        const allAlreadyConfigured = allSpecialOps.every(sop => {
-          const existing = currentOps.find(cop => cop.id === sop.id);
-          if (sop.name.toLowerCase().includes('люверс')) return existing && existing.eyeletId;
-          if (sop.name.toLowerCase().includes('подворот')) return existing && existing.hemWidthMm;
-          return false;
-        });
-
-        if (allAlreadyConfigured) {
-          const existingIds = new Set(currentOps.map(cop => cop.id));
-          const mergedOps = currentOps.map(cop => {
-            const selected = allSpecialOps.find(sop => sop.id === cop.id);
-            return selected ? { ...selected, ...cop } : cop;
-          });
-          const newSpecialSelected = allSpecialOps.filter(op => !existingIds.has(op.id));
-          const newRegularSelected = regularOps.filter(op => !existingIds.has(op.id));
-          updateItemOperations(itemIndex, [...mergedOps, ...newSpecialSelected, ...newRegularSelected]);
-        } else {
-          const newPendingOps = [...allSpecialOps];
-          const initialParams = {};
-
-          allSpecialOps.forEach(op => {
-            const opId = op.id;
-            const existing = currentOps.find(cop => String(cop.id) === String(opId));
-            if (op.name.toLowerCase().includes('подворот')) {
-              if (existing && existing.hemWidthMm) {
-                initialParams[opId] = { hemWidthMm: existing.hemWidthMm, hemCount: existing.hemCount || 2, widthMm: existing.widthMm, heightMm: existing.heightMm };
-              } else {
-                const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
-                const defaultCount = op.hemCount != null ? op.hemCount : 2;
-                initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            } else if (op.name.toLowerCase().includes('люверс')) {
-              if (existing && existing.eyeletId) {
-                initialParams[opId] = { eyeletId: existing.eyeletId, eyeletStepCm: existing.eyeletStepCm || 40, widthMm: existing.widthMm, heightMm: existing.heightMm };
-              } else {
-                initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            }
-          });
-
-          setOperationParamsDialog(prev => ({
-            ...prev,
-            open: true,
-            itemIndex,
-            pendingOps: newPendingOps,
-            params: initialParams,
-            pendingRegularOps: regularOps
-          }));
-        }
-      } else {
-        const selectedIds = new Set(selectedOpsData.map(op => op.id));
-        const preserveOps = currentOps.filter(op => !selectedIds.has(op.id));
-        updateItemOperations(itemIndex, [...selectedOpsData, ...preserveOps]);
-      }
-    }
-    
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
     setGroupedOpSelections({});
   };
 
   const handleCloseGroupSelectionDialog = () => {
-    const itemIndex = groupSelectionDialog.itemIndex;
-    const selectedOps = Object.values(groupedOpSelections).filter(Boolean);
-    const selectedOpIds = selectedOps.map(id => {
-      const raw = typeof id === 'object' && id !== null ? id.id : id;
-      return typeof raw === 'string' ? Number(raw) : raw;
-    });
-
-    if (selectedOpIds.length > 0 && itemIndex != null) {
-      const selectedOpsData = operationsData.filter(op => selectedOpIds.includes(op.id));
-      const currentOps = formData.items[itemIndex]?.operations || [];
-
-      const specialOps = selectedOpsData.filter(op =>
-        op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
-      );
-
-      const newOps = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
-      const newSpecialOps = newOps.filter(op => op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')));
-      const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
-      const regularOps = selectedOpsData.filter(op => !specialOps.some(sop => sop.id === op.id));
-
-      if (allSpecialOps.length > 0) {
-        const allAlreadyConfigured = allSpecialOps.every(sop => {
-          const existing = currentOps.find(cop => cop.id === sop.id);
-          if (sop.name.toLowerCase().includes('люверс')) {
-            return existing && existing.eyeletId;
-          }
-          if (sop.name.toLowerCase().includes('подворот')) {
-            return existing && existing.hemWidthMm;
-          }
-          return false;
-        });
-
-        if (allAlreadyConfigured) {
-          const existingIds = new Set(currentOps.map(cop => cop.id));
-          const mergedOps = currentOps.map(cop => {
-            const selected = allSpecialOps.find(sop => sop.id === cop.id);
-            return selected ? { ...selected, ...cop } : cop;
-          });
-          const newSpecialSelected = allSpecialOps.filter(op => !existingIds.has(op.id));
-          const newRegularSelected = regularOps.filter(op => !existingIds.has(op.id));
-          updateItemOperations(itemIndex, [...mergedOps, ...newSpecialSelected, ...newRegularSelected]);
-        } else {
-          const newPendingOps = [...allSpecialOps];
-          const initialParams = {};
-
-          allSpecialOps.forEach(op => {
-            const opId = op.id;
-            const existing = currentOps.find(cop => String(cop.id) === String(opId));
-            if (op.name.toLowerCase().includes('подворот')) {
-              if (existing && existing.hemWidthMm) {
-                initialParams[opId] = {
-                  hemWidthMm: existing.hemWidthMm,
-                  hemCount: existing.hemCount || 2,
-                  widthMm: existing.widthMm,
-                  heightMm: existing.heightMm
-                };
-              } else {
-                const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
-                const defaultCount = op.hemCount != null ? op.hemCount : 2;
-                initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            } else if (op.name.toLowerCase().includes('люверс')) {
-              if (existing && existing.eyeletId) {
-                initialParams[opId] = {
-                  eyeletId: existing.eyeletId,
-                  eyeletStepCm: existing.eyeletStepCm || 40,
-                  widthMm: existing.widthMm,
-                  heightMm: existing.heightMm
-                };
-              } else {
-                initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            }
-          });
-
-          setOperationParamsDialog(prev => ({
-            ...prev,
-            open: true,
-            itemIndex,
-            pendingOps: newPendingOps,
-            params: initialParams,
-            pendingRegularOps: regularOps
-          }));
-        }
-      } else {
-        const configuredSpecialOps = currentOps.filter(op =>
-          op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс'))
-        );
-        const newOpsAdded = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
-        const selectedIds = new Set(selectedOpsData.map(op => op.id));
-        const finalOps = [
-          ...selectedOpsData,
-          ...configuredSpecialOps.filter(op => !selectedIds.has(op.id)),
-          ...newOpsAdded.filter(op => !selectedIds.has(op.id))
-        ];
-        updateItemOperations(itemIndex, finalOps);
-      }
-    }
-
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
     setGroupedOpSelections({});
   };
