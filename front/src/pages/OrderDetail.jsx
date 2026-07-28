@@ -733,9 +733,13 @@ const OrderDetail = ({ mode = 'view' }) => {
 };
 
 const PositionsTab = ({ materials = [], items = [] }) => {
-  // Use materials when available (view mode with joined data), otherwise fallback to items (create mode).
-  // In create mode `items` are user-added lines; in view mode `materials` come from order.materials relationship.
-  const rawList = (materials && materials.length > 0) ? materials : items;
+  const rawList = useMemo(() => {
+    if (!items || items.length === 0) return [];
+    if (!materials || materials.length === 0) return items;
+
+    const materialsByOrderItemId = new Map(materials.map(m => [m.orderItemId, m]));
+    return items.map(item => materialsByOrderItemId.get(item.id) || item);
+  }, [materials, items]);
 
   /**
    * Дедупликация и агрегация позиций по materialId.

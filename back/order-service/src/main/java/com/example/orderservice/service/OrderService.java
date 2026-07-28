@@ -1284,8 +1284,8 @@ return new CalculatedOrderResponse(
         if (managerCashPercent == null || managerCashPercent.compareTo(BigDecimal.ZERO) <= 0) {
             return new ManagerEarningsResponse(
                     managerId, employee.getFullName(), BigDecimal.ZERO,
-                    BigDecimal.ZERO, BigDecimal.ZERO,
-                    0, 0);
+                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                    0, 0, 0);
         }
 
         // READY orders - already calculated cashFromPriceplus
@@ -1299,14 +1299,21 @@ return new CalculatedOrderResponse(
                 .map(o -> calculatePotentialCash(o, managerCashPercent))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        List<Order> draftOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, ProductionStage.DRAFT);
+        BigDecimal approvalEarnings = draftOrders.stream()
+                .map(o -> calculatePotentialCash(o, managerCashPercent))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return new ManagerEarningsResponse(
                 managerId,
                 employee.getFullName(),
                 managerCashPercent,
                 readyEarnings,
                 inProgressEarnings,
+                approvalEarnings,
                 readyOrders.size(),
-                inProgressOrders.size()
+                inProgressOrders.size(),
+                draftOrders.size()
         );
     }
 

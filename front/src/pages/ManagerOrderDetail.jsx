@@ -266,22 +266,11 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
 
   const updateItem = (index, field, value) => {
     setFormData(prev => {
-      if (field === 'materialId' && value) {
-        const dup = prev.items.find((item, i) => i !== index && item.materialId === value);
-        if (dup) {
-          const mat = materialsData.find(m => m.id === parseInt(value));
-          setNotification({
-            open: true,
-            message: `Материал "${mat?.name || value}" уже выбран в другой позиции`,
-            severity: 'warning'
-          });
-          return prev;
-        }
-      }
-      return {
-        ...prev,
-        items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
-      };
+      const nextItems = prev.items.map((item, i) => {
+        if (i !== index) return item;
+        return { ...item, [field]: value };
+      });
+      return { ...prev, items: nextItems };
     });
   };
 

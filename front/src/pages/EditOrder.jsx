@@ -406,21 +406,10 @@ const oldUnit = item.unit || 'м';
   const updateItem = (index, field, value) => {
     console.log('=== updateItem ===');
     console.log('index:', index, 'field:', field, 'value:', value);
-setFormData(prev => {
-       if (field === 'materialId' && value) {
-         const currentItem = prev.items[index];
+    setFormData(prev => {
+      if (field === 'materialId' && value) {
+        const currentItem = prev.items[index];
         console.log('Changing materialId for item:', currentItem?.id, 'from:', currentItem?.materialId, 'to:', value);
-        const dup = prev.items.find((item, i) => i !== index && item.materialId === value);
-        if (dup) {
-          const mat = materialsData.find(m => m.id === parseInt(value));
-          const dupIdMsg = dup.id ? ` (позиция #${dup.id})` : '';
-          setNotification({
-            open: true,
-            message: `Материал "${mat?.name || value}" уже выбран в другой позиции${dupIdMsg}`,
-            severity: 'warning'
-          });
-          return prev;
-        }
 
         const oldMat = materialsData.find(m => m.id === Number(currentItem?.materialId));
         const newMat = materialsData.find(m => m.id === Number(value));
