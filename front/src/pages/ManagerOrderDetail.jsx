@@ -102,7 +102,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
     items: []
   });
   const [priceplus, setPriceplus] = useState(0);
-  const [calculatedData, setCalculatedData] = useState({ total: 0, cashFromPriceplus: 0 });
 
   const totalOrderAmount = useMemo(() => {
     if (mode !== 'create') return 0;
@@ -198,10 +197,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
       };
 
       const response = await api.post('/api/v1/orders', orderData);
-      setCalculatedData({
-        total: frontendTotalWithPriceplus,
-        cashFromPriceplus: currentEmployee.managerCashPercent ? frontendTotal * currentEmployee.managerCashPercent / 100 : 0
-      });
       return response;
     },
     onSuccess: async () => {
@@ -234,13 +229,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
       setNotification({ open: true, message: 'Оплата добавлена', severity: 'success' });
     }
   });
-
-  useEffect(() => {
-    if (mode === 'view' && order) {
-      const total = order.items?.reduce((sum, item) => sum + (item.totalPrice || 0), 0) || 0;
-      setCalculatedData({ total, cashFromPriceplus: order.cashFromPriceplus || 0 });
-    }
-  }, [mode, order]);
 
   useEffect(() => {
     if (mode === 'create' && username && !currentEmployee) {
@@ -505,8 +493,8 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
       </Box>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <OrderInfoCard order={order} calculatedData={calculatedData} onClientInfoClick={(clientId) => setClientInfoDialog({ open: true, clientId })} />
+        <Grid item xs={12}>
+          <OrderInfoCard order={order} />
           <Paper sx={{ mt: 3 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
@@ -516,12 +504,42 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
             </Tabs>
             <Divider />
             <Box sx={{ p: 3 }}>
-              {activeTab === 0 && <PositionsTab materials={order?.materials || []} items={order?.items || []} orderId={order?.id} calculatedData={calculatedData} />}
-              {activeTab === 1 && <StagesTab stages={order?.stages || []} />}
-              {activeTab === 2 && <PaymentsTab payments={order?.payments || []} />}
-              {activeTab === 3 && <CommentsTab comments={order?.comments || []} />}
+              {activeTab === 0 && (
+                <PositionsTab 
+                  materials={order?.materials || []} 
+                  items={order?.items || []} 
+                />
+              )}
+              {activeTab === 1 && (
+                <StagesTab stages={order?.stages || []} />
+              )}
+              {activeTab === 2 && (
+                <PaymentsTab payments={order?.payments || []} />
+              )}
+              {activeTab === 3 && (
+                <CommentsTab comments={order?.comments || []} />
+              )}
             </Box>
           </Paper>
+
+          {order?.history && (
+            <Paper sx={{ mt: 3 }}>
+              <Box sx={{ p: 2, bgcolor: 'background.default', borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  История изменений
+                </Typography>
+              </Box>
+              <Box sx={{ p: 3 }}>
+                {(order.history.split('\n') || []).map((entry, idx) => (
+                  <Box key={idx} sx={{ mb: idx < (order.history.split('\n').length - 1) ? 2 : 0 }}>
+                    <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.8rem', margin: 0 }}>
+                      {entry}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Paper>
+          )}
         </Grid>
       </Grid>
 

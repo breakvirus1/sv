@@ -935,6 +935,13 @@ public OrderResponse getOrderById(Long id) {
         return orderMapper.paymentToDto(saved);
     }
 
+    public List<PaymentResponse> getPayments(Long orderId) {
+        return paymentRepository.findByOrderIdOrderByPaymentDateDesc(orderId)
+                .stream()
+                .map(this::mapPayment)
+                .toList();
+    }
+
     /**
      * Добавить комментарий к заказу.
      */
