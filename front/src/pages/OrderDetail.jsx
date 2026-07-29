@@ -312,7 +312,7 @@ const OrderDetail = ({ mode = 'view' }) => {
   // ==================== Conditional Render ====================
   if (mode === 'create') {
     return (
-      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+       <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
         <Box display="flex" alignItems="center" gap={2} mb={3}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
             Назад
@@ -340,7 +340,6 @@ const OrderDetail = ({ mode = 'view' }) => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={6}></Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -575,7 +574,7 @@ const OrderDetail = ({ mode = 'view' }) => {
 
    if (error) {
      return (
-       <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
          <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
        </Container>
      );
@@ -586,7 +585,7 @@ const OrderDetail = ({ mode = 'view' }) => {
     }
 
    return (
-     <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+     <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={2}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>

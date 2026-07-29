@@ -302,7 +302,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
 
   if (mode === 'create') {
     return (
-      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
         <Box display="flex" alignItems="center" gap={2} mb={3}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
             Назад
@@ -326,11 +326,9 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={6}></Grid>
               <Grid item xs={12} md={6}>
                 <TextField fullWidth label="Процент добавки (priceplus)" type="number" value={priceplus} onChange={(e) => setPriceplus(parseFloat(e.target.value) || 0)} margin="normal" inputProps={{ min: -100, max: 100, step: 0.1 }} />
               </Grid>
-              <Grid item xs={12} md={6}></Grid>
               <Grid item xs={12} md={6}>
                 <TextField fullWidth label="Дата заказа" name="orderDate" type="date" value={formData.orderDate} onChange={(e) => setFormData(prev => ({ ...prev, orderDate: e.target.value }))} required margin="normal" InputLabelProps={{ shrink: true }} />
               </Grid>
@@ -458,7 +456,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   if (error) {
     const isNotFound = error.response?.status === 404;
     return (
-      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
         <Alert severity="error">{isNotFound ? 'Заказ не найден' : `Ошибка загрузки заказа: ${error.message}`}</Alert>
       </Container>
     );
@@ -469,16 +467,23 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+    <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={2}>
-          <Button startIcon={<ArrowBack />} onClick={() => navigate('/manager')}>
+          <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
             Назад
           </Button>
           <Typography variant="h4">
             Заказ #{order?.orderNumber}
           </Typography>
           <Chip label={getStatusLabel(order?.status)} color={getStatusColor(order?.status)} size="medium" />
+          {order?.cashFromPriceplus != null && (
+            <Paper sx={{ p: 1, bgcolor: '#e8f5e9', display: 'inline-flex', alignItems: 'center' }}>
+              <Typography variant="body2" fontWeight={600} color="success.dark">
+                Твой заработок: {Number(order.cashFromPriceplus).toFixed(2)} ₽
+              </Typography>
+            </Paper>
+          )}
         </Box>
         <Box display="flex" gap={1}>
           {canEdit && (
@@ -517,17 +522,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
               {activeTab === 3 && <CommentsTab comments={order?.comments || []} />}
             </Box>
           </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          {order?.cashFromPriceplus != null && (
-            <Paper sx={{ p: 3, mt: 2, bgcolor: '#e8f5e9' }}>
-              <Typography variant="h6" gutterBottom color="success.dark">Твой заработок</Typography>
-              <Typography variant="h4" fontWeight={700} color="success.dark">
-                {Number(order.cashFromPriceplus).toFixed(2)} ₽
-              </Typography>
-            </Paper>
-          )}
         </Grid>
       </Grid>
 
