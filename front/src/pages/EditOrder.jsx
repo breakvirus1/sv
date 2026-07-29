@@ -551,17 +551,20 @@ const oldUnit = item.unit || 'м';
   const handleSaveOperationParams = () => {
     const { itemIndex, pendingOps, pendingRegularOps, params } = operationParamsDialog;
     const opsWithParams = pendingOps.map(op => {
-      const baseOp = operationsData.find(o => o.id === op.id);
       const opParams = params[op.id] || {};
       if (opParams.eyeletId !== undefined) {
         opParams.eyeletId = opParams.eyeletId ? parseInt(opParams.eyeletId, 10) : null;
       }
-      return { ...baseOp, ...opParams };
+      return { ...op, ...opParams };
     });
 
     const currentOps = formData.items[itemIndex]?.operations || [];
     const filteredOps = currentOps.filter(cop => !pendingOps.some(pop => pop.id === cop.id));
-    const finalOps = [...filteredOps, ...opsWithParams, ...pendingRegularOps];
+
+    const regularIds = new Set((pendingRegularOps || []).map(op => op.id || op.operationId));
+    const preservedRegular = currentOps.filter(cop => regularIds.has(cop.id || cop.operationId));
+
+    const finalOps = [...preservedRegular, ...opsWithParams];
 
     updateItemOperations(itemIndex, finalOps);
     handleCloseOperationParamsDialog();
@@ -623,6 +626,35 @@ const oldUnit = item.unit || 'м';
   };
 
   const applyGroupSelection = () => {
+    const itemIndex = groupSelectionDialog.itemIndex;
+    const currentOps = formData.items[itemIndex]?.operations || [];
+
+    const needsParamOps = currentOps.filter(op => {
+      const opName = (op.name || '').toLowerCase();
+      return opName.includes('подворот') || opName.includes('люверс');
+    });
+
+    if (needsParamOps.length > 0) {
+      const needsParamIds = new Set(needsParamOps.map(op => op.id));
+      const regularOps = currentOps.filter(op => !needsParamIds.has(op.id));
+      const defaultParams = {};
+      needsParamOps.forEach(op => {
+        const opName = (op.name || '').toLowerCase();
+        if (opName.includes('подворот')) {
+          defaultParams[op.id] = { hemWidthMm: op.hemWidthMm || 20, hemCount: op.hemCount || 2 };
+        } else if (opName.includes('люверс')) {
+          defaultParams[op.id] = { eyeletId: op.eyeletId || '', eyeletStepCm: op.eyeletStepCm || 40 };
+        }
+      });
+      setOperationParamsDialog({
+        open: true,
+        itemIndex,
+        pendingOps: needsParamOps,
+        pendingRegularOps: regularOps,
+        params: defaultParams
+      });
+    }
+
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
     setGroupedOpSelections({});
   };

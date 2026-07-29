@@ -889,54 +889,7 @@ const PositionsTab = ({ materials = [], items = [] }) => {
     return items.map(item => materialsByOrderItemId.get(item.id) || item);
   }, [materials, items]);
 
-  /**
-   * Дедупликация и агрегация позиций по materialId.
-   * Если в заказе несколько строк referencing один и тот же материал,
-   * их количества и стоимость суммируются, операции объединяются без дублей.
-   */
-  const displayList = useMemo(() => {
-    const map = new Map();
-
-    rawList.forEach((entry) => {
-      // Determine material identifier: from nested material object (view mode) or materialId field (create mode)
-      const materialId = entry.material?.id ?? entry.materialId;
-      if (!materialId) return; // skip entries without material
-
-      const quantity = Number(entry.quantity) || 0;
-      const cost = Number(entry.cost) || 0;
-
-      if (map.has(materialId)) {
-        // Merge into existing: sum quantity and cost, merge operations uniquely
-        const existing = map.get(materialId);
-        existing.quantity += quantity;
-        existing.cost += cost;
-
-        // Merge operations arrays, avoiding duplicates by operationName
-        if (entry.operations && entry.operations.length > 0) {
-          existing.operations = existing.operations || [];
-          entry.operations.forEach(op => {
-            if (!existing.operations.some(e => e.operationName === op.operationName)) {
-              existing.operations.push(op);
-            }
-          });
-        }
-        // readyDate: keep the first encountered (could also become array if needed)
-      } else {
-        // New grouped entry: clone and ensure material object is present
-        map.set(materialId, {
-          ...entry,
-          materialId,
-          quantity: quantity,
-          cost: cost,
-          // Ensure material object is present for rendering name/unit/price
-          material: entry.material || (entry.materialId ? { id: entry.materialId, name: entry.name, unit: entry.unit, price: entry.price } : null),
-          operations: entry.operations || []
-        });
-      }
-    });
-
-    return Array.from(map.values());
-  }, [rawList]);
+  const displayList = rawList;
 
   const downloadFile = async (fileUrl) => {
     try {
