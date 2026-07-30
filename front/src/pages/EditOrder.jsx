@@ -167,7 +167,7 @@ const { data: operationsData = [] } = useQuery({
 
   // ── Запрос расчетных данных заказа с бекенда ──
   const { data: calculatedData } = useQuery({
-    queryKey: ['order-calculated', orderData?.id],
+    queryKey: ['order-calculated', String(orderData?.id)],
     queryFn: async () => {
       if (!orderData?.id) return null;
       const response = await api.get(`/api/v1/orders/${orderData.id}/calculated`);
@@ -607,6 +607,7 @@ const oldUnit = item.unit || 'м';
         ...prev,
         selectedItems: [...prev.selectedItems.filter(item => !(item.type === 'group' && item.id === groupId)), { id: groupId, type: 'group' }]
       }));
+      setGroupedOpSelections(prev => ({ ...prev, [groupId]: Number(groupOp?.id) }));
       if (groupOp) {
         updateItemOperations(itemIndex, [...currentOps, groupOp]);
       }
@@ -748,8 +749,8 @@ const oldUnit = item.unit || 'м';
           fileUrl: saved.fileUrl,
         } : it)
       }));
-      queryClient.invalidateQueries({ queryKey: ['order', orderData?.id] });
-      queryClient.invalidateQueries({ queryKey: ['order-calculated', orderData?.id] });
+      queryClient.invalidateQueries({ queryKey: ['order', String(orderData?.id)] });
+      queryClient.invalidateQueries({ queryKey: ['order-calculated', String(orderData?.id)] });
       setNotification({ open: true, message: `Файл "${saved.fileName}" загружен`, severity: 'success' });
     } catch (err) {
       setNotification({ open: true, message: `Ошибка загрузки: ${err.response?.data?.message || err.message}`, severity: 'error' });
@@ -769,8 +770,8 @@ const oldUnit = item.unit || 'м';
         ...prev,
         items: prev.items.map((it, i) => i === index ? { ...it, fileId: null, fileUrl: null } : it)
       }));
-      queryClient.invalidateQueries({ queryKey: ['order', orderData?.id] });
-      queryClient.invalidateQueries({ queryKey: ['order-calculated', orderData?.id] });
+      queryClient.invalidateQueries({ queryKey: ['order', String(orderData?.id)] });
+      queryClient.invalidateQueries({ queryKey: ['order-calculated', String(orderData?.id)] });
       setNotification({ open: true, message: 'Файл удалён', severity: 'success' });
     } catch (err) {
       setNotification({ open: true, message: `Ошибка удаления: ${err.response?.data?.message || err.message}`, severity: 'error' });
@@ -840,8 +841,10 @@ const handleSubmit = async (e) => {
 
       setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
 
-      queryClient.setQueryData(['order', orderData.id], response.data);
+      queryClient.setQueryData(['order', String(orderData.id)], response.data);
+      queryClient.invalidateQueries({ queryKey: ['order', String(orderData.id)] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['order-calculated', String(orderData.id)] });
 
       navigate(`/orders/${orderData.id}`);
     } catch (err) {

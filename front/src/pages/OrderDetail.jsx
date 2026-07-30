@@ -46,6 +46,8 @@ const OrderDetail = ({ mode = 'view' }) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const username = user?.username;
+  const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+  const isManager = user?.roles?.includes('ROLE_MANAGER');
 
   // ==================== Common State ====================
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -104,7 +106,7 @@ const OrderDetail = ({ mode = 'view' }) => {
        const data = response.data.content || [];
        return data.length > 0 ? data[0] : null;
      },
-      enabled: mode === 'create' && !!username
+      enabled: !!username
     });
 
    // Order data (view mode)
@@ -116,6 +118,9 @@ const OrderDetail = ({ mode = 'view' }) => {
      },
      enabled: mode !== 'create'
    });
+
+  const canEdit = !!(currentEmployee && order?.manager && (isAdmin || currentEmployee.id === order.manager.id));
+  const isManagerNotOwner = isManager && !canEdit && !isAdmin;
 
   // ==================== Mutations ====================
   const createClientMutation = useMutation({
@@ -601,7 +606,7 @@ const OrderDetail = ({ mode = 'view' }) => {
           />
         </Box>
         <Box display="flex" gap={1}>
-          {(user?.roles?.some(r => r === 'ROLE_ADMIN' || r === 'ROLE_MANAGER')) && (
+          {canEdit && (
             <Button
               variant="outlined"
               startIcon={<Edit />}
@@ -610,22 +615,26 @@ const OrderDetail = ({ mode = 'view' }) => {
               Редактировать
             </Button>
           )}
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setNewStatus(order?.status);
-              setStatusDialogOpen(true);
-            }}
-          >
-            Изменить статус
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Payment />}
-            onClick={() => setPaymentDialogOpen(true)}
-          >
-            Добавить оплату
-          </Button>
+          {!isManagerNotOwner && (
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setNewStatus(order?.status);
+                setStatusDialogOpen(true);
+              }}
+            >
+              Изменить статус
+            </Button>
+          )}
+          {!isManagerNotOwner && (
+            <Button
+              variant="contained"
+              startIcon={<Payment />}
+              onClick={() => setPaymentDialogOpen(true)}
+            >
+              Добавить оплату
+            </Button>
+          )}
         </Box>
       </Box>
 
