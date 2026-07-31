@@ -317,7 +317,7 @@ const OrderDetail = ({ mode = 'view' }) => {
   // ==================== Conditional Render ====================
   if (mode === 'create') {
     return (
-       <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+       <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
         <Box display="flex" alignItems="center" gap={2} mb={3}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
             Назад
