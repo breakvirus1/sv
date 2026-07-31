@@ -660,7 +660,30 @@ const oldUnit = item.unit || 'м';
     setGroupedOpSelections({});
   };
 
-  const handleCloseGroupSelectionDialog = () => {
+  const handleCloseGroupSelectionDialog = async () => {
+    const itemIndex = groupSelectionDialog.itemIndex;
+    const item = formData.items[itemIndex];
+
+    if (item?.id && orderData?.id) {
+      try {
+        const response = await api.get(`/api/v1/orders/${orderData.id}/positions/${item.id}/default`);
+        const backendOps = response.data?.operations || [];
+        const restoredOps = backendOps.map(op => ({
+          id: op.operationId,
+          name: op.operationName,
+          widthM: op.widthM != null ? op.widthM : null,
+          heightM: op.heightM != null ? op.heightM : null,
+          subtotal: 0
+        }));
+        updateItemOperations(itemIndex, restoredOps);
+      } catch (e) {
+        console.warn('Failed to restore operations from backend:', e);
+        updateItemOperations(itemIndex, opsBeforeDialog);
+      }
+    } else if (opsBeforeDialog.length > 0) {
+      updateItemOperations(itemIndex, opsBeforeDialog);
+    }
+
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
     setGroupedOpSelections({});
   };
