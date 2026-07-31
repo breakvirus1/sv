@@ -50,26 +50,31 @@ const OrderItemDetail = () => {
 
   if (orderLoading) {
     return (
-      <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <CircularProgress />
+      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
+          <CircularProgress />
+        </Box>
       </Container>
     );
   }
 
   if (orderError || !orderItem) {
     return (
-      <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <Alert severity="error">Позиция заказа не найдена</Alert>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)} sx={{ mt: 2 }}>
-          Назад
-        </Button>
+      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+          <Alert severity="error">Позиция заказа не найдена</Alert>
+          <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)} sx={{ mt: 2 }}>
+            Назад
+          </Button>
+        </Box>
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
+    <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
         <Button startIcon={<ArrowBack />} onClick={() => navigate(`/orders/${orderId}`)}>
           Назад к заказу
         </Button>
@@ -204,6 +209,7 @@ const OperationsTab = ({ orderItemId }) => {
         </Paper>
       ))}
     </Box>
+    </Container>
   );
 };
 

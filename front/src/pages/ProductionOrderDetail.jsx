@@ -400,7 +400,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
   // ==================== Conditional Render ====================
   if (mode === 'create') {
     return (
-      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
         <Box display="flex" alignItems="center" gap={2} mb={3}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
             Назад
@@ -658,15 +658,17 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
 
    if (error) {
      return (
-       <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
-         <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
+       <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+           <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
+         </Box>
        </Container>
      );
    }
 
    if (mode === 'edit') {
      return (
-       <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+       <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
          <Box display="flex" alignItems="center" gap={2} mb={3}>
            <Button startIcon={<ArrowBack />} onClick={() => navigate(`/orders/${id}`)}>
              Назад
@@ -772,7 +774,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
    }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+    <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={2}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>

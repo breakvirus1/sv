@@ -39,11 +39,14 @@ import api from '../services/api';
 import ClientInfo from '../components/ClientInfo';
 import { isM2 } from '../utils/orderUtils';
 import { recalculateOrderLocally } from '../services/calculationService';
+import { useAuth } from '../context/AuthContext';
 
 
 const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userRoles = user?.roles || [];
 
   const identifier = orderNumber || order?.id;
   const isOrderNumber = !!orderNumber && !order;
@@ -801,7 +804,17 @@ const oldUnit = item.unit || 'м';
     }
   };
 
-const handleSubmit = async (e) => {
+  const getRedirectPath = () => {
+    if (userRoles.includes('ROLE_MANAGER')) {
+      return `/manager/orders/${orderData.id}`;
+    }
+    if (userRoles.includes('ROLE_PRODUCTION')) {
+      return `/production/orders/${orderData.id}`;
+    }
+    return `/orders/${orderData.id}`;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
@@ -869,7 +882,11 @@ const handleSubmit = async (e) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order-calculated', String(orderData.id)] });
 
-      navigate(`/orders/${orderData.id}`);
+      if (onSuccess) {
+        onSuccess(getRedirectPath());
+      } else {
+        navigate(getRedirectPath());
+      }
     } catch (err) {
       setNotification({
         open: true,
@@ -885,24 +902,28 @@ const handleSubmit = async (e) => {
 
   if (isError) {
     return (
-      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
-        <Alert severity="error">Заказ не найден</Alert>
+      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+          <Alert severity="error">Заказ не найден</Alert>
+        </Box>
       </Container>
     );
   }
 
   if (isLoading || !orderData) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
+          <CircularProgress />
+        </Box>
+      </Container>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate(`/orders/${orderData.id}`)}>
+    <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+        <Button startIcon={<ArrowBack />} onClick={() => navigate(getRedirectPath())}>
           Назад
         </Button>
         <Typography variant="h4">Редактировать заказ #{orderData.orderNumber}</Typography>

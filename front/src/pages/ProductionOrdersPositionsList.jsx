@@ -258,23 +258,28 @@ const ProductionOrdersPositionsList = () => {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
+          <CircularProgress />
+        </Box>
+      </Container>
     );
   }
 
   if (error) {
     return (
-      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
-        <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
+      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+          <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
+        </Box>
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5, height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
+    <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
         <Typography variant="h4">{getTitle()}</Typography>
         <Box display="flex" alignItems="center" gap={2}>
           <Typography variant="body2" color="text.secondary">
@@ -346,6 +351,7 @@ const ProductionOrdersPositionsList = () => {
           </Box>
         )}
       </Paper>
+    </Box>
     </Container>
   );
 };
