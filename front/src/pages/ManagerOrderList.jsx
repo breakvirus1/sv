@@ -311,6 +311,7 @@ const ManagerOrderList = () => {
           }}
         />
       </Paper>
+    </Box>
     </Container>
   );
 };

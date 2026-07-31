@@ -137,6 +137,7 @@ const OrderItemDetail = () => {
           {notification.message}
         </Alert>
       </Snackbar>
+    </Box>
     </Container>
   );
 };
@@ -209,7 +210,6 @@ const OperationsTab = ({ orderItemId }) => {
         </Paper>
       ))}
     </Box>
-    </Container>
   );
 };
 
