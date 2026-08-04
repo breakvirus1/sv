@@ -167,15 +167,15 @@ public class OrderController {
          return ResponseEntity.ok(response);
      }
 
-     @Operation(summary = "Добавить оплату к заказу")
-     @PostMapping("/{id}/payments")
-     @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
-     public ResponseEntity<PaymentResponse> addPayment(
-             @Parameter(description = "ID заказа") @PathVariable Long id,
-             @RequestBody PaymentRequest payment) {
-         PaymentResponse response = orderService.addPayment(id, payment);
-         return new ResponseEntity<>(response, HttpStatus.CREATED);
-     }
+    @Operation(summary = "Добавить оплату к заказу")
+    @PostMapping("/{id}/payments")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT')")
+    public ResponseEntity<PaymentResponse> addPayment(
+            @Parameter(description = "ID заказа") @PathVariable Long id,
+            @RequestBody PaymentRequest payment) {
+        PaymentResponse response = orderService.addPayment(id, payment);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
 
     /**
      * Добавить комментарий к заказу.
