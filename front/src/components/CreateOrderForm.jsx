@@ -747,7 +747,7 @@ const handleSubmit = async (e) => {
   }
 
   return (
-    <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
       <Typography variant="h6" gutterBottom sx={{ color: '#0055ea', fontWeight: 600 }}>
         {workshopName ? workshopName + ' — ' : ''}Создание нового заказа

@@ -508,6 +508,22 @@ public OrderResponse getOrderById(Long id) {
             try {
                 String username = getCurrentUsername();
                 orderHistoryService.logCreation(saved.getId(), saved.getOrderNumber(), username);
+                StringBuilder positionsLog = new StringBuilder();
+                if (!saved.getItems().isEmpty()) {
+                    positionsLog.append("Добавлено позиций: ").append(saved.getItems().size());
+                    for (OrderItem item : saved.getItems()) {
+                        positionsLog.append("\n").append(item.getName());
+                        if (item.getOperations() != null && !item.getOperations().isEmpty()) {
+                            positionsLog.append(" [операций: ").append(item.getOperations().size()).append("]");
+                            for (OrderOperation op : item.getOperations()) {
+                                positionsLog.append("\t").append(op.getOperationName());
+                            }
+                        }
+                    }
+                }
+                if (positionsLog.length() > 0) {
+                    orderHistoryService.logPositionOperationUpdate(saved.getId(), "Создание заказа", positionsLog.toString(), username);
+                }
             } catch (Exception e) {
                 System.err.println("Failed to log order creation history: " + e.getMessage());
             }
@@ -901,6 +917,22 @@ public OrderResponse getOrderById(Long id) {
               try {
                   String username = getCurrentUsername();
                   orderHistoryService.logUpdate(order.getId(), request.getDescription(), oldOrder, order, username);
+                  StringBuilder positionsLog = new StringBuilder();
+                  if (order.getItems() != null && !order.getItems().isEmpty()) {
+                      positionsLog.append("Обновлено позиций: ").append(order.getItems().size());
+                      for (OrderItem item : order.getItems()) {
+                          positionsLog.append("\n").append(item.getName());
+                          if (item.getOperations() != null && !item.getOperations().isEmpty()) {
+                              positionsLog.append(" [операций: ").append(item.getOperations().size()).append("]");
+                              for (OrderOperation op : item.getOperations()) {
+                                  positionsLog.append("\t").append(op.getOperationName());
+                              }
+                          }
+                      }
+                  }
+                  if (positionsLog.length() > 0) {
+                      orderHistoryService.logPositionOperationUpdate(order.getId(), "Обновление заказа", positionsLog.toString(), username);
+                  }
               } catch (Exception e) {
                   System.err.println("Failed to log order history: " + e.getMessage());
               }
@@ -1275,6 +1307,22 @@ return new CalculatedOrderResponse(
 
         OrderItem saved = orderItemRepository.save(item);
         recalculateTotalAmount(order.getId());
+
+        try {
+            String username = getCurrentUsername();
+            StringBuilder details = new StringBuilder();
+            details.append("Добавлена позиция: ").append(saved.getName());
+            if (saved.getOperations() != null && !saved.getOperations().isEmpty()) {
+                details.append(" [операций: ").append(saved.getOperations().size()).append("]");
+                for (OrderOperation op : saved.getOperations()) {
+                    details.append("\t").append(op.getOperationName());
+                }
+            }
+            orderHistoryService.logPositionOperationUpdate(order.getId(), "Добавление позиции", details.toString(), username);
+        } catch (Exception e) {
+            System.err.println("Failed to log add order item history: " + e.getMessage());
+        }
+
         return orderMapper.itemToDto(saved);
     }
 

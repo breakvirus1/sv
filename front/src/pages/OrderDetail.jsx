@@ -579,7 +579,7 @@ const OrderDetail = ({ mode = 'view' }) => {
 
    if (error) {
      return (
-      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
          <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
        </Container>
      );
@@ -590,7 +590,7 @@ const OrderDetail = ({ mode = 'view' }) => {
     }
 
    return (
-     <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+     <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={2}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
@@ -641,51 +641,32 @@ const OrderDetail = ({ mode = 'view' }) => {
        <Grid container spacing={3}>
          <Grid item xs={12}>
            <OrderInfoCard order={order} />
-           <Paper sx={{ mt: 3 }}>
-             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
-               <Tab label="Позиции" />
-               <Tab label="Этапы" />
-               <Tab label="Оплаты" />
-               <Tab label="Комментарии" />
-             </Tabs>
-             <Divider />
-             <Box sx={{ p: 3 }}>
-               {activeTab === 0 && (
-                 <PositionsTab 
-                   materials={order?.materials || []} 
-                   items={order?.items || []} 
-                 />
-               )}
-               {activeTab === 1 && (
-                 <StagesTab stages={order?.stages || []} />
-               )}
-               {activeTab === 2 && (
-                 <PaymentsTab payments={order?.payments || []} />
-               )}
-               {activeTab === 3 && (
-                 <CommentsTab comments={order?.comments || []} />
-               )}
-             </Box>
-           </Paper>
-
-           {order?.history && (
-             <Paper sx={{ mt: 3 }}>
-               <Box sx={{ p: 2, bgcolor: 'background.default', borderBottom: '1px solid', borderColor: 'divider' }}>
-                 <Typography variant="subtitle2" color="text.secondary">
-                   История изменений
-                 </Typography>
-               </Box>
-               <Box sx={{ p: 3 }}>
-                 {(order.history.split('\n') || []).map((entry, idx) => (
-                   <Box key={idx} sx={{ mb: idx < (order.history.split('\n').length - 1) ? 2 : 0 }}>
-                     <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.8rem', margin: 0 }}>
-                       {entry}
-                     </Typography>
-                   </Box>
-                 ))}
-               </Box>
-             </Paper>
-           )}
+            <Paper sx={{ mt: 3 }}>
+              <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
+                <Tab label="Позиции" />
+                <Tab label="История" />
+                <Tab label="Оплаты" />
+                <Tab label="Комментарии" />
+              </Tabs>
+              <Divider />
+              <Box sx={{ p: 3 }}>
+                {activeTab === 0 && (
+                  <PositionsTab 
+                    materials={order?.materials || []} 
+                    items={order?.items || []} 
+                  />
+                )}
+                {activeTab === 1 && (
+                  <HistoryTab history={order?.history || ''} />
+                )}
+                {activeTab === 2 && (
+                  <PaymentsTab payments={order?.payments || []} />
+                )}
+                {activeTab === 3 && (
+                  <CommentsTab comments={order?.comments || []} />
+                )}
+              </Box>
+            </Paper>
          </Grid>
        </Grid>
 
@@ -875,6 +856,26 @@ const StagesTab = ({ stages }) => {
               </Typography>
             )}
           </Box>
+        </Paper>
+      ))}
+    </Box>
+  );
+};
+
+const HistoryTab = ({ history }) => {
+  if (!history) {
+    return <Typography>Нет истории изменений</Typography>;
+  }
+
+  const entries = history.split('\n').filter(entry => entry.trim());
+
+  return (
+    <Box>
+      {entries.map((entry, idx) => (
+        <Paper key={idx} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem', margin: 0 }}>
+            {entry}
+          </Typography>
         </Paper>
       ))}
     </Box>

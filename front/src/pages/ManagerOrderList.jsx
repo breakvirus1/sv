@@ -223,7 +223,7 @@ const ManagerOrderList = () => {
 
   if (isLoading) {
     return (
-      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
           <CircularProgress />
         </Box>
@@ -233,7 +233,7 @@ const ManagerOrderList = () => {
 
   if (error) {
     return (
-      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
           <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
         </Box>

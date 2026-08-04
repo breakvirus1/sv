@@ -400,7 +400,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
   // ==================== Conditional Render ====================
   if (mode === 'create') {
     return (
-      <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
         <Box display="flex" alignItems="center" gap={2} mb={3}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
             Назад
@@ -658,7 +658,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
 
    if (error) {
      return (
-       <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+       <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
            <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
          </Box>
@@ -668,7 +668,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
 
    if (mode === 'edit') {
      return (
-       <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+       <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
          <Box display="flex" alignItems="center" gap={2} mb={3}>
            <Button startIcon={<ArrowBack />} onClick={() => navigate(`/orders/${id}`)}>
              Назад
@@ -774,7 +774,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
    }
 
   return (
-    <Container sx={{ maxWidth: 1200, mx: 'auto', mt: 4, px: 2.5 }}>
+    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={2}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
@@ -817,7 +817,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
           <Paper sx={{ mt: 3 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
-              <Tab label="Этапы" />
+              <Tab label="История" />
               <Tab label="Комментарии" />
             </Tabs>
             <Divider />
@@ -829,7 +829,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
                 />
               )}
               {activeTab === 1 && (
-                <StagesTab stages={order?.stages || []} />
+                <HistoryTab history={order?.history || ''} />
               )}
               {activeTab === 2 && (
                 <CommentsTab comments={order?.comments || []} />
@@ -1017,6 +1017,26 @@ const StagesTab = ({ stages }) => {
               </Typography>
             )}
           </Box>
+        </Paper>
+      ))}
+    </Box>
+  );
+};
+
+const HistoryTab = ({ history }) => {
+  if (!history) {
+    return <Typography>Нет истории изменений</Typography>;
+  }
+
+  const entries = history.split('\n').filter(entry => entry.trim());
+
+  return (
+    <Box>
+      {entries.map((entry, idx) => (
+        <Paper key={idx} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem', margin: 0 }}>
+            {entry}
+          </Typography>
         </Paper>
       ))}
     </Box>
