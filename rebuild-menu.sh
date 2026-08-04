@@ -8,6 +8,7 @@ declare -a SCRIPTS=(
   "rebuild-api-gateway|API Gateway"
   "rebuild-calculator-service|Calculator Service"
   "rebuild-client-service|Client Service"
+  "rebuild-comment-service|Comment Service"
   "rebuild-discovery-server|Discovery Server"
   "rebuild-employee-service|Employee Service"
   "rebuild-file-service|File Service"

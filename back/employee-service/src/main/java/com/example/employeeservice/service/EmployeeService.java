@@ -134,7 +134,17 @@ public class EmployeeService {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
         EmployeeResponse dto = employeeMapper.toDto(employee);
-        // Fetch roles from Keycloak
+        if (employee.getUsername() != null) {
+            Map<String, List<String>> rolesMap = fetchKeycloakRolesForUsernames(List.of(employee.getUsername()));
+            dto.setRoles(rolesMap.getOrDefault(employee.getUsername(), List.of()));
+        }
+        return dto;
+    }
+
+    public EmployeeResponse getEmployeeByUsername(String username) {
+        Employee employee = employeeRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
+        EmployeeResponse dto = employeeMapper.toDto(employee);
         if (employee.getUsername() != null) {
             Map<String, List<String>> rolesMap = fetchKeycloakRolesForUsernames(List.of(employee.getUsername()));
             dto.setRoles(rolesMap.getOrDefault(employee.getUsername(), List.of()));

@@ -38,6 +38,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import OrderInfoCard from '../components/OrderInfoCard';
+import CommentsTab from '../components/CommentsTab';
 import EditOrder from './EditOrder';
 
 const OrderDetail = ({ mode = 'view' }) => {
@@ -644,7 +645,6 @@ const OrderDetail = ({ mode = 'view' }) => {
             <Paper sx={{ mt: 3 }}>
               <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
                 <Tab label="Позиции" />
-                <Tab label="История" />
                 <Tab label="Оплаты" />
                 <Tab label="Комментарии" />
               </Tabs>
@@ -657,13 +657,10 @@ const OrderDetail = ({ mode = 'view' }) => {
                   />
                 )}
                 {activeTab === 1 && (
-                  <HistoryTab history={order?.history || ''} />
-                )}
-                {activeTab === 2 && (
                   <PaymentsTab payments={order?.payments || []} />
                 )}
-                {activeTab === 3 && (
-                  <CommentsTab comments={order?.comments || []} />
+                {activeTab === 2 && (
+                  <CommentsTab orderId={order?.id} />
                 )}
               </Box>
             </Paper>
@@ -862,26 +859,6 @@ const StagesTab = ({ stages }) => {
   );
 };
 
-const HistoryTab = ({ history }) => {
-  if (!history) {
-    return <Typography>Нет истории изменений</Typography>;
-  }
-
-  const entries = history.split('\n').filter(entry => entry.trim());
-
-  return (
-    <Box>
-      {entries.map((entry, idx) => (
-        <Paper key={idx} sx={{ p: 2, mb: 2 }} variant="outlined">
-          <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem', margin: 0 }}>
-            {entry}
-          </Typography>
-        </Paper>
-      ))}
-    </Box>
-  );
-};
-
 const PaymentsTab = ({ payments }) => {
   if (!payments?.length) {
     return <Typography>Нет оплат</Typography>;
@@ -904,31 +881,6 @@ const PaymentsTab = ({ payments }) => {
             <Typography variant="body2" color="text.secondary" mt={1}>
               {payment.details}
             </Typography>
-          )}
-        </Paper>
-      ))}
-    </Box>
-  );
-};
-
-const CommentsTab = ({ comments }) => {
-  if (!comments?.length) {
-    return <Typography>Нет комментариев</Typography>;
-  }
-
-  return (
-    <Box>
-      {comments.map((comment) => (
-        <Paper key={comment.id} sx={{ p: 2, mb: 2 }} variant="outlined">
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-            <Typography variant="subtitle1">{comment.author?.fullName || 'Система'}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {new Date(comment.timestamp).toLocaleString()}
-            </Typography>
-          </Box>
-          <Typography variant="body1">{comment.message}</Typography>
-          {comment.isInternal && (
-            <Chip label="Внутренний" size="small" sx={{ mt: 1 }} />
           )}
         </Paper>
       ))}

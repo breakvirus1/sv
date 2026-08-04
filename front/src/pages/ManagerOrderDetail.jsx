@@ -497,7 +497,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
           <Paper sx={{ mt: 3 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
-              <Tab label="История" />
               <Tab label="Оплаты" />
               <Tab label="Комментарии" />
             </Tabs>
@@ -510,13 +509,10 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
                 />
               )}
               {activeTab === 1 && (
-                <HistoryTab history={order?.history || ''} />
-              )}
-              {activeTab === 2 && (
                 <PaymentsTab payments={order?.payments || []} />
               )}
-              {activeTab === 3 && (
-                <CommentsTab comments={order?.comments || []} />
+              {activeTab === 2 && (
+                <CommentsTab orderId={order?.id} />
               )}
             </Box>
           </Paper>
@@ -542,26 +538,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
         </Alert>
       </Snackbar>
     </Container>
-  );
-};
-
-const HistoryTab = ({ history }) => {
-  if (!history) {
-    return <Typography>Нет истории изменений</Typography>;
-  }
-
-  const entries = history.split('\n').filter(entry => entry.trim());
-
-  return (
-    <Box>
-      {entries.map((entry, idx) => (
-        <Paper key={idx} sx={{ p: 2, mb: 2 }} variant="outlined">
-          <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem', margin: 0 }}>
-            {entry}
-          </Typography>
-        </Paper>
-      ))}
-    </Box>
   );
 };
 

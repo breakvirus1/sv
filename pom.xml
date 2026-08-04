@@ -41,6 +41,7 @@
           <module>back/file-service</module>
           <module>back/api-gateway</module>
           <module>back/generate-data-service</module>
+      <module>back/comment-service</module>
       </modules>
 
     <dependencyManagement>

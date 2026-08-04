@@ -46,7 +46,13 @@ public class EmployeeController {
                             cb.like(cb.lower(root.get("fullName")), "%" + q.toLowerCase() + "%"),
                             cb.like(cb.lower(root.get("username")), "%" + q.toLowerCase() + "%")
                     ));
-        }
+    @Operation(summary = "Получить сотрудника по username")
+    @GetMapping("/username/{username}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<EmployeeResponse> getEmployeeByUsername(@PathVariable String username) {
+        return ResponseEntity.ok(employeeService.getEmployeeByUsername(username));
+    }
+}
 
         return ResponseEntity.ok(employeeService.getAllEmployees(spec, pageable));
     }

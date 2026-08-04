@@ -37,6 +37,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
+import PositionsTab from '../components/PositionsTab';
+import CommentsTab from '../components/CommentsTab';
 
 const ProductionOrderInfoCard = ({ order }) => {
   const statusKey = order?.productionStage || order?.status;
@@ -817,7 +819,6 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
           <Paper sx={{ mt: 3 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
-              <Tab label="История" />
               <Tab label="Комментарии" />
             </Tabs>
             <Divider />
@@ -829,10 +830,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
                 />
               )}
               {activeTab === 1 && (
-                <HistoryTab history={order?.history || ''} />
-              )}
-              {activeTab === 2 && (
-                <CommentsTab comments={order?.comments || []} />
+                <CommentsTab orderId={order?.id} />
               )}
             </Box>
           </Paper>
@@ -879,111 +877,6 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
         </Alert>
       </Snackbar>
     </Container>
-  );
-};
-
-const PositionsTab = ({ materials = [], items = [] }) => {
-  const rawList = useMemo(() => {
-    if (!items || items.length === 0) return [];
-    if (!materials || materials.length === 0) return items;
-
-    const materialsByOrderItemId = new Map(materials.map(m => [m.orderItemId, m]));
-    return items.map(item => materialsByOrderItemId.get(item.id) || item);
-  }, [materials, items]);
-
-  const displayList = rawList;
-
-  const downloadFile = async (fileUrl) => {
-    try {
-      const response = await api.get(fileUrl, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', fileUrl.split('/').pop() || 'file');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Download failed:', err);
-    }
-  };
-
-  if (!displayList?.length) {
-    return <Typography>Нет позиций в заказе</Typography>;
-  }
-
-  const isMaterial = displayList[0]?.material !== undefined;
-
-  return (
-    <Box>
-      {displayList.map((entry) => {
-        const name = isMaterial ? entry.material?.name : entry.name;
-        const price = isMaterial ? entry.material?.price : entry.price;
-        const quantity = entry.quantity;
-        const cost = entry.cost;
-        const readyDate = entry.readyDate;
-        const unit = isMaterial ? entry.material?.unit : '';
-
-        const qtyDisplay = isMaterial 
-          ? parseFloat(quantity).toFixed(3) 
-          : quantity;
-
-        // Extract size from material name if available (for materials)
-        // Expected format: "БАНЕР 1.111x1.111m" from item name
-        // But we'll just show material name as is.
-
-        return (
-          <Paper key={entry.materialId || entry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="subtitle1">{name}</Typography>
-              <Typography variant="h6">{cost?.toFixed(2)} ₽</Typography>
-            </Box>
-            <Box display="flex" gap={4} mt={1}>
-              <Typography variant="body2" color="text.secondary">
-                Цена за ед.: {price?.toFixed(2)} ₽
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Кол-во: {qtyDisplay} {unit}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Срок: {readyDate || '—'}
-              </Typography>
-            </Box>
-            {/* Operations list with indentation */}
-            {((entry.operations && entry.operations.length > 0) || (entry.operations && entry.operations.length > 0)) && (
-              <Box sx={{ mt: 2, pl: 2, borderLeft: '3px solid #e0e0e0' }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Операции:
-                </Typography>
-                {(entry.operations || []).map((op, idx) => (
-                  <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', pl: 1 }}>
-                    <Typography variant="body2">
-                      {op.operationName}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {op.calculatedQuantity?.toFixed(2)} × {op.pricePerUnit?.toFixed(2)} ₽ = {op.subtotal?.toFixed(2)} ₽
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            )}
-            {entry.fileUrl && (
-              <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Link
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); downloadFile(entry.fileUrl); }}
-                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-                >
-                  <Download fontSize="small" />
-                  {entry.fileUrl.split('/').pop()}
-                </Link>
-              </Box>
-            )}
-          </Paper>
-        );
-      })}
-    </Box>
   );
 };
 
@@ -1037,31 +930,6 @@ const HistoryTab = ({ history }) => {
           <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem', margin: 0 }}>
             {entry}
           </Typography>
-        </Paper>
-      ))}
-    </Box>
-  );
-};
-
-const CommentsTab = ({ comments }) => {
-  if (!comments?.length) {
-    return <Typography>Нет комментариев</Typography>;
-  }
-
-  return (
-    <Box>
-      {comments.map((comment) => (
-        <Paper key={comment.id} sx={{ p: 2, mb: 2 }} variant="outlined">
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-            <Typography variant="subtitle1">{comment.author?.fullName || 'Система'}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {new Date(comment.timestamp).toLocaleString()}
-            </Typography>
-          </Box>
-          <Typography variant="body1">{comment.message}</Typography>
-          {comment.isInternal && (
-            <Chip label="Внутренний" size="small" sx={{ mt: 1 }} />
-          )}
         </Paper>
       ))}
     </Box>
