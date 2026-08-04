@@ -36,16 +36,20 @@ const ManagerDashboard = () => {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
+          <CircularProgress />
+        </Box>
+      </Container>
     );
   }
 
   if (error) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Alert severity="error">Ошибка загрузки данных: {error.message}</Alert>
+      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+          <Alert severity="error">Ошибка загрузки данных: {error.message}</Alert>
+        </Box>
       </Container>
     );
   }
@@ -59,8 +63,9 @@ const ManagerDashboard = () => {
   const managerCashPercent = earnings?.managerCashPercent ?? 0;
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, px: 2.5 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
+    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
         <Button startIcon={<ArrowBack />} onClick={() => navigate('/manager')}>
           Назад
         </Button>
@@ -147,6 +152,7 @@ const ManagerDashboard = () => {
           <strong>На согласовании</strong> — заказы со статусом "Согласование", показывают потенциальный заработок после утверждения.
         </Typography>
       </Paper>
+    </Box>
     </Container>
   );
 };

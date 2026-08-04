@@ -311,9 +311,9 @@ class OrderControllerTest {
     class AddPayment {
 
         @Test
-        @DisplayName("MANAGER cannot add payment")
-        @WithMockUser(roles = "MANAGER")
-        void managerCannotAddPayment() throws Exception {
+        @DisplayName("PRODUCTION cannot add payment")
+        @WithMockUser(roles = "PRODUCTION")
+        void productionCannotAddPayment() throws Exception {
             PaymentRequest request = new PaymentRequest();
             request.setAmount(new BigDecimal("100.00"));
 

@@ -15,7 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -84,7 +87,10 @@ public class CalculationService {
         }
 
         if (request.getOperationIds() != null) {
-            for (Long opId : request.getOperationIds()) {
+            List<Long> uniqueOpIds = request.getOperationIds().stream()
+                    .distinct()
+                    .collect(Collectors.toList());
+            for (Long opId : uniqueOpIds) {
                 Operation op = operationRepository.findById(opId)
                         .orElseThrow(() -> new BadRequestException("Операция с ID " + opId + " не найдена"));
                 CalculationOperation calcOp = new CalculationOperation();

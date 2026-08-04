@@ -17,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * REST Controller для управления заказами.
@@ -157,9 +158,18 @@ public class OrderController {
      * Добавить оплату к заказу.
      * Доступно: ADMIN, ACCOUNTANT.
      */
+     @Operation(summary = "Получить список оплат по заказу")
+     @GetMapping("/{id}/payments")
+     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+     public ResponseEntity<List<PaymentResponse>> getPayments(
+             @Parameter(description = "ID заказа") @PathVariable Long id) {
+         List<PaymentResponse> response = orderService.getPayments(id);
+         return ResponseEntity.ok(response);
+     }
+
     @Operation(summary = "Добавить оплату к заказу")
     @PostMapping("/{id}/payments")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT')")
     public ResponseEntity<PaymentResponse> addPayment(
             @Parameter(description = "ID заказа") @PathVariable Long id,
             @RequestBody PaymentRequest payment) {

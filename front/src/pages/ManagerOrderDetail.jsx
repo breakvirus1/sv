@@ -39,7 +39,6 @@ import { useAuth } from '../context/AuthContext';
 
 import OrderInfoCard from '../components/OrderInfoCard';
 import PositionsTab from '../components/PositionsTab';
-import StagesTab from '../components/StagesTab';
 import PaymentsTab from '../components/PaymentsTab';
 import CommentsTab from '../components/CommentsTab';
 import StatusChangeDialog from '../components/StatusChangeDialog';
@@ -102,7 +101,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
     items: []
   });
   const [priceplus, setPriceplus] = useState(0);
-  const [calculatedData, setCalculatedData] = useState({ total: 0, cashFromPriceplus: 0 });
 
   const totalOrderAmount = useMemo(() => {
     if (mode !== 'create') return 0;
@@ -198,10 +196,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
       };
 
       const response = await api.post('/api/v1/orders', orderData);
-      setCalculatedData({
-        total: frontendTotalWithPriceplus,
-        cashFromPriceplus: currentEmployee.managerCashPercent ? frontendTotal * currentEmployee.managerCashPercent / 100 : 0
-      });
       return response;
     },
     onSuccess: async () => {
@@ -236,13 +230,6 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   });
 
   useEffect(() => {
-    if (mode === 'view' && order) {
-      const total = order.items?.reduce((sum, item) => sum + (item.totalPrice || 0), 0) || 0;
-      setCalculatedData({ total, cashFromPriceplus: order.cashFromPriceplus || 0 });
-    }
-  }, [mode, order]);
-
-  useEffect(() => {
     if (mode === 'create' && username && !currentEmployee) {
       api.post('/api/v1/employees/sync')
         .then(() => refetchEmployee())
@@ -266,22 +253,11 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
 
   const updateItem = (index, field, value) => {
     setFormData(prev => {
-      if (field === 'materialId' && value) {
-        const dup = prev.items.find((item, i) => i !== index && item.materialId === value);
-        if (dup) {
-          const mat = materialsData.find(m => m.id === parseInt(value));
-          setNotification({
-            open: true,
-            message: `Материал "${mat?.name || value}" уже выбран в другой позиции`,
-            severity: 'warning'
-          });
-          return prev;
-        }
-      }
-      return {
-        ...prev,
-        items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
-      };
+      const nextItems = prev.items.map((item, i) => {
+        if (i !== index) return item;
+        return { ...item, [field]: value };
+      });
+      return { ...prev, items: nextItems };
     });
   };
 
@@ -313,7 +289,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
 
   if (mode === 'create') {
     return (
-      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
         <Box display="flex" alignItems="center" gap={2} mb={3}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
             Назад
@@ -337,11 +313,9 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={6}></Grid>
               <Grid item xs={12} md={6}>
                 <TextField fullWidth label="Процент добавки (priceplus)" type="number" value={priceplus} onChange={(e) => setPriceplus(parseFloat(e.target.value) || 0)} margin="normal" inputProps={{ min: -100, max: 100, step: 0.1 }} />
               </Grid>
-              <Grid item xs={12} md={6}></Grid>
               <Grid item xs={12} md={6}>
                 <TextField fullWidth label="Дата заказа" name="orderDate" type="date" value={formData.orderDate} onChange={(e) => setFormData(prev => ({ ...prev, orderDate: e.target.value }))} required margin="normal" InputLabelProps={{ shrink: true }} />
               </Grid>
@@ -469,7 +443,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   if (error) {
     const isNotFound = error.response?.status === 404;
     return (
-      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
         <Alert severity="error">{isNotFound ? 'Заказ не найден' : `Ошибка загрузки заказа: ${error.message}`}</Alert>
       </Container>
     );
@@ -480,16 +454,23 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
+    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={2}>
-          <Button startIcon={<ArrowBack />} onClick={() => navigate('/manager')}>
+          <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
             Назад
           </Button>
           <Typography variant="h4">
             Заказ #{order?.orderNumber}
           </Typography>
           <Chip label={getStatusLabel(order?.status)} color={getStatusColor(order?.status)} size="medium" />
+          {order?.cashFromPriceplus != null && (
+            <Paper sx={{ p: 1, bgcolor: '#e8f5e9', display: 'inline-flex', alignItems: 'center' }}>
+              <Typography variant="body2" fontWeight={600} color="success.dark">
+                Твой заработок: {Number(order.cashFromPriceplus).toFixed(2)} ₽
+              </Typography>
+            </Paper>
+          )}
         </Box>
         <Box display="flex" gap={1}>
           {canEdit && (
@@ -511,34 +492,34 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
       </Box>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <OrderInfoCard order={order} calculatedData={calculatedData} onClientInfoClick={(clientId) => setClientInfoDialog({ open: true, clientId })} />
+        <Grid item xs={12}>
+          <OrderInfoCard order={order} />
           <Paper sx={{ mt: 3 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
-              <Tab label="Этапы" />
+              <Tab label="История" />
               <Tab label="Оплаты" />
               <Tab label="Комментарии" />
             </Tabs>
             <Divider />
             <Box sx={{ p: 3 }}>
-              {activeTab === 0 && <PositionsTab materials={order?.materials || []} items={order?.items || []} orderId={order?.id} calculatedData={calculatedData} />}
-              {activeTab === 1 && <StagesTab stages={order?.stages || []} />}
-              {activeTab === 2 && <PaymentsTab payments={order?.payments || []} />}
-              {activeTab === 3 && <CommentsTab comments={order?.comments || []} />}
+              {activeTab === 0 && (
+                <PositionsTab 
+                  materials={order?.materials || []} 
+                  items={order?.items || []} 
+                />
+              )}
+              {activeTab === 1 && (
+                <HistoryTab history={order?.history || ''} />
+              )}
+              {activeTab === 2 && (
+                <PaymentsTab payments={order?.payments || []} />
+              )}
+              {activeTab === 3 && (
+                <CommentsTab comments={order?.comments || []} />
+              )}
             </Box>
           </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          {order?.cashFromPriceplus != null && (
-            <Paper sx={{ p: 3, mt: 2, bgcolor: '#e8f5e9' }}>
-              <Typography variant="h6" gutterBottom color="success.dark">Твой заработок</Typography>
-              <Typography variant="h4" fontWeight={700} color="success.dark">
-                {Number(order.cashFromPriceplus).toFixed(2)} ₽
-              </Typography>
-            </Paper>
-          )}
         </Grid>
       </Grid>
 
@@ -561,6 +542,26 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
         </Alert>
       </Snackbar>
     </Container>
+  );
+};
+
+const HistoryTab = ({ history }) => {
+  if (!history) {
+    return <Typography>Нет истории изменений</Typography>;
+  }
+
+  const entries = history.split('\n').filter(entry => entry.trim());
+
+  return (
+    <Box>
+      {entries.map((entry, idx) => (
+        <Paper key={idx} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem', margin: 0 }}>
+            {entry}
+          </Typography>
+        </Paper>
+      ))}
+    </Box>
   );
 };
 

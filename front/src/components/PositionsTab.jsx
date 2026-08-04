@@ -3,7 +3,13 @@ import { Download } from '@mui/icons-material';
 import api from '../services/api';
 
 const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) => {
-  const positions = calculatedData?.materials || ((materials && materials.length > 0) ? materials : items);
+  const positions = calculatedData?.materials || (() => {
+    if (!items || items.length === 0) return [];
+    if (!materials || materials.length === 0) return items;
+
+    const materialsByOrderItemId = new Map(materials.map(m => [m.orderItemId, m]));
+    return items.map(item => materialsByOrderItemId.get(item.id) || item);
+  })();
 
   if (!positions || positions.length === 0) {
     return <Typography>Нет позиций в заказе</Typography>;

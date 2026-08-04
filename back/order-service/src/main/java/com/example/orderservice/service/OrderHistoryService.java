@@ -158,6 +158,25 @@ public class OrderHistoryService {
         orderRepository.save(order);
     }
 
+    @Transactional
+    public void logPositionOperationUpdate(Long orderId, String action, String details, String username) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new com.example.orderservice.exception.NotFoundException("Заказ не найден"));
+
+        String timestamp = LocalDateTime.now().format(FORMATTER);
+        String entry = "[" + timestamp + "] " +
+                (username != null && !username.isBlank() ? "Пользователь: " + username + "; " : "") +
+                action + ": " + details;
+
+        String oldHistory = order.getHistory();
+        if (oldHistory == null || oldHistory.isBlank()) {
+            order.setHistory(entry);
+        } else {
+            order.setHistory(oldHistory + "\n" + entry);
+        }
+        orderRepository.save(order);
+    }
+
     private String quote(String value) {
         if (value == null) return "";
         return value.replace("\"", "\"\"");

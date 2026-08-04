@@ -39,11 +39,14 @@ import api from '../services/api';
 import ClientInfo from '../components/ClientInfo';
 import { isM2 } from '../utils/orderUtils';
 import { recalculateOrderLocally } from '../services/calculationService';
+import { useAuth } from '../context/AuthContext';
 
 
 const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userRoles = user?.roles || [];
 
   const identifier = orderNumber || order?.id;
   const isOrderNumber = !!orderNumber && !order;
@@ -167,7 +170,7 @@ const { data: operationsData = [] } = useQuery({
 
   // ── Запрос расчетных данных заказа с бекенда ──
   const { data: calculatedData } = useQuery({
-    queryKey: ['order-calculated', orderData?.id],
+    queryKey: ['order-calculated', String(orderData?.id)],
     queryFn: async () => {
       if (!orderData?.id) return null;
       const response = await api.get(`/api/v1/orders/${orderData.id}/calculated`);
@@ -355,48 +358,10 @@ const { data: operationsData = [] } = useQuery({
   // ── CRUD ──
 
   const addItem = () => {
-    console.log('=== addItem ===');
-    console.log('Current items count:', formData.items.length);
-    setFormData(prev => {
-      const newIndex = prev.items.length;
-      const anyMaterial = prev.items.find(item => item.materialId);
-      if (anyMaterial && materialsData.length > 0) {
-        const candidateId = String(materialsData[0].id);
-        const existingCandidate = prev.items.find(item => item.materialId === candidateId);
-        if (existingCandidate) {
-          const matName = materialsData.find(m => m.id === parseInt(candidateId))?.name;
-          const idMsg = existingCandidate.id ? ` (позиция #${existingCandidate.id})` : '';
-          setNotification({
-            open: true,
-            message: `Материал "${matName}" уже выбран${idMsg}`,
-            severity: 'warning'
-          });
-          return prev;
-        }
-        const nextItems = [...prev.items, { materialId: candidateId, qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [] }];
-        pendingDimRef.current.set(newIndex, candidateId);
-        api.get(`/api/v1/materials/${candidateId}`)
-          .then(r => {
-            const m = r.data;
-            const wM = m.defaultWidthM != null ? parseFloat(m.defaultWidthM) : null;
-            const hM = m.defaultHeightM != null ? parseFloat(m.defaultHeightM) : null;
-            setFormData(pd => {
-              const curr = pd.items[newIndex];
-              if (!curr || curr.materialId !== candidateId) return pd;
-              return {
-                ...pd,
-                items: pd.items.map((it, i) =>
-                  i === newIndex ? { ...it, qty1value: wM != null ? wM.toString() : '', qty2value: hM != null ? hM.toString() : '' } : it
-                )
-              };
-            });
-          })
-          .catch(() => {})
-          .finally(() => pendingDimRef.current.delete(newIndex));
-        return { ...prev, items: nextItems };
-      }
-      return { ...prev, items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [] }] };
-    });
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [] }]
+    }));
   };
 
 const removeItem = (index) => {
@@ -444,27 +409,28 @@ const oldUnit = item.unit || 'м';
   const updateItem = (index, field, value) => {
     console.log('=== updateItem ===');
     console.log('index:', index, 'field:', field, 'value:', value);
-setFormData(prev => {
-       if (field === 'materialId' && value) {
-         const currentItem = prev.items[index];
+    setFormData(prev => {
+      if (field === 'materialId' && value) {
+        const currentItem = prev.items[index];
         console.log('Changing materialId for item:', currentItem?.id, 'from:', currentItem?.materialId, 'to:', value);
-        const dup = prev.items.find((item, i) => i !== index && item.materialId === value);
-        if (dup) {
-          const mat = materialsData.find(m => m.id === parseInt(value));
-          const dupIdMsg = dup.id ? ` (позиция #${dup.id})` : '';
-          setNotification({
-            open: true,
-            message: `Материал "${mat?.name || value}" уже выбран в другой позиции${dupIdMsg}`,
-            severity: 'warning'
-          });
-          return prev;
-        }
 
-        const next = prev.items.map((item, i) =>
-          i === index ? { ...item, materialId: value, qty1value: '', qty1unit: 'м', qty2value: '', qty2unit: 'м', readyDate: '', operations: [] } : item
-        );
+        const oldMat = materialsData.find(m => m.id === Number(currentItem?.materialId));
+        const newMat = materialsData.find(m => m.id === Number(value));
+        const sameMaterialUnit = (!oldMat || !newMat) ? true : (oldMat.unit === newMat.unit);
+        const next = prev.items.map((item, i) => {
+          if (i !== index) return item;
+          return {
+            ...item,
+            materialId: value,
+            unit: item.unit,
+            qty1value: sameMaterialUnit ? item.qty1value : '',
+            qty2value: sameMaterialUnit ? item.qty2value : '',
+            readyDate: '',
+            operations: []
+          };
+        });
 
-        pendingDimRef.current.set(index, value);
+        pendingDimRef.current.set(index, { materialId: value, preserveValues: sameMaterialUnit && (currentItem?.qty1value || currentItem?.qty2value) });
 
         api.get(`/api/v1/orders/${orderData?.id}/positions/${currentItem?.id || ''}/default`)
           .then(r => {
@@ -478,7 +444,15 @@ setFormData(prev => {
             setFormData(pd => {
               const currMatId = pd.items[index]?.materialId;
               if (currMatId !== value) return pd;
+
+              const pendingInfo = pendingDimRef.current.get(index);
+              const preserveValues = pendingInfo && typeof pendingInfo === 'object' && pendingInfo.preserveValues;
+              const hasExistingWidth = !!pd.items[index]?.qty1value;
+              const hasExistingHeight = !!pd.items[index]?.qty2value;
+
+              if (preserveValues && (hasExistingWidth || hasExistingHeight)) return pd;
               if (dwM == null && dhM == null) return pd;
+
               return {
                 ...pd,
                 items: pd.items.map((it, i) =>
@@ -488,7 +462,14 @@ setFormData(prev => {
             });
           })
           .catch(() => {})
-          .finally(() => pendingDimRef.current.delete(index));
+          .finally(() => {
+            if (typeof pendingDimRef.current.get(index) === 'object') {
+              delete pendingDimRef.current.get(index).preserveValues;
+            }
+            if (pendingDimRef.current.get(index) && !Object.keys(pendingDimRef.current.get(index) || {}).length) {
+              pendingDimRef.current.delete(index);
+            }
+          });
 
         return { ...prev, items: next };
       }
@@ -520,96 +501,34 @@ setFormData(prev => {
     const selectedItems = [];
     const groupedOpSelections = {};
 
-    setOpsBeforeDialog(formData.items[itemIndex]?.operations || []);
+    setOpsBeforeDialog([...currentOps]);
 
-    // Pre-fetch grouped operations for this material directly to avoid timing issues
-    let materialGroupsMap = {};
-    let ungroupedOps = [];
     if (item?.materialId) {
       try {
         const groupResp = await api.get(`/api/v1/calculations/operations/grouped?materialId=${item.materialId}`);
         const groups = groupResp.data?.groups || [];
-        ungroupedOps = groupResp.data?.ungroupedOperations || [];
-        materialGroupsMap = Object.fromEntries(groups.map(g => [g.id, g]));
-      } catch (e) {
-        console.warn('Failed to load grouped operations for material:', item.materialId, e);
-      }
-    }
+        const materialGroupsMap = Object.fromEntries(groups.map(g => [g.id, g]));
 
-    if (item?.id) {
-      try {
-        const response = await api.get(`/api/v1/orders/${orderData.id}/positions/${item.id}/default`);
-        const backendOps = response.data?.operations || [];
-        if (backendOps.length > 0) {
-          const seenGroups = new Set();
-          const processedOps = [];
-          backendOps.forEach(op => {
-            const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.operationId));
-            if (group) {
-              if (!seenGroups.has(group.id)) {
-                seenGroups.add(group.id);
-                selectedItems.push({ id: group.id, type: 'group' });
-                groupedOpSelections[group.id] = op.operationId;
-                processedOps.push({
-                  id: op.operationId,
-                  name: op.operationName,
-                  widthMm: op.widthM != null ? op.widthM * 1000 : null,
-                  heightMm: op.heightM != null ? op.heightM * 1000 : null
-                });
-              }
-            } else {
-              selectedItems.push({ id: op.operationId, type: 'operation' });
-              processedOps.push({
-                id: op.operationId,
-                name: op.operationName,
-                widthMm: op.widthM != null ? op.widthM * 1000 : null,
-                heightMm: op.heightM != null ? op.heightM * 1000 : null
-              });
-            }
-          });
-          setFormData(prev => ({
-            ...prev,
-            items: prev.items.map((it, i) =>
-              i === itemIndex ? { ...it, operations: processedOps } : it
-            )
-          }));
-        } else {
-          currentOps.forEach(op => {
-            const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.id));
-            if (group) {
-              if (!selectedItems.some(item => item.type === 'group' && item.id === group.id)) {
-                selectedItems.push({ id: group.id, type: 'group' });
-              }
-              groupedOpSelections[group.id] = op.id;
-            } else {
-              selectedItems.push({ id: op.id, type: 'operation' });
-            }
-          });
-        }
-      } catch (e) {
         currentOps.forEach(op => {
-          const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.id));
+          const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.id || o.id === op.operationId));
           if (group) {
             if (!selectedItems.some(item => item.type === 'group' && item.id === group.id)) {
               selectedItems.push({ id: group.id, type: 'group' });
             }
-            groupedOpSelections[group.id] = op.id;
+            groupedOpSelections[group.id] = op.id || op.operationId;
           } else {
-            selectedItems.push({ id: op.id, type: 'operation' });
+            selectedItems.push({ id: op.id || op.operationId, type: 'operation' });
           }
+        });
+      } catch (e) {
+        console.warn('Failed to load grouped operations for material:', item.materialId, e);
+        currentOps.forEach(op => {
+          selectedItems.push({ id: op.id || op.operationId, type: 'operation' });
         });
       }
     } else {
       currentOps.forEach(op => {
-        const group = Object.values(materialGroupsMap).find(g => (g.operations || []).some(o => o.id === op.id));
-        if (group) {
-          if (!selectedItems.some(item => item.type === 'group' && item.id === group.id)) {
-            selectedItems.push({ id: group.id, type: 'group' });
-          }
-          groupedOpSelections[group.id] = op.id;
-        } else {
-          selectedItems.push({ id: op.id, type: 'operation' });
-        }
+        selectedItems.push({ id: op.id || op.operationId, type: 'operation' });
       });
     }
 
@@ -635,17 +554,20 @@ setFormData(prev => {
   const handleSaveOperationParams = () => {
     const { itemIndex, pendingOps, pendingRegularOps, params } = operationParamsDialog;
     const opsWithParams = pendingOps.map(op => {
-      const baseOp = operationsData.find(o => o.id === op.id);
       const opParams = params[op.id] || {};
       if (opParams.eyeletId !== undefined) {
         opParams.eyeletId = opParams.eyeletId ? parseInt(opParams.eyeletId, 10) : null;
       }
-      return { ...baseOp, ...opParams };
+      return { ...op, ...opParams };
     });
 
     const currentOps = formData.items[itemIndex]?.operations || [];
     const filteredOps = currentOps.filter(cop => !pendingOps.some(pop => pop.id === cop.id));
-    const finalOps = [...filteredOps, ...opsWithParams, ...pendingRegularOps];
+
+    const regularIds = new Set((pendingRegularOps || []).map(op => op.id || op.operationId));
+    const preservedRegular = currentOps.filter(cop => regularIds.has(cop.id || cop.operationId));
+
+    const finalOps = [...preservedRegular, ...opsWithParams];
 
     updateItemOperations(itemIndex, finalOps);
     handleCloseOperationParamsDialog();
@@ -663,6 +585,12 @@ setFormData(prev => {
 
   const handleToggleGroup = (groupId, groupName) => {
     const isSelected = groupSelectionDialog.selectedItems.some(item => item.type === 'group' && item.id === groupId);
+    const itemIndex = groupSelectionDialog.itemIndex;
+    const currentOps = formData.items[itemIndex]?.operations || [];
+    const selectedOpId = groupedOpSelections[groupId];
+    const groupOp = selectedOpId != null
+      ? (dialogGroupedData[groupId]?.operations || []).find(op => op.id === selectedOpId)
+      : (dialogGroupedData[groupId]?.operations || []).find(op => op.id);
 
     if (isSelected) {
       setGroupSelectionDialog(prev => ({
@@ -674,11 +602,18 @@ setFormData(prev => {
         delete next[groupId];
         return next;
       });
+      if (groupOp) {
+        updateItemOperations(itemIndex, currentOps.filter(op => op.id !== groupOp.id));
+      }
     } else {
       setGroupSelectionDialog(prev => ({
         ...prev,
         selectedItems: [...prev.selectedItems.filter(item => !(item.type === 'group' && item.id === groupId)), { id: groupId, type: 'group' }]
       }));
+      setGroupedOpSelections(prev => ({ ...prev, [groupId]: Number(groupOp?.id) }));
+      if (groupOp) {
+        updateItemOperations(itemIndex, [...currentOps, groupOp]);
+      }
     }
   };
 
@@ -695,194 +630,61 @@ setFormData(prev => {
   };
 
   const applyGroupSelection = () => {
-    const selectedGroups = groupSelectionDialog.selectedItems.filter(item => item.type === 'group');
-    const selectedOps = Object.values(groupedOpSelections).filter(Boolean);
     const itemIndex = groupSelectionDialog.itemIndex;
     const currentOps = formData.items[itemIndex]?.operations || [];
-    const newOps = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
-    const newSpecialOps = newOps.filter(op => op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')));
-    
-    if (selectedGroups.length > 0 || selectedOps.length > 0 || newSpecialOps.length > 0) {
-      const selectedOpIds = selectedOps.map(id => {
-        const raw = typeof id === 'object' && id !== null ? id.id : id;
-        return typeof raw === 'string' ? Number(raw) : raw;
-      });
-      const selectedOpsData = operationsData.filter(op => selectedOpIds.includes(op.id));
 
-      const specialOps = selectedOpsData.filter(op =>
-        op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
-      );
+    const needsParamOps = currentOps.filter(op => {
+      const opName = (op.name || '').toLowerCase();
+      return opName.includes('подворот') || opName.includes('люверс');
+    });
 
-      const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
-      const regularOps = selectedOpsData.filter(op => !specialOps.some(sop => sop.id === op.id));
-
-      if (allSpecialOps.length > 0) {
-        const allAlreadyConfigured = allSpecialOps.every(sop => {
-          const existing = currentOps.find(cop => cop.id === sop.id);
-          if (sop.name.toLowerCase().includes('люверс')) return existing && existing.eyeletId;
-          if (sop.name.toLowerCase().includes('подворот')) return existing && existing.hemWidthMm;
-          return false;
-        });
-
-        if (allAlreadyConfigured) {
-          const existingIds = new Set(currentOps.map(cop => cop.id));
-          const mergedOps = currentOps.map(cop => {
-            const selected = allSpecialOps.find(sop => sop.id === cop.id);
-            return selected ? { ...selected, ...cop } : cop;
-          });
-          const newSpecialSelected = allSpecialOps.filter(op => !existingIds.has(op.id));
-          const newRegularSelected = regularOps.filter(op => !existingIds.has(op.id));
-          updateItemOperations(itemIndex, [...mergedOps, ...newSpecialSelected, ...newRegularSelected]);
-        } else {
-          const newPendingOps = [...allSpecialOps];
-          const initialParams = {};
-
-          allSpecialOps.forEach(op => {
-            const opId = op.id;
-            const existing = currentOps.find(cop => String(cop.id) === String(opId));
-            if (op.name.toLowerCase().includes('подворот')) {
-              if (existing && existing.hemWidthMm) {
-                initialParams[opId] = { hemWidthMm: existing.hemWidthMm, hemCount: existing.hemCount || 2, widthMm: existing.widthMm, heightMm: existing.heightMm };
-              } else {
-                const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
-                const defaultCount = op.hemCount != null ? op.hemCount : 2;
-                initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            } else if (op.name.toLowerCase().includes('люверс')) {
-              if (existing && existing.eyeletId) {
-                initialParams[opId] = { eyeletId: existing.eyeletId, eyeletStepCm: existing.eyeletStepCm || 40, widthMm: existing.widthMm, heightMm: existing.heightMm };
-              } else {
-                initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            }
-          });
-
-          setOperationParamsDialog(prev => ({
-            ...prev,
-            open: true,
-            itemIndex,
-            pendingOps: newPendingOps,
-            params: initialParams,
-            pendingRegularOps: regularOps
-          }));
+    if (needsParamOps.length > 0) {
+      const needsParamIds = new Set(needsParamOps.map(op => op.id));
+      const regularOps = currentOps.filter(op => !needsParamIds.has(op.id));
+      const defaultParams = {};
+      needsParamOps.forEach(op => {
+        const opName = (op.name || '').toLowerCase();
+        if (opName.includes('подворот')) {
+          defaultParams[op.id] = { hemWidthMm: op.hemWidthMm || 20, hemCount: op.hemCount || 2 };
+        } else if (opName.includes('люверс')) {
+          defaultParams[op.id] = { eyeletId: op.eyeletId || '', eyeletStepCm: op.eyeletStepCm || 40 };
         }
-      } else {
-        const configuredSpecialOps = currentOps.filter(op =>
-          op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс'))
-        );
-        const newOpsAdded = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
-        const selectedIds = new Set(selectedOpsData.map(op => op.id));
-        const finalOps = [
-          ...selectedOpsData,
-          ...configuredSpecialOps.filter(op => !selectedIds.has(op.id)),
-          ...newOpsAdded.filter(op => !selectedIds.has(op.id))
-        ];
-        updateItemOperations(itemIndex, finalOps);
-      }
+      });
+      setOperationParamsDialog({
+        open: true,
+        itemIndex,
+        pendingOps: needsParamOps,
+        pendingRegularOps: regularOps,
+        params: defaultParams
+      });
     }
-    
+
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
     setGroupedOpSelections({});
   };
 
-  const handleCloseGroupSelectionDialog = () => {
+  const handleCloseGroupSelectionDialog = async () => {
     const itemIndex = groupSelectionDialog.itemIndex;
-    const selectedOps = Object.values(groupedOpSelections).filter(Boolean);
-    const selectedOpIds = selectedOps.map(id => {
-      const raw = typeof id === 'object' && id !== null ? id.id : id;
-      return typeof raw === 'string' ? Number(raw) : raw;
-    });
+    const item = formData.items[itemIndex];
 
-    if (selectedOpIds.length > 0 && itemIndex != null) {
-      const selectedOpsData = operationsData.filter(op => selectedOpIds.includes(op.id));
-      const currentOps = formData.items[itemIndex]?.operations || [];
-
-      const specialOps = selectedOpsData.filter(op =>
-        op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
-      );
-
-      const newOps = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
-      const newSpecialOps = newOps.filter(op => op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')));
-      const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
-      const regularOps = selectedOpsData.filter(op => !specialOps.some(sop => sop.id === op.id));
-
-      if (allSpecialOps.length > 0) {
-        const allAlreadyConfigured = allSpecialOps.every(sop => {
-          const existing = currentOps.find(cop => cop.id === sop.id);
-          if (sop.name.toLowerCase().includes('люверс')) {
-            return existing && existing.eyeletId;
-          }
-          if (sop.name.toLowerCase().includes('подворот')) {
-            return existing && existing.hemWidthMm;
-          }
-          return false;
-        });
-
-        if (allAlreadyConfigured) {
-          const existingIds = new Set(currentOps.map(cop => cop.id));
-          const mergedOps = currentOps.map(cop => {
-            const selected = allSpecialOps.find(sop => sop.id === cop.id);
-            return selected ? { ...selected, ...cop } : cop;
-          });
-          const newSpecialSelected = allSpecialOps.filter(op => !existingIds.has(op.id));
-          const newRegularSelected = regularOps.filter(op => !existingIds.has(op.id));
-          updateItemOperations(itemIndex, [...mergedOps, ...newSpecialSelected, ...newRegularSelected]);
-        } else {
-          const newPendingOps = [...allSpecialOps];
-          const initialParams = {};
-
-          allSpecialOps.forEach(op => {
-            const opId = op.id;
-            const existing = currentOps.find(cop => String(cop.id) === String(opId));
-            if (op.name.toLowerCase().includes('подворот')) {
-              if (existing && existing.hemWidthMm) {
-                initialParams[opId] = {
-                  hemWidthMm: existing.hemWidthMm,
-                  hemCount: existing.hemCount || 2,
-                  widthMm: existing.widthMm,
-                  heightMm: existing.heightMm
-                };
-              } else {
-                const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
-                const defaultCount = op.hemCount != null ? op.hemCount : 2;
-                initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            } else if (op.name.toLowerCase().includes('люверс')) {
-              if (existing && existing.eyeletId) {
-                initialParams[opId] = {
-                  eyeletId: existing.eyeletId,
-                  eyeletStepCm: existing.eyeletStepCm || 40,
-                  widthMm: existing.widthMm,
-                  heightMm: existing.heightMm
-                };
-              } else {
-                initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            }
-          });
-
-          setOperationParamsDialog(prev => ({
-            ...prev,
-            open: true,
-            itemIndex,
-            pendingOps: newPendingOps,
-            params: initialParams,
-            pendingRegularOps: regularOps
-          }));
-        }
-      } else {
-        const configuredSpecialOps = currentOps.filter(op =>
-          op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс'))
-        );
-        const newOpsAdded = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
-        const selectedIds = new Set(selectedOpsData.map(op => op.id));
-        const finalOps = [
-          ...selectedOpsData,
-          ...configuredSpecialOps.filter(op => !selectedIds.has(op.id)),
-          ...newOpsAdded.filter(op => !selectedIds.has(op.id))
-        ];
-        updateItemOperations(itemIndex, finalOps);
+    if (item?.id && orderData?.id) {
+      try {
+        const response = await api.get(`/api/v1/orders/${orderData.id}/positions/${item.id}/default`);
+        const backendOps = response.data?.operations || [];
+        const restoredOps = backendOps.map(op => ({
+          id: op.operationId,
+          name: op.operationName,
+          widthM: op.widthM != null ? op.widthM : null,
+          heightM: op.heightM != null ? op.heightM : null,
+          subtotal: 0
+        }));
+        updateItemOperations(itemIndex, restoredOps);
+      } catch (e) {
+        console.warn('Failed to restore operations from backend:', e);
+        updateItemOperations(itemIndex, opsBeforeDialog);
       }
+    } else if (opsBeforeDialog.length > 0) {
+      updateItemOperations(itemIndex, opsBeforeDialog);
     }
 
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
@@ -890,6 +692,21 @@ setFormData(prev => {
   };
 
   const handleGroupedOpSelect = (groupId, opId) => {
+    const itemIndex = groupSelectionDialog.itemIndex;
+    const currentOps = formData.items[itemIndex]?.operations || [];
+    const oldOpId = groupedOpSelections[groupId];
+
+    const newOps = currentOps.filter(op => op.id !== oldOpId);
+
+    if (opId) {
+      const newOp = (dialogGroupedData[groupId]?.operations || []).find(op => op.id === Number(opId));
+      if (newOp && !newOps.some(op => op.id === newOp.id)) {
+        newOps.push(newOp);
+      }
+    }
+
+    updateItemOperations(itemIndex, newOps);
+
     setGroupedOpSelections(prev => {
       if (opId) {
         return { ...prev, [groupId]: Number(opId) };
@@ -958,8 +775,8 @@ setFormData(prev => {
           fileUrl: saved.fileUrl,
         } : it)
       }));
-      queryClient.invalidateQueries({ queryKey: ['order', orderData?.id] });
-      queryClient.invalidateQueries({ queryKey: ['order-calculated', orderData?.id] });
+      queryClient.invalidateQueries({ queryKey: ['order', String(orderData?.id)] });
+      queryClient.invalidateQueries({ queryKey: ['order-calculated', String(orderData?.id)] });
       setNotification({ open: true, message: `Файл "${saved.fileName}" загружен`, severity: 'success' });
     } catch (err) {
       setNotification({ open: true, message: `Ошибка загрузки: ${err.response?.data?.message || err.message}`, severity: 'error' });
@@ -979,15 +796,25 @@ setFormData(prev => {
         ...prev,
         items: prev.items.map((it, i) => i === index ? { ...it, fileId: null, fileUrl: null } : it)
       }));
-      queryClient.invalidateQueries({ queryKey: ['order', orderData?.id] });
-      queryClient.invalidateQueries({ queryKey: ['order-calculated', orderData?.id] });
+      queryClient.invalidateQueries({ queryKey: ['order', String(orderData?.id)] });
+      queryClient.invalidateQueries({ queryKey: ['order-calculated', String(orderData?.id)] });
       setNotification({ open: true, message: 'Файл удалён', severity: 'success' });
     } catch (err) {
       setNotification({ open: true, message: `Ошибка удаления: ${err.response?.data?.message || err.message}`, severity: 'error' });
     }
   };
 
-const handleSubmit = async (e) => {
+  const getRedirectPath = () => {
+    if (userRoles.includes('ROLE_MANAGER')) {
+      return `/manager/orders/${orderData.id}`;
+    }
+    if (userRoles.includes('ROLE_PRODUCTION')) {
+      return `/production/orders/${orderData.id}`;
+    }
+    return `/orders/${orderData.id}`;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
@@ -1050,11 +877,16 @@ const handleSubmit = async (e) => {
 
       setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
 
-      queryClient.setQueryData(['order', orderData.id], response.data);
-      queryClient.invalidateQueries({ queryKey: ['order', orderData.id] });
+      queryClient.setQueryData(['order', String(orderData.id)], response.data);
+      queryClient.invalidateQueries({ queryKey: ['order', String(orderData.id)] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['order-calculated', String(orderData.id)] });
 
-      navigate(`/orders/${orderData.id}`);
+      if (onSuccess) {
+        onSuccess(getRedirectPath());
+      } else {
+        navigate(getRedirectPath());
+      }
     } catch (err) {
       setNotification({
         open: true,
@@ -1070,24 +902,28 @@ const handleSubmit = async (e) => {
 
   if (isError) {
     return (
-      <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
-        <Alert severity="error">Заказ не найден</Alert>
+      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+          <Alert severity="error">Заказ не найден</Alert>
+        </Box>
       </Container>
     );
   }
 
   if (isLoading || !orderData) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
+      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
+          <CircularProgress />
+        </Box>
+      </Container>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, px: 2.5 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate(`/orders/${orderData.id}`)}>
+    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+        <Button startIcon={<ArrowBack />} onClick={() => navigate(getRedirectPath())}>
           Назад
         </Button>
         <Typography variant="h4">Редактировать заказ #{orderData.orderNumber}</Typography>

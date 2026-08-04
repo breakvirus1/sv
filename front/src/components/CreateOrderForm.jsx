@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
+  Container,
   TextField,
   FormControl,
   InputLabel,
@@ -254,24 +255,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   };
 
   const updateItem = (index, field, value) => {
-    setFormData(prev => {
-      if (field === 'materialId' && value) {
-        const dup = prev.items.find((item, i) => i !== index && item.materialId === value);
-        if (dup) {
-          const mat = materialsData.find(m => m.id === parseInt(value));
-          setNotification({
-            open: true,
-            message: `Материал "${mat?.name || value}" уже выбран в другой позиции`,
-            severity: 'warning'
-          });
-          return prev;
-        }
-      }
-      return {
-        ...prev,
-        items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
-      };
-    });
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
+    }));
   };
 
   const updateItemOperations = (index, operations) => {
@@ -362,17 +349,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           }));
         }
       } else {
-        const configuredSpecialOps = currentOps.filter(op =>
-          op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс'))
-        );
-        const newOpsAdded = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
         const selectedIds = new Set(selectedOpsData.map(op => op.id));
-        const finalOps = [
-          ...selectedOpsData,
-          ...configuredSpecialOps.filter(op => !selectedIds.has(op.id)),
-          ...newOpsAdded.filter(op => !selectedIds.has(op.id))
-        ];
-        updateItemOperations(itemIndex, finalOps);
+        const preserveOps = currentOps.filter(op => !selectedIds.has(op.id));
+        updateItemOperations(itemIndex, [...selectedOpsData, ...preserveOps]);
       }
     }
     
@@ -768,7 +747,8 @@ const handleSubmit = async (e) => {
   }
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
       <Typography variant="h6" gutterBottom sx={{ color: '#0055ea', fontWeight: 600 }}>
         {workshopName ? workshopName + ' — ' : ''}Создание нового заказа
       </Typography>
@@ -1478,6 +1458,7 @@ const handleSubmit = async (e) => {
         </DialogActions>
       </Dialog>
     </Box>
+    </Container>
   );
 };
 
