@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +29,7 @@ public class CommentService {
     private final CommentMapper commentMapper;
     private final RestTemplate restTemplate;
     private final CommentReplyMapper commentReplyMapper;
+    private final com.example.commentservice.repository.CommentReplyRepository commentReplyRepository;
 
     private Long getCurrentEmployeeId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -76,12 +78,21 @@ public class CommentService {
                 .stream()
                 .map(comment -> {
                     var dto = commentMapper.toDto(comment);
-                    dto.setReplies(
-                            comment.getReplies().stream()
-                                    .filter(r -> !Boolean.TRUE.equals(r.getDeleted()))
-                                    .map(commentReplyMapper::toDto)
-                                    .toList()
-                    );
+                    dto.setReplies(buildReplyTree(null));
+                    return dto;
+                })
+                .toList();
+    }
+
+    private List<com.example.commentservice.dto.response.CommentReplyResponse> buildReplyTree(Long parentReplyId) {
+        List<com.example.commentservice.entity.CommentReply> replies = parentReplyId == null
+                ? commentReplyRepository.findByParentCommentIdAndDeletedFalse(null)
+                : commentReplyRepository.findByParentReplyIdAndDeletedFalse(parentReplyId);
+
+        return replies.stream()
+                .map(reply -> {
+                    var dto = commentReplyMapper.toDto(reply);
+                    dto.setReplies(buildReplyTree(reply.getId()));
                     return dto;
                 })
                 .toList();

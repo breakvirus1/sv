@@ -8,4 +8,5 @@ import java.util.List;
 public interface CommentReplyRepository extends JpaRepository<CommentReply, Long> {
     List<CommentReply> findByOrderIdAndDeletedFalse(Long orderId);
     List<CommentReply> findByParentCommentIdAndDeletedFalse(Long parentCommentId);
+    List<CommentReply> findByParentReplyIdAndDeletedFalse(Long parentReplyId);
 }

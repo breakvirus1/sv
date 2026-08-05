@@ -18,6 +18,18 @@ spring:
             - Path=/api/files/**
           filters:
             - StripPrefix=0
+        - id: comment-service
+          uri: lb://comment-service
+          predicates:
+            - Path=/api/v1/comments/**
+          filters:
+            - StripPrefix=0
+        - id: comment-replies
+          uri: lb://comment-service
+          predicates:
+            - Path=/api/v1/comment-replies/**
+          filters:
+            - StripPrefix=0
 
 eureka:
   client:

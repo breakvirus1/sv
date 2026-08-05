@@ -26,10 +26,17 @@ public class CommentReply extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String body;
 
-    @Column(name = "parent_comment_id", nullable = false)
+    @Column(name = "parent_comment_id")
     private Long parentCommentId;
+
+    @Column(name = "parent_reply_id")
+    private Long parentReplyId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_comment_id", insertable = false, updatable = false)
     private Comment comment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_reply_id", insertable = false, updatable = false)
+    private CommentReply parentReply;
 }

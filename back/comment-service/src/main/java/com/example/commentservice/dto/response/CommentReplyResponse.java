@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -15,7 +16,7 @@ public class CommentReplyResponse {
     private Long employeeId;
     private Boolean readed;
     private String body;
-    private Long parentCommentId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<CommentReplyResponse> replies;
 }

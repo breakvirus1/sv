@@ -61,7 +61,18 @@ public class CommentReplyService {
 
     public CommentReplyResponse createReply(Long orderId, CommentReplyRequest request) {
         CommentReply reply = commentReplyMapper.toEntity(request);
-        reply.setOrderId(orderId);
+        
+        if (request.getParentReplyId() != null) {
+            CommentReply parentReply = commentReplyRepository.findById(request.getParentReplyId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Parent reply not found"));
+            reply.setOrderId(parentReply.getOrderId());
+            reply.setParentReplyId(request.getParentReplyId());
+            reply.setParentCommentId(parentReply.getParentCommentId());
+        } else {
+            reply.setOrderId(orderId);
+            reply.setParentCommentId(request.getParentCommentId());
+        }
+        
         reply.setEmployeeId(getCurrentEmployeeId());
         reply.setReaded(false);
         CommentReply saved = commentReplyRepository.save(reply);

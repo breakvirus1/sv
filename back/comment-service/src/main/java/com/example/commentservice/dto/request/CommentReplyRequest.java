@@ -1,13 +1,16 @@
 package com.example.commentservice.dto.request;
 
-import lombok.AllArgsConstructor;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Data
-@AllArgsConstructor
-@NoArgsConstructor
 public class CommentReplyRequest {
-    private String body;
+    @NotNull(message = "parentCommentId обязателен")
     private Long parentCommentId;
+
+    private Long parentReplyId;
+
+    @NotBlank(message = "Тело ответа не может быть пустым")
+    private String body;
 }
