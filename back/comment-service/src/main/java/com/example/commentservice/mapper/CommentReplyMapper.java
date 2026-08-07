@@ -15,6 +15,8 @@ public interface CommentReplyMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "comment", ignore = true)
+    @Mapping(target = "parentReply", ignore = true)
+    @Mapping(target = "replies", ignore = true)
     CommentReply toEntity(CommentReplyRequest request);
 
     CommentReplyResponse toDto(CommentReply commentReply);

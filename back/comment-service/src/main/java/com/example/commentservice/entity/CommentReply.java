@@ -6,6 +6,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "comment_replies")
 @Getter
@@ -26,6 +29,9 @@ public class CommentReply extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String body;
 
+    @Column(name = "employee_name")
+    private String employeeName;
+
     @Column(name = "parent_comment_id")
     private Long parentCommentId;
 
@@ -39,4 +45,7 @@ public class CommentReply extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_reply_id", insertable = false, updatable = false)
     private CommentReply parentReply;
+
+    @OneToMany(mappedBy = "parentReply", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CommentReply> replies = new ArrayList<>();
 }

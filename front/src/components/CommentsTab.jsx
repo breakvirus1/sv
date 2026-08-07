@@ -62,7 +62,7 @@ const CommentsTab = ({ orderId }) => {
       <Box key={reply.id} sx={{ ml: indent, mt: 1.5 }}>
         <Paper sx={{ p: 1.5 }} variant="outlined">
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-            <Typography variant="subtitle2">Сотрудник #{reply.employeeId}</Typography>
+            <Typography variant="subtitle2">{reply.employeeName || `Сотрудник #${reply.employeeId}`}</Typography>
             <Typography variant="caption" color="text.secondary">
               {reply.createdAt ? new Date(reply.createdAt).toLocaleString() : ''}
             </Typography>
@@ -108,7 +108,7 @@ const CommentsTab = ({ orderId }) => {
         return (
           <Paper key={comment.id} sx={{ p: 2, mb: 2 }} variant="outlined">
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-              <Typography variant="subtitle1">Сотрудник #{comment.employeeId}</Typography>
+              <Typography variant="subtitle1">{comment.employeeName || `Сотрудник #${comment.employeeId}`}</Typography>
               <Typography variant="caption" color="text.secondary">
                 {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ''}
               </Typography>

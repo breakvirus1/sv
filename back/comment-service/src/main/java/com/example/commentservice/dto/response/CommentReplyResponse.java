@@ -14,8 +14,11 @@ public class CommentReplyResponse {
     private Long id;
     private Long orderId;
     private Long employeeId;
+    private String employeeName;
     private Boolean readed;
     private String body;
+    private Long parentCommentId;
+    private Long parentReplyId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<CommentReplyResponse> replies;

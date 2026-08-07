@@ -29,6 +29,9 @@ public class Comment extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String body;
 
+    @Column(name = "employee_name")
+    private String employeeName;
+
     @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CommentReply> replies = new ArrayList<>();
 }

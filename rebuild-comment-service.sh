@@ -2,7 +2,6 @@
 set -e
 
 echo "=== Building comment-service with Maven ==="
-cd /home/q/Документы/11111/sv
 mvn clean package -pl back/comment-service -am -DskipTests
 
 echo "=== Rebuilding comment-service Docker container (no cache) ==="

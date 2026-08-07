@@ -17,6 +17,5 @@ public interface CommentMapper {
     @Mapping(target = "replies", ignore = true)
     Comment toEntity(CommentRequest request);
 
-    @Mapping(target = "replies", source = "replies")
     CommentResponse toDto(Comment comment);
 }

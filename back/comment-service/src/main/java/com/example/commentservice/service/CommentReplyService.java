@@ -34,12 +34,16 @@ public class CommentReplyService {
             if (username == null || username.isBlank()) {
                 throw new IllegalStateException("Username not found in token");
             }
+            String token = jwtAuth.getToken().getTokenValue();
+            var headers = new org.springframework.http.HttpHeaders();
+            headers.setBearerAuth(token);
+            var requestEntity = new org.springframework.http.HttpEntity<>(headers);
             try {
                 var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
                 var response = restTemplate.exchange(
-                        "http://employee-service/api/v1/employees/username/{username}",
+                        "http://employee-service:8083/api/v1/employees/username/{username}",
                         org.springframework.http.HttpMethod.GET,
-                        null,
+                        requestEntity,
                         responseType,
                         username
                 );
@@ -59,9 +63,54 @@ public class CommentReplyService {
         throw new IllegalStateException("Unsupported authentication type");
     }
 
+    private String getCurrentEmployeeNameFromToken() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            String fullName = jwtAuth.getToken().getClaimAsString("name");
+            String username = jwtAuth.getToken().getClaimAsString("preferred_username");
+            if (fullName != null && !fullName.isBlank() && username != null && !username.isBlank()) {
+                return fullName + " (" + username + ")";
+            }
+            if (fullName != null && !fullName.isBlank()) {
+                return fullName;
+            }
+            if (username != null && !username.isBlank()) {
+                return username;
+            }
+        }
+        return "Неизвестный сотрудник";
+    }
+
+    private String fetchEmployeeName(Long employeeId) {
+        if (employeeId == null) return "Неизвестный сотрудник";
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String token = auth instanceof JwtAuthenticationToken jwtAuth ? jwtAuth.getToken().getTokenValue() : null;
+        var headers = new org.springframework.http.HttpHeaders();
+        if (token != null) headers.setBearerAuth(token);
+        var requestEntity = new org.springframework.http.HttpEntity<>(headers);
+        try {
+            var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
+            var response = restTemplate.exchange(
+                    "http://employee-service:8083/api/v1/employees/{id}",
+                    org.springframework.http.HttpMethod.GET,
+                    requestEntity,
+                    responseType,
+                    employeeId
+            );
+            var body = response.getBody();
+            if (body == null) return "Неизвестный сотрудник";
+            String firstName = body.get("firstName") != null ? body.get("firstName").toString() : "";
+            String lastName = body.get("lastName") != null ? body.get("lastName").toString() : "";
+            String fullName = (lastName + " " + firstName).trim();
+            return fullName.isEmpty() ? "Сотрудник #" + employeeId : fullName;
+        } catch (Exception e) {
+            return "Сотрудник #" + employeeId;
+        }
+    }
+
     public CommentReplyResponse createReply(Long orderId, CommentReplyRequest request) {
         CommentReply reply = commentReplyMapper.toEntity(request);
-        
+
         if (request.getParentReplyId() != null) {
             CommentReply parentReply = commentReplyRepository.findById(request.getParentReplyId())
                     .orElseThrow(() -> new ResourceNotFoundException("Parent reply not found"));
@@ -72,18 +121,40 @@ public class CommentReplyService {
             reply.setOrderId(orderId);
             reply.setParentCommentId(request.getParentCommentId());
         }
-        
+
         reply.setEmployeeId(getCurrentEmployeeId());
+        reply.setEmployeeName(getCurrentEmployeeNameFromToken());
         reply.setReaded(false);
         CommentReply saved = commentReplyRepository.save(reply);
-        return commentReplyMapper.toDto(saved);
+        return buildReplyDto(saved);
+    }
+
+    private CommentReplyResponse buildReplyDto(CommentReply reply) {
+        var dto = commentReplyMapper.toDto(reply);
+        dto.setEmployeeName(
+                reply.getEmployeeName() != null && !reply.getEmployeeName().isBlank()
+                        ? reply.getEmployeeName()
+                        : fetchEmployeeName(reply.getEmployeeId())
+        );
+        if (reply.getReplies() != null && !reply.getReplies().isEmpty()) {
+            dto.setReplies(
+                    reply.getReplies().stream()
+                            .filter(r -> !Boolean.TRUE.equals(r.getDeleted()))
+                            .map(this::buildReplyDto)
+                            .toList()
+            );
+        } else {
+            dto.setReplies(List.of());
+        }
+        return dto;
     }
 
     @Transactional(readOnly = true)
     public List<CommentReplyResponse> getRepliesByParentId(Long parentCommentId) {
         return commentReplyRepository.findByParentCommentIdAndDeletedFalse(parentCommentId)
                 .stream()
-                .map(commentReplyMapper::toDto)
+                .filter(reply -> reply.getParentReplyId() == null)
+                .map(this::buildReplyDto)
                 .toList();
     }
 
@@ -98,8 +169,11 @@ public class CommentReplyService {
                 .orElseThrow(() -> new ResourceNotFoundException("CommentReply not found"));
         reply.setBody(request.getBody());
         reply.setParentCommentId(request.getParentCommentId());
+        if (request.getParentReplyId() != null) {
+            reply.setParentReplyId(request.getParentReplyId());
+        }
         CommentReply saved = commentReplyRepository.save(reply);
-        return commentReplyMapper.toDto(saved);
+        return buildReplyDto(saved);
     }
 
     public CommentReplyResponse markAsRead(Long id) {
@@ -107,7 +181,7 @@ public class CommentReplyService {
                 .orElseThrow(() -> new ResourceNotFoundException("CommentReply not found"));
         reply.setReaded(true);
         CommentReply saved = commentReplyRepository.save(reply);
-        return commentReplyMapper.toDto(saved);
+        return buildReplyDto(saved);
     }
 
     public void deleteReply(Long id) {

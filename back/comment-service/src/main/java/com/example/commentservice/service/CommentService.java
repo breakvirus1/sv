@@ -3,10 +3,12 @@ package com.example.commentservice.service;
 import com.example.commentservice.dto.request.CommentRequest;
 import com.example.commentservice.dto.response.CommentResponse;
 import com.example.commentservice.entity.Comment;
+import com.example.commentservice.entity.CommentReply;
 import com.example.commentservice.exception.ResourceNotFoundException;
 import com.example.commentservice.mapper.CommentMapper;
 import com.example.commentservice.mapper.CommentReplyMapper;
 import com.example.commentservice.repository.CommentRepository;
+import com.example.commentservice.repository.CommentReplyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +30,7 @@ public class CommentService {
     private final CommentMapper commentMapper;
     private final RestTemplate restTemplate;
     private final CommentReplyMapper commentReplyMapper;
-    private final com.example.commentservice.repository.CommentReplyRepository commentReplyRepository;
+    private final CommentReplyRepository commentReplyRepository;
 
     private Long getCurrentEmployeeId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -38,12 +39,16 @@ public class CommentService {
             if (username == null || username.isBlank()) {
                 throw new IllegalStateException("Username not found in token");
             }
+            String token = jwtAuth.getToken().getTokenValue();
+            var headers = new org.springframework.http.HttpHeaders();
+            headers.setBearerAuth(token);
+            var requestEntity = new org.springframework.http.HttpEntity<>(headers);
             try {
                 var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
                 var response = restTemplate.exchange(
-                        "http://employee-service/api/v1/employees/username/{username}",
+                        "http://employee-service:8083/api/v1/employees/username/{username}",
                         org.springframework.http.HttpMethod.GET,
-                        null,
+                        requestEntity,
                         responseType,
                         username
                 );
@@ -63,10 +68,56 @@ public class CommentService {
         throw new IllegalStateException("Unsupported authentication type");
     }
 
+    private String getCurrentEmployeeNameFromToken() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            String fullName = jwtAuth.getToken().getClaimAsString("name");
+            String username = jwtAuth.getToken().getClaimAsString("preferred_username");
+            if (fullName != null && !fullName.isBlank() && username != null && !username.isBlank()) {
+                return fullName + " (" + username + ")";
+            }
+            if (fullName != null && !fullName.isBlank()) {
+                return fullName;
+            }
+            if (username != null && !username.isBlank()) {
+                return username;
+            }
+        }
+        return "Неизвестный сотрудник";
+    }
+
+    private String fetchEmployeeName(Long employeeId) {
+        if (employeeId == null) return "Неизвестный сотрудник";
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String token = auth instanceof JwtAuthenticationToken jwtAuth ? jwtAuth.getToken().getTokenValue() : null;
+        var headers = new org.springframework.http.HttpHeaders();
+        if (token != null) headers.setBearerAuth(token);
+        var requestEntity = new org.springframework.http.HttpEntity<>(headers);
+        try {
+            var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
+            var response = restTemplate.exchange(
+                    "http://employee-service:8083/api/v1/employees/{id}",
+                    org.springframework.http.HttpMethod.GET,
+                    requestEntity,
+                    responseType,
+                    employeeId
+            );
+            var body = response.getBody();
+            if (body == null) return "Неизвестный сотрудник";
+            String firstName = body.get("firstName") != null ? body.get("firstName").toString() : "";
+            String lastName = body.get("lastName") != null ? body.get("lastName").toString() : "";
+            String fullName = (lastName + " " + firstName).trim();
+            return fullName.isEmpty() ? "Сотрудник #" + employeeId : fullName;
+        } catch (Exception e) {
+            return "Сотрудник #" + employeeId;
+        }
+    }
+
     public CommentResponse createComment(Long orderId, CommentRequest request) {
         Comment comment = commentMapper.toEntity(request);
         comment.setOrderId(orderId);
         comment.setEmployeeId(getCurrentEmployeeId());
+        comment.setEmployeeName(getCurrentEmployeeNameFromToken());
         comment.setReaded(false);
         Comment saved = commentRepository.save(comment);
         return commentMapper.toDto(saved);
@@ -78,21 +129,48 @@ public class CommentService {
                 .stream()
                 .map(comment -> {
                     var dto = commentMapper.toDto(comment);
-                    dto.setReplies(buildReplyTree(null));
+                    dto.setEmployeeName(
+                            comment.getEmployeeName() != null && !comment.getEmployeeName().isBlank()
+                                    ? comment.getEmployeeName()
+                                    : fetchEmployeeName(comment.getEmployeeId())
+                    );
+                    if (comment.getReplies() != null && !comment.getReplies().isEmpty()) {
+                        var rootReplies = comment.getReplies().stream()
+                                .filter(r -> !Boolean.TRUE.equals(r.getDeleted()) && r.getParentReplyId() == null)
+                                .map(reply -> {
+                                    var replyDto = commentReplyMapper.toDto(reply);
+                                    replyDto.setEmployeeName(
+                                            reply.getEmployeeName() != null && !reply.getEmployeeName().isBlank()
+                                                    ? reply.getEmployeeName()
+                                                    : fetchEmployeeName(reply.getEmployeeId())
+                                    );
+                                    replyDto.setReplies(buildNestedReplies(reply));
+                                    return replyDto;
+                                })
+                                .toList();
+                        dto.setReplies(rootReplies);
+                    } else {
+                        dto.setReplies(List.of());
+                    }
                     return dto;
                 })
                 .toList();
     }
 
-    private List<com.example.commentservice.dto.response.CommentReplyResponse> buildReplyTree(Long parentReplyId) {
-        List<com.example.commentservice.entity.CommentReply> replies = parentReplyId == null
-                ? commentReplyRepository.findByParentCommentIdAndDeletedFalse(null)
-                : commentReplyRepository.findByParentReplyIdAndDeletedFalse(parentReplyId);
-
-        return replies.stream()
-                .map(reply -> {
-                    var dto = commentReplyMapper.toDto(reply);
-                    dto.setReplies(buildReplyTree(reply.getId()));
+    private List<com.example.commentservice.dto.response.CommentReplyResponse> buildNestedReplies(CommentReply reply) {
+        if (reply.getReplies() == null || reply.getReplies().isEmpty()) {
+            return List.of();
+        }
+        return reply.getReplies().stream()
+                .filter(r -> !Boolean.TRUE.equals(r.getDeleted()))
+                .map(child -> {
+                    var dto = commentReplyMapper.toDto(child);
+                    dto.setEmployeeName(
+                            child.getEmployeeName() != null && !child.getEmployeeName().isBlank()
+                                    ? child.getEmployeeName()
+                                    : fetchEmployeeName(child.getEmployeeId())
+                    );
+                    dto.setReplies(buildNestedReplies(child));
                     return dto;
                 })
                 .toList();

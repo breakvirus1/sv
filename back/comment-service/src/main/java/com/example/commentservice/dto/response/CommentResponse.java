@@ -14,6 +14,7 @@ public class CommentResponse {
     private Long id;
     private Long orderId;
     private Long employeeId;
+    private String employeeName;
     private Boolean readed;
     private String body;
     private LocalDateTime createdAt;
