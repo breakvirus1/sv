@@ -9,9 +9,14 @@ import {
   Alert,
   Collapse,
   IconButton,
-  Link
+  Button,
+  Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
-import { Person, ExpandMore, ExpandLess, AttachFile } from '@mui/icons-material';
+import { Person, ExpandMore, ExpandLess, AttachFile, Notifications } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
@@ -228,6 +233,26 @@ const ProductionOrderList = () => {
   const allOrders = data?.pages?.flatMap(page => page.content) ?? [];
   const totalCount = data?.pages?.[0]?.totalElements ?? 0;
 
+  const { data: unreadNotifications = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/notifications');
+      return response.data || [];
+    },
+    enabled: !!user,
+    retry: 1,
+    retryDelay: 1000,
+  });
+
+  const hasUnreadNotifications = unreadNotifications.some(n => !n.readed);
+  const [showNotificationDialog, setShowNotificationDialog] = useState(false);
+
+  useEffect(() => {
+    if (hasUnreadNotifications) {
+      setShowNotificationDialog(true);
+    }
+  }, [hasUnreadNotifications]);
+
   const getTitle = () => {
     if (statusFilter) return `Заказы: ${getStatusLabel(statusFilter)}`;
     return 'Заказы';
@@ -303,6 +328,36 @@ const ProductionOrderList = () => {
           </Box>
         )}
       </Paper>
+      <Dialog
+        open={showNotificationDialog}
+        onClose={() => setShowNotificationDialog(false)}
+        aria-labelledby="notification-dialog-title"
+        aria-describedby="notification-dialog-description"
+        PaperProps={{
+          sx: {
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            m: 0,
+            width: 320,
+          }
+        }}
+      >
+        <DialogTitle id="notification-dialog-title">
+          <Box display="flex" alignItems="center" gap={1}>
+            <Notifications color="primary" />
+            Уведомление
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography>Проверь уведомления</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowNotificationDialog(false)} autoFocus>
+            Закрыть
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
     </Container>
   );

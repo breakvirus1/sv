@@ -79,6 +79,26 @@ const ManagerOrderList = () => {
 
   const managerId = currentEmployee?.id;
 
+  const { data: unreadNotifications = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/notifications');
+      return response.data || [];
+    },
+    enabled: !!user,
+    retry: 1,
+    retryDelay: 1000,
+  });
+
+  const hasUnreadNotifications = unreadNotifications.some(n => !n.readed);
+  const [showNotificationDialog, setShowNotificationDialog] = useState(false);
+
+  useEffect(() => {
+    if (hasUnreadNotifications) {
+      setShowNotificationDialog(true);
+    }
+  }, [hasUnreadNotifications]);
+
   const {
     data,
     isLoading,
