@@ -8,9 +8,13 @@ import {
   Container,
   Paper,
   CircularProgress,
-  Alert
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
-import { Add, Person } from '@mui/icons-material';
+import { Add, Person, Notifications } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -313,7 +317,8 @@ const ManagerOrderList = () => {
       </Paper>
     </Box>
     </Container>
-  );
+
+    );
 };
 
 export default ManagerOrderList;

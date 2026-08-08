@@ -50,6 +50,7 @@ import org.springframework.web.client.RestTemplate;
 
 import com.example.orderservice.exception.NotFoundException;
 import java.math.BigDecimal;
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -565,6 +566,45 @@ public OrderResponse getOrderById(Long id) {
         }
 
         Order saved = orderRepository.save(order);
+
+        if (ProductionStage.valueOf(status) == ProductionStage.READY) {
+            try {
+                var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
+                var employeeResponse = restTemplate.exchange(
+                        "http://employee-service:8083/api/v1/employees/" + (order.getManager() != null ? order.getManager().getId() : ""),
+                        org.springframework.http.HttpMethod.GET,
+                        null,
+                        responseType
+                );
+                var employeeBody = employeeResponse.getBody();
+                String fullName = "Сотрудник";
+                if (employeeBody != null) {
+                    String lastName = employeeBody.get("lastName") != null ? employeeBody.get("lastName").toString() : "";
+                    String firstName = employeeBody.get("firstName") != null ? employeeBody.get("firstName").toString() : "";
+                    fullName = (lastName + " " + firstName).trim();
+                    if (fullName.isBlank()) fullName = "Сотрудник #" + (order.getManager() != null ? order.getManager().getId() : "");
+                }
+                String message = "Заказ №" + order.getOrderNumber() + " готов";
+                var notificationRequest = new HashMap<String, Object>();
+                notificationRequest.put("message", message);
+                notificationRequest.put("type", "ORDER_READY");
+                notificationRequest.put("referenceId", order.getId());
+                notificationRequest.put("referenceType", "ORDER");
+                notificationRequest.put("userId", order.getManager() != null ? order.getManager().getId() : null);
+                var headers = new org.springframework.http.HttpHeaders();
+                headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+                var requestEntity = new org.springframework.http.HttpEntity<>(notificationRequest, headers);
+                restTemplate.exchange(
+                        "http://comment-service:8088/api/v1/notifications",
+                        org.springframework.http.HttpMethod.POST,
+                        requestEntity,
+                        Object.class
+                );
+            } catch (Exception e) {
+                System.err.println("Failed to send order ready notification: " + e.getMessage());
+            }
+        }
+
         return orderMapper.toDto(saved);
     }
 

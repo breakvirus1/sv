@@ -16,6 +16,7 @@ import TestCalculations from './pages/TestCalculations'
 import CreateOrderForm from './components/CreateOrderForm'
 import ManagerOrderDetail from './pages/ManagerOrderDetail'
 import ManagerDashboard from './pages/ManagerDashboard'
+import NotificationsList from './pages/NotificationsList'
 
 function App() {
   const { user, loading } = useAuth()
@@ -119,12 +120,17 @@ function App() {
                  <AdminPanel />
                </ProtectedRoute>
              } />
-             <Route path="/test-calculations" element={
-               <ProtectedRoute>
-                 <TestCalculations />
-               </ProtectedRoute>
-             } />
-           </Routes>
+              <Route path="/test-calculations" element={
+                <ProtectedRoute>
+                  <TestCalculations />
+                </ProtectedRoute>
+              } />
+              <Route path="/notifications" element={
+                <ProtectedRoute>
+                  <NotificationsList />
+                </ProtectedRoute>
+              } />
+            </Routes>
         </div>
       </div>
     </div>

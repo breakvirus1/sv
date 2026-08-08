@@ -74,7 +74,7 @@ public class GatewayConfig {
                   .uri("http://generate-data-service:8090")
               )
             .route("comment-service", r -> r
-                .path("/api/v1/comments/**", "/api/v1/comment-replies/**")
+                .path("/api/v1/comments/**", "/api/v1/comment-replies/**", "/api/v1/notifications/**")
                 .uri("http://comment-service:8088")
             )
              .build();

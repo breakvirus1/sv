@@ -31,6 +31,7 @@ public class CommentService {
     private final RestTemplate restTemplate;
     private final CommentReplyMapper commentReplyMapper;
     private final CommentReplyRepository commentReplyRepository;
+    private final NotificationService notificationService;
 
     private Long getCurrentEmployeeId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -120,6 +121,28 @@ public class CommentService {
         comment.setEmployeeName(getCurrentEmployeeNameFromToken());
         comment.setReaded(false);
         Comment saved = commentRepository.save(comment);
+
+        try {
+            var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
+            var orderResponse = restTemplate.exchange(
+                    "http://order-service:8081/api/v1/orders/" + orderId,
+                    org.springframework.http.HttpMethod.GET,
+                    null,
+                    responseType
+            );
+            var orderBody = orderResponse.getBody();
+            if (orderBody != null && orderBody.containsKey("employeeId")) {
+                Object authorIdObj = orderBody.get("employeeId");
+                Long authorId = authorIdObj instanceof Number n ? n.longValue() : Long.parseLong(authorIdObj.toString());
+                if (!authorId.equals(comment.getEmployeeId())) {
+                    String message = "Новый комментарий к заказу №" + orderBody.get("orderNumber") + ": " + comment.getBody();
+                    notificationService.createNotification(message, "COMMENT", comment.getId(), "COMMENT", authorId);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to send comment notification: " + e.getMessage());
+        }
+
         return commentMapper.toDto(saved);
     }
 

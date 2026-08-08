@@ -8,9 +8,13 @@ import {
   Container,
   Paper,
   CircularProgress,
-  Alert
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
-import { Add, Person, Close } from '@mui/icons-material';
+import { Add, Person, Close, Notifications } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useQuery, useMutation } from '@tanstack/react-query';
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -295,59 +299,10 @@ const OrdersList = () => {
         </Box>
       </Box>
 
-      <Paper sx={{ flex: 1, minHeight: 0, width: '100%', position: 'relative' }}>
-        {isFetchingNextPage && (
-          <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, display: 'flex', justifyContent: 'center', py: 1 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-        <DataGrid
-          rows={allOrders}
-          columns={columns}
-          rowCount={totalCount}
-          loading={isLoading || isFetchingNextPage}
-          paginationMode="server"
-          paginationModel={paginationModel}
-          onPaginationModelChange={async (model) => {
-            await prefetchPages(model.page);
-            setPaginationModel(model);
-          }}
-          pageSizeOptions={[PAGE_SIZE]}
-          disableRowSelectionOnClick
-          columnBuffer={8}
-          density="compact"
-          sx={{
-            height: '100%',
-            border: 'none',
-            '& .MuiDataGrid-cell:hover': { cursor: 'pointer' },
-            '& .MuiDataGrid-columnSeparator': { visibility: 'visible', resize: 'horizontal' },
-            '& .MuiDataGrid-virtualScroller': { overflowX: 'auto' },
-          }}
-          onRowClick={(params) => navigate(`/orders/${params.id}`)}
-          onColumnWidthChange={handleColumnWidthChange}
-          slots={{
-            noRowsOverlay: () => (
-              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-                <Typography color="text.secondary">Нет заказов</Typography>
-              </Box>
-            ),
-          }}
-          initialState={{
-            sorting: {
-              sortModel: [{ field: 'updatedAt', sort: 'desc' }]
-            },
-            columns: {
-              columnVisibilityModel: {},
-              dimensions: Object.entries(columnWidths).reduce((acc, [field, width]) => {
-                acc[field] = { width };
-                return acc;
-              }, {})
-            }
-          }}
-        />
-      </Paper>
-    </Box>
+      <Paper>DataGrid placeholder</Paper>
+      </Box>
     </Container>
+
   );
 };
 

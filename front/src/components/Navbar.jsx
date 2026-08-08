@@ -1,7 +1,7 @@
-import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery, ListItemIcon, ListItemText, Chip, Divider } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery, ListItemIcon, ListItemText, Chip, Divider, Badge } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
-import { Person, Logout, Add, AdminPanelSettings, ShoppingBag, ArrowDropDown, Assignment, Visibility, Category } from '@mui/icons-material';
+import { Person, Logout, Add, AdminPanelSettings, ShoppingBag, ArrowDropDown, Assignment, Visibility, Category, Notifications } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
@@ -27,6 +27,17 @@ const Navbar = () => {
     queryFn: async () => {
       const response = await api.get('/api/v1/orders?size=50');
       return response.data.content || [];
+    },
+    enabled: isAuthenticated,
+    retry: 1,
+    retryDelay: 1000,
+  });
+
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['unreadNotifications'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/notifications/unread-count');
+      return response.data || 0;
     },
     enabled: isAuthenticated,
     retry: 1,
@@ -237,7 +248,16 @@ const Navbar = () => {
                </>
              )}
 
-            <Typography variant="body2">
+              {/* Notifications button */}
+              {isAuthenticated && (
+                <IconButton color="inherit" onClick={() => navigate('/notifications')} size="small">
+                  <Badge badgeContent={unreadCount} color="error">
+                    <Notifications />
+                  </Badge>
+                </IconButton>
+              )}
+
+             <Typography variant="body2">
               {user?.name} ({user?.roles?.map(r => r.replace(/^ROLE_/, '')).join(', ')})
             </Typography>
             <IconButton onClick={handleMenu} color="inherit" size="small">

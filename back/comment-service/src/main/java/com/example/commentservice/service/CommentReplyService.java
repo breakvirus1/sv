@@ -2,10 +2,12 @@ package com.example.commentservice.service;
 
 import com.example.commentservice.dto.request.CommentReplyRequest;
 import com.example.commentservice.dto.response.CommentReplyResponse;
+import com.example.commentservice.entity.Comment;
 import com.example.commentservice.entity.CommentReply;
 import com.example.commentservice.exception.ResourceNotFoundException;
 import com.example.commentservice.mapper.CommentReplyMapper;
 import com.example.commentservice.repository.CommentReplyRepository;
+import com.example.commentservice.repository.CommentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +28,8 @@ public class CommentReplyService {
     private final CommentReplyRepository commentReplyRepository;
     private final CommentReplyMapper commentReplyMapper;
     private final RestTemplate restTemplate;
+    private final NotificationService notificationService;
+    private final CommentRepository commentRepository;
 
     private Long getCurrentEmployeeId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -126,6 +130,30 @@ public class CommentReplyService {
         reply.setEmployeeName(getCurrentEmployeeNameFromToken());
         reply.setReaded(false);
         CommentReply saved = commentReplyRepository.save(reply);
+
+        try {
+            Long targetUserId = null;
+            String message = null;
+
+            if (request.getParentReplyId() != null) {
+                CommentReply parentReply = commentReplyRepository.findById(request.getParentReplyId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Parent reply not found"));
+                targetUserId = parentReply.getEmployeeId();
+                message = "Новый ответ на ваш комментарий: " + saved.getBody();
+            } else {
+                Comment parentComment = commentRepository.findById(request.getParentCommentId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Parent comment not found"));
+                targetUserId = parentComment.getEmployeeId();
+                message = "Новый ответ на ваш комментарий: " + saved.getBody();
+            }
+
+            if (targetUserId != null && !targetUserId.equals(saved.getEmployeeId())) {
+                notificationService.createNotification(message, "REPLY", saved.getId(), "REPLY", targetUserId);
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to send reply notification: " + e.getMessage());
+        }
+
         return buildReplyDto(saved);
     }
 
