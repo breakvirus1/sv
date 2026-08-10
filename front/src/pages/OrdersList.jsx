@@ -319,7 +319,52 @@ const OrdersList = () => {
         </Box>
       </Box>
 
-      <Paper>DataGrid placeholder</Paper>
+      <Paper>
+        <DataGrid
+          rows={allOrders}
+          columns={columns}
+          rowCount={totalCount}
+          loading={isLoading || isFetchingNextPage}
+          paginationMode="server"
+          paginationModel={paginationModel}
+          onPaginationModelChange={async (model) => {
+            await prefetchPages(model.page);
+            setPaginationModel(model);
+          }}
+          pageSizeOptions={[PAGE_SIZE]}
+          disableRowSelectionOnClick
+          columnBuffer={8}
+          density="compact"
+          sx={{
+            height: '100%',
+            border: 'none',
+            '& .MuiDataGrid-cell:hover': { cursor: 'pointer' },
+            '& .MuiDataGrid-columnSeparator': { visibility: 'visible', resize: 'horizontal' },
+            '& .MuiDataGrid-virtualScroller': { overflowX: 'auto' },
+          }}
+          onRowClick={(params) => navigate(`/orders/${params.id}`)}
+          onColumnWidthChange={handleColumnWidthChange}
+          slots={{
+            noRowsOverlay: () => (
+              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                <Typography color="text.secondary">Нет заказов</Typography>
+              </Box>
+            ),
+          }}
+          initialState={{
+            sorting: {
+              sortModel: [{ field: 'updatedAt', sort: 'desc' }]
+            },
+            columns: {
+              columnVisibilityModel: {},
+              dimensions: Object.entries(columnWidths).reduce((acc, [field, width]) => {
+                acc[field] = { width };
+                return acc;
+              }, {})
+            }
+          }}
+        />
+      </Paper>
       <Dialog
         open={showNotificationDialog}
         onClose={() => setShowNotificationDialog(false)}
