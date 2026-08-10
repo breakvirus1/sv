@@ -8,11 +8,16 @@ import com.example.commentservice.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
@@ -23,6 +28,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationMapper notificationMapper;
+    private final RestTemplate restTemplate;
 
     private Long getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -33,10 +39,15 @@ public class NotificationService {
             }
             try {
                 var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
-                var response = new org.springframework.web.client.RestTemplate().exchange(
+                var tokenValue = jwtAuth.getToken().getTokenValue();
+                var headers = new HttpHeaders();
+                headers.setBearerAuth(tokenValue);
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                var requestEntity = new HttpEntity<>(headers);
+                var response = restTemplate.exchange(
                         "http://employee-service:8083/api/v1/employees/username/{username}",
-                        org.springframework.http.HttpMethod.GET,
-                        null,
+                        HttpMethod.GET,
+                        requestEntity,
                         responseType,
                         username
                 );
