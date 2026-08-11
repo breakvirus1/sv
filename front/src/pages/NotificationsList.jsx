@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Paper, Typography, Button, IconButton, Collapse, Container } from '@mui/material';
+import { Box, Paper, Typography, Button, IconButton, Collapse, Container, Chip } from '@mui/material';
 import { Notifications, Close, CheckCircle, OpenInNew } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -40,21 +40,39 @@ const NotificationsList = () => {
       markAsReadMutation.mutate(notification.id);
     }
     if (notification.referenceType && notification.referenceId) {
-      switch (notification.referenceType) {
-        case 'COMMENT':
-          navigate(`/orders/${notification.referenceId}`);
-          break;
-        case 'REPLY':
-          navigate(`/orders/${notification.referenceId}`);
-          break;
-        case 'ORDER':
-          navigate(`/orders/${notification.referenceId}`);
-          break;
-        default:
-          navigate('/orders');
+      if (notification.referenceType === 'COMMENT' || notification.referenceType === 'REPLY' || notification.referenceType === 'ORDER') {
+        navigate(`/orders/${notification.referenceId}`);
+      } else {
+        navigate('/orders');
       }
     } else {
       navigate('/orders');
+    }
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'COMMENT':
+        return <CheckCircle fontSize="small" color="primary" />;
+      case 'REPLY':
+        return <OpenInNew fontSize="small" color="secondary" />;
+      case 'ORDER_READY':
+        return <CheckCircle fontSize="small" color="success" />;
+      default:
+        return <Notifications fontSize="small" />;
+    }
+  };
+
+  const getNotificationLabel = (type) => {
+    switch (type) {
+      case 'COMMENT':
+        return 'Комментарий';
+      case 'REPLY':
+        return 'Ответ';
+      case 'ORDER_READY':
+        return 'Заказ готов';
+      default:
+        return 'Уведомление';
     }
   };
 
@@ -103,14 +121,22 @@ const NotificationsList = () => {
                 <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                   <Box flex={1}>
                     <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                      {getNotificationIcon(notification.type)}
+                      <Chip 
+                        label={getNotificationLabel(notification.type)} 
+                        size="small" 
+                        color={notification.readed ? "default" : "primary"}
+                        variant="outlined"
+                      />
                       {!notification.readed && <CheckCircle fontSize="small" color="primary" />}
-                      <Typography
-                        variant="body1"
-                        fontWeight={notification.readed ? 'normal' : 'bold'}
-                      >
-                        {notification.message}
-                      </Typography>
                     </Box>
+                    <Typography
+                      variant="body1"
+                      fontWeight={notification.readed ? 'normal' : 'bold'}
+                      mb={0.5}
+                    >
+                      {notification.message}
+                    </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {notification.createdAt ? new Date(notification.createdAt).toLocaleString() : ''}
                     </Typography>

@@ -1,8 +1,8 @@
 # Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:20 AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci --no-audit --no-fund
 COPY . .
 ARG VITE_API_URL
 ARG VITE_KEYCLOAK_ISSUER
@@ -20,7 +20,7 @@ EXPOSE 5174
 CMD ["nginx", "-g", "daemon off;"]
 
 # Stage 3: Development
-FROM node:20-alpine AS development
+FROM node:20 AS development
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
