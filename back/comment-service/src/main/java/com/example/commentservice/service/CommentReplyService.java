@@ -148,7 +148,7 @@ public class CommentReplyService {
             }
 
             if (targetUserId != null && !targetUserId.equals(saved.getEmployeeId())) {
-                notificationService.createNotification(message, "REPLY", saved.getId(), "REPLY", targetUserId);
+                notificationService.createNotification(message, "REPLY", saved.getOrderId(), "REPLY", targetUserId);
             }
         } catch (Exception e) {
             System.err.println("Failed to send reply notification: " + e.getMessage());
