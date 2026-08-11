@@ -13,4 +13,6 @@ public class CommentReplyRequest {
 
     @NotBlank(message = "Тело ответа не может быть пустым")
     private String body;
+
+    private String imageUrl;
 }

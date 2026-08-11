@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Box, Paper, Typography, TextField, Button, IconButton, Collapse } from '@mui/material';
-import { Send } from '@mui/icons-material';
+import { useState, useEffect, useRef } from 'react';
+import { Box, Paper, Typography, TextField, Button, IconButton, Collapse, Input, Chip } from '@mui/material';
+import { Send, Image as ImageIcon, Close } from '@mui/icons-material';
 import api from '../services/api';
 
 const CommentsTab = ({ orderId }) => {
@@ -9,8 +9,13 @@ const CommentsTab = ({ orderId }) => {
   const [newComment, setNewComment] = useState('');
   const [replyForms, setReplyForms] = useState({});
   const [replyTexts, setReplyTexts] = useState({});
+  const [replyImages, setReplyImages] = useState({});
   const [expandedReplies, setExpandedReplies] = useState({});
   const [loading, setLoading] = useState(false);
+  const [commentImage, setCommentImage] = useState(null);
+  const [commentImagePreview, setCommentImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
+  const replyFileInputRefs = useRef({});
 
   useEffect(() => {
     if (!orderId) return;
@@ -26,10 +31,43 @@ const CommentsTab = ({ orderId }) => {
     setComments(res.data);
   };
 
+  const handleImageUpload = (file, isReply = false, parentId = null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result;
+      if (isReply) {
+        const key = parentId ? `reply-${parentId}` : parentId;
+        setReplyImages(prev => ({ ...prev, [key]: base64 }));
+      } else {
+        setCommentImage(base64);
+        setCommentImagePreview(base64);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaste = (e, isReply = false, parentId = null) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        handleImageUpload(file, isReply, parentId);
+        break;
+      }
+    }
+  };
+
   const handleAddComment = async () => {
-    if (!newComment.trim()) return;
-    await api.post(`/api/v1/comments/order/${orderId}`, { body: newComment });
+    if (!newComment.trim() && !commentImage) return;
+    await api.post(`/api/v1/comments/order/${orderId}`, { 
+      body: newComment, 
+      imageUrl: commentImage 
+    });
     setNewComment('');
+    setCommentImage(null);
+    setCommentImagePreview(null);
     setShowCommentForm(false);
     await fetchComments();
   };
@@ -37,9 +75,22 @@ const CommentsTab = ({ orderId }) => {
   const handleAddReply = async (parentId, parentType = 'comment') => {
     const key = parentType === 'comment' ? parentId : `reply-${parentId}`;
     const text = replyTexts[key];
-    if (!text?.trim()) return;
-    await api.post(`/api/v1/comment-replies`, { parentCommentId: parentId, body: text });
+    const image = replyImages[key];
+    if (!text?.trim() && !image) return;
+
+    const payload = { 
+      parentCommentId: parentId, 
+      body: text,
+      imageUrl: image
+    };
+
+    if (parentType === 'reply') {
+      payload.parentReplyId = parentId;
+    }
+
+    await api.post(`/api/v1/comment-replies`, payload);
     setReplyTexts(prev => ({ ...prev, [key]: '' }));
+    setReplyImages(prev => ({ ...prev, [key]: null }));
     setReplyForms(prev => ({ ...prev, [key]: false }));
     await fetchComments();
   };
@@ -68,6 +119,11 @@ const CommentsTab = ({ orderId }) => {
             </Typography>
           </Box>
           <Typography variant="body2" mb={1}>{reply.body}</Typography>
+          {reply.imageUrl && (
+            <Box mb={1}>
+              <img src={reply.imageUrl} alt="Прикреплённое изображение" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 4 }} />
+            </Box>
+          )}
           <Box display="flex" alignItems="center" gap={1}>
             <Button size="small" onClick={() => toggleReplyForm(reply.id, 'reply')}>
               {showReplyForm ? 'Отмена' : 'Ответить'}
@@ -83,9 +139,36 @@ const CommentsTab = ({ orderId }) => {
                 placeholder="Ваш ответ..."
                 value={replyTexts[replyKey] || ''}
                 onChange={e => setReplyTexts(prev => ({ ...prev, [replyKey]: e.target.value }))}
+                onPaste={(e) => handlePaste(e, true, reply.id)}
               />
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                ref={el => replyFileInputRefs.current[replyKey] = el}
+                onChange={(e) => handleImageUpload(e.target.files[0], true, reply.id)}
+              />
+              <IconButton 
+                size="small" 
+                onClick={() => replyFileInputRefs.current[replyKey]?.click()}
+                sx={{ mt: 0.5 }}
+              >
+                <ImageIcon fontSize="small" />
+              </IconButton>
               <IconButton size="small" onClick={() => handleAddReply(reply.id, 'reply')} sx={{ mt: 0.5 }}>
                 <Send fontSize="small" />
+              </IconButton>
+            </Box>
+          )}
+          {replyImages[replyKey] && (
+            <Box sx={{ mt: 1, position: 'relative', display: 'inline-block' }}>
+              <img src={replyImages[replyKey]} alt="Preview" style={{ maxWidth: 100, maxHeight: 100, borderRadius: 4 }} />
+              <IconButton
+                size="small"
+                onClick={() => setReplyImages(prev => ({ ...prev, [replyKey]: null }))}
+                sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'background.paper' }}
+              >
+                <Close fontSize="small" />
               </IconButton>
             </Box>
           )}
@@ -114,6 +197,11 @@ const CommentsTab = ({ orderId }) => {
               </Typography>
             </Box>
             <Typography variant="body1" mb={1}>{comment.body}</Typography>
+            {comment.imageUrl && (
+              <Box mb={1}>
+                <img src={comment.imageUrl} alt="Прикреплённое изображение" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 4 }} />
+              </Box>
+            )}
             <Box display="flex" alignItems="center" gap={1}>
               <Button size="small" onClick={() => toggleReplies(comment.id)}>
                 {expandedReplies[comment.id] ? 'Скрыть ответы' : `Ответы (${comment.replies?.length || 0})`}
@@ -125,16 +213,42 @@ const CommentsTab = ({ orderId }) => {
             {showReplyForm && (
               <Box sx={{ mt: 1.5, display: 'flex', gap: 1, alignItems: 'flex-start' }}>
                 <TextField
-                  size="small"
                   fullWidth
                   multiline
                   minRows={2}
                   placeholder="Ваш ответ..."
                   value={replyTexts[comment.id] || ''}
                   onChange={e => setReplyTexts(prev => ({ ...prev, [comment.id]: e.target.value }))}
+                  onPaste={(e) => handlePaste(e, true, comment.id)}
                 />
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  ref={el => replyFileInputRefs.current[comment.id] = el}
+                  onChange={(e) => handleImageUpload(e.target.files[0], true, comment.id)}
+                />
+                <IconButton 
+                  size="small" 
+                  onClick={() => replyFileInputRefs.current[comment.id]?.click()}
+                  sx={{ mt: 0.5 }}
+                >
+                  <ImageIcon />
+                </IconButton>
                 <IconButton size="small" onClick={() => handleAddReply(comment.id, 'comment')} sx={{ mt: 0.5 }}>
                   <Send />
+                </IconButton>
+              </Box>
+            )}
+            {replyImages[comment.id] && (
+              <Box sx={{ mt: 1, position: 'relative', display: 'inline-block' }}>
+                <img src={replyImages[comment.id]} alt="Preview" style={{ maxWidth: 100, maxHeight: 100, borderRadius: 4 }} />
+                <IconButton
+                  size="small"
+                  onClick={() => setReplyImages(prev => ({ ...prev, [comment.id]: null }))}
+                  sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'background.paper' }}
+                >
+                  <Close fontSize="small" />
                 </IconButton>
               </Box>
             )}
@@ -161,16 +275,52 @@ const CommentsTab = ({ orderId }) => {
             value={newComment}
             onChange={e => setNewComment(e.target.value)}
             placeholder="Введите комментарий..."
+            onPaste={(e) => handlePaste(e, false)}
           />
-          <Box sx={{ mt: 1, display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-            {showCommentForm && (
-              <Button onClick={() => { setShowCommentForm(false); setNewComment(''); }}>
-                Отмена
+          <input
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            ref={fileInputRef}
+            onChange={(e) => handleImageUpload(e.target.files[0], false)}
+          />
+          {commentImagePreview && (
+            <Box sx={{ mt: 1, position: 'relative', display: 'inline-block' }}>
+              <img src={commentImagePreview} alt="Preview" style={{ maxWidth: 100, maxHeight: 100, borderRadius: 4 }} />
+              <IconButton
+                size="small"
+                onClick={() => { setCommentImage(null); setCommentImagePreview(null); }}
+                sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'background.paper' }}
+              >
+                <Close fontSize="small" />
+              </IconButton>
+            </Box>
+          )}
+          <Box sx={{ mt: 1, display: 'flex', gap: 1, justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box>
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                id="comment-image-upload"
+                onChange={(e) => handleImageUpload(e.target.files[0], false)}
+              />
+              <label htmlFor="comment-image-upload">
+                <Button size="small" component="span" variant="outlined" startIcon={<ImageIcon />}>
+                  Изображение
+                </Button>
+              </label>
+            </Box>
+            <Box>
+              {showCommentForm && (
+                <Button onClick={() => { setShowCommentForm(false); setNewComment(''); setCommentImage(null); setCommentImagePreview(null); }} sx={{ mr: 1 }}>
+                  Отмена
+                </Button>
+              )}
+              <Button variant="contained" onClick={handleAddComment} disabled={!newComment.trim() && !commentImage}>
+                Отправить
               </Button>
-            )}
-            <Button variant="contained" onClick={handleAddComment} disabled={!newComment.trim()}>
-              Отправить
-            </Button>
+            </Box>
           </Box>
         </Paper>
       )}
@@ -179,4 +329,3 @@ const CommentsTab = ({ orderId }) => {
 };
 
 export default CommentsTab;
-

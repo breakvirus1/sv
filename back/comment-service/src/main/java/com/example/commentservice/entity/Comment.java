@@ -29,6 +29,9 @@ public class Comment extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String body;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Column(name = "employee_name")
     private String employeeName;
 
