@@ -171,6 +171,8 @@ services:
         condition: service_started
     networks:
       - sv-network
+    volumes:
+      - ./uploads:/app/uploads
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
