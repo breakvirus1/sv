@@ -35,13 +35,18 @@ const NotificationsList = () => {
     },
   });
 
-  const handleNotificationClick = (notification) => {
+  const handleNotificationClick = async (notification) => {
     if (!notification.readed) {
       markAsReadMutation.mutate(notification.id);
     }
     if (notification.referenceType && notification.referenceId) {
       if (notification.referenceType === 'COMMENT' || notification.referenceType === 'REPLY' || notification.referenceType === 'ORDER') {
-        navigate(`/orders/${notification.referenceId}`);
+        try {
+          await api.get(`/api/v1/orders/${notification.referenceId}`);
+          navigate(`/orders/${notification.referenceId}`);
+        } catch (e) {
+          navigate('/orders');
+        }
       } else {
         navigate('/orders');
       }
