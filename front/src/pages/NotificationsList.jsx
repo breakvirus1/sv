@@ -41,12 +41,7 @@ const NotificationsList = () => {
     }
     if (notification.referenceType && notification.referenceId) {
       if (notification.referenceType === 'COMMENT' || notification.referenceType === 'REPLY' || notification.referenceType === 'ORDER') {
-        try {
-          await api.get(`/api/v1/orders/${notification.referenceId}`);
-          navigate(`/orders/${notification.referenceId}`);
-        } catch (e) {
-          navigate('/orders');
-        }
+        navigate(`/orders/${notification.referenceId}`);
       } else {
         navigate('/orders');
       }
