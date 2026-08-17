@@ -131,7 +131,12 @@ public class CommentService {
                     responseType
             );
             var orderBody = orderResponse.getBody();
-            if (orderBody != null && orderBody.containsKey("employeeId")) {
+            if (orderBody != null && orderBody.containsKey("employeeId") && orderBody.containsKey("status")) {
+                Object statusObj = orderBody.get("status");
+                String status = statusObj != null ? statusObj.toString() : null;
+                if ("READY".equals(status) || "CLOSED".equals(status)) {
+                    return commentMapper.toDto(saved);
+                }
                 Object authorIdObj = orderBody.get("employeeId");
                 Long authorId = authorIdObj instanceof Number n ? n.longValue() : Long.parseLong(authorIdObj.toString());
                 if (!authorId.equals(comment.getEmployeeId())) {

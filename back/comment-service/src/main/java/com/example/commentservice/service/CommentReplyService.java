@@ -148,7 +148,25 @@ public class CommentReplyService {
             }
 
             if (targetUserId != null && !targetUserId.equals(saved.getEmployeeId())) {
-                notificationService.createNotification(message, "REPLY", saved.getOrderId(), "REPLY", targetUserId);
+                try {
+                    var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
+                    var orderResponse = restTemplate.exchange(
+                            "http://order-service:8081/api/v1/orders/" + saved.getOrderId(),
+                            org.springframework.http.HttpMethod.GET,
+                            null,
+                            responseType
+                    );
+                    var orderBody = orderResponse.getBody();
+                    if (orderBody != null && orderBody.containsKey("status")) {
+                        Object statusObj = orderBody.get("status");
+                        String status = statusObj != null ? statusObj.toString() : null;
+                        if (!"READY".equals(status) && !"CLOSED".equals(status)) {
+                            notificationService.createNotification(message, "REPLY", saved.getOrderId(), "REPLY", targetUserId);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Failed to check order status for reply notification: " + e.getMessage());
+                }
             }
         } catch (Exception e) {
             System.err.println("Failed to send reply notification: " + e.getMessage());
