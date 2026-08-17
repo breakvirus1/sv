@@ -3,7 +3,7 @@ import { Box, Paper, Typography, TextField, Button, IconButton, Collapse, Input,
 import { Send, Image as ImageIcon, Close } from '@mui/icons-material';
 import api from '../services/api';
 
-const CommentsTab = ({ orderId, highlightCommentId }) => {
+const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
   const [comments, setComments] = useState([]);
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [newComment, setNewComment] = useState('');
@@ -27,9 +27,17 @@ const CommentsTab = ({ orderId, highlightCommentId }) => {
   }, [orderId]);
 
   useEffect(() => {
-    if (!highlightCommentId) return;
+    if (!highlightReplyId) return;
+    const parentCommentId = findParentCommentIdForReply(comments, highlightReplyId);
+    if (parentCommentId != null) {
+      setExpandedReplies(prev => ({ ...prev, [parentCommentId]: true }));
+    }
+  }, [highlightReplyId, comments]);
+
+  useEffect(() => {
+    if (!highlightCommentId && !highlightReplyId) return;
     const timer = setTimeout(() => {
-      const el = document.getElementById(`comment-${highlightCommentId}`) || document.getElementById(`reply-${highlightCommentId}`);
+      const el = document.getElementById(`comment-${highlightCommentId}`) || document.getElementById(`reply-${highlightReplyId}`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.style.transition = 'background-color 0.5s';
@@ -40,7 +48,31 @@ const CommentsTab = ({ orderId, highlightCommentId }) => {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [highlightCommentId, comments]);
+  }, [highlightCommentId, highlightReplyId, comments]);
+
+  const findReplyById = (replies, replyId) => {
+    for (const reply of replies || []) {
+      if (reply.id === replyId) {
+        return reply;
+      }
+      const found = findReplyById(reply.replies, replyId);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const findParentCommentIdForReply = (comments, replyId) => {
+    for (const comment of comments) {
+      if (comment.replies?.some(r => r.id === replyId)) {
+        return comment.id;
+      }
+      const nested = findReplyById(comment.replies, replyId);
+      if (nested) {
+        return comment.id;
+      }
+    }
+    return null;
+  };
 
   const fetchComments = async () => {
     const res = await api.get(`/api/v1/comments/order/${orderId}`);

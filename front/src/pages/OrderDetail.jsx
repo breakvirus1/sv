@@ -77,12 +77,17 @@ const OrderDetail = ({ mode = 'view' }) => {
     const [statusDialogOpen, setStatusDialogOpen] = useState(false);
     const [newStatus, setNewStatus] = useState('');
     const [highlightCommentId, setHighlightCommentId] = useState(null);
+    const [highlightReplyId, setHighlightReplyId] = useState(null);
 
     useEffect(() => {
       const hash = window.location.hash;
-      if (hash.startsWith('#comment-') || hash.startsWith('#reply-')) {
-        const id = hash.replace('#comment-', '').replace('#reply-', '');
+      if (hash.startsWith('#comment-')) {
+        const id = hash.replace('#comment-', '');
         setHighlightCommentId(id);
+        setActiveTab(2);
+      } else if (hash.startsWith('#reply-')) {
+        const id = hash.replace('#reply-', '');
+        setHighlightReplyId(id);
         setActiveTab(2);
       }
     }, []);
@@ -675,7 +680,7 @@ const OrderDetail = ({ mode = 'view' }) => {
                   <PaymentsTab payments={order?.payments || []} />
                 )}
                 {activeTab === 2 && (
-                  <CommentsTab orderId={order?.id} highlightCommentId={highlightCommentId} />
+                  <CommentsTab orderId={order?.id} highlightCommentId={highlightCommentId} highlightReplyId={highlightReplyId} />
                 )}
               </Box>
             </Paper>
