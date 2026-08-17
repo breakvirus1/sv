@@ -88,6 +88,7 @@ const ManagerOrderList = () => {
     enabled: !!user,
     retry: 1,
     retryDelay: 1000,
+    refetchInterval: 5000,
   });
 
   const hasUnreadNotifications = unreadNotifications.some(n => !n.readed);

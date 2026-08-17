@@ -42,6 +42,7 @@ const Navbar = () => {
     enabled: isAuthenticated,
     retry: 1,
     retryDelay: 1000,
+    refetchInterval: 5000,
   });
 
   const handleMenu = (event) => {

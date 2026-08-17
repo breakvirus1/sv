@@ -17,6 +17,7 @@ const NotificationsList = () => {
       return response.data || [];
     },
     enabled: true,
+    refetchInterval: 5000,
   });
 
   const markAsReadMutation = useMutation({
@@ -37,11 +38,16 @@ const NotificationsList = () => {
 
   const handleNotificationClick = async (notification) => {
     if (!notification.readed) {
-      markAsReadMutation.mutate(notification.id);
+      await markAsReadMutation.mutateAsync(notification.id);
     }
     if (notification.referenceType && notification.referenceId) {
       if (notification.referenceType === 'COMMENT' || notification.referenceType === 'REPLY' || notification.referenceType === 'ORDER') {
-        navigate(`/orders/${notification.referenceId}`);
+        try {
+          await api.get(`/api/v1/orders/${notification.referenceId}`);
+          navigate(`/orders/${notification.referenceId}`);
+        } catch (e) {
+          navigate('/orders');
+        }
       } else {
         navigate('/orders');
       }
