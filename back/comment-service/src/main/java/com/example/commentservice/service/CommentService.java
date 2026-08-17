@@ -33,6 +33,14 @@ public class CommentService {
     private final CommentReplyRepository commentReplyRepository;
     private final NotificationService notificationService;
 
+    private String getCurrentToken() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            return jwtAuth.getToken().getTokenValue();
+        }
+        throw new IllegalStateException("Unsupported authentication type");
+    }
+
     private Long getCurrentEmployeeId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
@@ -124,24 +132,30 @@ public class CommentService {
 
         try {
             var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
+            var headers = new org.springframework.http.HttpHeaders();
+            headers.setBearerAuth(getCurrentToken());
+            var requestEntity = new org.springframework.http.HttpEntity<>(headers);
             var orderResponse = restTemplate.exchange(
                     "http://order-service:8081/api/v1/orders/" + orderId,
                     org.springframework.http.HttpMethod.GET,
-                    null,
+                    requestEntity,
                     responseType
             );
             var orderBody = orderResponse.getBody();
-            if (orderBody != null && orderBody.containsKey("employeeId") && orderBody.containsKey("status")) {
+            if (orderBody != null && orderBody.containsKey("manager") && orderBody.containsKey("status")) {
                 Object statusObj = orderBody.get("status");
                 String status = statusObj != null ? statusObj.toString() : null;
                 if ("READY".equals(status) || "CLOSED".equals(status)) {
                     return commentMapper.toDto(saved);
                 }
-                Object authorIdObj = orderBody.get("employeeId");
-                Long authorId = authorIdObj instanceof Number n ? n.longValue() : Long.parseLong(authorIdObj.toString());
-                if (!authorId.equals(comment.getEmployeeId())) {
-                    String message = "Новый комментарий к заказу №" + orderBody.get("orderNumber") + ": " + comment.getBody();
-                    notificationService.createNotification(message, "COMMENT", orderId, "COMMENT", saved.getId(), authorId);
+                Object managerObj = orderBody.get("manager");
+                if (managerObj instanceof java.util.Map) {
+                    Object authorIdObj = ((java.util.Map<?, ?>) managerObj).get("id");
+                    Long authorId = authorIdObj instanceof Number n ? n.longValue() : Long.parseLong(authorIdObj.toString());
+                    if (!authorId.equals(comment.getEmployeeId())) {
+                        String message = "Новый комментарий к заказу №" + orderBody.get("orderNumber") + ": " + comment.getBody();
+                        notificationService.createNotification(message, "COMMENT", orderId, "COMMENT", saved.getId(), authorId);
+                    }
                 }
             }
         } catch (Exception e) {

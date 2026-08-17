@@ -31,6 +31,14 @@ public class CommentReplyService {
     private final NotificationService notificationService;
     private final CommentRepository commentRepository;
 
+    private String getCurrentToken() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            return jwtAuth.getToken().getTokenValue();
+        }
+        throw new IllegalStateException("Unsupported authentication type");
+    }
+
     private Long getCurrentEmployeeId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
@@ -150,10 +158,13 @@ public class CommentReplyService {
             if (targetUserId != null && !targetUserId.equals(saved.getEmployeeId())) {
                 try {
                     var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
+                    var headers = new org.springframework.http.HttpHeaders();
+                    headers.setBearerAuth(getCurrentToken());
+                    var requestEntity = new org.springframework.http.HttpEntity<>(headers);
                     var orderResponse = restTemplate.exchange(
                             "http://order-service:8081/api/v1/orders/" + saved.getOrderId(),
                             org.springframework.http.HttpMethod.GET,
-                            null,
+                            requestEntity,
                             responseType
                     );
                     var orderBody = orderResponse.getBody();
