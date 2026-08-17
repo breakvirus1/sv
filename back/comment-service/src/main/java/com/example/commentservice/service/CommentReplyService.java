@@ -130,7 +130,9 @@ public class CommentReplyService {
             reply.setParentReplyId(request.getParentReplyId());
             reply.setParentCommentId(parentReply.getParentCommentId());
         } else {
-            reply.setOrderId(orderId);
+            Comment parentComment = commentRepository.findById(request.getParentCommentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Parent comment not found"));
+            reply.setOrderId(parentComment.getOrderId());
             reply.setParentCommentId(request.getParentCommentId());
         }
 

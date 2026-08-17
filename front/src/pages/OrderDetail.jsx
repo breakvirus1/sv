@@ -80,8 +80,8 @@ const OrderDetail = ({ mode = 'view' }) => {
 
     useEffect(() => {
       const hash = window.location.hash;
-      if (hash.startsWith('#comment-')) {
-        const id = hash.replace('#comment-', '');
+      if (hash.startsWith('#comment-') || hash.startsWith('#reply-')) {
+        const id = hash.replace('#comment-', '').replace('#reply-', '');
         setHighlightCommentId(id);
         setActiveTab(2);
       }
