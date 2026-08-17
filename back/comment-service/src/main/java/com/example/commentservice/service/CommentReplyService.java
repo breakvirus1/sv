@@ -156,6 +156,7 @@ public class CommentReplyService {
             }
 
             if (targetUserId != null && !targetUserId.equals(saved.getEmployeeId())) {
+                boolean notified = false;
                 try {
                     var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
                     var headers = new org.springframework.http.HttpHeaders();
@@ -173,10 +174,14 @@ public class CommentReplyService {
                         String status = statusObj != null ? statusObj.toString() : null;
                         if (!"READY".equals(status) && !"CLOSED".equals(status)) {
                             notificationService.createNotification(message, "REPLY", saved.getOrderId(), "REPLY", saved.getId(), targetUserId);
+                            notified = true;
                         }
                     }
                 } catch (Exception e) {
                     System.err.println("Failed to check order status for reply notification: " + e.getMessage());
+                }
+                if (!notified) {
+                    notificationService.createNotification(message, "REPLY", saved.getOrderId(), "REPLY", saved.getId(), targetUserId);
                 }
             }
         } catch (Exception e) {
