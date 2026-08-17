@@ -589,12 +589,17 @@ const OrderDetail = ({ mode = 'view' }) => {
   }
 
    if (error) {
-     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-         <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
-       </Container>
-     );
-   }
+      const status = error.response?.status;
+      if (status === 404) {
+        navigate('/orders');
+        return null;
+      }
+      return (
+       <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
+          <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
+        </Container>
+      );
+    }
 
     if (mode === 'edit') {
       return <EditOrder order={order} onSuccess={() => navigate(`/orders/${id}`)} />;
