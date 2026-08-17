@@ -3,7 +3,7 @@ import { Box, Paper, Typography, TextField, Button, IconButton, Collapse, Input,
 import { Send, Image as ImageIcon, Close } from '@mui/icons-material';
 import api from '../services/api';
 
-const CommentsTab = ({ orderId }) => {
+const CommentsTab = ({ orderId, highlightCommentId }) => {
   const [comments, setComments] = useState([]);
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [newComment, setNewComment] = useState('');
@@ -25,6 +25,22 @@ const CommentsTab = ({ orderId }) => {
       .catch(() => setComments([]))
       .finally(() => setLoading(false));
   }, [orderId]);
+
+  useEffect(() => {
+    if (!highlightCommentId) return;
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`comment-${highlightCommentId}`) || document.getElementById(`reply-${highlightCommentId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.transition = 'background-color 0.5s';
+        el.style.backgroundColor = 'rgba(25, 118, 210, 0.15)';
+        setTimeout(() => {
+          el.style.backgroundColor = '';
+        }, 2000);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightCommentId, comments]);
 
   const fetchComments = async () => {
     const res = await api.get(`/api/v1/comments/order/${orderId}`);
@@ -111,7 +127,7 @@ const CommentsTab = ({ orderId }) => {
 
     return (
       <Box key={reply.id} sx={{ ml: indent, mt: 1.5 }}>
-        <Paper sx={{ p: 1.5 }} variant="outlined">
+        <Paper id={`reply-${reply.id}`} sx={{ p: 1.5 }} variant="outlined">
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
             <Typography variant="subtitle2">{reply.employeeName || `Сотрудник #${reply.employeeId}`}</Typography>
             <Typography variant="caption" color="text.secondary">
@@ -189,7 +205,7 @@ const CommentsTab = ({ orderId }) => {
       {comments.map(comment => {
         const showReplyForm = replyForms[comment.id] || false;
         return (
-          <Paper key={comment.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+          <Paper id={`comment-${comment.id}`} key={comment.id} sx={{ p: 2, mb: 2 }} variant="outlined">
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
               <Typography variant="subtitle1">{comment.employeeName || `Сотрудник #${comment.employeeId}`}</Typography>
               <Typography variant="caption" color="text.secondary">

@@ -35,6 +35,9 @@ public class Notification {
     @Column(name = "reference_type")
     private String referenceType;
 
+    @Column(name = "reference_sub_id")
+    private Long referenceSubId;
+
     @Column(name = "readed")
     private Boolean readed = false;
 

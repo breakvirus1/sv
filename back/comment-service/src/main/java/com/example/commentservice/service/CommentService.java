@@ -141,7 +141,7 @@ public class CommentService {
                 Long authorId = authorIdObj instanceof Number n ? n.longValue() : Long.parseLong(authorIdObj.toString());
                 if (!authorId.equals(comment.getEmployeeId())) {
                     String message = "Новый комментарий к заказу №" + orderBody.get("orderNumber") + ": " + comment.getBody();
-                    notificationService.createNotification(message, "COMMENT", orderId, "COMMENT", authorId);
+                    notificationService.createNotification(message, "COMMENT", orderId, "COMMENT", saved.getId(), authorId);
                 }
             }
         } catch (Exception e) {

@@ -161,7 +161,7 @@ public class CommentReplyService {
                         Object statusObj = orderBody.get("status");
                         String status = statusObj != null ? statusObj.toString() : null;
                         if (!"READY".equals(status) && !"CLOSED".equals(status)) {
-                            notificationService.createNotification(message, "REPLY", saved.getOrderId(), "REPLY", targetUserId);
+                            notificationService.createNotification(message, "REPLY", saved.getOrderId(), "REPLY", saved.getId(), targetUserId);
                         }
                     }
                 } catch (Exception e) {

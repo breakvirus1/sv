@@ -71,13 +71,23 @@ const OrderDetail = ({ mode = 'view' }) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-   // ==================== View Mode State ====================
-   const [activeTab, setActiveTab] = useState(0);
-   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-   const [newStatus, setNewStatus] = useState('');
+    // ==================== View Mode State ====================
+    const [activeTab, setActiveTab] = useState(0);
+    const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+    const [newStatus, setNewStatus] = useState('');
+    const [highlightCommentId, setHighlightCommentId] = useState(null);
 
-  // ==================== Queries ====================
+    useEffect(() => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#comment-')) {
+        const id = hash.replace('#comment-', '');
+        setHighlightCommentId(id);
+        setActiveTab(2);
+      }
+    }, []);
+
+   // ==================== Queries ====================
   // Clients (fetch when create mode)
   const { data: clientsData = [] } = useQuery({
     queryKey: ['clients'],
@@ -660,7 +670,7 @@ const OrderDetail = ({ mode = 'view' }) => {
                   <PaymentsTab payments={order?.payments || []} />
                 )}
                 {activeTab === 2 && (
-                  <CommentsTab orderId={order?.id} />
+                  <CommentsTab orderId={order?.id} highlightCommentId={highlightCommentId} />
                 )}
               </Box>
             </Paper>

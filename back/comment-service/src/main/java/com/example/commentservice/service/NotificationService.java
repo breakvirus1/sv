@@ -67,13 +67,14 @@ public class NotificationService {
         throw new IllegalStateException("Unsupported authentication type");
     }
 
-    public NotificationResponse createNotification(String message, String type, Long referenceId, String referenceType, Long userId) {
+    public NotificationResponse createNotification(String message, String type, Long referenceId, String referenceType, Long referenceSubId, Long userId) {
         Notification notification = new Notification();
         notification.setUserId(userId);
         notification.setMessage(message);
         notification.setType(type);
         notification.setReferenceId(referenceId);
         notification.setReferenceType(referenceType);
+        notification.setReferenceSubId(referenceSubId);
         notification.setReaded(false);
         notificationRepository.save(notification);
         return notificationMapper.toDto(notification);
