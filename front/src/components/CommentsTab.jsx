@@ -16,6 +16,7 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
   const [commentImagePreview, setCommentImagePreview] = useState(null);
   const fileInputRef = useRef(null);
   const replyFileInputRefs = useRef({});
+  const highlightAppliedRef = useRef(null);
 
   useEffect(() => {
     if (!orderId) return;
@@ -43,6 +44,10 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
 
   useLayoutEffect(() => {
     if (!highlightCommentId && !highlightReplyId) return;
+
+    const currentTarget = highlightCommentId || highlightReplyId;
+    if (highlightAppliedRef.current === currentTarget) return;
+    highlightAppliedRef.current = currentTarget;
 
     const tryScroll = (attempt = 1) => {
       const el = document.getElementById(`comment-${highlightCommentId}`) || document.getElementById(`reply-${highlightReplyId}`);
