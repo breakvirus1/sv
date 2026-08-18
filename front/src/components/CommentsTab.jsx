@@ -27,23 +27,24 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
   }, [orderId]);
 
   useEffect(() => {
-    if (!highlightCommentId) return;
-    if (comments.length > 0) {
-      setExpandedReplies(prev => ({ ...prev, [highlightCommentId]: true }));
-    }
-  }, [highlightCommentId, comments]);
-
-  useEffect(() => {
-    if (!highlightReplyId) return;
-    const parentCommentId = findParentCommentIdForReply(comments, highlightReplyId);
-    if (parentCommentId != null) {
-      setExpandedReplies(prev => ({ ...prev, [parentCommentId]: true }));
-    }
-  }, [highlightReplyId, comments]);
-
-  useEffect(() => {
     if (!highlightCommentId && !highlightReplyId) return;
-    const timer = setTimeout(() => {
+    if (!comments.length) return;
+
+    const targetId = highlightCommentId || highlightReplyId;
+    if (!targetId) return;
+
+    const isReply = !!highlightReplyId;
+    const parentCommentId = isReply ? findParentCommentIdForReply(comments, highlightReplyId) : Number(highlightCommentId);
+    if (isReply && !parentCommentId) return;
+
+    const commentIdToExpand = isReply ? parentCommentId : Number(highlightCommentId);
+
+    setExpandedReplies(prev => {
+      const next = { ...prev, [commentIdToExpand]: true };
+      return next;
+    });
+
+    const tryScroll = (attempt = 1) => {
       const el = document.getElementById(`comment-${highlightCommentId}`) || document.getElementById(`reply-${highlightReplyId}`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -52,10 +53,15 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
         setTimeout(() => {
           el.style.backgroundColor = '';
         }, 2000);
+        return;
       }
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [highlightCommentId, highlightReplyId, comments, expandedReplies]);
+      if (attempt < 10) {
+        setTimeout(() => tryScroll(attempt + 1), 150);
+      }
+    };
+
+    setTimeout(() => tryScroll(), 400);
+  }, [highlightCommentId, highlightReplyId, comments]);
 
   const findReplyById = (replies, replyId) => {
     for (const reply of replies || []) {
