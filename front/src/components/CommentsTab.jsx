@@ -39,6 +39,10 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
 
     const commentIdToExpand = isReply ? parentCommentId : Number(highlightCommentId);
     setExpandedReplies(prev => ({ ...prev, [commentIdToExpand]: true }));
+  }, [highlightCommentId, highlightReplyId, comments]);
+
+  useLayoutEffect(() => {
+    if (!highlightCommentId && !highlightReplyId) return;
 
     const tryScroll = (attempt = 1) => {
       const el = document.getElementById(`comment-${highlightCommentId}`) || document.getElementById(`reply-${highlightReplyId}`);
@@ -56,8 +60,9 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
       }
     };
 
-    setTimeout(() => tryScroll(), 500);
-  }, [highlightCommentId, highlightReplyId, comments]);
+    const timer = setTimeout(() => tryScroll(), 300);
+    return () => clearTimeout(timer);
+  }, [highlightCommentId, highlightReplyId, comments, expandedReplies]);
 
   const findReplyById = (replies, replyId) => {
     const targetId = Number(replyId);
