@@ -46,9 +46,9 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
           el.style.backgroundColor = '';
         }, 2000);
       }
-    }, 300);
+    }, 600);
     return () => clearTimeout(timer);
-  }, [highlightCommentId, highlightReplyId, comments]);
+  }, [highlightCommentId, highlightReplyId, comments, expandedReplies]);
 
   const findReplyById = (replies, replyId) => {
     for (const reply of replies || []) {
