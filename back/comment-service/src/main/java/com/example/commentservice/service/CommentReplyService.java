@@ -4,10 +4,13 @@ import com.example.commentservice.dto.request.CommentReplyRequest;
 import com.example.commentservice.dto.response.CommentReplyResponse;
 import com.example.commentservice.entity.Comment;
 import com.example.commentservice.entity.CommentReply;
+import com.example.commentservice.entity.Image;
 import com.example.commentservice.exception.ResourceNotFoundException;
 import com.example.commentservice.mapper.CommentReplyMapper;
+import com.example.commentservice.mapper.ImageMapper;
 import com.example.commentservice.repository.CommentReplyRepository;
 import com.example.commentservice.repository.CommentRepository;
+import com.example.commentservice.repository.ImageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +34,8 @@ public class CommentReplyService {
     private final RestTemplate restTemplate;
     private final NotificationService notificationService;
     private final CommentRepository commentRepository;
+    private final ImageRepository imageRepository;
+    private final ImageMapper imageMapper;
 
     private String getCurrentToken() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -139,6 +145,12 @@ public class CommentReplyService {
         reply.setEmployeeId(getCurrentEmployeeId());
         reply.setEmployeeName(getCurrentEmployeeNameFromToken());
         reply.setReaded(false);
+
+        if (request.getImageIds() != null && !request.getImageIds().isEmpty()) {
+            List<Image> images = imageRepository.findAllById(request.getImageIds());
+            reply.setImages(images);
+        }
+
         CommentReply saved = commentReplyRepository.save(reply);
 
         try {
@@ -200,6 +212,13 @@ public class CommentReplyService {
                         ? reply.getEmployeeName()
                         : fetchEmployeeName(reply.getEmployeeId())
         );
+        if (reply.getImages() != null && !reply.getImages().isEmpty()) {
+            dto.setImages(reply.getImages().stream()
+                    .map(imageMapper::toDto)
+                    .collect(Collectors.toList()));
+        } else {
+            dto.setImages(List.of());
+        }
         if (reply.getReplies() != null && !reply.getReplies().isEmpty()) {
             dto.setReplies(
                     reply.getReplies().stream()

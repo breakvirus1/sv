@@ -7,7 +7,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE, uses = {CommentReplyMapper.class, ImageMapper.class})
 public interface CommentMapper {
 
     @Mapping(target = "id", ignore = true)
@@ -15,6 +15,7 @@ public interface CommentMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "replies", ignore = true)
+    @Mapping(target = "images", ignore = true)
     Comment toEntity(CommentRequest request);
 
     CommentResponse toDto(Comment comment);

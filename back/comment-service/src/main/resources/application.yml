@@ -1,6 +1,10 @@
 server:
   port: 8088
 
+app:
+  images:
+    dir: /app/images
+
 spring:
   application:
     name: comment-service

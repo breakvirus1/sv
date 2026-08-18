@@ -29,11 +29,16 @@ public class CommentReply extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String body;
 
-    @Column(name = "image_url")
-    private String imageUrl;
-
     @Column(name = "employee_name")
     private String employeeName;
+
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+            name = "reply_images",
+            joinColumns = @JoinColumn(name = "reply_id"),
+            inverseJoinColumns = @JoinColumn(name = "image_id")
+    )
+    private List<Image> images = new ArrayList<>();
 
     @Column(name = "parent_comment_id")
     private Long parentCommentId;

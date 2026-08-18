@@ -4,11 +4,14 @@ import com.example.commentservice.dto.request.CommentRequest;
 import com.example.commentservice.dto.response.CommentResponse;
 import com.example.commentservice.entity.Comment;
 import com.example.commentservice.entity.CommentReply;
+import com.example.commentservice.entity.Image;
 import com.example.commentservice.exception.ResourceNotFoundException;
 import com.example.commentservice.mapper.CommentMapper;
 import com.example.commentservice.mapper.CommentReplyMapper;
+import com.example.commentservice.mapper.ImageMapper;
 import com.example.commentservice.repository.CommentRepository;
 import com.example.commentservice.repository.CommentReplyRepository;
+import com.example.commentservice.repository.ImageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +36,9 @@ public class CommentService {
     private final CommentReplyMapper commentReplyMapper;
     private final CommentReplyRepository commentReplyRepository;
     private final NotificationService notificationService;
+    private final ImageRepository imageRepository;
+    private final ImageMapper imageMapper;
+    private final ImageService imageService;
 
     private String getCurrentToken() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -128,6 +135,12 @@ public class CommentService {
         comment.setEmployeeId(getCurrentEmployeeId());
         comment.setEmployeeName(getCurrentEmployeeNameFromToken());
         comment.setReaded(false);
+
+        if (request.getImageIds() != null && !request.getImageIds().isEmpty()) {
+            List<Image> images = imageRepository.findAllById(request.getImageIds());
+            comment.setImages(images);
+        }
+
         Comment saved = commentRepository.save(comment);
 
         try {
@@ -176,6 +189,13 @@ public class CommentService {
                                     ? comment.getEmployeeName()
                                     : fetchEmployeeName(comment.getEmployeeId())
                     );
+                    if (comment.getImages() != null && !comment.getImages().isEmpty()) {
+                        dto.setImages(comment.getImages().stream()
+                                .map(imageMapper::toDto)
+                                .collect(Collectors.toList()));
+                    } else {
+                        dto.setImages(List.of());
+                    }
                     if (comment.getReplies() != null && !comment.getReplies().isEmpty()) {
                         var rootReplies = comment.getReplies().stream()
                                 .filter(r -> !Boolean.TRUE.equals(r.getDeleted()) && r.getParentReplyId() == null)
@@ -186,6 +206,13 @@ public class CommentService {
                                                     ? reply.getEmployeeName()
                                                     : fetchEmployeeName(reply.getEmployeeId())
                                     );
+                                    if (reply.getImages() != null && !reply.getImages().isEmpty()) {
+                                        replyDto.setImages(reply.getImages().stream()
+                                                .map(imageMapper::toDto)
+                                                .collect(Collectors.toList()));
+                                    } else {
+                                        replyDto.setImages(List.of());
+                                    }
                                     replyDto.setReplies(buildNestedReplies(reply));
                                     return replyDto;
                                 })
@@ -212,6 +239,13 @@ public class CommentService {
                                     ? child.getEmployeeName()
                                     : fetchEmployeeName(child.getEmployeeId())
                     );
+                    if (child.getImages() != null && !child.getImages().isEmpty()) {
+                        dto.setImages(child.getImages().stream()
+                                .map(imageMapper::toDto)
+                                .collect(Collectors.toList()));
+                    } else {
+                        dto.setImages(List.of());
+                    }
                     dto.setReplies(buildNestedReplies(child));
                     return dto;
                 })

@@ -200,6 +200,7 @@ services:
       - KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv
     volumes:
       - ./uploads:/app/uploads
+      - ./images:/app/images
 
   generate-data-service:
     build:

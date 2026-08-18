@@ -29,11 +29,16 @@ public class Comment extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String body;
 
-    @Column(name = "image_url")
-    private String imageUrl;
-
     @Column(name = "employee_name")
     private String employeeName;
+
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+            name = "comment_images",
+            joinColumns = @JoinColumn(name = "comment_id"),
+            inverseJoinColumns = @JoinColumn(name = "image_id")
+    )
+    private List<Image> images = new ArrayList<>();
 
     @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CommentReply> replies = new ArrayList<>();

@@ -19,5 +19,6 @@ public class CommentResponse {
     private String body;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<ImageResponse> images;
     private List<CommentReplyResponse> replies;
 }

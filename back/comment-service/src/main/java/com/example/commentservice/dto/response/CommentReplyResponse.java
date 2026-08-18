@@ -21,5 +21,6 @@ public class CommentReplyResponse {
     private Long parentReplyId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<ImageResponse> images;
     private List<CommentReplyResponse> replies;
 }
