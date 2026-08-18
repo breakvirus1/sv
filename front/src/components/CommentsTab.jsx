@@ -38,11 +38,7 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
     if (isReply && !parentCommentId) return;
 
     const commentIdToExpand = isReply ? parentCommentId : Number(highlightCommentId);
-
-    setExpandedReplies(prev => {
-      const next = { ...prev, [commentIdToExpand]: true };
-      return next;
-    });
+    setExpandedReplies(prev => ({ ...prev, [commentIdToExpand]: true }));
 
     const tryScroll = (attempt = 1) => {
       const el = document.getElementById(`comment-${highlightCommentId}`) || document.getElementById(`reply-${highlightReplyId}`);
@@ -55,33 +51,35 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
         }, 2000);
         return;
       }
-      if (attempt < 10) {
+      if (attempt < 20) {
         setTimeout(() => tryScroll(attempt + 1), 150);
       }
     };
 
-    setTimeout(() => tryScroll(), 400);
+    setTimeout(() => tryScroll(), 500);
   }, [highlightCommentId, highlightReplyId, comments]);
 
   const findReplyById = (replies, replyId) => {
+    const targetId = Number(replyId);
     for (const reply of replies || []) {
-      if (reply.id === replyId) {
+      if (Number(reply.id) === targetId) {
         return reply;
       }
-      const found = findReplyById(reply.replies, replyId);
+      const found = findReplyById(reply.replies, targetId);
       if (found) return found;
     }
     return null;
   };
 
   const findParentCommentIdForReply = (comments, replyId) => {
+    const targetId = Number(replyId);
     for (const comment of comments) {
-      if (comment.replies?.some(r => r.id === replyId)) {
-        return comment.id;
+      if (comment.replies?.some(r => Number(r.id) === targetId)) {
+        return Number(comment.id);
       }
-      const nested = findReplyById(comment.replies, replyId);
-      if (nested) {
-        return comment.id;
+      const found = findReplyById(comment.replies, targetId);
+      if (found) {
+        return Number(comment.id);
       }
     }
     return null;
