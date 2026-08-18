@@ -27,6 +27,13 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
   }, [orderId]);
 
   useEffect(() => {
+    if (!highlightCommentId) return;
+    if (comments.length > 0) {
+      setExpandedReplies(prev => ({ ...prev, [highlightCommentId]: true }));
+    }
+  }, [highlightCommentId, comments]);
+
+  useEffect(() => {
     if (!highlightReplyId) return;
     const parentCommentId = findParentCommentIdForReply(comments, highlightReplyId);
     if (parentCommentId != null) {
