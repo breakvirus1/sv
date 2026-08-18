@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Box, Paper, Typography, TextField, Button, IconButton, Collapse, Input, Chip } from '@mui/material';
 import { Send, Image as ImageIcon, Close } from '@mui/icons-material';
 import api from '../services/api';
