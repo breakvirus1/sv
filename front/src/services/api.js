@@ -9,6 +9,8 @@ const api = axios.create({
   },
 })
 
+export { API_BASE_URL, api as default }
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) {
@@ -27,5 +29,3 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
-
-export default api

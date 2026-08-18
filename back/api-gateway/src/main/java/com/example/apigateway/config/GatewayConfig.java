@@ -73,10 +73,10 @@ public class GatewayConfig {
                   .path("/api/v1/admin/generate/**")
                   .uri("http://generate-data-service:8090")
               )
-            .route("comment-service", r -> r
-                .path("/api/v1/comments/**", "/api/v1/comment-replies/**", "/api/v1/notifications/**")
-                .uri("http://comment-service:8088")
-            )
+             .route("comment-service", r -> r
+                 .path("/api/v1/comments/**", "/api/v1/comment-replies/**", "/api/v1/notifications/**", "/api/v1/images/**")
+                 .uri("http://comment-service:8088")
+             )
              .build();
         log.info("Custom routes configured: order-service, client-service, employee-service, material-service, calculator-service, generate-data-service, and admin endpoints");
         return routes;

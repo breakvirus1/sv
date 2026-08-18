@@ -43,7 +43,7 @@ public class ImageController {
 
     @Operation(summary = "Получить изображение по ID")
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<FileSystemResource> getImage(
             @Parameter(description = "ID изображения") @PathVariable Long id,
             HttpServletResponse response) throws IOException {

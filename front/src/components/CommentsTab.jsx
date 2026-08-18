@@ -1,9 +1,15 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Box, Paper, Typography, TextField, Button, IconButton, Collapse, Input, Chip } from '@mui/material';
 import { Send, Image as ImageIcon, Close } from '@mui/icons-material';
-import api from '../services/api';
+import api, { API_BASE_URL } from '../services/api';
 
 const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
+  const getImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `${API_BASE_URL}${url}`;
+  };
+
   const [comments, setComments] = useState([]);
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [newComment, setNewComment] = useState('');
@@ -219,7 +225,7 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
           {reply.images?.length > 0 && (
             <Box mb={1} display="flex" gap={1} flexWrap="wrap">
               {reply.images.map(img => (
-                <img key={img.id} src={img.url} alt={img.originalName} style={{ maxWidth: 200, maxHeight: 200, borderRadius: 4 }} />
+                <img key={img.id} src={getImageUrl(img.url)} alt={img.originalName} style={{ maxWidth: 200, maxHeight: 200, borderRadius: 4 }} />
               ))}
             </Box>
           )}
@@ -264,7 +270,7 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
             <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {(replyImagesMap[replyKey] || []).map(img => (
                 <Box key={img.id} sx={{ position: 'relative', display: 'inline-block' }}>
-                  <img src={img.url} alt={img.originalName} style={{ maxWidth: 100, maxHeight: 100, borderRadius: 4 }} />
+                  <img src={getImageUrl(img.url)} alt={img.originalName} style={{ maxWidth: 100, maxHeight: 100, borderRadius: 4 }} />
                   <IconButton
                     size="small"
                     onClick={() => setReplyImagesMap(prev => ({ ...prev, [replyKey]: prev[replyKey].filter(i => i.id !== img.id) }))}
@@ -304,7 +310,7 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
             {comment.images?.length > 0 && (
               <Box mb={1} display="flex" gap={1} flexWrap="wrap">
                 {comment.images.map(img => (
-                  <img key={img.id} src={img.url} alt={img.originalName} style={{ maxWidth: 200, maxHeight: 200, borderRadius: 4 }} />
+                  <img key={img.id} src={getImageUrl(img.url)} alt={img.originalName} style={{ maxWidth: 200, maxHeight: 200, borderRadius: 4 }} />
                 ))}
               </Box>
             )}
@@ -351,7 +357,7 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
               <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 {(replyImagesMap[comment.id] || []).map(img => (
                   <Box key={img.id} sx={{ position: 'relative', display: 'inline-block' }}>
-                    <img src={img.url} alt={img.originalName} style={{ maxWidth: 100, maxHeight: 100, borderRadius: 4 }} />
+                    <img src={getImageUrl(img.url)} alt={img.originalName} style={{ maxWidth: 100, maxHeight: 100, borderRadius: 4 }} />
                     <IconButton
                       size="small"
                       onClick={() => setReplyImagesMap(prev => ({ ...prev, [comment.id]: prev[comment.id].filter(i => i.id !== img.id) }))}
@@ -400,7 +406,7 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
             <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {commentImages.map(img => (
                 <Box key={img.id} sx={{ position: 'relative', display: 'inline-block' }}>
-                  <img src={img.url} alt={img.originalName} style={{ maxWidth: 100, maxHeight: 100, borderRadius: 4 }} />
+                  <img src={getImageUrl(img.url)} alt={img.originalName} style={{ maxWidth: 100, maxHeight: 100, borderRadius: 4 }} />
                   <IconButton
                     size="small"
                     onClick={() => setCommentImages(prev => prev.filter(i => i.id !== img.id))}

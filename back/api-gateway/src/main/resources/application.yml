@@ -30,6 +30,12 @@ spring:
             - Path=/api/v1/comment-replies/**
           filters:
             - StripPrefix=0
+        - id: images
+          uri: lb://comment-service
+          predicates:
+            - Path=/api/v1/images/**
+          filters:
+            - StripPrefix=0
 
 eureka:
   client:

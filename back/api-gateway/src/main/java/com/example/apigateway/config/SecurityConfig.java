@@ -45,7 +45,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeExchange(exchanges -> exchanges
-                .pathMatchers("/.well-known/**", "/auth/**").permitAll()
+                .pathMatchers("/.well-known/**", "/auth/**", "/api/v1/images/**").permitAll()
                 .pathMatchers(HttpMethod.OPTIONS).permitAll()
                 .anyExchange().authenticated()
             )
