@@ -39,7 +39,7 @@ scripts\windows\deploy-native.bat
 
 | Компонент | Версия | Ссылка |
 |-----------|--------|--------|
-| Java JDK | 17 | https://adoptium.net/ |
+| Java JDK | 21 | https://adoptium.net/ |
 | Apache Maven | 3.8+ | https://maven.apache.org/ |
 | Node.js | 18+ | https://nodejs.org/ |
 | PostgreSQL | 15+ | https://www.postgresql.org/download/windows/ |
@@ -51,7 +51,7 @@ scripts\windows\deploy-native.bat
 ```
 
 Скрипт автоматически:
-- Установит все недостающие зависимости (Java 17, Maven, Node.js, PostgreSQL, Keycloak)
+- Установит все недостающие зависимости (Java 21, Maven, Node.js, PostgreSQL, Keycloak)
 - Создаст базу данных `svdb` в PostgreSQL
 - Запустит Keycloak
 - Соберёт все backend-сервисы через Maven
@@ -176,7 +176,7 @@ net start postgresql
 Убедитесь что Keycloak установлен в `C:\keycloak` или измените путь в скрипте.
 
 ### Ошибка: "Maven build failed"
-Убедитесь что Java 17 и Maven 3.8+ установлены и доступны в PATH:
+Убедитесь что Java 21 и Maven 3.8+ установлены и доступны в PATH:
 ```cmd
 java -version
 mvn -version

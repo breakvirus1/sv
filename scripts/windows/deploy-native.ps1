@@ -1,5 +1,5 @@
 # Print SV - Native Windows Deployment Script
-# Requirements: Windows 10/11, Java 17, Maven 3.8+, Node.js 18+, PostgreSQL 15+, Keycloak 26+
+# Requirements: Windows 10/11, Java 21, Maven 3.8+, Node.js 18+, PostgreSQL 15+, Keycloak 26+
 # Run as Administrator in PowerShell
 
 param(
@@ -95,21 +95,21 @@ function Get-CommandPath($cmd) {
     }
 }
 
-# Install Java 17
+# Install Java 21
 if (-not (Test-Command "java")) {
-    Write-Warn "Java not found. Installing Java 17..."
+    Write-Warn "Java not found. Installing Java 21..."
     $installed = $false
     if (Test-Command "winget") {
-        $installed = Install-WithWinget "Java 17" "EclipseAdoptium.Temurin.17.JDK"
+        $installed = Install-WithWinget "Java 21" "EclipseAdoptium.Temurin.21.JDK"
     }
     if (-not $installed) {
         Install-ChocoIfNeeded | Out-Null
         if (Test-Command "choco") {
-            $installed = Install-WithChoco "Java 17" "temurin17-jdk"
+            $installed = Install-WithChoco "Java 21" "temurin21-jdk"
         }
     }
     if (-not $installed) {
-        Write-Err "Please install Java 17 manually from: https://adoptium.net/"
+        Write-Err "Please install Java 21 manually from: https://adoptium.net/"
         pause
         exit 1
     }
@@ -121,9 +121,9 @@ if (-not (Test-Command "java")) {
 $javaPath = Get-CommandPath "java"
 if (-not $javaPath) {
     $possiblePaths = @(
-        "${env:ProgramFiles}\Eclipse Adoptium\jdk-17*\bin\java.exe",
-        "${env:ProgramFiles}\Java\jdk-17*\bin\java.exe",
-        "${env:ProgramFiles(x86)}\Java\jdk-17*\bin\java.exe"
+        "${env:ProgramFiles}\Eclipse Adoptium\jdk-21*\bin\java.exe",
+        "${env:ProgramFiles}\Java\jdk-21*\bin\java.exe",
+        "${env:ProgramFiles(x86)}\Java\jdk-21*\bin\java.exe"
     )
     foreach ($path in $possiblePaths) {
         $found = Get-Item $path -ErrorAction SilentlyContinue | Select-Object -First 1
