@@ -70,6 +70,19 @@ function Install-WithChoco($name, $id) {
     }
 }
 
+function Refresh-EnvPath() {
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
+}
+
+function Get-CommandPath($cmd) {
+    try {
+        $cmdInfo = Get-Command $cmd -ErrorAction Stop
+        return $cmdInfo.Source
+    } catch {
+        return $null
+    }
+}
+
 # Install Java 17
 if (-not (Test-Command "java")) {
     Write-Warn "Java not found. Installing Java 17..."
@@ -85,10 +98,37 @@ if (-not (Test-Command "java")) {
         pause
         exit 1
     }
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    Write-Info "Waiting for Java installation to complete..."
+    Start-Sleep -Seconds 5
+    Refresh-EnvPath
 }
-$javaVersion = java -version 2>&1 | Select-String "version" | Select-Object -First 1
-Write-Info "Java: $javaVersion"
+
+$javaPath = Get-CommandPath "java"
+if (-not $javaPath) {
+    # Try common Java installation paths
+    $possiblePaths = @(
+        "${env:ProgramFiles}\Eclipse Adoptium\jdk-17*\bin\java.exe",
+        "${env:ProgramFiles}\Java\jdk-17*\bin\java.exe",
+        "${env:ProgramFiles(x86)}\Java\jdk-17*\bin\java.exe"
+    )
+    foreach ($path in $possiblePaths) {
+        $found = Get-Item $path -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found) {
+            $javaPath = $found.FullName
+            $env:PATH = Split-Path -Parent $javaPath + ";" + $env:PATH
+            break
+        }
+    }
+}
+
+if ($javaPath) {
+    $javaVersion = & $javaPath -version 2>&1 | Select-String "version" | Select-Object -First 1
+    Write-Info "Java: $javaVersion"
+} else {
+    Write-Err "Java installation failed or not found in PATH"
+    pause
+    exit 1
+}
 
 # Install Maven
 if (-not (Test-Command "mvn")) {
@@ -105,10 +145,20 @@ if (-not (Test-Command "mvn")) {
         pause
         exit 1
     }
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    Write-Info "Waiting for Maven installation to complete..."
+    Start-Sleep -Seconds 5
+    Refresh-EnvPath
 }
-$mavenVersion = mvn -version 2>&1 | Select-String "Apache Maven" | Select-Object -First 1
-Write-Info "Maven: $mavenVersion"
+
+$mvnPath = Get-CommandPath "mvn"
+if ($mvnPath) {
+    $mavenVersion = & $mvnPath -version 2>&1 | Select-String "Apache Maven" | Select-Object -First 1
+    Write-Info "Maven: $mavenVersion"
+} else {
+    Write-Err "Maven installation failed or not found in PATH"
+    pause
+    exit 1
+}
 
 # Install Node.js
 if (-not (Test-Command "node")) {
@@ -125,13 +175,30 @@ if (-not (Test-Command "node")) {
         pause
         exit 1
     }
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    Write-Info "Waiting for Node.js installation to complete..."
+    Start-Sleep -Seconds 5
+    Refresh-EnvPath
 }
-$nodeVersion = node --version
-Write-Info "Node.js: $nodeVersion"
 
-$npmVersion = npm --version
-Write-Info "npm: v$npmVersion"
+$nodePath = Get-CommandPath "node"
+if ($nodePath) {
+    $nodeVersion = node --version
+    Write-Info "Node.js: $nodeVersion"
+} else {
+    Write-Err "Node.js installation failed or not found in PATH"
+    pause
+    exit 1
+}
+
+$npmPath = Get-CommandPath "npm"
+if ($npmPath) {
+    $npmVersion = npm --version
+    Write-Info "npm: v$npmVersion"
+} else {
+    Write-Err "npm installation failed or not found in PATH"
+    pause
+    exit 1
+}
 
 Write-Ok "All prerequisites installed"
 Write-Info ""
@@ -168,7 +235,7 @@ if (-not $pgInstalled) {
     }
     Write-Info "Waiting for PostgreSQL installation to complete..."
     Start-Sleep -Seconds 10
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    Refresh-EnvPath
 }
 
 # Ensure PostgreSQL service is running
@@ -179,7 +246,29 @@ if ($pgService -and $pgService.Status -ne "Running") {
     Start-Sleep -Seconds 3
 }
 
-Write-Ok "PostgreSQL is available"
+# Verify PostgreSQL is accessible
+$psqlPath = Get-CommandPath "psql"
+if (-not $psqlPath) {
+    $possiblePaths = @(
+        "C:\Program Files\PostgreSQL\15\bin\psql.exe",
+        "C:\Program Files (x86)\PostgreSQL\15\bin\psql.exe"
+    )
+    foreach ($path in $possiblePaths) {
+        if (Test-Path $path) {
+            $psqlPath = $path
+            $env:PATH = Split-Path -Parent $psqlPath + ";" + $env:PATH
+            break
+        }
+    }
+}
+
+if ($psqlPath) {
+    Write-Ok "PostgreSQL is available"
+} else {
+    Write-Err "PostgreSQL installation failed or not found"
+    pause
+    exit 1
+}
 Write-Info ""
 
 # 3. Install/check Keycloak
@@ -203,6 +292,9 @@ if (-not (Test-Path $keycloakDir)) {
         pause
         exit 1
     }
+    Write-Info "Waiting for Keycloak installation to complete..."
+    Start-Sleep -Seconds 5
+    Refresh-EnvPath
 }
 
 if (-not (Test-Path $keycloakDir)) {
