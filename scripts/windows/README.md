@@ -25,6 +25,16 @@ scripts\windows\deploy-native.bat
 Скрипт проверит наличие каждого компонента и установит его при необходимости через:
 1. `winget` (встроенный менеджер пакетов Windows 10/11)
 2. `choco` (Chocolatey, если установлен)
+3. **Прямые загрузки с официальных сайтов** (если winget/choco не работают)
+
+Прямые загрузки используют надёжные источники:
+- **Java 21**: Eclipse Adoptium (официальный дистрибутив OpenJDK)
+- **Maven**: Apache Software Foundation
+- **Node.js**: nodejs.org
+- **PostgreSQL**: EnterpriseDB
+- **Keycloak**: GitHub releases
+
+Все источники имеют CDN в России и работают без блокировок.
 
 После установки всех компонентов скрипт автоматически:
 - Создаст базу данных `svdb` в PostgreSQL
@@ -183,10 +193,23 @@ mvn -version
 ```
 
 ### Ошибка при установке зависимостей
-Скрипт пытается установить недостающие компоненты через `winget` или `choco`.
-Если автоматическая установка не работает:
-1. Установите компоненты вручную
-2. Перезапустите скрипт
+Скрипт пытается установить недостающие компоненты через:
+1. `winget` (встроенный менеджер Windows)
+2. `choco` (Chocolatey)
+3. **Прямые загрузки** с официальных сайтов (Adoptium, Apache, Node.js, PostgreSQL, Keycloak)
+
+Все источники имеют CDN в России и работают без блокировок.
+
+### Ошибка: "Failed to download"
+Если автоматическая загрузка не работает:
+1. Проверьте интернет-соединение
+2. Скачайте компоненты вручную:
+   - Java 21: https://adoptium.net/temurin/releases/
+   - Maven: https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip
+   - Node.js: https://nodejs.org/dist/v20.15.0/node-v20.15.0-win-x64.zip
+   - PostgreSQL: https://www.postgresql.org/download/windows/
+   - Keycloak: https://github.com/keycloak/keycloak/releases
+3. Установите вручную и перезапустите скрипт
 
 ### Keycloak установлен, но не запускается
 Убедитесь что порт 8080 не занят:

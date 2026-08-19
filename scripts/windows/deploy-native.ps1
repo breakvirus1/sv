@@ -74,25 +74,185 @@ function Install-ChocoIfNeeded() {
     if (-not (Test-Command "choco")) {
         Write-Warn "Chocolatey not found. Installing Chocolatey..."
         Set-ExecutionPolicy Bypass -Scope Process -Force
-        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-        Write-Ok "Chocolatey installed"
-        Refresh-EnvPath
-        return $true
+        try {
+            Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+            Write-Ok "Chocolatey installed"
+            Refresh-EnvPath
+            return $true
+        } catch {
+            Write-Err "Failed to install Chocolatey: $_"
+            return $false
+        }
     }
+    return $true
+}
+
+function Download-File($url, $outputPath, $description = "") {
+    if ($description) {
+        Write-Info "Downloading $description..."
+    }
+    $maxRetries = 3
+    $retry = 0
+    while ($retry -lt $maxRetries) {
+        try {
+            curl.exe -fL -o $outputPath $url --max-time 300
+            if ($LASTEXITCODE -eq 0 -and (Test-Path $outputPath)) {
+                $fileSize = (Get-Item $outputPath).Length
+                if ($fileSize -gt 1MB) {
+                    Write-Ok "Downloaded $description ($([math]::Round($fileSize / 1MB, 1)) MB)"
+                    return $true
+                } else {
+                    Remove-Item $outputPath -ErrorAction SilentlyContinue
+                    Write-Info "File too small, retrying..."
+                }
+            }
+        } catch {
+            Write-Info "Download attempt $($retry+1) failed: $_"
+        }
+        $retry++
+        Start-Sleep -Seconds 3
+    }
+    Write-Err "Failed to download $description after $maxRetries attempts"
     return $false
 }
 
-function Refresh-EnvPath() {
-    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
+function Install-Java21-Direct() {
+    Write-Info "Installing Java 21 via direct download..."
+    
+    # Try multiple Russian-friendly mirrors
+    $urls = @(
+        "https://github.com/adoptium/temurin21-binaries/releases/latest/download/OpenJDK21U-jdk_x64_windows_hotspot_21.0.3_9.msi",
+        "https://github.com/adoptium/temurin21-binaries/releases/latest/download/OpenJDK21U-jdk_x64_windows_hotspot_21.0.5_11.msi",
+        "https://download.eclipse.org/temurin/21.0.3_9/installers/x64/OpenJDK21U-jdk_x64_windows_hotspot_21.0.3_9.msi"
+    )
+    
+    $installerPath = "$env:TEMP\jdk21.msi"
+    $downloaded = $false
+    
+    foreach ($url in $urls) {
+        if (Download-File $url $installerPath "Java 21 JDK") {
+            $downloaded = $true
+            break
+        }
+    }
+    
+    if (-not $downloaded) {
+        Write-Err "Failed to download Java 21 installer"
+        return $false
+    }
+    
+    Write-Info "Installing Java 21..."
+    $installProc = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", $installerPath, "/qn", "ADDLOCAL=FeatureMain,FeatureEnvironment" -Wait -PassThru
+    if ($installProc.ExitCode -eq 0 -or $installProc.ExitCode -eq 3010) {
+        Write-Ok "Java 21 installed successfully"
+        Refresh-EnvPath
+        return $true
+    } else {
+        Write-Err "Java 21 installer exited with code $($installProc.ExitCode)"
+        return $false
+    }
 }
 
-function Get-CommandPath($cmd) {
-    try {
-        $cmdInfo = Get-Command $cmd -ErrorAction Stop
-        return $cmdInfo.Source
-    } catch {
-        return $null
+function Install-Maven-Direct() {
+    Write-Info "Installing Maven via direct download..."
+    
+    $url = "https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip"
+    $zipPath = "$env:TEMP\maven.zip"
+    $installDir = "${env:ProgramFiles}\Apache\Maven"
+    
+    if (-not (Download-File $url $zipPath "Maven 3.9.9")) {
+        return $false
     }
+    
+    Write-Info "Extracting Maven..."
+    if (-not (Test-Path $installDir)) {
+        New-Item -Path $installDir -ItemType Directory -Force | Out-Null
+    }
+    
+    Expand-Archive -Path $zipPath -DestinationPath $installDir -Force
+    $mavenDir = Get-ChildItem $installDir -Directory | Select-Object -First 1
+    if ($mavenDir) {
+        $env:PATH = Join-Path $mavenDir.FullName "bin" + ";" + $env:PATH
+        Write-Ok "Maven installed successfully"
+        return $true
+    }
+    Write-Err "Failed to extract Maven"
+    return $false
+}
+
+function Install-NodeJS-Direct() {
+    Write-Info "Installing Node.js via direct download..."
+    
+    $url = "https://nodejs.org/dist/v20.15.0/node-v20.15.0-win-x64.zip"
+    $zipPath = "$env:TEMP\nodejs.zip"
+    $installDir = "${env:ProgramFiles}\nodejs"
+    
+    if (-not (Download-File $url $zipPath "Node.js 20 LTS")) {
+        return $false
+    }
+    
+    Write-Info "Extracting Node.js..."
+    if (-not (Test-Path $installDir)) {
+        New-Item -Path $installDir -ItemType Directory -Force | Out-Null
+    }
+    
+    Expand-Archive -Path $zipPath -DestinationPath $installDir -Force
+    $env:PATH = $installDir + ";" + $env:PATH
+    Write-Ok "Node.js installed successfully"
+    return $true
+}
+
+function Install-PostgreSQL-Direct() {
+    Write-Info "Installing PostgreSQL via direct download..."
+    
+    $url = "https://get.enterprisedb.com/postgresql/postgresql-15.6-1-windows-x64.exe"
+    $installerPath = "$env:TEMP\postgresql-15.exe"
+    
+    if (-not (Download-File $url $installerPath "PostgreSQL 15")) {
+        return $false
+    }
+    
+    Write-Info "Installing PostgreSQL 15..."
+    $installProc = Start-Process -FilePath $installerPath -ArgumentList "--mode", "unattended", "--superpassword", "12345" -Wait -PassThru
+    if ($installProc.ExitCode -eq 0 -or $installProc.ExitCode -eq 3010) {
+        Write-Ok "PostgreSQL 15 installed successfully"
+        Refresh-EnvPath
+        return $true
+    } else {
+        Write-Err "PostgreSQL installer exited with code $($installProc.ExitCode)"
+        return $false
+    }
+}
+
+function Install-Keycloak-Direct() {
+    Write-Info "Installing Keycloak via direct download..."
+    
+    $url = "https://github.com/keycloak/keycloak/releases/download/26.1.4/keycloak-26.1.4.zip"
+    $zipPath = "$env:TEMP\keycloak.zip"
+    $installDir = "C:\keycloak"
+    
+    if (-not (Download-File $url $zipPath "Keycloak 26.1.4")) {
+        return $false
+    }
+    
+    Write-Info "Extracting Keycloak..."
+    if (-not (Test-Path $installDir)) {
+        New-Item -Path $installDir -ItemType Directory -Force | Out-Null
+    }
+    
+    Expand-Archive -Path $zipPath -DestinationPath $installDir -Force
+    $keycloakDir = Get-ChildItem $installDir -Directory | Where-Object { $_.Name -like "keycloak-*" } | Select-Object -First 1
+    if ($keycloakDir) {
+        # Move contents up if nested
+        if ($keycloakDir.FullName -ne $installDir) {
+            Get-ChildItem $keycloakDir.FullName | Move-Item -Destination $installDir -Force
+            Remove-Item $keycloakDir.FullName -Force
+        }
+        Write-Ok "Keycloak installed successfully"
+        return $true
+    }
+    Write-Err "Failed to extract Keycloak"
+    return $false
 }
 
 # Install Java 21
@@ -107,6 +267,9 @@ if (-not (Test-Command "java")) {
         if (Test-Command "choco") {
             $installed = Install-WithChoco "Java 21" "temurin21-jdk"
         }
+    }
+    if (-not $installed) {
+        $installed = Install-Java21-Direct
     }
     if (-not $installed) {
         Write-Err "Please install Java 21 manually from: https://adoptium.net/"
@@ -155,6 +318,9 @@ if (-not (Test-Command "mvn")) {
         $installed = Install-WithChoco "Maven" "maven"
     }
     if (-not $installed) {
+        $installed = Install-Maven-Direct
+    }
+    if (-not $installed) {
         Write-Err "Please install Maven manually from: https://maven.apache.org/"
         pause
         exit 1
@@ -176,13 +342,16 @@ if ($mvnPath) {
 
 # Install Node.js
 if (-not (Test-Command "node")) {
-    Write-Warn "Node.js not found. Installing Node.js 18..."
+    Write-Warn "Node.js not found. Installing Node.js 20 LTS..."
     $installed = $false
     if (Test-Command "winget") {
         $installed = Install-WithWinget "Node.js" "OpenJS.NodeJS.LTS"
     }
     if (-not $installed -and (Test-Command "choco")) {
         $installed = Install-WithChoco "Node.js" "nodejs-lts"
+    }
+    if (-not $installed) {
+        $installed = Install-NodeJS-Direct
     }
     if (-not $installed) {
         Write-Err "Please install Node.js manually from: https://nodejs.org/"
@@ -243,6 +412,9 @@ if (-not $pgInstalled) {
         $installed = Install-WithChoco "PostgreSQL" "postgresql15"
     }
     if (-not $installed) {
+        $installed = Install-PostgreSQL-Direct
+    }
+    if (-not $installed) {
         Write-Err "Please install PostgreSQL manually from: https://www.postgresql.org/download/windows/"
         pause
         exit 1
@@ -299,6 +471,9 @@ if (-not (Test-Path $keycloakDir)) {
     }
     if (-not $installed -and (Test-Command "choco")) {
         $installed = Install-WithChoco "Keycloak" "keycloak"
+    }
+    if (-not $installed) {
+        $installed = Install-Keycloak-Direct
     }
     if (-not $installed) {
         Write-Err "Please install Keycloak manually from: https://www.keycloak.org/downloads"
