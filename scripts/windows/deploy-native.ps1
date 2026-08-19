@@ -33,8 +33,8 @@ Write-Info "Project root: $projectRoot"
 Write-Info "Host IP: $HostIp"
 Write-Info ""
 
-# 1. Check prerequisites
-Write-Info "Step 1: Checking prerequisites..."
+# 1. Install/check prerequisites
+Write-Info "Step 1: Installing and checking prerequisites..."
 
 function Test-Command($cmd) {
     try {
@@ -45,54 +45,99 @@ function Test-Command($cmd) {
     }
 }
 
-$javaOk = $false
-$mavenOk = $false
-$nodeOk = $false
-$npmOk = $false
-
-if (Test-Command "java") {
-    $javaVersion = java -version 2>&1 | Select-String "version" | Select-Object -First 1
-    Write-Info "Java: $javaVersion"
-    $javaOk = $true
-} else {
-    Write-Err "Java not found. Install from: https://adoptium.net/"
+function Install-WithWinget($name, $id, $args = "") {
+    Write-Info "Installing $name via winget..."
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
+    winget install --id $id -e --source winget --accept-package-agreements --accept-source-agreements $args
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "$name installed successfully"
+        return $true
+    } else {
+        Write-Err "Failed to install $name via winget"
+        return $false
+    }
 }
 
-if (Test-Command "mvn") {
-    $mavenVersion = mvn -version 2>&1 | Select-String "Apache Maven" | Select-Object -First 1
-    Write-Info "Maven: $mavenVersion"
-    $mavenOk = $true
-} else {
-    Write-Err "Maven not found. Install from: https://maven.apache.org/"
+function Install-WithChoco($name, $id) {
+    Write-Info "Installing $name via Chocolatey..."
+    choco install $id -y
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "$name installed successfully"
+        return $true
+    } else {
+        Write-Err "Failed to install $name via Chocolatey"
+        return $false
+    }
 }
 
-if (Test-Command "node") {
-    $nodeVersion = node --version
-    Write-Info "Node.js: $nodeVersion"
-    $nodeOk = $true
-} else {
-    Write-Err "Node.js not found. Install from: https://nodejs.org/"
+# Install Java 17
+if (-not (Test-Command "java")) {
+    Write-Warn "Java not found. Installing Java 17..."
+    $installed = $false
+    if (Test-Command "winget") {
+        $installed = Install-WithWinget "Java 17" "EclipseAdoptium.Temurin.17.JDK"
+    }
+    if (-not $installed -and (Test-Command "choco")) {
+        $installed = Install-WithChoco "Java 17" "temurin17-jdk"
+    }
+    if (-not $installed) {
+        Write-Err "Please install Java 17 manually from: https://adoptium.net/"
+        pause
+        exit 1
+    }
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
+$javaVersion = java -version 2>&1 | Select-String "version" | Select-Object -First 1
+Write-Info "Java: $javaVersion"
 
-if (Test-Command "npm") {
-    $npmVersion = npm --version
-    Write-Info "npm: v$npmVersion"
-    $npmOk = $true
-} else {
-    Write-Err "npm not found. Install Node.js from: https://nodejs.org/"
+# Install Maven
+if (-not (Test-Command "mvn")) {
+    Write-Warn "Maven not found. Installing Maven..."
+    $installed = $false
+    if (Test-Command "winget") {
+        $installed = Install-WithWinget "Maven" "Apache.Maven"
+    }
+    if (-not $installed -and (Test-Command "choco")) {
+        $installed = Install-WithChoco "Maven" "maven"
+    }
+    if (-not $installed) {
+        Write-Err "Please install Maven manually from: https://maven.apache.org/"
+        pause
+        exit 1
+    }
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
+$mavenVersion = mvn -version 2>&1 | Select-String "Apache Maven" | Select-Object -First 1
+Write-Info "Maven: $mavenVersion"
 
-if (-not ($javaOk -and $mavenOk -and $nodeOk -and $npmOk)) {
-    Write-Err "Missing prerequisites. Please install them and run this script again."
-    pause
-    exit 1
+# Install Node.js
+if (-not (Test-Command "node")) {
+    Write-Warn "Node.js not found. Installing Node.js 18..."
+    $installed = $false
+    if (Test-Command "winget") {
+        $installed = Install-WithWinget "Node.js" "OpenJS.NodeJS.LTS"
+    }
+    if (-not $installed -and (Test-Command "choco")) {
+        $installed = Install-WithChoco "Node.js" "nodejs-lts"
+    }
+    if (-not $installed) {
+        Write-Err "Please install Node.js manually from: https://nodejs.org/"
+        pause
+        exit 1
+    }
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
+$nodeVersion = node --version
+Write-Info "Node.js: $nodeVersion"
 
-Write-Ok "All prerequisites found"
+$npmVersion = npm --version
+Write-Info "npm: v$npmVersion"
+
+Write-Ok "All prerequisites installed"
 Write-Info ""
 
-# 2. Check PostgreSQL
-Write-Info "Step 2: Checking PostgreSQL..."
+# 2. Install/check PostgreSQL
+Write-Info "Step 2: Installing/checking PostgreSQL..."
 
 $pgInstalled = $false
 $pgService = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue
@@ -108,28 +153,69 @@ if ($pgService) {
 }
 
 if (-not $pgInstalled) {
-    Write-Warn "PostgreSQL not found. Please install PostgreSQL 15+ first."
-    Write-Info "  Option 1: choco install postgresql15"
-    Write-Info "  Option 2: Download from https://www.postgresql.org/download/windows/"
-    pause
-    exit 1
+    Write-Warn "PostgreSQL not found. Installing PostgreSQL 15..."
+    $installed = $false
+    if (Test-Command "winget") {
+        $installed = Install-WithWinget "PostgreSQL 15" "PostgreSQL.PostgreSQL.15"
+    }
+    if (-not $installed -and (Test-Command "choco")) {
+        $installed = Install-WithChoco "PostgreSQL" "postgresql15"
+    }
+    if (-not $installed) {
+        Write-Err "Please install PostgreSQL manually from: https://www.postgresql.org/download/windows/"
+        pause
+        exit 1
+    }
+    Write-Info "Waiting for PostgreSQL installation to complete..."
+    Start-Sleep -Seconds 10
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+}
+
+# Ensure PostgreSQL service is running
+$pgService = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue
+if ($pgService -and $pgService.Status -ne "Running") {
+    Write-Info "Starting PostgreSQL service..."
+    Start-Service -Name $pgService.Name
+    Start-Sleep -Seconds 3
 }
 
 Write-Ok "PostgreSQL is available"
 Write-Info ""
 
-# 3. Check Keycloak
-Write-Info "Step 3: Checking Keycloak..."
+# 3. Install/check Keycloak
+Write-Info "Step 3: Installing/checking Keycloak..."
 
 $keycloakDir = "C:\keycloak"
 $keycloakRunning = $false
 
+if (-not (Test-Path $keycloakDir)) {
+    Write-Warn "Keycloak not found. Installing Keycloak..."
+    $installed = $false
+    if (Test-Command "winget") {
+        $installed = Install-WithWinget "Keycloak" "RedHat.Keycloak"
+    }
+    if (-not $installed -and (Test-Command "choco")) {
+        $installed = Install-WithChoco "Keycloak" "keycloak"
+    }
+    if (-not $installed) {
+        Write-Err "Please install Keycloak manually from: https://www.keycloak.org/downloads"
+        Write-Info "Extract to: $keycloakDir"
+        pause
+        exit 1
+    }
+}
+
+if (-not (Test-Path $keycloakDir)) {
+    $keycloakDir = "C:\Program Files\Keycloak"
+    if (-not (Test-Path $keycloakDir)) {
+        $keycloakDir = "C:\Program Files (x86)\Keycloak"
+    }
+}
+
 if (Test-Path $keycloakDir) {
     Write-Info "Keycloak directory found: $keycloakDir"
 } else {
-    Write-Warn "Keycloak not found at $keycloakDir"
-    Write-Info "Please install Keycloak 26+ from: https://www.keycloak.org/downloads"
-    Write-Info "Extract to: $keycloakDir"
+    Write-Err "Keycloak installation not found"
     pause
     exit 1
 }

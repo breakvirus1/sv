@@ -2,7 +2,40 @@
 
 ## Требования
 
-Установите следующее ПО вручную:
+- Windows 10/11
+- Права администратора
+- Интернет-соединение для автоматической установки зависимостей
+
+## Быстрый старт
+
+### Автоматическая установка
+
+Скрипт автоматически установит все необходимые компоненты:
+- Java 17 (Temurin JDK)
+- Apache Maven 3.8+
+- Node.js 18+ LTS
+- PostgreSQL 15+
+- Keycloak 26+
+
+Запустите от имени администратора:
+```cmd
+scripts\windows\deploy-native.bat
+```
+
+Скрипт проверит наличие каждого компонента и установит его при необходимости через:
+1. `winget` (встроенный менеджер пакетов Windows 10/11)
+2. `choco` (Chocolatey, если установлен)
+
+После установки всех компонентов скрипт автоматически:
+- Создаст базу данных `svdb` в PostgreSQL
+- Запустит Keycloak
+- Соберёт все backend-сервисы через Maven
+- Запустит все сервисы
+- Запустит фронтенд
+
+### Ручная установка (если автоматическая не работает)
+
+Если автоматическая установка не работает, установите компоненты вручную:
 
 | Компонент | Версия | Ссылка |
 |-----------|--------|--------|
@@ -12,40 +45,15 @@
 | PostgreSQL | 15+ | https://www.postgresql.org/download/windows/ |
 | Keycloak | 26+ | https://www.keycloak.org/downloads |
 
-## Быстрый старт
-
-### 1. Установите PostgreSQL
-
-**Вариант A: через Chocolatey**
-```cmd
-choco install postgresql15 -y
-```
-
-**Вариант B: вручную**
-1. Скачайте установщик с https://www.postgresql.org/download/windows/
-2. Установите PostgreSQL 15+
-3. Задайте пароль для пользователя `postgres` (по умолчанию: `12345`)
-
-### 2. Установите Keycloak
-
-1. Скачайте Keycloak 26+ с https://www.keycloak.org/downloads
-2. Распакуйте в `C:\keycloak`
-3. Или установите через Chocolatey:
-   ```cmd
-   choco install keycloak -y
-   ```
-
-### 3. Запустите развертывание
-
-Запустите от имени администратора:
+После ручной установки запустите:
 ```cmd
 scripts\windows\deploy-native.bat
 ```
 
 Скрипт автоматически:
-- Проверит все prerequisites
-- Запустит PostgreSQL (если не запущен)
-- Запустит Keycloak (если не запущен)
+- Установит все недостающие зависимости (Java 17, Maven, Node.js, PostgreSQL, Keycloak)
+- Создаст базу данных `svdb` в PostgreSQL
+- Запустит Keycloak
 - Соберёт все backend-сервисы через Maven
 - Запустит все backend-сервисы
 - Установит зависимости фронтенда через npm
@@ -94,7 +102,6 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local
 - `EUREKA_URL=http://localhost:8761/eureka/`
 - `DB_HOST=localhost`
 - `KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv`
-- `SPRING_PROFILES_ACTIVE=local`
 
 ### Настройка front/.env
 
@@ -174,6 +181,19 @@ net start postgresql
 java -version
 mvn -version
 ```
+
+### Ошибка при установке зависимостей
+Скрипт пытается установить недостающие компоненты через `winget` или `choco`.
+Если автоматическая установка не работает:
+1. Установите компоненты вручную
+2. Перезапустите скрипт
+
+### Keycloak установлен, но не запускается
+Убедитесь что порт 8080 не занят:
+```cmd
+netstat -ano | findstr :8080
+```
+Если порт занят, остановите процесс или измените порт Keycloak.
 
 ### Frontend не открывается
 Убедитесь что порт 5174 не занят:
