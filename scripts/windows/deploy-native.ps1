@@ -274,7 +274,6 @@ Write-Info "Step 7: Starting backend services..."
 $env:EUREKA_URL = "http://localhost:8761/eureka/"
 $env:DB_HOST = "localhost"
 $env:KEYCLOAK_ISSUER_URI = "http://localhost:8080/realms/print-sv"
-$env:SPRING_PROFILES_ACTIVE = "local"
 
 $serviceProcesses = @()
 
@@ -284,10 +283,10 @@ function Start-Service($name, $path, $port, $args = "") {
     if (-not $jarPath) {
         Write-Warn "JAR not found for $name, trying to run via mvn spring-boot:run..."
         Push-Location $path
-        $proc = Start-Process -FilePath "mvn" -ArgumentList "spring-boot:run -Dspring-boot.run.profiles=local" -WindowStyle Hidden -PassThru
+        $proc = Start-Process -FilePath "mvn" -ArgumentList "spring-boot:run" -WindowStyle Hidden -PassThru
         Pop-Location
     } else {
-        $proc = Start-Process -FilePath "java" -ArgumentList "-jar", $jarPath.FullName, "--server.port=$port", "--spring.profiles.active=local" -WindowStyle Hidden -PassThru
+        $proc = Start-Process -FilePath "java" -ArgumentList "-jar", $jarPath.FullName, "--server.port=$port" -WindowStyle Hidden -PassThru
     }
     $serviceProcesses += @{ Name = $name; Process = $proc; Port = $port }
     Write-Ok "$name started (PID: $($proc.Id))"
