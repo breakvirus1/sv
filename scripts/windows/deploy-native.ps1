@@ -77,7 +77,6 @@ function Install-ChocoIfNeeded() {
         try {
             Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
             Write-Ok "Chocolatey installed"
-            Refresh-EnvPath
             return $true
         } catch {
             Write-Err "Failed to install Chocolatey: $_"
@@ -85,6 +84,19 @@ function Install-ChocoIfNeeded() {
         }
     }
     return $true
+}
+
+function Refresh-EnvPath() {
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
+}
+
+function Get-CommandPath($cmd) {
+    try {
+        $cmdInfo = Get-Command $cmd -ErrorAction Stop
+        return $cmdInfo.Source
+    } catch {
+        return $null
+    }
 }
 
 function Download-File($url, $outputPath, $description = "") {
