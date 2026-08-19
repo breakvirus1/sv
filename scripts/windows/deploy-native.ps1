@@ -70,6 +70,18 @@ function Install-WithChoco($name, $id) {
     }
 }
 
+function Install-ChocoIfNeeded() {
+    if (-not (Test-Command "choco")) {
+        Write-Warn "Chocolatey not found. Installing Chocolatey..."
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+        Write-Ok "Chocolatey installed"
+        Refresh-EnvPath
+        return $true
+    }
+    return $false
+}
+
 function Refresh-EnvPath() {
     $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
 }
@@ -90,8 +102,11 @@ if (-not (Test-Command "java")) {
     if (Test-Command "winget") {
         $installed = Install-WithWinget "Java 17" "EclipseAdoptium.Temurin.17.JDK"
     }
-    if (-not $installed -and (Test-Command "choco")) {
-        $installed = Install-WithChoco "Java 17" "temurin17-jdk"
+    if (-not $installed) {
+        Install-ChocoIfNeeded | Out-Null
+        if (Test-Command "choco") {
+            $installed = Install-WithChoco "Java 17" "temurin17-jdk"
+        }
     }
     if (-not $installed) {
         Write-Err "Please install Java 17 manually from: https://adoptium.net/"
@@ -105,7 +120,6 @@ if (-not (Test-Command "java")) {
 
 $javaPath = Get-CommandPath "java"
 if (-not $javaPath) {
-    # Try common Java installation paths
     $possiblePaths = @(
         "${env:ProgramFiles}\Eclipse Adoptium\jdk-17*\bin\java.exe",
         "${env:ProgramFiles}\Java\jdk-17*\bin\java.exe",
