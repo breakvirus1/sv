@@ -1,0 +1,145 @@
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$ErrorActionPreference = 'Stop'
+
+function Info {
+    param([string]$Message)
+    Write-Host "[INFO] $Message" -ForegroundColor Cyan
+}
+
+function Warn {
+    param([string]$Message)
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function ErrorMsg {
+    param([string]$Message)
+    Write-Host "[ERROR] $Message" -ForegroundColor Red
+}
+
+function Start-DockerDesktop {
+    try {
+        $dockerInfo = docker info 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Info "Docker работает: $((docker version --format '{{.Server.Version}}') -replace '\s','')"
+            return
+        }
+    } catch {}
+
+    Warn "Docker Desktop не запущен. Попытка запуска..."
+    $dockerDesktop = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -like "*Docker Desktop*" } |
+        Select-Object -First 1
+
+    if ($dockerDesktop) {
+        $installLocation = $dockerDesktop.InstallLocation
+        $exePath = Join-Path $installLocation "Docker Desktop.exe"
+        if (Test-Path $exePath) {
+            Start-Process $exePath -ErrorAction SilentlyContinue | Out-Null
+        } else {
+            Start-Process "docker" -ErrorAction SilentlyContinue | Out-Null
+        }
+    } else {
+        Start-Process "docker" -ErrorAction SilentlyContinue | Out-Null
+    }
+
+    Info "Ожидание запуска Docker Desktop (до 120 секунд)..."
+    for ($i = 1; $i -le 60; $i++) {
+        Start-Sleep -Seconds 2
+        try {
+            $dockerInfo = docker info 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Info "Docker Desktop запущен."
+                return
+            }
+        } catch {}
+    }
+    ErrorMsg "Docker Desktop не запустился за отведённое время. Запустите его вручную."
+    exit 1
+}
+
+function Test-Docker {
+    try {
+        $dockerInfo = docker info 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            ErrorMsg "Docker не запущен или недоступен."
+            exit 1
+        }
+    } catch {
+        ErrorMsg "Docker не запущен или недоступен."
+        exit 1
+    }
+}
+
+function Test-Compose {
+    $composeVersion = docker compose version --short 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Info "Docker Compose: $composeVersion"
+        return
+    }
+    ErrorMsg "Docker Compose не найден. Установите Docker Desktop с поддержкой Compose."
+    exit 1
+}
+
+function Stop-Existing {
+    Info "Остановка существующих контейнеров..."
+    docker compose -f $composeFile down --remove-orphans 2>&1 | Out-Null
+}
+
+function Build-Images {
+    Info "Сборка Docker-образов..."
+    docker compose -f $composeFile build --no-cache
+}
+
+function Start-Services {
+    Info "Запуск сервисов..."
+    docker compose -f $composeFile up -d --wait
+}
+
+function Show-Status {
+    Info "Статус контейнеров:"
+    docker compose -f $composeFile ps
+}
+
+function Show-Urls {
+    Write-Host ""
+    Info "Доступные сервисы:"
+    Write-Host "  Frontend:        http://localhost:5174"
+    Write-Host "  API Gateway:     http://localhost:8085"
+    Write-Host "  Discovery:       http://localhost:8761"
+    Write-Host "  Keycloak:        http://localhost:8080  (admin / admin)"
+    Write-Host "  Order Service:   http://localhost:8081"
+    Write-Host "  Client Service:  http://localhost:8082"
+    Write-Host "  File Service:    http://localhost:8087"
+    Write-Host "  Comment Service: http://localhost:8088"
+    Write-Host "  Generate Data:   http://localhost:8090"
+    Write-Host "  PostgreSQL:      localhost:5433"
+}
+
+function Show-LogsHint {
+    Write-Host ""
+    Info "Просмотр логов: docker compose -f `"$composeFile`" logs -f <service-name>"
+    Info "Остановка:      docker compose -f `"$composeFile`" down"
+}
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectRoot = Split-Path -Parent $scriptDir
+$composeFile = Join-Path $projectRoot "docker-compose.yml"
+
+Info "Развёртывание проекта 'sv' в Docker (Windows 11)"
+Write-Host ""
+
+Start-DockerDesktop
+Test-Docker
+Test-Compose
+
+Set-Location $projectRoot
+
+Stop-Existing
+Build-Images
+Start-Services
+Show-Status
+Show-Urls
+Show-LogsHint
+
+Write-Host ""
+Info "Развёртывание завершено."
