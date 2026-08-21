@@ -17,6 +17,8 @@ services:
       retries: 5
     networks:
       - sv-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   keycloak:
      image: quay.io/keycloak/keycloak:26.1.4
@@ -40,6 +42,8 @@ services:
          condition: service_healthy
      networks:
        - sv-network
+     extra_hosts:
+       - "host.docker.internal:host-gateway"
 
   discovery-server:
      build:
@@ -52,6 +56,8 @@ services:
          condition: service_healthy
      networks:
        - sv-network
+     extra_hosts:
+       - "host.docker.internal:host-gateway"
      environment:
        - SPRING_PROFILES_ACTIVE=docker
 
@@ -70,11 +76,13 @@ services:
         condition: service_started
     networks:
       - sv-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
 
   client-service:
     build:
@@ -91,11 +99,13 @@ services:
         condition: service_started
     networks:
       - sv-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
 
   employee-service:
     build:
@@ -110,11 +120,13 @@ services:
         condition: service_started
     networks:
       - sv-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
 
   material-service:
     build:
@@ -129,12 +141,13 @@ services:
         condition: service_started
     networks:
       - sv-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv
-
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
 
   calculator-service:
     build:
@@ -149,11 +162,13 @@ services:
         condition: service_started
     networks:
       - sv-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
       - MATERIAL_SERVICE_URL=http://material-service:8084/api/v1/materials
 
   file-service:
@@ -171,6 +186,8 @@ services:
         condition: service_started
     networks:
       - sv-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./uploads:/app/uploads
     environment:
@@ -192,12 +209,13 @@ services:
         condition: service_started
     networks:
       - sv-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv
-      - KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
     volumes:
       - ./uploads:/app/uploads
       - ./images:/app/images
@@ -217,11 +235,13 @@ services:
         condition: service_started
     networks:
       - sv-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
 
   api-gateway:
     build:
@@ -250,10 +270,12 @@ services:
         condition: service_started
     networks:
       - sv-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
-      - KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
 
   frontend:
     build:
@@ -261,8 +283,8 @@ services:
       dockerfile: Dockerfile
       target: production
       args:
-        VITE_API_URL: http://localhost:8085
-        VITE_KEYCLOAK_ISSUER: http://localhost:8080/realms/print-sv
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8085}
+        VITE_KEYCLOAK_ISSUER: ${VITE_KEYCLOAK_ISSUER:-http://localhost:8080/realms/print-sv}
         VITE_KEYCLOAK_CLIENT_ID: frontend
     ports:
       - "5174:5174"
@@ -270,6 +292,8 @@ services:
       - api-gateway
     networks:
       - sv-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   sv-network:
