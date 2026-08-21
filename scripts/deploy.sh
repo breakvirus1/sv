@@ -72,7 +72,7 @@ stop_existing() {
 
 build_backend() {
   info "Сборка микросервисов через Maven..."
-  (cd "$PROJECT_ROOT/back" && mvn clean install -DskipTests)
+  (cd "$PROJECT_ROOT" && mvn clean install -DskipTests)
 }
 
 build_images() {

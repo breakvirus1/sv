@@ -96,9 +96,8 @@ function Stop-Existing {
 
 function Build-Backend {
     Info "Building microservices with Maven..."
-    Set-Location (Join-Path $projectRoot "back")
-    & mvn clean install -DskipTests
     Set-Location $projectRoot
+    & mvn clean install -DskipTests
 }
 
 function Build-Images {
