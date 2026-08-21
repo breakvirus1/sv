@@ -18,7 +18,7 @@ function ErrorMsg {
 
 function Start-DockerDesktop {
     try {
-        $dockerInfo = docker info 2>&1
+        $dockerInfo = & docker info *>&1
         if ($LASTEXITCODE -eq 0) {
             Info "Docker works: $((docker version --format '{{.Server.Version}}') -replace '\s','')"
             return
@@ -46,7 +46,7 @@ function Start-DockerDesktop {
     for ($i = 1; $i -le 60; $i++) {
         Start-Sleep -Seconds 2
         try {
-            $dockerInfo = docker info 2>&1
+            $dockerInfo = & docker info *>&1
             if ($LASTEXITCODE -eq 0) {
                 Info "Docker Desktop started."
                 return
@@ -59,7 +59,7 @@ function Start-DockerDesktop {
 
 function Test-Docker {
     try {
-        $dockerInfo = docker info 2>&1
+        $null = & docker info *>&1
         if ($LASTEXITCODE -ne 0) {
             ErrorMsg "Docker is not running or not available."
             exit 1
@@ -71,7 +71,7 @@ function Test-Docker {
 }
 
 function Test-Compose {
-    $composeVersion = docker compose version --short 2>&1
+    $composeVersion = & docker compose version --short *>&1
     if ($LASTEXITCODE -eq 0) {
         Info "Docker Compose: $composeVersion"
         return
@@ -82,22 +82,22 @@ function Test-Compose {
 
 function Stop-Existing {
     Info "Stopping existing containers..."
-    docker compose -f $composeFile down --remove-orphans 2>&1 | Out-Null
+    $null = & docker compose -f $composeFile down --remove-orphans *>&1
 }
 
 function Build-Images {
     Info "Building Docker images..."
-    docker compose -f $composeFile build --no-cache
+    & docker compose -f $composeFile build --no-cache
 }
 
 function Start-Services {
     Info "Starting services..."
-    docker compose -f $composeFile up -d --wait
+    & docker compose -f $composeFile up -d --wait
 }
 
 function Show-Status {
     Info "Container status:"
-    docker compose -f $composeFile ps
+    & docker compose -f $composeFile ps
 }
 
 function Show-Urls {
