@@ -70,6 +70,11 @@ stop_existing() {
   $COMPOSE_CMD -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
 }
 
+build_backend() {
+  info "Сборка микросервисов через Maven..."
+  (cd "$PROJECT_ROOT/back" && mvn clean install -DskipTests)
+}
+
 build_images() {
   info "Сборка Docker-образов..."
   $COMPOSE_CMD -f "$COMPOSE_FILE" build --no-cache
@@ -120,6 +125,7 @@ main() {
   cd "$PROJECT_ROOT"
 
   stop_existing
+  build_backend
   build_images
   start_services
   show_status

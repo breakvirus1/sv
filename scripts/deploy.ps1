@@ -80,9 +80,25 @@ function Test-Compose {
     exit 1
 }
 
+function Test-Maven {
+    if (-not (Get-Command mvn -ErrorAction SilentlyContinue)) {
+        ErrorMsg "Maven not found. Install Maven and add it to PATH."
+        exit 1
+    }
+    $mavenVersion = & mvn -version 2>&1 | Select-Object -First 1
+    Info "Maven: $mavenVersion"
+}
+
 function Stop-Existing {
     Info "Stopping existing containers..."
     & docker compose -f $composeFile down --remove-orphans
+}
+
+function Build-Backend {
+    Info "Building microservices with Maven..."
+    Set-Location (Join-Path $projectRoot "back")
+    & mvn clean install -DskipTests
+    Set-Location $projectRoot
 }
 
 function Build-Images {
@@ -131,10 +147,12 @@ Write-Host ""
 Start-DockerDesktop
 Test-Docker
 Test-Compose
+Test-Maven
 
 Set-Location $projectRoot
 
 Stop-Existing
+Build-Backend
 Build-Images
 Start-Services
 Show-Status
