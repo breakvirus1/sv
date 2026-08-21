@@ -82,7 +82,7 @@ function Test-Compose {
 
 function Stop-Existing {
     Info "Stopping existing containers..."
-    $null = & docker compose -f $composeFile down --remove-orphans 2>&1 | Out-Null
+    & docker compose -f $composeFile down --remove-orphans
 }
 
 function Build-Images {
