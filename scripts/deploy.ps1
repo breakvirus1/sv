@@ -1,4 +1,4 @@
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = 'Stop'
 
 function Info {
@@ -20,12 +20,12 @@ function Start-DockerDesktop {
     try {
         $dockerInfo = docker info 2>&1
         if ($LASTEXITCODE -eq 0) {
-            Info "Docker работает: $((docker version --format '{{.Server.Version}}') -replace '\s','')"
+            Info "Docker works: $((docker version --format '{{.Server.Version}}') -replace '\s','')"
             return
         }
     } catch {}
 
-    Warn "Docker Desktop не запущен. Попытка запуска..."
+    Warn "Docker Desktop is not running. Attempting to start..."
     $dockerDesktop = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
         Where-Object { $_.DisplayName -like "*Docker Desktop*" } |
         Select-Object -First 1
@@ -42,18 +42,18 @@ function Start-DockerDesktop {
         Start-Process "docker" -ErrorAction SilentlyContinue | Out-Null
     }
 
-    Info "Ожидание запуска Docker Desktop (до 120 секунд)..."
+    Info "Waiting for Docker Desktop to start (up to 120 seconds)..."
     for ($i = 1; $i -le 60; $i++) {
         Start-Sleep -Seconds 2
         try {
             $dockerInfo = docker info 2>&1
             if ($LASTEXITCODE -eq 0) {
-                Info "Docker Desktop запущен."
+                Info "Docker Desktop started."
                 return
             }
         } catch {}
     }
-    ErrorMsg "Docker Desktop не запустился за отведённое время. Запустите его вручную."
+    ErrorMsg "Docker Desktop did not start in time. Please start it manually."
     exit 1
 }
 
@@ -61,11 +61,11 @@ function Test-Docker {
     try {
         $dockerInfo = docker info 2>&1
         if ($LASTEXITCODE -ne 0) {
-            ErrorMsg "Docker не запущен или недоступен."
+            ErrorMsg "Docker is not running or not available."
             exit 1
         }
     } catch {
-        ErrorMsg "Docker не запущен или недоступен."
+        ErrorMsg "Docker is not running or not available."
         exit 1
     }
 }
@@ -76,33 +76,33 @@ function Test-Compose {
         Info "Docker Compose: $composeVersion"
         return
     }
-    ErrorMsg "Docker Compose не найден. Установите Docker Desktop с поддержкой Compose."
+    ErrorMsg "Docker Compose not found. Install Docker Desktop with Compose support."
     exit 1
 }
 
 function Stop-Existing {
-    Info "Остановка существующих контейнеров..."
+    Info "Stopping existing containers..."
     docker compose -f $composeFile down --remove-orphans 2>&1 | Out-Null
 }
 
 function Build-Images {
-    Info "Сборка Docker-образов..."
+    Info "Building Docker images..."
     docker compose -f $composeFile build --no-cache
 }
 
 function Start-Services {
-    Info "Запуск сервисов..."
+    Info "Starting services..."
     docker compose -f $composeFile up -d --wait
 }
 
 function Show-Status {
-    Info "Статус контейнеров:"
+    Info "Container status:"
     docker compose -f $composeFile ps
 }
 
 function Show-Urls {
     Write-Host ""
-    Info "Доступные сервисы:"
+    Info "Available services:"
     Write-Host "  Frontend:        http://localhost:5174"
     Write-Host "  API Gateway:     http://localhost:8085"
     Write-Host "  Discovery:       http://localhost:8761"
@@ -117,15 +117,15 @@ function Show-Urls {
 
 function Show-LogsHint {
     Write-Host ""
-    Info "Просмотр логов: docker compose -f `"$composeFile`" logs -f <service-name>"
-    Info "Остановка:      docker compose -f `"$composeFile`" down"
+    Info "View logs: docker compose -f `"$composeFile`" logs -f service-name"
+    Info "Stop:      docker compose -f `"$composeFile`" down"
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent $scriptDir
 $composeFile = Join-Path $projectRoot "docker-compose.yml"
 
-Info "Развёртывание проекта 'sv' в Docker (Windows 11)"
+Info "Deploying project 'sv' in Docker (Windows 11)"
 Write-Host ""
 
 Start-DockerDesktop
@@ -142,4 +142,4 @@ Show-Urls
 Show-LogsHint
 
 Write-Host ""
-Info "Развёртывание завершено."
+Info "Deployment completed."
