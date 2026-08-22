@@ -37,7 +37,7 @@ function Get-CommandPath {
 }
 
 function Get-JavaVersion {
-    $output = & java -version 2>&1 | Out-String
+    $output = cmd /c "java -version 2>&1" | Out-String
     return ($output -split "`r?`n" | Select-Object -First 1).Trim()
 }
 
@@ -209,10 +209,12 @@ function Install-Java21 {
     Refresh-EnvPath
     $javaPath = Get-CommandPath "java"
     if ($javaPath) {
-        $javaVersion = java -version 2>&1 | Select-Object -First 1
+        $javaVersion = Get-JavaVersion
         Info "Java: $javaVersion"
         return $true
     }
+    return $false
+}
     ErrorMsg "Java installation failed or not found in PATH"
     return $false
 }
