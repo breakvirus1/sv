@@ -215,8 +215,6 @@ function Install-Java21 {
     }
     return $false
 }
-    ErrorMsg "Java installation failed or not found in PATH"
-    return $false
 }
 
 function Install-Maven-Direct {
