@@ -7,6 +7,10 @@
 - Права администратора
 - [Podman Desktop](https://podman.io/) с поддержкой Compose
 
+**WSL не требуется.** Podman Desktop на Windows работает через встроенный backend:
+- **Рекомендуется**: WSL2 backend (автоматически настраивается Podman Desktop)
+- **Альтернатива**: Hyper-V backend (если WSL недоступен или не нужен)
+
 ### Быстрый старт
 
 1. Установите [Podman Desktop](https://podman.io/) и добавьте `podman` в PATH
@@ -89,6 +93,12 @@ scripts\windows\stop-all.bat
 ```cmd
 podman --version
 ```
+
+Если используется WSL2 backend, убедитесь что WSL включён:
+```cmd
+wsl --install
+```
+Или переключитесь на Hyper-V backend в настройках Podman Desktop.
 
 ### Port already in use
 Остановите все сервисы:
