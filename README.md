@@ -2,6 +2,17 @@
 
 Микросервисная архитектура на базе React + Spring Boot + Keycloak + PostgreSQL + Eureka.
 
+## Развертывание на Windows 10/11
+
+См. подробную инструкцию в [`scripts/windows/README.md`](scripts/windows/README.md).
+
+Кратко:
+- **Полная установка окружения**: `scripts\windows\install-all.bat` (Git, Java 21, Maven, Node.js, Docker Desktop)
+- **Развертывание через Podman**: `scripts\windows\deploy-podman.bat`
+- **Развертывание через Docker Desktop**: `scripts\windows\deploy-native.bat`
+
+Доступ из локальной сети: http://192.168.88.121:5174
+
 ## Технологический стек
 
 - **Frontend**: React 18, TypeScript, Material-UI, TanStack Query, TanStack Table, React Hook Form, Zod
