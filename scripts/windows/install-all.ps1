@@ -169,7 +169,7 @@ function Install-Java21-Direct {
     Refresh-EnvPath
     $javaPath = Get-CommandPath "java"
     if ($javaPath) {
-        $javaVersion = java -version 2>&1 | Select-Object -First 1
+        $javaVersion = & java -version *>&1 | Select-Object -First 1
         Info "Java: $javaVersion"
         return $true
     }
@@ -178,7 +178,7 @@ function Install-Java21-Direct {
 
 function Install-Java21 {
     if (Test-Command "java") {
-        $javaVersion = java -version 2>&1 | Select-Object -First 1
+        $javaVersion = & java -version *>&1 | Select-Object -First 1
         if ($javaVersion -match '21') {
             Info "Java 21 already installed: $javaVersion"
             return $true
