@@ -11,6 +11,7 @@ import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import GenerateTab from '../components/AdminPanel/GenerateTab';
 import MaterialsTab from '../components/AdminPanel/MaterialsTab';
+import StatisticsTab from '../components/AdminPanel/StatisticsTab';
 
 const UNIT_DISPLAY_TO_ENUM = {
   'м²': 'SQUARE_METER',
@@ -25,6 +26,7 @@ const ENTITY_TABS = [
   { label: 'Operation Groups', value: 'operationGroups' },
   { label: 'Workshops', value: 'workshops' },
   { label: 'Employees', value: 'employees' },
+  { label: 'Statistics', value: 'statistics' },
   { label: 'Generate Data', value: 'generate' }
 ];
 
@@ -578,7 +580,8 @@ const AdminPanel = () => {
           {tab === 3 && renderOperationGroupsTab()}
           {tab === 4 && renderWorkshopsTab()}
           {tab === 5 && renderEmployeesTab()}
-          {tab === 6 && renderGenerateTab()}
+          {tab === 6 && <StatisticsTab />}
+          {tab === 7 && renderGenerateTab()}
         </Box>
       </Paper>
 

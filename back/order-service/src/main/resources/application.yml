@@ -43,6 +43,10 @@ calculator:
   service:
     url: ${CALCULATOR_SERVICE_URL:http://localhost:8086}
 
+statistic:
+  service:
+    url: ${STATISTIC_SERVICE_URL:http://localhost:8089/api/v1/admin/statistics}
+
 logging:
   level:
     org.springframework.security: DEBUG

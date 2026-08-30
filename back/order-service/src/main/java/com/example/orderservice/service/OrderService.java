@@ -89,9 +89,13 @@ public class OrderService {
     private final JdbcTemplate jdbcTemplate;
     private final RestTemplate restTemplate;
     private final EmployeeRepository employeeRepository;
+    private final StatisticSyncService statisticSyncService;
 
     @Value("${calculator.service.url}")
     private String calculatorUrl;
+
+    @Value("${statistic.service.url}")
+    private String statisticServiceUrl;
 
     /**
      * Получить список заказов с фильтрацией и пагинацией.
@@ -528,6 +532,8 @@ public OrderResponse getOrderById(Long id) {
             } catch (Exception e) {
                 System.err.println("Failed to log order creation history: " + e.getMessage());
             }
+
+            statisticSyncService.syncOrder(saved);
         }
 
         return getOrderById(saved.getId());
@@ -977,6 +983,7 @@ public OrderResponse getOrderById(Long id) {
                   System.err.println("Failed to log order history: " + e.getMessage());
               }
 
+              statisticSyncService.syncOrder(order);
          }
 
  OrderResponse response = mapOrderResponse(order);

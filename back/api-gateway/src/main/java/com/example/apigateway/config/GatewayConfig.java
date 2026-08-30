@@ -77,6 +77,10 @@ public class GatewayConfig {
                  .path("/api/v1/comments/**", "/api/v1/comment-replies/**", "/api/v1/notifications/**", "/api/v1/images/**")
                  .uri("http://comment-service:8088")
              )
+             .route("statistic-service", r -> r
+                 .path("/api/v1/admin/statistics/**")
+                 .uri("http://statistic-service:8089")
+             )
              .build();
         log.info("Custom routes configured: order-service, client-service, employee-service, material-service, calculator-service, generate-data-service, and admin endpoints");
         return routes;

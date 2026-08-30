@@ -42,6 +42,7 @@
           <module>back/api-gateway</module>
           <module>back/generate-data-service</module>
       <module>back/comment-service</module>
+      <module>back/statistic-service</module>
       </modules>
 
     <dependencyManagement>
