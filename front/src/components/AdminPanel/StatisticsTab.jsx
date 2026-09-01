@@ -20,7 +20,7 @@ const StatisticsTab = () => {
       const r = await api.get('/api/v1/admin/statistics/material-expense', { params });
       return r.data || [];
     },
-    enabled: false
+    enabled: true
   });
 
   const handleRefresh = () => {
@@ -30,6 +30,11 @@ const StatisticsTab = () => {
   const formatValue = (value) => {
     if (value === null || value === undefined) return '-';
     return Number(value).toFixed(2);
+  };
+
+  const formatInt = (value) => {
+    if (value === null || value === undefined) return '-';
+    return String(value);
   };
 
   return (
@@ -70,21 +75,41 @@ const StatisticsTab = () => {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Материал</TableCell>
-                <TableCell align="right">Чистый расход (м²/п.м./шт)</TableCell>
-                <TableCell align="right">Расход с процентом клиента</TableCell>
-                <TableCell align="right">Расход без наценки (₽)</TableCell>
-                <TableCell align="right">Расход из позиций заказов (₽)</TableCell>
+                <TableCell>Тип</TableCell>
+                <TableCell>Наименование</TableCell>
+                <TableCell>Ед. изм.</TableCell>
+                <TableCell align="right">Чистый расход (без отходов)</TableCell>
+                <TableCell align="right">Кол-во с отходами</TableCell>
+                <TableCell align="right">Штуки, шт</TableCell>
+                <TableCell align="right">Погонные метры, п.м.</TableCell>
+                <TableCell align="right">Кв. метры, м²</TableCell>
+                <TableCell align="right">Люверсы, шт</TableCell>
+                <TableCell align="right">Расход с добавкой клиента, ₽</TableCell>
+                <TableCell align="right">Себестоимость материалов (без добавки), ₽</TableCell>
+                <TableCell align="right">Стоимость материалов с добавкой из позиций, ₽</TableCell>
+                <TableCell align="right">Выполненных операций, шт</TableCell>
+                <TableCell align="right">Стоимость выполненных операций, ₽</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {rows.map((row, idx) => (
                 <TableRow key={idx} hover>
-                  <TableCell>{row.materialName}</TableCell>
+                  <TableCell>{row.type === 'operation' ? 'Операция' : 'Материал'}</TableCell>
+                  <TableCell>
+                    {row.type === 'operation' ? `${row.name}${row.materialName ? ` (${row.materialName})` : ''}` : row.name}
+                  </TableCell>
+                  <TableCell>{row.unit || '-'}</TableCell>
                   <TableCell align="right">{formatValue(row.netQuantity)}</TableCell>
+                  <TableCell align="right">{formatValue(row.quantityWithWaste)}</TableCell>
+                  <TableCell align="right">{formatInt(row.pieces)}</TableCell>
+                  <TableCell align="right">{formatValue(row.linearMeters)}</TableCell>
+                  <TableCell align="right">{formatValue(row.squareMeters)}</TableCell>
+                  <TableCell align="right">{formatInt(row.eyeletPieces)}</TableCell>
                   <TableCell align="right">{formatValue(row.consumptionWithPriceplus)} ₽</TableCell>
                   <TableCell align="right">{formatValue(row.cost)} ₽</TableCell>
                   <TableCell align="right">{formatValue(row.consumptionFromOrderPositions)} ₽</TableCell>
+                  <TableCell align="right">{formatInt(row.operationCount)}</TableCell>
+                  <TableCell align="right">{formatValue(row.operationsTotalCost)} ₽</TableCell>
                 </TableRow>
               ))}
             </TableBody>

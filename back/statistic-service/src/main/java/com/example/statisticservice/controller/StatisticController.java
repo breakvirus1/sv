@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,7 +30,7 @@ public class StatisticController {
     public ResponseEntity<List<MaterialExpenseRow>> getMaterialExpenseStatistics(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
-        return ResponseEntity.ok(statisticsService.getMaterialExpenseStatistics(fromDate, toDate, Pageable.unpaged()).getContent());
+        return ResponseEntity.ok(statisticsService.getMaterialExpenseStatistics(fromDate, toDate));
     }
 
     @Operation(summary = "Синхронизировать заказ для статистики")
