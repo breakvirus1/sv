@@ -94,7 +94,7 @@ const StatisticsTab = () => {
             <TableBody>
               {rows.map((row, idx) => (
                 <TableRow key={idx} hover>
-                  <TableCell>{row.type === 'operation' ? 'Операция' : 'Материал'}</TableCell>
+                  <TableCell>{row.type === 'operation' ? 'Операция' : row.type === 'eyelet' ? 'Люверс' : 'Материал'}</TableCell>
                   <TableCell>
                     {row.type === 'operation' ? `${row.name}${row.materialName ? ` (${row.materialName})` : ''}` : row.name}
                   </TableCell>

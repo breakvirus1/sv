@@ -33,7 +33,7 @@ public class StatisticsService {
                 COALESCE(SUM(CASE WHEN m.unit = 'шт' THEN om.quantity ELSE 0 END), 0) as pieces,
                 COALESCE(SUM(CASE WHEN m.unit IN ('п.м.', 'м') THEN om.quantity ELSE 0 END), 0) as linear_meters,
                 COALESCE(SUM(CASE WHEN m.unit = 'м2' THEN om.quantity ELSE 0 END), 0) as square_meters,
-                COALESCE(SUM(CASE WHEN om.eyelet_cost > 0 THEN om.eyelet_quantity ELSE 0 END), 0) as eyelet_pieces,
+                0 as eyelet_pieces,
                 COALESCE(SUM(om.cost * (1 + COALESCE(o.priceplus, 0) / 100)), 0) as consumption_with_priceplus,
                 COALESCE(SUM(om.cost), 0) as cost,
                 COALESCE(SUM(om.cost_priceplus), 0) as consumption_from_order_positions,
@@ -75,19 +75,48 @@ public class StatisticsService {
               AND COALESCE(oo.deleted, false) = false
             """;
 
+        String eyeletSql = """
+            SELECT
+                'eyelet' as row_type,
+                'Люверсы' as name,
+                '' as material_name,
+                'шт' as unit,
+                0 as net_quantity,
+                0 as quantity_with_waste,
+                COALESCE(SUM(om.eyelet_quantity), 0) as pieces,
+                0 as linear_meters,
+                0 as square_meters,
+                0 as eyelet_pieces,
+                0 as consumption_with_priceplus,
+                0 as cost,
+                0 as consumption_from_order_positions,
+                0 as operation_count,
+                0 as operations_total_cost
+            FROM svschema.orders o
+            JOIN svschema.order_items oi ON oi.order_id = o.id
+            JOIN svschema.order_materials om ON om.order_item_id = oi.id
+            WHERE COALESCE(o.deleted, false) = false
+              AND COALESCE(oi.deleted, false) = false
+              AND COALESCE(om.deleted, false) = false
+              AND om.eyelet_cost > 0
+              AND om.eyelet_quantity > 0
+            """;
+
         if (fromDate != null) {
             materialSql += " AND o.order_date >= :fromDate";
             operationSql += " AND o.order_date >= :fromDate";
+            eyeletSql += " AND o.order_date >= :fromDate";
         }
         if (toDate != null) {
             materialSql += " AND o.order_date <= :toDate";
             operationSql += " AND o.order_date <= :toDate";
+            eyeletSql += " AND o.order_date <= :toDate";
         }
 
         materialSql += " GROUP BY m.name, m.unit";
         operationSql += " GROUP BY oo.operation_name, m.name, m.unit";
 
-        String unionSql = materialSql + " UNION ALL " + operationSql + " ORDER BY row_type, name";
+        String unionSql = materialSql + " UNION ALL " + operationSql + " UNION ALL " + eyeletSql + " ORDER BY row_type, name";
 
         Query query = entityManager.createNativeQuery(unionSql);
         if (fromDate != null) {
