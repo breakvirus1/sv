@@ -33,7 +33,7 @@ public class StatisticsService {
                 COALESCE(SUM(CASE WHEN m.unit = 'шт' THEN om.quantity ELSE 0 END), 0) as pieces,
                 COALESCE(SUM(CASE WHEN m.unit IN ('п.м.', 'м') THEN om.quantity ELSE 0 END), 0) as linear_meters,
                 COALESCE(SUM(CASE WHEN m.unit = 'м2' THEN om.quantity ELSE 0 END), 0) as square_meters,
-                COALESCE(SUM(CASE WHEN m.unit = 'шт' AND om.eyelet_cost > 0 THEN om.quantity ELSE 0 END), 0) as eyelet_pieces,
+                COALESCE(SUM(CASE WHEN om.eyelet_cost > 0 THEN om.eyelet_quantity ELSE 0 END), 0) as eyelet_pieces,
                 COALESCE(SUM(om.cost * (1 + COALESCE(o.priceplus, 0) / 100)), 0) as consumption_with_priceplus,
                 COALESCE(SUM(om.cost), 0) as cost,
                 COALESCE(SUM(om.cost_priceplus), 0) as consumption_from_order_positions,

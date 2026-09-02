@@ -372,9 +372,16 @@ public OrderResponse getOrderById(Long id) {
                     throw new RuntimeException("Пустой ответ от службы расчета");
                 }
 
-// Parse total price
+                // Parse total price
                 Number totalPriceNum = (Number) calcResponse.get("totalPrice");
                 BigDecimal totalPrice = new BigDecimal(totalPriceNum.toString());
+
+                // Parse eyelet quantity from calculator response
+                BigDecimal eyeletQuantity = BigDecimal.ZERO;
+                Map<String, Object> eyeletData = (Map<String, Object>) calcResponse.get("eyelet");
+                if (eyeletData != null && eyeletData.get("quantity") != null) {
+                    eyeletQuantity = new BigDecimal(eyeletData.get("quantity").toString());
+                }
 
                 // Parse operations breakdown
                 List<Map<String, Object>> opsData = (List<Map<String, Object>>) calcResponse.get("operations");
@@ -465,6 +472,7 @@ public OrderResponse getOrderById(Long id) {
                 orderMaterial.setCost(materialCost);
                 orderMaterial.setCostPriceplus(costPriceplus);
                 orderMaterial.setEyeletCost(eyeletCost.compareTo(BigDecimal.ZERO) > 0 ? eyeletCost : BigDecimal.ZERO);
+                orderMaterial.setEyeletQuantity(eyeletQuantity);
                 orderMaterial.setWidthM(itemReq.getWidthM());
                 orderMaterial.setHeightM(itemReq.getHeightM());
                 order.getMaterials().add(orderMaterial);
@@ -783,6 +791,13 @@ public OrderResponse getOrderById(Long id) {
                 Number totalPriceNum = (Number) calcResponse.get("totalPrice");
                 BigDecimal totalPrice = new BigDecimal(totalPriceNum.toString());
 
+                // Parse eyelet quantity from calculator response
+                BigDecimal eyeletQuantity = BigDecimal.ZERO;
+                Map<String, Object> eyeletData = (Map<String, Object>) calcResponse.get("eyelet");
+                if (eyeletData != null && eyeletData.get("quantity") != null) {
+                    eyeletQuantity = new BigDecimal(eyeletData.get("quantity").toString());
+                }
+
                 // Parse operations breakdown
                 List<Map<String, Object>> opsData = (List<Map<String, Object>>) calcResponse.get("operations");
                 BigDecimal operationsSubtotal = BigDecimal.ZERO;
@@ -860,6 +875,7 @@ public OrderResponse getOrderById(Long id) {
                         om.setWasteCoefficient(wasteCoeff);
                         om.setCost(materialCost);
                         om.setCostPriceplus(costPriceplus);
+                        om.setEyeletQuantity(eyeletQuantity);
 
                         // Update operations for the linked order item
                         OrderItem orderItem = om.getOrderItem();
@@ -1167,6 +1183,7 @@ private void recalculatePaidAmount(Long orderId) {
                 om.getCost(),
                 om.getCostPriceplus(),
                 om.getEyeletCost(),
+                om.getEyeletQuantity(),
                 opSummaries,
                 om.getOrderItem() != null ? om.getOrderItem().getId() : null,
                 fileUrl

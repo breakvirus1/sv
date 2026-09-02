@@ -86,8 +86,9 @@ public class StatisticSyncService {
                             matMap.put("wasteCoefficient", om.getWasteCoefficient());
                             matMap.put("cost", om.getCost());
                             matMap.put("costPriceplus", om.getCostPriceplus());
-                            matMap.put("eyeletCost", om.getEyeletCost());
-                            matMap.put("widthM", om.getWidthM());
+                             matMap.put("eyeletCost", om.getEyeletCost());
+                             matMap.put("eyeletQuantity", om.getEyeletQuantity());
+                             matMap.put("widthM", om.getWidthM());
                             matMap.put("heightM", om.getHeightM());
 
                             if (om.getMaterial() != null) {
