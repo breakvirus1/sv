@@ -29,7 +29,7 @@ public class OrderMaterialResponse {
     /** Стоимость люверсов (eyelet hardware) */
     private BigDecimal eyeletCost;
     /** Количество люверсов (шт) */
-    private BigDecimal eyeletQuantity;
+    private Integer eyeletQuantity;
     private List<OrderOperationSummary> operations;
     /** ID позиции заказа (OrderItem) */
     private Long orderItemId;

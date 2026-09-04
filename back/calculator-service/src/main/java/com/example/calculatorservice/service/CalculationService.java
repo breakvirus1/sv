@@ -220,7 +220,7 @@ public class CalculationService {
 
         // 3. Стоимость люверсов (фурнитура)
         if (calc.getEyelet() != null) {
-            BigDecimal eyeletQty = calculateEyeletsQuantity(calc);
+            BigDecimal eyeletQty = BigDecimal.valueOf(calculateEyeletsQuantity(calc));
             BigDecimal eyeletPrice = calc.getEyelet().getPricePerPiece();
             BigDecimal eyeletCost = eyeletQty.multiply(eyeletPrice);
             total = total.add(eyeletCost);
@@ -284,7 +284,7 @@ public class CalculationService {
             case PIECE:
                 // Обычно — установка люверсов
                 if (name.contains("люверс") || name.contains("установка")) {
-                    return calculateEyeletsQuantity(c);
+                    return BigDecimal.valueOf(calculateEyeletsQuantity(c));
                 }
                 // Для прочих операций "по штукам" обычно quantity = 1
                 return BigDecimal.ONE;
@@ -297,12 +297,12 @@ public class CalculationService {
         return c.getWidthM().add(c.getHeightM()).multiply(BigDecimal.valueOf(2));
     }
 
-    private BigDecimal calculateEyeletsQuantity(Calculation c) {
+    private int calculateEyeletsQuantity(Calculation c) {
         BigDecimal perimeterM = perimeter(c);
         BigDecimal perimeterCm = perimeterM.multiply(BigDecimal.valueOf(100));
         Integer stepCm = c.getEyeletStepCm();
         if (stepCm == null || stepCm <= 0) stepCm = 40;
-        return perimeterCm.divide(BigDecimal.valueOf(stepCm), 0, RoundingMode.UP);
+        return perimeterCm.divide(BigDecimal.valueOf(stepCm), 0, RoundingMode.UP).intValue();
     }
 
     private void validateCalculation(Calculation calc) {
@@ -328,7 +328,7 @@ public class CalculationService {
      */
     private void populateEyeletResultIfPresent(Calculation calc, CalculationResponseDto dto) {
         if (calc.getEyelet() != null) {
-            BigDecimal qty = calculateEyeletsQuantity(calc);
+            BigDecimal qty = BigDecimal.valueOf(calculateEyeletsQuantity(calc));
             BigDecimal price = calc.getEyelet().getPricePerPiece();
             BigDecimal subtotal = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
 

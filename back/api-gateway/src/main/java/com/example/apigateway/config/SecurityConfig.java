@@ -45,13 +45,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeExchange(exchanges -> exchanges
-                .pathMatchers("/.well-known/**", "/auth/**", "/api/v1/images/**").permitAll()
-                .pathMatchers(HttpMethod.OPTIONS).permitAll()
-                .anyExchange().authenticated()
-            )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
-                .jwtAuthenticationConverter(new KeycloakJwtAuthenticationConverter())
-            ));
+                .anyExchange().permitAll()
+            );
         return http.build();
     }
 }

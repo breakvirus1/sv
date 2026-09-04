@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-SERVICE="${1:-statistic-service}"
+SERVICE="${1:-all}"
 
 if [ "$SERVICE" = "all" ]; then
     echo "=== Building all services with Maven ==="
@@ -10,7 +10,7 @@ if [ "$SERVICE" = "all" ]; then
     echo "=== Rebuilding all Docker containers (no cache) ==="
     docker compose build --no-cache
 
-    echo "=== Restarting all services ==="
+    echo "=== Recreating all services ==="
     docker compose up -d --force-recreate
 
     echo "=== Done. Checking status ==="

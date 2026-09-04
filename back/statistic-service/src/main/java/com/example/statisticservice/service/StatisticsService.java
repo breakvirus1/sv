@@ -28,17 +28,17 @@ public class StatisticsService {
                 COALESCE(m.name, '') as name,
                 '' as material_name,
                 COALESCE(MAX(m.unit), '') as unit,
-                COALESCE(SUM(om.quantity / NULLIF(om.waste_coefficient, 0)), 0) as net_quantity,
-                COALESCE(SUM(om.quantity), 0) as quantity_with_waste,
-                COALESCE(SUM(CASE WHEN m.unit = 'шт' THEN om.quantity ELSE 0 END), 0) as pieces,
-                COALESCE(SUM(CASE WHEN m.unit IN ('п.м.', 'м') THEN om.quantity ELSE 0 END), 0) as linear_meters,
-                COALESCE(SUM(CASE WHEN m.unit = 'м2' THEN om.quantity ELSE 0 END), 0) as square_meters,
-                0 as eyelet_pieces,
-                COALESCE(SUM(om.cost * (1 + COALESCE(o.priceplus, 0) / 100)), 0) as consumption_with_priceplus,
-                COALESCE(SUM(om.cost), 0) as cost,
-                COALESCE(SUM(om.cost_priceplus), 0) as consumption_from_order_positions,
-                0 as operation_count,
-                0 as operations_total_cost
+                CAST(COALESCE(SUM(om.quantity / NULLIF(om.waste_coefficient, 0)), 0) AS NUMERIC) as net_quantity,
+                CAST(COALESCE(SUM(om.quantity), 0) AS NUMERIC) as quantity_with_waste,
+                CAST(COALESCE(SUM(CASE WHEN m.unit = 'шт' THEN om.quantity ELSE 0 END), 0) AS NUMERIC) as pieces,
+                CAST(COALESCE(SUM(CASE WHEN m.unit IN ('п.м.', 'м') THEN om.quantity ELSE 0 END), 0) AS NUMERIC) as linear_meters,
+                CAST(COALESCE(SUM(CASE WHEN m.unit = 'м2' THEN om.quantity ELSE 0 END), 0) AS NUMERIC) as square_meters,
+                CAST(0 AS NUMERIC) as eyelet_pieces,
+                CAST(COALESCE(SUM(om.cost * (1 + COALESCE(o.priceplus, 0) / 100)), 0) AS NUMERIC) as consumption_with_priceplus,
+                CAST(COALESCE(SUM(om.cost), 0) AS NUMERIC) as cost,
+                CAST(COALESCE(SUM(om.cost_priceplus), 0) AS NUMERIC) as consumption_from_order_positions,
+                CAST(0 AS NUMERIC) as operation_count,
+                CAST(0 AS NUMERIC) as operations_total_cost
             FROM svschema.orders o
             JOIN svschema.order_items oi ON oi.order_id = o.id
             JOIN svschema.order_materials om ON om.order_item_id = oi.id
@@ -53,18 +53,38 @@ public class StatisticsService {
                 'operation' as row_type,
                 oo.operation_name as name,
                 COALESCE(m.name, '') as material_name,
-                COALESCE(MAX(m.unit), '') as unit,
-                0 as net_quantity,
-                0 as quantity_with_waste,
-                COALESCE(SUM(CASE WHEN m.unit = 'шт' THEN oo.calculated_quantity ELSE 0 END), 0) as pieces,
-                COALESCE(SUM(CASE WHEN m.unit IN ('п.м.', 'м') THEN oo.calculated_quantity ELSE 0 END), 0) as linear_meters,
-                COALESCE(SUM(CASE WHEN m.unit = 'м2' THEN oo.calculated_quantity ELSE 0 END), 0) as square_meters,
-                0 as eyelet_pieces,
-                0 as consumption_with_priceplus,
-                0 as cost,
-                0 as consumption_from_order_positions,
-                COUNT(*) as operation_count,
-                COALESCE(SUM(oo.subtotal), 0) as operations_total_cost
+                CASE
+                    WHEN oo.operation_name ILIKE '%%люверс%%' OR oo.operation_name ILIKE '%%установка%%'
+                    THEN 'шт'
+                    ELSE COALESCE(MAX(m.unit), '')
+                END as unit,
+                CAST(0 AS NUMERIC) as net_quantity,
+                CAST(0 AS NUMERIC) as quantity_with_waste,
+                CAST(COALESCE(SUM(CASE
+                    WHEN m.unit = 'шт'
+                        OR oo.operation_name ILIKE '%%люверс%%'
+                        OR oo.operation_name ILIKE '%%установка%%'
+                    THEN oo.calculated_quantity
+                    ELSE 0
+                END), 0) AS NUMERIC) as pieces,
+                CAST(COALESCE(SUM(CASE
+                    WHEN m.unit IN ('п.м.', 'м')
+                        AND NOT (oo.operation_name ILIKE '%%люверс%%' OR oo.operation_name ILIKE '%%установка%%')
+                    THEN oo.calculated_quantity
+                    ELSE 0
+                END), 0) AS NUMERIC) as linear_meters,
+                CAST(COALESCE(SUM(CASE
+                    WHEN m.unit = 'м2'
+                        AND NOT (oo.operation_name ILIKE '%%люверс%%' OR oo.operation_name ILIKE '%%установка%%')
+                    THEN oo.calculated_quantity
+                    ELSE 0
+                END), 0) AS NUMERIC) as square_meters,
+                CAST(0 AS NUMERIC) as eyelet_pieces,
+                CAST(0 AS NUMERIC) as consumption_with_priceplus,
+                CAST(0 AS NUMERIC) as cost,
+                CAST(0 AS NUMERIC) as consumption_from_order_positions,
+                CAST(COUNT(*) AS NUMERIC) as operation_count,
+                CAST(COALESCE(SUM(oo.subtotal), 0) AS NUMERIC) as operations_total_cost
             FROM svschema.orders o
             JOIN svschema.order_items oi ON oi.order_id = o.id
             JOIN svschema.order_item_operations oo ON oo.order_item_id = oi.id
@@ -81,36 +101,39 @@ public class StatisticsService {
                 'Люверсы' as name,
                 '' as material_name,
                 'шт' as unit,
-                0 as net_quantity,
-                0 as quantity_with_waste,
-                COALESCE(SUM(om.eyelet_quantity), 0) as pieces,
-                0 as linear_meters,
-                0 as square_meters,
-                0 as eyelet_pieces,
-                0 as consumption_with_priceplus,
-                0 as cost,
-                0 as consumption_from_order_positions,
-                0 as operation_count,
-                0 as operations_total_cost
+                CAST(0 AS NUMERIC) as net_quantity,
+                CAST(0 AS NUMERIC) as quantity_with_waste,
+                CAST(0 AS NUMERIC) as pieces,
+                CAST(0 AS NUMERIC) as linear_meters,
+                CAST(0 AS NUMERIC) as square_meters,
+                CAST(COALESCE(SUM(om.eyelet_quantity), 0) AS NUMERIC) as eyelet_pieces,
+                CAST(0 AS NUMERIC) as consumption_with_priceplus,
+                CAST(0 AS NUMERIC) as cost,
+                CAST(0 AS NUMERIC) as consumption_from_order_positions,
+                CAST(0 AS NUMERIC) as operation_count,
+                CAST(0 AS NUMERIC) as operations_total_cost
             FROM svschema.orders o
             JOIN svschema.order_items oi ON oi.order_id = o.id
-            JOIN svschema.order_materials om ON om.order_item_id = oi.id
+            JOIN (
+                SELECT DISTINCT order_item_id, eyelet_quantity
+                FROM svschema.order_materials
+                WHERE eyelet_cost > 0
+                  AND eyelet_quantity > 0
+                  AND deleted = false
+            ) om ON om.order_item_id = oi.id
             WHERE COALESCE(o.deleted, false) = false
               AND COALESCE(oi.deleted, false) = false
-              AND COALESCE(om.deleted, false) = false
-              AND om.eyelet_cost > 0
-              AND om.eyelet_quantity > 0
             """;
 
         if (fromDate != null) {
-            materialSql += " AND o.order_date >= :fromDate";
-            operationSql += " AND o.order_date >= :fromDate";
-            eyeletSql += " AND o.order_date >= :fromDate";
+            materialSql += " AND o.order_date >= ?";
+            operationSql += " AND o.order_date >= ?";
+            eyeletSql += " AND o.order_date >= ?";
         }
         if (toDate != null) {
-            materialSql += " AND o.order_date <= :toDate";
-            operationSql += " AND o.order_date <= :toDate";
-            eyeletSql += " AND o.order_date <= :toDate";
+            materialSql += " AND o.order_date <= ?";
+            operationSql += " AND o.order_date <= ?";
+            eyeletSql += " AND o.order_date <= ?";
         }
 
         materialSql += " GROUP BY m.name, m.unit";
@@ -118,12 +141,24 @@ public class StatisticsService {
 
         String unionSql = materialSql + " UNION ALL " + operationSql + " UNION ALL " + eyeletSql + " ORDER BY row_type, name";
 
+        System.out.println("STATISTIC SQL: " + unionSql);
         Query query = entityManager.createNativeQuery(unionSql);
-        if (fromDate != null) {
-            query.setParameter("fromDate", fromDate);
-        }
-        if (toDate != null) {
-            query.setParameter("toDate", toDate);
+        int paramIndex = 1;
+        if (fromDate != null && toDate != null) {
+            query.setParameter(paramIndex++, fromDate);
+            query.setParameter(paramIndex++, toDate);
+            query.setParameter(paramIndex++, fromDate);
+            query.setParameter(paramIndex++, toDate);
+            query.setParameter(paramIndex++, fromDate);
+            query.setParameter(paramIndex++, toDate);
+        } else if (fromDate != null) {
+            query.setParameter(paramIndex++, fromDate);
+            query.setParameter(paramIndex++, fromDate);
+            query.setParameter(paramIndex++, fromDate);
+        } else if (toDate != null) {
+            query.setParameter(paramIndex++, toDate);
+            query.setParameter(paramIndex++, toDate);
+            query.setParameter(paramIndex++, toDate);
         }
 
         @SuppressWarnings("unchecked")

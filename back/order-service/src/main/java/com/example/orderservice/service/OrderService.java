@@ -377,10 +377,10 @@ public OrderResponse getOrderById(Long id) {
                 BigDecimal totalPrice = new BigDecimal(totalPriceNum.toString());
 
                 // Parse eyelet quantity from calculator response
-                BigDecimal eyeletQuantity = BigDecimal.ZERO;
+                int eyeletQuantity = 0;
                 Map<String, Object> eyeletData = (Map<String, Object>) calcResponse.get("eyelet");
                 if (eyeletData != null && eyeletData.get("quantity") != null) {
-                    eyeletQuantity = new BigDecimal(eyeletData.get("quantity").toString());
+                    eyeletQuantity = new BigDecimal(eyeletData.get("quantity").toString()).intValue();
                 }
 
                 // Parse operations breakdown
@@ -792,10 +792,10 @@ public OrderResponse getOrderById(Long id) {
                 BigDecimal totalPrice = new BigDecimal(totalPriceNum.toString());
 
                 // Parse eyelet quantity from calculator response
-                BigDecimal eyeletQuantity = BigDecimal.ZERO;
+                int eyeletQuantity = 0;
                 Map<String, Object> eyeletData = (Map<String, Object>) calcResponse.get("eyelet");
                 if (eyeletData != null && eyeletData.get("quantity") != null) {
-                    eyeletQuantity = new BigDecimal(eyeletData.get("quantity").toString());
+                    eyeletQuantity = new BigDecimal(eyeletData.get("quantity").toString()).intValue();
                 }
 
                 // Parse operations breakdown

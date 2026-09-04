@@ -16,6 +16,7 @@ declare -a SCRIPTS=(
   "rebuild-generate-data-service|Generate Data Service"
   "rebuild-material-service|Material Service"
   "rebuild-order-service|Order Service"
+  "rebuild-statistic-service|Statistic Service"
 )
 
 show_menu() {

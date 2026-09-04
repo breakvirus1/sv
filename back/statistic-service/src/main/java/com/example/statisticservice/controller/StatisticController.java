@@ -26,10 +26,10 @@ public class StatisticController {
 
     @Operation(summary = "Получить статистику расхода материалов за период")
     @GetMapping("/material-expense")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT')")
     public ResponseEntity<List<MaterialExpenseRow>> getMaterialExpenseStatistics(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        System.out.println("STATISTIC CONTROLLER CALLED fromDate=" + fromDate + " toDate=" + toDate);
         return ResponseEntity.ok(statisticsService.getMaterialExpenseStatistics(fromDate, toDate));
     }
 
