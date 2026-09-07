@@ -25,4 +25,5 @@ public class OrderMaterialCreateRequest {
     private BigDecimal podvorotMmHorizontal;
     private BigDecimal podvorotMmVertical;
     private Integer podvorotCountPerSide;
+    private Integer manualFilmSelectionValue;
 }

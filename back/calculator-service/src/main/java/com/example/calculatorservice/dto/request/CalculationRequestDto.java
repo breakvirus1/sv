@@ -24,6 +24,9 @@ public class CalculationRequestDto {
     private Long eyeletId;
     private Integer eyeletStepCm = 40;
 
+    // Manual film selection parameter
+    private Integer manualFilmSelectionValue;
+
     // Selected operation IDs
     private List<Long> operationIds;
 }

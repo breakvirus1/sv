@@ -9,7 +9,7 @@ const toMeters = (value, unit) => {
   return unit === 'мм' ? v / 1000 : v;
 };
 
-const calculateItemCostBackend = async (materialId, widthM, heightM, operations = [], eyeletId = null, eyeletStepCm = 40, podvorotMmHorizontal = null, podvorotMmVertical = null, podvorotCountPerSide = 2) => {
+const calculateItemCostBackend = async (materialId, widthM, heightM, operations = [], eyeletId = null, eyeletStepCm = 40, podvorotMmHorizontal = null, podvorotMmVertical = null, podvorotCountPerSide = 2, manualFilmSelectionValue = null) => {
   if (!materialId) {
     throw new Error('materialId is required');
   }
@@ -25,7 +25,8 @@ const calculateItemCostBackend = async (materialId, widthM, heightM, operations 
     eyeletStepCm,
     podvorotMmHorizontal,
     podvorotMmVertical,
-    podvorotCountPerSide
+    podvorotCountPerSide,
+    manualFilmSelectionValue
   };
 
   const response = await api.post('/api/v1/calculations/preview', payload);
@@ -57,6 +58,9 @@ const recalculateOrderBackend = async (items, priceplusPercent = 0) => {
     const podvorotMmVertical = podvorotOp?.hemWidthMm ?? null;
     const podvorotCountPerSide = podvorotOp?.hemCount ?? 2;
     
+    const manualFilmSelectionOp = (item.operations || []).find(op => op.manualFilmSelectionValue != null);
+    const manualFilmSelectionValue = manualFilmSelectionOp?.manualFilmSelectionValue ?? null;
+    
     const result = await calculateItemCostBackend(
       materialId,
       widthM,
@@ -66,7 +70,8 @@ const recalculateOrderBackend = async (items, priceplusPercent = 0) => {
       eyeletStepCm,
       podvorotMmHorizontal,
       podvorotMmVertical,
-      podvorotCountPerSide
+      podvorotCountPerSide,
+      manualFilmSelectionValue
     );
     
     return {

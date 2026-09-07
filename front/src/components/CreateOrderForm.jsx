@@ -283,7 +283,11 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     const itemIndex = groupSelectionDialog.itemIndex;
     const currentOps = formData.items[itemIndex]?.operations || [];
     const newOps = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
-    const newSpecialOps = newOps.filter(op => op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')));
+    const newSpecialOps = newOps.filter(op => op.name && (
+      op.name.toLowerCase().includes('подворот') ||
+      op.name.toLowerCase().includes('люверс') ||
+      op.name.toLowerCase().includes('выборка')
+    ));
     
     if (selectedGroups.length > 0 || selectedOps.length > 0 || newSpecialOps.length > 0) {
       const selectedOpIds = selectedOps.map(id => {
@@ -293,7 +297,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       const selectedOpsData = operationsData.filter(op => selectedOpIds.includes(op.id));
 
       const specialOps = selectedOpsData.filter(op =>
-        op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
+        op.name.toLowerCase().includes('подворот') ||
+        op.name.toLowerCase().includes('люверс') ||
+        op.name.toLowerCase().includes('выборка')
       );
 
       const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
@@ -304,6 +310,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           const existing = currentOps.find(cop => cop.id === sop.id);
           if (sop.name.toLowerCase().includes('люверс')) return existing && existing.eyeletId;
           if (sop.name.toLowerCase().includes('подворот')) return existing && existing.hemWidthMm;
+          if (sop.name.toLowerCase().includes('выборка')) return existing && existing.manualFilmSelectionValue != null;
           return false;
         });
 
@@ -319,25 +326,31 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           const newPendingOps = [...allSpecialOps];
           const initialParams = {};
 
-          allSpecialOps.forEach(op => {
-            const opId = op.id;
-            const existing = currentOps.find(cop => String(cop.id) === String(opId));
-            if (op.name.toLowerCase().includes('подворот')) {
-              if (existing && existing.hemWidthMm) {
-                initialParams[opId] = { hemWidthMm: existing.hemWidthMm, hemCount: existing.hemCount || 2, widthMm: existing.widthMm, heightMm: existing.heightMm };
-              } else {
-                const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
-                const defaultCount = op.hemCount != null ? op.hemCount : 2;
-                initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            } else if (op.name.toLowerCase().includes('люверс')) {
-              if (existing && existing.eyeletId) {
-                initialParams[opId] = { eyeletId: existing.eyeletId, eyeletStepCm: existing.eyeletStepCm || 40, widthMm: existing.widthMm, heightMm: existing.heightMm };
-              } else {
-                initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            }
-          });
+           allSpecialOps.forEach(op => {
+             const opId = op.id;
+             const existing = currentOps.find(cop => String(cop.id) === String(opId));
+             if (op.name.toLowerCase().includes('подворот')) {
+               if (existing && existing.hemWidthMm) {
+                 initialParams[opId] = { hemWidthMm: existing.hemWidthMm, hemCount: existing.hemCount || 2, widthMm: existing.widthMm, heightMm: existing.heightMm };
+               } else {
+                 const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
+                 const defaultCount = op.hemCount != null ? op.hemCount : 2;
+                 initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
+               }
+             } else if (op.name.toLowerCase().includes('люверс')) {
+               if (existing && existing.eyeletId) {
+                 initialParams[opId] = { eyeletId: existing.eyeletId, eyeletStepCm: existing.eyeletStepCm || 40, widthMm: existing.widthMm, heightMm: existing.heightMm };
+               } else {
+                 initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
+               }
+             } else if (op.name.toLowerCase().includes('выборка')) {
+               if (existing && existing.manualFilmSelectionValue != null) {
+                 initialParams[opId] = { manualFilmSelectionValue: existing.manualFilmSelectionValue, widthMm: existing.widthMm, heightMm: existing.heightMm };
+               } else {
+                 initialParams[opId] = { manualFilmSelectionValue: '', widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
+               }
+             }
+           });
 
           setOperationParamsDialog(prev => ({
             ...prev,
@@ -371,23 +384,32 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       const selectedOpsData = operationsData.filter(op => selectedOpIds.includes(op.id));
       const currentOps = formData.items[itemIndex]?.operations || [];
 
-      const specialOps = selectedOpsData.filter(op =>
-        op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')
-      );
+      const specialOps = selectedOpsData.filter(op => {
+        const opName = (op.name || '').toLowerCase();
+        return opName.includes('подворот') || opName.includes('люверс') || opName.includes('выборка');
+      });
 
       const newOps = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
-      const newSpecialOps = newOps.filter(op => op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс')));
+      const newSpecialOps = newOps.filter(op => op.name && (
+        op.name.toLowerCase().includes('подворот') ||
+        op.name.toLowerCase().includes('люверс') ||
+        op.name.toLowerCase().includes('выборка')
+      ));
       const allSpecialOps = [...specialOps, ...newSpecialOps.filter(op => !specialOps.some(sop => sop.id === op.id))];
       const regularOps = selectedOpsData.filter(op => !specialOps.some(sop => sop.id === op.id));
 
       if (allSpecialOps.length > 0) {
         const allAlreadyConfigured = allSpecialOps.every(sop => {
           const existing = currentOps.find(cop => cop.id === sop.id);
-          if (sop.name.toLowerCase().includes('люверс')) {
+          const opName = (sop.name || '').toLowerCase();
+          if (opName.includes('люверс')) {
             return existing && existing.eyeletId;
           }
-          if (sop.name.toLowerCase().includes('подворот')) {
+          if (opName.includes('подворот')) {
             return existing && existing.hemWidthMm;
+          }
+          if (opName.includes('выборка')) {
+            return existing && existing.manualFilmSelectionValue != null;
           }
           return false;
         });
@@ -405,35 +427,46 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           const newPendingOps = [...allSpecialOps];
           const initialParams = {};
 
-          allSpecialOps.forEach(op => {
-            const opId = op.id;
-            const existing = currentOps.find(cop => String(cop.id) === String(opId));
-            if (op.name.toLowerCase().includes('подворот')) {
-              if (existing && existing.hemWidthMm) {
-                initialParams[opId] = {
-                  hemWidthMm: existing.hemWidthMm,
-                  hemCount: existing.hemCount || 2,
-                  widthMm: existing.widthMm,
-                  heightMm: existing.heightMm
-                };
-              } else {
-                const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
-                const defaultCount = op.hemCount != null ? op.hemCount : 2;
-                initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            } else if (op.name.toLowerCase().includes('люверс')) {
-              if (existing && existing.eyeletId) {
-                initialParams[opId] = {
-                  eyeletId: existing.eyeletId,
-                  eyeletStepCm: existing.eyeletStepCm || 40,
-                  widthMm: existing.widthMm,
-                  heightMm: existing.heightMm
-                };
-              } else {
-                initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
-              }
-            }
-          });
+           allSpecialOps.forEach(op => {
+             const opId = op.id;
+             const existing = currentOps.find(cop => String(cop.id) === String(opId));
+             const opName = op.name.toLowerCase();
+             if (opName.includes('подворот')) {
+               if (existing && existing.hemWidthMm) {
+                 initialParams[opId] = {
+                   hemWidthMm: existing.hemWidthMm,
+                   hemCount: existing.hemCount || 2,
+                   widthMm: existing.widthMm,
+                   heightMm: existing.heightMm
+                 };
+               } else {
+                 const defaultWidth = op.hemWidthMm != null ? op.hemWidthMm : 20;
+                 const defaultCount = op.hemCount != null ? op.hemCount : 2;
+                 initialParams[opId] = { hemWidthMm: defaultWidth, hemCount: defaultCount, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
+               }
+             } else if (opName.includes('люверс')) {
+               if (existing && existing.eyeletId) {
+                 initialParams[opId] = {
+                   eyeletId: existing.eyeletId,
+                   eyeletStepCm: existing.eyeletStepCm || 40,
+                   widthMm: existing.widthMm,
+                   heightMm: existing.heightMm
+                 };
+               } else {
+                 initialParams[opId] = { eyeletId: '', eyeletStepCm: 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
+               }
+             } else if (opName.includes('выборка')) {
+               if (existing && existing.manualFilmSelectionValue != null) {
+                 initialParams[opId] = {
+                   manualFilmSelectionValue: existing.manualFilmSelectionValue,
+                   widthMm: existing.widthMm,
+                   heightMm: existing.heightMm
+                 };
+               } else {
+                 initialParams[opId] = { manualFilmSelectionValue: '', widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
+               }
+             }
+           });
 
           setOperationParamsDialog(prev => ({
             ...prev,
@@ -445,9 +478,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
           }));
         }
       } else {
-        const configuredSpecialOps = currentOps.filter(op =>
-          op.name && (op.name.toLowerCase().includes('подворот') || op.name.toLowerCase().includes('люверс'))
-        );
+        const configuredSpecialOps = currentOps.filter(op => {
+          const opName = (op.name || '').toLowerCase();
+          return opName.includes('подворот') || opName.includes('люверс') || opName.includes('выборка');
+        });
         const newOpsAdded = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id));
         const selectedIds = new Set(selectedOpsData.map(op => op.id));
         const finalOps = [
@@ -626,6 +660,10 @@ const handleSubmit = async (e) => {
         const podvorotMmVertical = hemOp?.hemWidthMm || null;
         const podvorotCountPerSide = hemOp?.hemCount || null;
 
+        // Поиск операции ручной выборки пленки если есть
+        const manualFilmSelectionOp = item.operations.find(op => op.manualFilmSelectionValue != null);
+        const manualFilmSelectionValue = manualFilmSelectionOp?.manualFilmSelectionValue || null;
+
         return {
           materialId: parseInt(item.materialId),
           widthM,
@@ -640,7 +678,8 @@ const handleSubmit = async (e) => {
           ...(eyeletStepCm !== null && { eyeletStepCm }),
           ...(podvorotMmHorizontal !== null && { podvorotMmHorizontal }),
           ...(podvorotMmVertical !== null && { podvorotMmVertical }),
-          ...(podvorotCountPerSide !== null && { podvorotCountPerSide })
+          ...(podvorotCountPerSide !== null && { podvorotCountPerSide }),
+          ...(manualFilmSelectionValue !== null && { manualFilmSelectionValue })
         };
       });
 
@@ -1398,10 +1437,40 @@ const handleSubmit = async (e) => {
                       }))}
                       inputProps={{ min: 0 }}
                     />
-                  </Box>
-                );
-              }
-              const params = operationParamsDialog.params[op.id] || {};
+                   </Box>
+                 );
+               } else if (opName.includes('выборка')) {
+                 const params = operationParamsDialog.params[op.id] || { manualFilmSelectionValue: '' };
+                 return (
+                   <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                     <Typography variant="subtitle2" gutterBottom color="primary">{op.name}</Typography>
+                     <TextField
+                       fullWidth
+                       margin="dense"
+                       label="Значение для ручной выборки пленки"
+                       type="number"
+                       value={params.manualFilmSelectionValue}
+                       onChange={(e) => setOperationParamsDialog(prev => ({
+                         ...prev,
+                         params: {
+                           ...prev.params,
+                           [op.id]: {
+                             ...prev.params[op.id],
+                             manualFilmSelectionValue: parseInt(e.target.value) || 0
+                           }
+                         }
+                       }))}
+                       inputProps={{ min: 1 }}
+                       required
+                     />
+                     <Typography variant="caption" color="text.secondary">
+                       Меньше 10: цена ×4 | 10-30: цена ×2 | Больше 30: стандартная цена
+                     </Typography>
+                   </Box>
+                 );
+               }
+
+               const params = operationParamsDialog.params[op.id] || {};
               return (
                 <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
                   <Typography variant="subtitle2" gutterBottom color="primary">{op.name}</Typography>
@@ -1439,19 +1508,22 @@ const handleSubmit = async (e) => {
           <Button
             onClick={handleSaveOperationParams}
             variant="contained"
-            disabled={
-              !operationParamsDialog.pendingOps.every(op => {
-                const opName = op.name.toLowerCase();
-                if (opName.includes('подворот')) {
-                  const p = operationParamsDialog.params[op.id];
-                  return p && p.hemWidthMm > 0 && p.hemCount > 0;
-                } else if (opName.includes('люверс')) {
-                  const p = operationParamsDialog.params[op.id];
-                  return p && p.eyeletId;
-                }
-                return true;
-              })
-            }
+              disabled={
+                !operationParamsDialog.pendingOps.every(op => {
+                  const opName = op.name.toLowerCase();
+                  if (opName.includes('подворот')) {
+                    const p = operationParamsDialog.params[op.id];
+                    return p && p.hemWidthMm > 0 && p.hemCount > 0;
+                  } else if (opName.includes('люверс')) {
+                    const p = operationParamsDialog.params[op.id];
+                    return p && p.eyeletId;
+                  } else if (opName.includes('выборка')) {
+                    const p = operationParamsDialog.params[op.id];
+                    return p && p.manualFilmSelectionValue > 0;
+                  }
+                  return true;
+                })
+              }
           >
             Сохранить
           </Button>

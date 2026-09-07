@@ -60,6 +60,10 @@ public class Calculation extends BaseEntity {
     @Column(name = "eyelet_step_cm")
     private Integer eyeletStepCm = 40;
 
+    /** Значение для ручной выборки пленки (определяет множитель цены) */
+    @Transient
+    private Integer manualFilmSelectionValue;
+
     /** Итоговая себестоимость */
     @Column(name = "total_price", precision = 12, scale = 2)
     private BigDecimal totalPrice;

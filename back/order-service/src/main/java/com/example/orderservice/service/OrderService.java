@@ -335,16 +335,21 @@ public OrderResponse getOrderById(Long id) {
                       calcRequest.put("eyeletStepCm", itemReq.getEyeletStepCm());
                   }
 
-                  // Include podvorot parameters if present
-                  if (itemReq.getPodvorotMmHorizontal() != null) {
-                      calcRequest.put("podvorotMmHorizontal", itemReq.getPodvorotMmHorizontal());
-                  }
-                  if (itemReq.getPodvorotMmVertical() != null) {
-                      calcRequest.put("podvorotMmVertical", itemReq.getPodvorotMmVertical());
-                  }
-                  if (itemReq.getPodvorotCountPerSide() != null) {
-                      calcRequest.put("podvorotCountPerSide", itemReq.getPodvorotCountPerSide());
-                  }
+                   // Include podvorot parameters if present
+                   if (itemReq.getPodvorotMmHorizontal() != null) {
+                       calcRequest.put("podvorotMmHorizontal", itemReq.getPodvorotMmHorizontal());
+                   }
+                   if (itemReq.getPodvorotMmVertical() != null) {
+                       calcRequest.put("podvorotMmVertical", itemReq.getPodvorotMmVertical());
+                   }
+                   if (itemReq.getPodvorotCountPerSide() != null) {
+                       calcRequest.put("podvorotCountPerSide", itemReq.getPodvorotCountPerSide());
+                   }
+
+                   // Include manual film selection value if present
+                   if (itemReq.getManualFilmSelectionValue() != null) {
+                       calcRequest.put("manualFilmSelectionValue", itemReq.getManualFilmSelectionValue());
+                   }
 
                 // Prepare headers with JWT
                 HttpHeaders headers = new HttpHeaders();
@@ -473,6 +478,7 @@ public OrderResponse getOrderById(Long id) {
                 orderMaterial.setCostPriceplus(costPriceplus);
                 orderMaterial.setEyeletCost(eyeletCost.compareTo(BigDecimal.ZERO) > 0 ? eyeletCost : BigDecimal.ZERO);
                 orderMaterial.setEyeletQuantity(eyeletQuantity);
+                orderMaterial.setManualFilmSelectionValue(itemReq.getManualFilmSelectionValue());
                 orderMaterial.setWidthM(itemReq.getWidthM());
                 orderMaterial.setHeightM(itemReq.getHeightM());
                 order.getMaterials().add(orderMaterial);
@@ -876,6 +882,7 @@ public OrderResponse getOrderById(Long id) {
                         om.setCost(materialCost);
                         om.setCostPriceplus(costPriceplus);
                         om.setEyeletQuantity(eyeletQuantity);
+                        om.setManualFilmSelectionValue(itemReq.getManualFilmSelectionValue());
 
                         // Update operations for the linked order item
                         OrderItem orderItem = om.getOrderItem();
@@ -1184,6 +1191,7 @@ private void recalculatePaidAmount(Long orderId) {
                 om.getCostPriceplus(),
                 om.getEyeletCost(),
                 om.getEyeletQuantity(),
+                om.getManualFilmSelectionValue(),
                 opSummaries,
                 om.getOrderItem() != null ? om.getOrderItem().getId() : null,
                 fileUrl

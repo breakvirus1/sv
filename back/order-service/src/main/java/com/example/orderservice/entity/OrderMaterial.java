@@ -67,6 +67,10 @@ public class OrderMaterial extends BaseEntity {
     @Column(name = "eyelet_quantity")
     private Integer eyeletQuantity = 0;
 
+    /** Значение для ручной выборки пленки (определяет множитель цены) */
+    @Column(name = "manual_film_selection_value")
+    private Integer manualFilmSelectionValue;
+
     /** Ширина изделия в метрах */
     @Column(name = "width_m", precision = 10, scale = 4)
     private BigDecimal widthM;

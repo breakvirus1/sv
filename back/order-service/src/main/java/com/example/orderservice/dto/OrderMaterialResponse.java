@@ -30,6 +30,8 @@ public class OrderMaterialResponse {
     private BigDecimal eyeletCost;
     /** Количество люверсов (шт) */
     private Integer eyeletQuantity;
+    /** Значение для ручной выборки пленки */
+    private Integer manualFilmSelectionValue;
     private List<OrderOperationSummary> operations;
     /** ID позиции заказа (OrderItem) */
     private Long orderItemId;

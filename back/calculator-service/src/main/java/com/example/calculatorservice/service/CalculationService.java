@@ -9,6 +9,7 @@ import com.example.calculatorservice.exception.ResourceNotFoundException;
 import com.example.calculatorservice.mapper.CalculationMapper;
 import com.example.calculatorservice.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional
 public class CalculationService {
 
@@ -79,6 +81,7 @@ public class CalculationService {
         calc.setPodvorotMmVertical(request.getPodvorotMmVertical());
         calc.setPodvorotCountPerSide(request.getPodvorotCountPerSide() != null ? request.getPodvorotCountPerSide() : 2);
         calc.setEyeletStepCm(request.getEyeletStepCm());
+        calc.setManualFilmSelectionValue(request.getManualFilmSelectionValue());
 
         if (request.getEyeletId() != null) {
             Eyelet eyelet = eyeletRepository.findById(request.getEyeletId())
@@ -213,6 +216,22 @@ public class CalculationService {
             BigDecimal quantity = calculateOperationQuantity(calc, op);
             calcOp.setQuantity(quantity);
             BigDecimal pricePerUnit = calcOp.getPricePerUnit();
+            String opName = op.getName().toLowerCase();
+            if (opName.contains("ручная выборка пленки") || opName.contains("выборка")) {
+                Integer filmValue = calc.getManualFilmSelectionValue();
+                if (filmValue != null && filmValue > 0) {
+                    BigDecimal originalPrice = pricePerUnit;
+                    if (filmValue < 10) {
+                        pricePerUnit = pricePerUnit.multiply(BigDecimal.valueOf(4));
+                    } else if (filmValue < 30) {
+                        pricePerUnit = pricePerUnit.multiply(BigDecimal.valueOf(2));
+                    }
+                    log.info("Manual film selection: operation={}, filmValue={}, originalPrice={}, multipliedPrice={}", op.getName(), filmValue, originalPrice, pricePerUnit);
+                } else {
+                    log.info("Manual film selection: operation={}, filmValue={}, no multiplier applied", op.getName(), filmValue);
+                }
+            }
+            calcOp.setPricePerUnit(pricePerUnit);
             BigDecimal subtotal = quantity.multiply(pricePerUnit);
             calcOp.setSubtotal(subtotal);
             total = total.add(subtotal);
