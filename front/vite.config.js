@@ -10,12 +10,12 @@ export default defineConfig({
     host: true,
     proxy: {
       '/realms': {
-        target: 'http://localhost:8080',
+        target: 'http://192.168.88.40:8080',
         changeOrigin: true,
         secure: false
       },
       '/protocol': {
-        target: 'http://localhost:8080',
+        target: 'http://192.168.88.40:8080',
         changeOrigin: true,
         secure: false
       }
