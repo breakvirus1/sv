@@ -3,14 +3,12 @@
 
 CREATE TABLE IF NOT EXISTS svschema.material_operation_groups (
     id BIGSERIAL PRIMARY KEY,
-    material_id BIGINT NOT NULL,
+    material_id BIGINT,
     operation_group_id BIGINT NOT NULL,
     operation_id BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP,
     deleted BOOLEAN DEFAULT FALSE,
-    CONSTRAINT fk_mog_material FOREIGN KEY (material_id)
-        REFERENCES svschema.materials (id) ON DELETE CASCADE,
     CONSTRAINT fk_mog_group FOREIGN KEY (operation_group_id)
         REFERENCES svschema.operation_groups (id) ON DELETE CASCADE,
     CONSTRAINT fk_mog_operation FOREIGN KEY (operation_id)

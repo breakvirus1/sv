@@ -9,7 +9,8 @@ const userManager = new UserManager({
   post_logout_redirect_uri: `${window.location.origin}/`,
   response_type: 'code',
   scope: 'openid profile email',
-  userStore: new WebStorageStateStore({ store: window.localStorage })
+  userStore: new WebStorageStateStore({ store: window.localStorage }),
+  code_challenge_method: null
 });
 
 const AuthContext = createContext(null);
