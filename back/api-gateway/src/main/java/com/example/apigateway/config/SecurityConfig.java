@@ -22,6 +22,9 @@ public class SecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri:http://keycloak:8080/realms/print-sv/protocol/openid-connect/certs}")
     private String jwkSetUri;
 
+    @Value("${server.ip:192.168.88.40}")
+    private String serverIp;
+
     @Bean
     public ReactiveJwtDecoder jwtDecoder() {
         return NimbusReactiveJwtDecoder.withJwkSetUri(jwkSetUri).build();
@@ -30,7 +33,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5174", "http://192.168.88.40:5174"));
+        config.setAllowedOrigins(List.of("http://localhost:5174", "http://" + serverIp + ":5174"));
         config.setAllowedMethods(List.of("*"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

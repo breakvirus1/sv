@@ -1,3 +1,8 @@
+﻿Set-ExecutionPolicy Bypass -Scope Process -Force
+
+Write-Host "=== Stopping running Java processes to release file locks ==="
+Get-Process -Name java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 3
 $SERVICE = "discovery-server"
 
 $projectRoot = Resolve-Path "$PSScriptRoot\.."

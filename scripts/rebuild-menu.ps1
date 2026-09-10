@@ -1,3 +1,4 @@
+﻿Set-ExecutionPolicy Bypass -Scope Process -Force
 $scriptsDir = $PSScriptRoot
 
 $scripts = @(

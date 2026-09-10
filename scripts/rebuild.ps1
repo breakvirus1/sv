@@ -1,3 +1,4 @@
+﻿Set-ExecutionPolicy Bypass -Scope Process -Force
 $projectRoot = Resolve-Path "$PSScriptRoot\.."
 Set-Location $projectRoot
 
@@ -39,6 +40,9 @@ if (-not (Test-DockerRunning)) {
 
 Write-Host "=== Stopping all containers and removing volumes ==="
 docker compose down
+
+Get-Process -Name java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 3
 
 Write-Host "=== Building microservices with Maven ==="
 mvn --% clean install -Dmaven.test.skip=true

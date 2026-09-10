@@ -1,3 +1,4 @@
+﻿Set-ExecutionPolicy Bypass -Scope Process -Force
 param(
     [string]$Service = "all"
 )
@@ -40,6 +41,10 @@ function Start-DockerDesktop {
 if (-not (Test-DockerRunning)) {
     Start-DockerDesktop
 }
+
+Write-Host "=== Stopping running Java processes to release file locks ==="
+Get-Process -Name java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 3
 
 if ($Service -eq "all") {
     Write-Host "=== Building all services with Maven ==="
