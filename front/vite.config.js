@@ -1,11 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
-import { config } from 'dotenv'
 
-config({ path: resolve(__dirname, '.env') })
-
-const serverIp = import.meta.env.VITE_SERVER_IP || '192.168.88.40'
+const serverIp = process.env.VITE_SERVER_IP || process.env.SERVER_IP || '192.168.1.40'
 
 export default defineConfig({
   root: resolve(__dirname, '.'),

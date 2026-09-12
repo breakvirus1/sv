@@ -2,7 +2,7 @@
 FROM node:20 AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm install --no-audit --no-fund
 COPY . .
 ARG VITE_API_URL
 ARG VITE_KEYCLOAK_ISSUER
@@ -19,7 +19,7 @@ RUN apk add --no-cache gettext
 COPY nginx.conf /etc/nginx/conf.d/default.conf.template
 COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 5174
-CMD envsubst '${SERVER_IP}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
+CMD sh -c 'sed "s|\${SERVER_IP}|${SERVER_IP}|g" /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g "daemon off;"'
 
 # Stage 3: Development
 FROM node:20 AS development

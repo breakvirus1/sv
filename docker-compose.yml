@@ -293,6 +293,8 @@ services:
       - api-gateway
     networks:
       - sv-network
+    environment:
+      - SERVER_IP=${SERVER_IP}
 
 networks:
   sv-network:
