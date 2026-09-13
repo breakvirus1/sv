@@ -15,9 +15,9 @@ spring:
   security:
     oauth2:
       resourceserver:
-         jwt:
-            issuer-uri: ${KEYCLOAK_ISSUER_URI:http://192.168.1.40:8080/realms/print-sv}
-           jwk-set-uri: http://keycloak:8080/realms/print-sv/protocol/openid-connect/certs
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://192.168.1.40:8080/realms/print-sv}
+          jwk-set-uri: http://keycloak:8080/realms/print-sv/protocol/openid-connect/certs
 
 server:
   port: 8090
