@@ -42,18 +42,18 @@ services:
       - sv-network
 
   discovery-server:
-     build:
-       context: .
-       dockerfile: back/discovery-server/Dockerfile
-     ports:
-       - "0.0.0.0:8761:8761"
-     depends_on:
-       postgres:
-         condition: service_healthy
-     networks:
-       - sv-network
-     environment:
-       - SPRING_PROFILES_ACTIVE=docker
+    build:
+      context: .
+      dockerfile: back/discovery-server/Dockerfile
+    ports:
+      - "0.0.0.0:8761:8761"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sv-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
 
   order-service:
     build:
@@ -158,27 +158,27 @@ services:
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
       - MATERIAL_SERVICE_URL=http://material-service:8084/api/v1/materials
 
-   file-service:
-     build:
-       context: .
-       dockerfile: back/file-service/Dockerfile
-     ports:
-       - "0.0.0.0:8087:8087"
-     depends_on:
-       postgres:
-         condition: service_healthy
-       discovery-server:
-         condition: service_started
-       keycloak:
-         condition: service_started
-     networks:
-       - sv-network
-     volumes:
-       - ./uploads:/app/uploads
-     environment:
-       - SPRING_PROFILES_ACTIVE=docker
-       - EUREKA_URL=http://discovery-server:8761/eureka/
-       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
+  file-service:
+    build:
+      context: .
+      dockerfile: back/file-service/Dockerfile
+    ports:
+      - "0.0.0.0:8087:8087"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+      keycloak:
+        condition: service_started
+    networks:
+      - sv-network
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_URL=http://discovery-server:8761/eureka/
+      - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
 
   comment-service:
     build:
