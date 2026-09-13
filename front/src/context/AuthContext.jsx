@@ -132,7 +132,15 @@ export const AuthProvider = ({ children }) => {
       const expiresIn = Number(params.expires_in || '3600');
 
       if (!accessToken || !idToken) {
-        throw new Error('Missing tokens in callback');
+        const searchParams = Object.fromEntries(new URLSearchParams(window.location.search));
+        const error = params.error || searchParams.error;
+        const errorDescription = params.error_description || searchParams.error_description;
+        console.error('Missing tokens in callback. Hash:', hash, 'Query:', window.location.search, 'Error:', error, 'Description:', errorDescription);
+        if (!error) {
+          window.location.replace('/');
+          return;
+        }
+        throw new Error(errorDescription || 'Missing tokens in callback');
       }
 
       const decoded = decodeJwt(idToken) || {};
