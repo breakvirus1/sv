@@ -1175,7 +1175,7 @@ value={priceplus}
                             {item.fileUrl ? (
                               <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
                                 <Link
-                                  href={`${import.meta.env.VITE_API_URL || ''}${item.fileUrl}`}
+                                   href={`http://${import.meta.env.VITE_SERVER_IP || '192.168.1.40'}:8085${item.fileUrl}`}
                                   target="_blank"
                                   rel="noopener"
                                   sx={{ fontSize: '0.8rem', wordBreak: 'break-all' }}

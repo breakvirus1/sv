@@ -74,7 +74,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
       - CALCULATOR_SERVICE_URL=http://calculator-service:8086
       - STATISTIC_SERVICE_URL=http://statistic-service:8089/api/v1/admin/statistics
 
@@ -97,7 +97,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
 
   employee-service:
     build:
@@ -116,7 +116,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
 
   material-service:
     build:
@@ -135,7 +135,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
 
 
   calculator-service:
@@ -155,29 +155,30 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
       - MATERIAL_SERVICE_URL=http://material-service:8084/api/v1/materials
 
-  file-service:
-    build:
-      context: .
-      dockerfile: back/file-service/Dockerfile
-    ports:
-      - "0.0.0.0:8087:8087"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      discovery-server:
-        condition: service_started
-      keycloak:
-        condition: service_started
-    networks:
-      - sv-network
-    volumes:
-      - ./uploads:/app/uploads
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - EUREKA_URL=http://discovery-server:8761/eureka/
+   file-service:
+     build:
+       context: .
+       dockerfile: back/file-service/Dockerfile
+     ports:
+       - "0.0.0.0:8087:8087"
+     depends_on:
+       postgres:
+         condition: service_healthy
+       discovery-server:
+         condition: service_started
+       keycloak:
+         condition: service_started
+     networks:
+       - sv-network
+     volumes:
+       - ./uploads:/app/uploads
+     environment:
+       - SPRING_PROFILES_ACTIVE=docker
+       - EUREKA_URL=http://discovery-server:8761/eureka/
+       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
 
   comment-service:
     build:
@@ -198,7 +199,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
     volumes:
       - ./uploads:/app/uploads
       - ./images:/app/images
@@ -222,7 +223,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
 
   statistic-service:
     build:
@@ -243,7 +244,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
 
   api-gateway:
     build:
@@ -275,7 +276,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/print-sv
+      - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
       - SERVER_IP=${SERVER_IP}
 
   frontend:
@@ -284,6 +285,7 @@ services:
       dockerfile: Dockerfile
       target: production
       args:
+        VITE_SERVER_IP: ${SERVER_IP}
         VITE_API_URL: http://${SERVER_IP}:8085
         VITE_KEYCLOAK_ISSUER: http://${SERVER_IP}:8080/realms/print-sv
         VITE_KEYCLOAK_CLIENT_ID: frontend
