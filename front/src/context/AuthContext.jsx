@@ -16,7 +16,7 @@ function generateState() {
   });
 }
 
-const KEYCLOAK_ISSUER = import.meta.env.VITE_KEYCLOAK_ISSUER;
+const KEYCLOAK_ISSUER = import.meta.env.VITE_KEYCLOAK_ISSUER || `http://${import.meta.env.VITE_SERVER_IP || '192.168.1.40'}:8080/realms/print-sv`;
 const CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'frontend';
 const BUILD_BUSTER = 1;
 
