@@ -10,6 +10,7 @@ import com.example.employeeservice.mapper.EmployeeMapper;
 import com.example.employeeservice.repository.EmployeeRepository;
 import com.example.employeeservice.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.data.domain.Page;
@@ -27,7 +28,7 @@ import java.util.HashMap;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Slf4j
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
@@ -174,45 +175,54 @@ public class EmployeeService {
     }
 
     public EmployeeResponse syncOrCreateFromKeycloak(Jwt jwt) {
-        String username = jwt.getClaimAsString("preferred_username");
-        if (username == null || username.isEmpty()) {
-            username = jwt.getSubject();
-        }
-        String fullName = jwt.getClaimAsString("name");
-        String email = jwt.getClaimAsString("email");
-
-        Employee employee = employeeRepository.findByUsername(username)
-                .orElseGet(() -> new Employee());
-
-        employee.setUsername(username);
-        if (fullName != null) employee.setFullName(fullName);
-        if (email != null) employee.setEmail(email);
-
-        // Sync roles from Keycloak
-        List<String> kcRoles = fetchKeycloakRolesForUsernames(List.of(username)).getOrDefault(username, List.of());
-        java.util.Set<Role> roles = new java.util.HashSet<>();
-        Long firstRoleId = null;
-        for (String roleName : kcRoles) {
-            ERole eRole = mapKeycloakRoleName(roleName);
-            if (eRole == null) continue;
-            try {
-                Role role = roleRepository.findByName(eRole)
-                        .orElseGet(() -> roleRepository.save(new Role(eRole)));
-                roles.add(role);
-                if (firstRoleId == null) {
-                    firstRoleId = role.getId();
-                }
-            } catch (Exception e) {
-                // Skip problematic roles
+        try {
+            String username = jwt.getClaimAsString("preferred_username");
+            if (username == null || username.isEmpty()) {
+                username = jwt.getSubject();
             }
-        }
-        employee.setRoles(roles);
-        employee.setRoleId(firstRoleId);
+            String fullName = jwt.getClaimAsString("name");
+            String email = jwt.getClaimAsString("email");
 
-        Employee saved = employeeRepository.save(employee);
-        EmployeeResponse dto = employeeMapper.toDto(saved);
-        dto.setRoles(kcRoles);
-        return dto;
+            if (username == null || username.isEmpty()) {
+                throw new IllegalArgumentException("Username is required for employee sync");
+            }
+
+            Employee employee = employeeRepository.findByUsername(username)
+                    .orElseGet(() -> new Employee());
+
+            employee.setUsername(username);
+            if (fullName != null) employee.setFullName(fullName);
+            if (email != null) employee.setEmail(email);
+
+            // Sync roles from Keycloak
+            List<String> kcRoles = fetchKeycloakRolesForUsernames(List.of(username)).getOrDefault(username, List.of());
+            java.util.Set<Role> roles = new java.util.HashSet<>();
+            Long firstRoleId = null;
+            for (String roleName : kcRoles) {
+                ERole eRole = mapKeycloakRoleName(roleName);
+                if (eRole == null) continue;
+                try {
+                    Role role = roleRepository.findByName(eRole)
+                            .orElseGet(() -> roleRepository.save(new Role(eRole)));
+                    roles.add(role);
+                    if (firstRoleId == null) {
+                        firstRoleId = role.getId();
+                    }
+                } catch (Exception e) {
+                    // Skip problematic roles
+                }
+            }
+            employee.setRoles(roles);
+            employee.setRoleId(firstRoleId);
+
+            Employee saved = employeeRepository.save(employee);
+            EmployeeResponse dto = employeeMapper.toDto(saved);
+            dto.setRoles(kcRoles);
+            return dto;
+        } catch (Exception e) {
+            log.error("Failed to sync employee from Keycloak", e);
+            throw e;
+        }
     }
 
     @Transactional
