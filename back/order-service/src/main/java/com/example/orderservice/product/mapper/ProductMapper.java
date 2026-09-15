@@ -29,6 +29,7 @@ public interface ProductMapper {
     @Mapping(target = "materialName", source = "material.name")
     @Mapping(target = "price", source = "material.price")
     @Mapping(target = "unit", source = "material.unit")
+    @Mapping(target = "materialId", source = "material.id")
     ProductMaterialDTO toMaterialDto(ProductMaterial entity);
 
     @Mapping(target = "normTime", expression = "java(mapDuration(entity.getNormTime()))")

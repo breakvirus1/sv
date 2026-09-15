@@ -3,7 +3,7 @@ import {
   Box, Typography, Tabs, Tab, Paper, Table, TableHead, TableRow, TableCell,
   TableBody, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, FormControl, InputLabel, Select, MenuItem, CircularProgress, Alert,
-  Snackbar, Grid, Divider, TableContainer, Chip
+  Snackbar, Grid, Divider, TableContainer, Chip, useMediaQuery, useTheme
 } from '@mui/material';
 import { Add, Edit, Delete, Refresh, Save, Cancel, Sync } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -27,13 +27,16 @@ const ENTITY_TABS = [
   { label: 'Workshops', value: 'workshops' },
   { label: 'Employees', value: 'employees' },
   { label: 'Statistics', value: 'statistics' },
-  { label: 'Generate Data', value: 'generate' }
+  { label: 'Generate Data', value: 'generate' },
+  { label: 'Конструктор изделий', value: 'constructor' }
 ];
 
 const AdminPanel = () => {
   const [tab, setTab] = useState(0);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const showNotification = (message, severity = 'success') => {
     setNotification({ open: true, message, severity });
@@ -81,6 +84,14 @@ const AdminPanel = () => {
   const [employeeForm, setEmployeeForm] = useState({ fullName: '', username: '', position: '', phone: '', email: '', workshopId: '', managerCashPercent: '' });
   const [syncing, setSyncing] = useState(false);
 
+  // ---- Products (Constructor) state ----
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [productDeleteDialogOpen, setProductDeleteDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productForm, setProductForm] = useState({ name: '', article: '', description: '', width: '', height: '', unit: 'шт', basePrice: '', category: '' });
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [editProductForm, setEditProductForm] = useState({ name: '', article: '', description: '', width: '', height: '', unit: 'шт', basePrice: 0, category: '' });
+
   // ---- Generation state ----
   const [generating, setGenerating] = useState({});
 
@@ -119,6 +130,12 @@ const AdminPanel = () => {
     queryKey: ['admin-employees'],
     queryFn: async () => { const r = await api.get('/api/v1/employees?size=100'); return r.data.content || []; },
     enabled: tab === 5
+  });
+
+  const { data: productsData = [], refetch: refetchProducts } = useQuery({
+    queryKey: ['admin-products'],
+    queryFn: async () => { const r = await api.get('/api/v1/products'); return r.data || []; },
+    enabled: tab === 8
   });
 
   // ---- Client CRUD ----
@@ -237,6 +254,23 @@ const AdminPanel = () => {
     onSettled: () => setSyncing(false)
   });
 
+  // ---- Product CRUD ----
+  const createProductMutation = useMutation({
+    mutationFn: (p) => api.post('/api/v1/products', p),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setProductDialogOpen(false); showNotification('Изделие создано'); resetProductForm(); },
+    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+  });
+  const updateProductMutation = useMutation({
+    mutationFn: ({ id, data }) => api.put(`/api/v1/products/${id}`, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setProductDialogOpen(false); showNotification('Изделие обновлено'); resetProductForm(); },
+    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+  });
+  const deleteProductMutation = useMutation({
+    mutationFn: (id) => api.delete(`/api/v1/products/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setProductDeleteDialogOpen(false); showNotification('Изделие удалено'); },
+    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+  });
+
   // ---- Generate mutation ----
   const generateMutation = useMutation({
     mutationFn: ({ endpoint, count }) => api.post(`/api/v1/admin/generate/${endpoint}/${count}`),
@@ -304,6 +338,7 @@ const AdminPanel = () => {
   const resetGroupForm = () => { setGroupForm({ name: '' }); setSelectedGroup(null); };
   const resetWorkshopForm = () => { setWorkshopForm({ name: '', sortOrder: 0, operationIds: '' }); setSelectedWorkshop(null); };
   const resetEmployeeForm = () => { setEmployeeForm({ fullName: '', username: '', position: '', phone: '', email: '', workshopId: '', managerCashPercent: '' }); setSelectedEmployee(null); };
+  const resetProductForm = () => { setProductForm({ name: '', article: '', description: '', width: '', height: '', unit: 'шт', basePrice: '', category: '' }); setSelectedProduct(null); };
 
   const openClientDialog = (client = null) => {
     if (client) { setSelectedClient(client); setClientForm({ name: client.name || '', type: client.type || 'PRIVATE', contactPerson: client.contactPerson || '', phone: client.phone || '', email: client.email || '' }); } else { resetClientForm(); }
@@ -346,6 +381,15 @@ const AdminPanel = () => {
     }
     setEmployeeDialogOpen(true);
   };
+  const openProductDialog = (prod = null) => {
+    if (prod) {
+      setSelectedProduct(prod);
+      setProductForm({ name: prod.name || '', article: prod.article || '', description: prod.description || '', width: prod.width ? prod.width.toString() : '', height: prod.height ? prod.height.toString() : '', unit: prod.unit || 'шт', basePrice: prod.basePrice ? prod.basePrice.toString() : '', category: prod.category || '' });
+    } else {
+      resetProductForm();
+    }
+    setProductDialogOpen(true);
+  };
 
   const handleClientSubmit = () => {
     if (!clientForm.name) { showNotification('Введите название', 'error'); return; }
@@ -378,6 +422,11 @@ const AdminPanel = () => {
     const payload = { ...employeeForm, workshopId: employeeForm.workshopId ? parseInt(employeeForm.workshopId) : null, managerCashPercent: employeeForm.managerCashPercent ? parseFloat(employeeForm.managerCashPercent) : null };
     updateEmployeeMutation.mutate({ id: selectedEmployee.id, data: payload });
   };
+  const handleProductSubmit = () => {
+    if (!productForm.name) { showNotification('Введите название изделия', 'error'); return; }
+    const payload = { ...productForm, width: productForm.width ? parseFloat(productForm.width) : null, height: productForm.height ? parseFloat(productForm.height) : null, basePrice: productForm.basePrice ? parseFloat(productForm.basePrice) : null };
+    selectedProduct ? updateProductMutation.mutate({ id: selectedProduct.id, data: payload }) : createProductMutation.mutate(payload);
+  };
 
   const startEditMaterial = (mat) => { setEditingMaterialId(mat.id); setEditMaterialForm({ name: mat.name, unit: mat.unit, price: mat.price, wasteCoefficient: mat.wasteCoefficient }); };
   const cancelEditMaterial = () => { setEditingMaterialId(null); setEditMaterialForm({ name: '', unit: '', price: 0, wasteCoefficient: 1 }); };
@@ -399,107 +448,115 @@ const AdminPanel = () => {
   // ---- Render ----
   const renderClientsTab = () => (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexDirection={{ xs: 'column', sm: 'row' }} gap={1}>
         <Typography variant="h6">Управление клиентами</Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => openClientDialog()}>Добавить клиента</Button>
+        <Button variant="contained" startIcon={<Add />} onClick={() => openClientDialog()} fullWidth={isMobile}>Добавить клиента</Button>
       </Box>
       {clientsData.length === 0 && <Typography>Нет данных</Typography>}
       {clientsData.length > 0 && (
-        <TableContainer component={Paper}><Table size="small">
-          <TableHead><TableRow><TableCell>Имя</TableCell><TableCell>Тип</TableCell><TableCell>Контактное лицо</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
-          <TableBody>
-            {clientsData.map((c) => (
-              <TableRow key={c.id}><TableCell>{c.name}</TableCell><TableCell>{c.type}</TableCell><TableCell>{c.contactPerson || '-'}</TableCell><TableCell>{c.phone || '-'}</TableCell><TableCell>{c.email || '-'}</TableCell>
-                <TableCell align="right"><IconButton size="small" onClick={() => openClientDialog(c)}><Edit /></IconButton><IconButton size="small" color="error" onClick={() => { setSelectedClient(c); setClientDeleteDialogOpen(true); }}><Delete /></IconButton></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table></TableContainer>
+        <Box sx={{ overflowX: 'auto' }}>
+          <TableContainer component={Paper}><Table size="small">
+            <TableHead><TableRow><TableCell>Имя</TableCell><TableCell>Тип</TableCell><TableCell>Контактное лицо</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+            <TableBody>
+              {clientsData.map((c) => (
+                <TableRow key={c.id}><TableCell>{c.name}</TableCell><TableCell>{c.type}</TableCell><TableCell>{c.contactPerson || '-'}</TableCell><TableCell>{c.phone || '-'}</TableCell><TableCell>{c.email || '-'}</TableCell>
+                  <TableCell align="right"><IconButton size="small" onClick={() => openClientDialog(c)}><Edit /></IconButton><IconButton size="small" color="error" onClick={() => { setSelectedClient(c); setClientDeleteDialogOpen(true); }}><Delete /></IconButton></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table></TableContainer>
+        </Box>
       )}
     </Box>
   );
 
   const renderOperationsTab = () => (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexDirection={{ xs: 'column', sm: 'row' }} gap={1}>
         <Typography variant="h6">Управление операциями</Typography>
-        <Box display="flex" gap={2} alignItems="center">
-          <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetchOperations()}>Обновить</Button>
-          <Button variant="contained" startIcon={<Add />} onClick={() => openOperationDialog()}>Добавить операцию</Button>
+        <Box display="flex" gap={2} alignItems="center" flexDirection={{ xs: 'column', sm: 'row' }} width={{ xs: '100%', sm: 'auto' }}>
+          <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetchOperations()} fullWidth={isMobile}>Обновить</Button>
+          <Button variant="contained" startIcon={<Add />} onClick={() => openOperationDialog()} fullWidth={isMobile}>Добавить операцию</Button>
         </Box>
       </Box>
       {filteredOperations.length === 0 && <Typography>Нет операций</Typography>}
       {filteredOperations.length > 0 && (
-        <TableContainer component={Paper}><Table size="small">
-          <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Цена</TableCell><TableCell>Ед. изм.</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
-          <TableBody>
-            {filteredOperations.map((op) => (
-              <TableRow key={op.id}>
-                <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" value={editOperationForm.name} onChange={handleEditOperationChange('name')} /> : op.name}</TableCell>
-                <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" type="number" value={editOperationForm.price} onChange={handleEditOperationChange('price')} inputProps={{ step: 0.01 }} /> : `${op.price?.toFixed(2)} ₽`}</TableCell>
-                 <TableCell>{editingOperationId === op.id ? <FormControl fullWidth size="small"><Select value={editOperationForm.unit} onChange={(e) => handleEditOperationChange('unit')(e)}><MenuItem value="SQUARE_METER">м²</MenuItem><MenuItem value="LINEAR_METER">п.м.</MenuItem><MenuItem value="PIECE">шт</MenuItem></Select></FormControl> : op.unit}</TableCell>
-                 <TableCell align="right">
-                   {editingOperationId === op.id ? <><IconButton size="small" color="success" onClick={() => saveOperationEdit(op.id)}><Save /></IconButton><IconButton size="small" onClick={cancelEditOperation}><Cancel /></IconButton></> : <IconButton size="small" onClick={() => startEditOperation(op)}><Edit /></IconButton>}
-                   <IconButton size="small" color="error" onClick={() => { setSelectedOperation(op); setOperationDeleteDialogOpen(true); }}><Delete /></IconButton>
-                 </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table></TableContainer>
+        <Box sx={{ overflowX: 'auto' }}>
+          <TableContainer component={Paper}><Table size="small">
+            <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Цена</TableCell><TableCell>Ед. изм.</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+            <TableBody>
+              {filteredOperations.map((op) => (
+                <TableRow key={op.id}>
+                  <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" value={editOperationForm.name} onChange={handleEditOperationChange('name')} /> : op.name}</TableCell>
+                  <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" type="number" value={editOperationForm.price} onChange={handleEditOperationChange('price')} inputProps={{ step: 0.01 }} /> : `${op.price?.toFixed(2)} ₽`}</TableCell>
+                   <TableCell>{editingOperationId === op.id ? <FormControl fullWidth size="small"><Select value={editOperationForm.unit} onChange={(e) => handleEditOperationChange('unit')(e)}><MenuItem value="SQUARE_METER">м²</MenuItem><MenuItem value="LINEAR_METER">п.м.</MenuItem><MenuItem value="PIECE">шт</MenuItem></Select></FormControl> : op.unit}</TableCell>
+                   <TableCell align="right">
+                     {editingOperationId === op.id ? <><IconButton size="small" color="success" onClick={() => saveOperationEdit(op.id)}><Save /></IconButton><IconButton size="small" onClick={cancelEditOperation}><Cancel /></IconButton></> : <IconButton size="small" onClick={() => startEditOperation(op)}><Edit /></IconButton>}
+                     <IconButton size="small" color="error" onClick={() => { setSelectedOperation(op); setOperationDeleteDialogOpen(true); }}><Delete /></IconButton>
+                   </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table></TableContainer>
+        </Box>
       )}
     </Box>
   );
 
   const renderOperationGroupsTab = () => (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexDirection={{ xs: 'column', sm: 'row' }} gap={1}>
         <Typography variant="h6">Группировки операций</Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => openGroupDialog()}>Добавить группировку</Button>
+        <Button variant="contained" startIcon={<Add />} onClick={() => openGroupDialog()} fullWidth={isMobile}>Добавить группировку</Button>
       </Box>
       {operationGroupsData.length === 0 && <Typography>Нет группировок</Typography>}
       {operationGroupsData.length > 0 && (
-        <TableContainer component={Paper}><Table size="small">
-          <TableHead><TableRow><TableCell>Слово</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
-          <TableBody>
-            {operationGroupsData.map((grp) => (
-              <TableRow key={grp.id}>
-                <TableCell>{grp.name}</TableCell>
-                <TableCell align="right">
-                  <IconButton size="small" onClick={() => openGroupDialog(grp)}><Edit /></IconButton>
-                  <IconButton size="small" color="error" onClick={() => { setSelectedGroup(grp); setGroupDeleteDialogOpen(true); }}><Delete /></IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table></TableContainer>
+        <Box sx={{ overflowX: 'auto' }}>
+          <TableContainer component={Paper}><Table size="small">
+            <TableHead><TableRow><TableCell>Слово</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+            <TableBody>
+              {operationGroupsData.map((grp) => (
+                <TableRow key={grp.id}>
+                  <TableCell>{grp.name}</TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" onClick={() => openGroupDialog(grp)}><Edit /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => { setSelectedGroup(grp); setGroupDeleteDialogOpen(true); }}><Delete /></IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table></TableContainer>
+        </Box>
       )}
     </Box>
   );
 
   const renderWorkshopsTab = () => (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexDirection={{ xs: 'column', sm: 'row' }} gap={1}>
         <Typography variant="h6">Управление цехами</Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => openWorkshopDialog()}>Добавить цех</Button>
+        <Button variant="contained" startIcon={<Add />} onClick={() => openWorkshopDialog()} fullWidth={isMobile}>Добавить цех</Button>
       </Box>
       {workshopsData.length === 0 && <Typography>Нет цехов</Typography>}
       {workshopsData.length > 0 && (
-        <TableContainer component={Paper}><Table size="small">
-          <TableHead><TableRow><TableCell>ID</TableCell><TableCell>Название</TableCell><TableCell>Операции</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
-          <TableBody>
-            {workshopsData.map((ws) => (
-              <TableRow key={ws.id}>
-                <TableCell>{ws.id}</TableCell>
-                <TableCell>{ws.name}</TableCell>
-                <TableCell><Box display="flex" flexWrap="wrap" gap={0.5}>{(Array.isArray(ws.operationIds) ? ws.operationIds : []).map(id => { const op = operationsData.find(o => o.id === id); return <Chip key={id} label={op ? op.name : `#${id}`} size="small" variant="outlined" />; })}</Box></TableCell>
-                <TableCell align="right">
-                  <IconButton size="small" onClick={() => openWorkshopDialog(ws)}><Edit /></IconButton>
-                  <IconButton size="small" color="error" onClick={() => { setSelectedWorkshop(ws); setWorkshopDeleteDialogOpen(true); }}><Delete /></IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table></TableContainer>
+        <Box sx={{ overflowX: 'auto' }}>
+          <TableContainer component={Paper}><Table size="small">
+            <TableHead><TableRow><TableCell>ID</TableCell><TableCell>Название</TableCell><TableCell>Операции</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+            <TableBody>
+              {workshopsData.map((ws) => (
+                <TableRow key={ws.id}>
+                  <TableCell>{ws.id}</TableCell>
+                  <TableCell>{ws.name}</TableCell>
+                  <TableCell><Box display="flex" flexWrap="wrap" gap={0.5}>{(Array.isArray(ws.operationIds) ? ws.operationIds : []).map(id => { const op = operationsData.find(o => o.id === id); return <Chip key={id} label={op ? op.name : `#${id}`} size="small" variant="outlined" />; })}</Box></TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" onClick={() => openWorkshopDialog(ws)}><Edit /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => { setSelectedWorkshop(ws); setWorkshopDeleteDialogOpen(true); }}><Delete /></IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table></TableContainer>
+        </Box>
       )}
     </Box>
   );
@@ -511,46 +568,48 @@ const AdminPanel = () => {
 
   const renderEmployeesTab = () => (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexDirection={{ xs: 'column', sm: 'row' }} gap={1}>
         <Typography variant="h6">Управление сотрудниками</Typography>
-        <Box display="flex" gap={2}>
-          <Button variant="outlined" startIcon={syncing ? <CircularProgress size={16} /> : <Sync />} onClick={() => syncKeycloakMutation.mutate()} disabled={syncing}>
+        <Box display="flex" gap={2} width={{ xs: '100%', sm: 'auto' }} flexDirection={{ xs: 'column', sm: 'row' }}>
+          <Button variant="outlined" startIcon={syncing ? <CircularProgress size={16} /> : <Sync />} onClick={() => syncKeycloakMutation.mutate()} disabled={syncing} fullWidth={isMobile}>
             {syncing ? 'Синхронизация...' : 'Синхронизировать из Keycloak'}
           </Button>
         </Box>
       </Box>
       {employeesData.length === 0 && <Typography>Нет сотрудников</Typography>}
       {employeesData.length > 0 && (
-        <TableContainer component={Paper}><Table size="small">
-           <TableHead><TableRow><TableCell>ID</TableCell><TableCell>ФИО</TableCell><TableCell>Логин</TableCell><TableCell>Должность</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell>Роль</TableCell><TableCell>Роли</TableCell><TableCell>Цех</TableCell><TableCell>% заработка</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
-          <TableBody>
-            {employeesData.map((emp) => (
-              <TableRow key={emp.id}>
-                <TableCell>{emp.id}</TableCell>
-                <TableCell>{emp.fullName || '-'}</TableCell>
-                <TableCell>{emp.username || '-'}</TableCell>
-                <TableCell>{emp.position || '-'}</TableCell>
-                <TableCell>{emp.phone || '-'}</TableCell>
-                <TableCell>{emp.email || '-'}</TableCell>
-                <TableCell>{emp.roleId ? <Chip label={`#${emp.roleId}`} size="small" color="primary" /> : '-'}</TableCell>
-                <TableCell>
-                  <Box display="flex" flexWrap="wrap" gap={0.5}>
-                    {(emp.roles || []).map(role => (
-                      <Chip key={role} label={role.replace('ROLE_', '')} size="small" variant="outlined" />
-                    ))}
-                    {(!emp.roles || emp.roles.length === 0) && '-'}
-                  </Box>
-                </TableCell>
-                <TableCell>{emp.workshopId ? `#${emp.workshopId} ${getWorkshopName(emp.workshopId)}` : '-'}</TableCell>
-                <TableCell>{emp.managerCashPercent != null ? `${emp.managerCashPercent}%` : '-'}</TableCell>
-                <TableCell align="right">
-                  <IconButton size="small" onClick={() => openEmployeeDialog(emp)}><Edit /></IconButton>
-                  <IconButton size="small" color="error" onClick={() => { setSelectedEmployee(emp); setEmployeeDeleteDialogOpen(true); }}><Delete /></IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table></TableContainer>
+        <Box sx={{ overflowX: 'auto' }}>
+          <TableContainer component={Paper}><Table size="small">
+             <TableHead><TableRow><TableCell>ID</TableCell><TableCell>ФИО</TableCell><TableCell>Логин</TableCell><TableCell>Должность</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell>Роль</TableCell><TableCell>Роли</TableCell><TableCell>Цех</TableCell><TableCell>% заработка</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+            <TableBody>
+              {employeesData.map((emp) => (
+                <TableRow key={emp.id}>
+                  <TableCell>{emp.id}</TableCell>
+                  <TableCell>{emp.fullName || '-'}</TableCell>
+                  <TableCell>{emp.username || '-'}</TableCell>
+                  <TableCell>{emp.position || '-'}</TableCell>
+                  <TableCell>{emp.phone || '-'}</TableCell>
+                  <TableCell>{emp.email || '-'}</TableCell>
+                  <TableCell>{emp.roleId ? <Chip label={`#${emp.roleId}`} size="small" color="primary" /> : '-'}</TableCell>
+                  <TableCell>
+                    <Box display="flex" flexWrap="wrap" gap={0.5}>
+                      {(emp.roles || []).map(role => (
+                        <Chip key={role} label={role.replace('ROLE_', '')} size="small" variant="outlined" />
+                      ))}
+                      {(!emp.roles || emp.roles.length === 0) && '-'}
+                    </Box>
+                  </TableCell>
+                  <TableCell>{emp.workshopId ? `#${emp.workshopId} ${getWorkshopName(emp.workshopId)}` : '-'}</TableCell>
+                  <TableCell>{emp.managerCashPercent != null ? `${emp.managerCashPercent}%` : '-'}</TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" onClick={() => openEmployeeDialog(emp)}><Edit /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => { setSelectedEmployee(emp); setEmployeeDeleteDialogOpen(true); }}><Delete /></IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table></TableContainer>
+        </Box>
       )}
     </Box>
   );
@@ -559,15 +618,48 @@ const AdminPanel = () => {
     <GenerateTab onGenerate={handleGenerate} onDelete={handleDelete} />
   );
 
+  const renderConstructorTab = () => (
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexDirection={{ xs: 'column', sm: 'row' }} gap={1}>
+        <Typography variant="h6">Конструктор изделий</Typography>
+        <Box display="flex" gap={2} width={{ xs: '100%', sm: 'auto' }} flexDirection={{ xs: 'column', sm: 'row' }}>
+          <Button variant="contained" startIcon={<Add />} onClick={() => navigate('/constructor/new')} fullWidth={isMobile}>Добавить изделие</Button>
+        </Box>
+      </Box>
+      {productsData.length === 0 && <Typography>Нет изделий</Typography>}
+      {productsData.length > 0 && (
+        <Box sx={{ overflowX: 'auto' }}>
+          <TableContainer component={Paper}><Table size="small">
+            <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Артикул</TableCell><TableCell>Описание</TableCell><TableCell>Ед. изм.</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+            <TableBody>
+              {productsData.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell>{p.name}</TableCell>
+                  <TableCell>{p.article || '-'}</TableCell>
+                  <TableCell>{p.description || '-'}</TableCell>
+                  <TableCell>{p.unit || 'шт'}</TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" onClick={() => openProductDialog(p)}><Edit /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => { setSelectedProduct(p); setProductDeleteDialogOpen(true); }}><Delete /></IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table></TableContainer>
+        </Box>
+      )}
+    </Box>
+  );
+
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>Admin Panel</Typography>
-      <Paper sx={{ width: '100%', mt: 2 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      <Typography variant="h4" gutterBottom sx={{ fontSize: { xs: '1.5rem', md: '2.125rem' } }}>Admin Panel</Typography>
+      <Paper sx={{ width: '100%', mt: 2, overflow: 'hidden' }}>
         <Tabs value={tab} onChange={handleTabChange} indicatorColor="secondary" textColor="secondary" variant="scrollable" scrollButtons="auto">
           {ENTITY_TABS.map((t, idx) => <Tab key={t.value} label={t.label} />)}
         </Tabs>
         <Divider />
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ p: { xs: 1, sm: 2 } }}>
           {tab === 0 && renderClientsTab()}
           {tab === 1 && <MaterialsTab
             materialsData={materialsData}
@@ -582,13 +674,14 @@ const AdminPanel = () => {
           {tab === 5 && renderEmployeesTab()}
           {tab === 6 && <StatisticsTab />}
           {tab === 7 && renderGenerateTab()}
+          {tab === 8 && renderConstructorTab()}
         </Box>
       </Paper>
 
       {/* ---- Dialogs ---- */}
 
       {/* Client */}
-      <Dialog open={clientDialogOpen} onClose={() => setClientDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={clientDialogOpen} onClose={() => setClientDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedClient ? 'Редактировать клиента' : 'Новый клиент'}</DialogTitle>
         <DialogContent>
           <TextField autoFocus fullWidth margin="dense" label="Название" value={clientForm.name} onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })} />
@@ -601,13 +694,13 @@ const AdminPanel = () => {
         </DialogContent>
         <DialogActions><Button onClick={() => setClientDialogOpen(false)}>Отмена</Button><Button onClick={handleClientSubmit} variant="contained">Сохранить</Button></DialogActions>
       </Dialog>
-      <Dialog open={clientDeleteDialogOpen} onClose={() => setClientDeleteDialogOpen(false)}>
+      <Dialog open={clientDeleteDialogOpen} onClose={() => setClientDeleteDialogOpen(false)} fullScreen={isMobile}>
         <DialogTitle>Удалить клиента?</DialogTitle><DialogContent><Typography>Вы уверены, что хотите удалить "{selectedClient?.name}"?</Typography></DialogContent>
         <DialogActions><Button onClick={() => setClientDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedClient && deleteClientMutation.mutate(selectedClient.id)} color="error" variant="contained">Удалить</Button></DialogActions>
       </Dialog>
 
       {/* Material */}
-      <Dialog open={materialDialogOpen} onClose={() => setMaterialDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={materialDialogOpen} onClose={() => setMaterialDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedMaterial ? 'Редактировать материал' : 'Новый материал'}</DialogTitle>
         <DialogContent>
           <TextField autoFocus fullWidth margin="dense" label="Название" value={materialForm.name} onChange={(e) => setMaterialForm({ ...materialForm, name: e.target.value })} />
@@ -619,13 +712,13 @@ const AdminPanel = () => {
         </DialogContent>
         <DialogActions><Button onClick={() => setMaterialDialogOpen(false)}>Отмена</Button><Button onClick={handleMaterialSubmit} variant="contained">Сохранить</Button></DialogActions>
       </Dialog>
-      <Dialog open={materialDeleteDialogOpen} onClose={() => setMaterialDeleteDialogOpen(false)}>
+      <Dialog open={materialDeleteDialogOpen} onClose={() => setMaterialDeleteDialogOpen(false)} fullScreen={isMobile}>
         <DialogTitle>Удалить материал?</DialogTitle><DialogContent><Typography>Удалить "{selectedMaterial?.name}"?</Typography></DialogContent>
         <DialogActions><Button onClick={() => setMaterialDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedMaterial && deleteMaterialMutation.mutate(selectedMaterial.id)} color="error" variant="contained">Удалить</Button></DialogActions>
       </Dialog>
 
       {/* Operation */}
-      <Dialog open={operationDialogOpen} onClose={() => setOperationDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={operationDialogOpen} onClose={() => setOperationDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedOperation ? 'Редактировать операцию' : 'Новая операция'}</DialogTitle>
         <DialogContent>
           <TextField autoFocus fullWidth margin="dense" label="Название" value={operationForm.name} onChange={(e) => setOperationForm({ ...operationForm, name: e.target.value })} />
@@ -636,26 +729,26 @@ const AdminPanel = () => {
         </DialogContent>
         <DialogActions><Button onClick={() => setOperationDialogOpen(false)}>Отмена</Button><Button onClick={handleOperationSubmit} variant="contained">Сохранить</Button></DialogActions>
       </Dialog>
-      <Dialog open={operationDeleteDialogOpen} onClose={() => setOperationDeleteDialogOpen(false)}>
+      <Dialog open={operationDeleteDialogOpen} onClose={() => setOperationDeleteDialogOpen(false)} fullScreen={isMobile}>
         <DialogTitle>Удалить операцию?</DialogTitle><DialogContent><Typography>Удалить "{selectedOperation?.name}"?</Typography></DialogContent>
         <DialogActions><Button onClick={() => setOperationDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedOperation && deleteOperationMutation.mutate(selectedOperation.id)} color="error" variant="contained">Удалить</Button></DialogActions>
       </Dialog>
 
       {/* Operation Group */}
-      <Dialog open={groupDialogOpen} onClose={() => setGroupDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={groupDialogOpen} onClose={() => setGroupDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedGroup ? 'Редактировать группировку' : 'Новая группировка'}</DialogTitle>
         <DialogContent>
           <TextField autoFocus fullWidth margin="dense" label="Слово группировки" value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} helperText="Слово, по которому группируются операции (например, печать)" />
         </DialogContent>
         <DialogActions><Button onClick={() => setGroupDialogOpen(false)}>Отмена</Button><Button onClick={handleGroupSubmit} variant="contained">Сохранить</Button></DialogActions>
       </Dialog>
-      <Dialog open={groupDeleteDialogOpen} onClose={() => setGroupDeleteDialogOpen(false)}>
+      <Dialog open={groupDeleteDialogOpen} onClose={() => setGroupDeleteDialogOpen(false)} fullScreen={isMobile}>
         <DialogTitle>Удалить группировку?</DialogTitle><DialogContent><Typography>Удалить "{selectedGroup?.name}"?</Typography></DialogContent>
         <DialogActions><Button onClick={() => setGroupDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedGroup && deleteGroupMutation.mutate(selectedGroup.id)} color="error" variant="contained">Удалить</Button></DialogActions>
       </Dialog>
 
       {/* Workshop */}
-      <Dialog open={workshopDialogOpen} onClose={() => setWorkshopDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={workshopDialogOpen} onClose={() => setWorkshopDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedWorkshop ? 'Редактировать цех' : 'Новый цех'}</DialogTitle>
         <DialogContent>
           <TextField autoFocus fullWidth margin="dense" label="Название" value={workshopForm.name} onChange={(e) => setWorkshopForm({ ...workshopForm, name: e.target.value })} />
@@ -680,13 +773,13 @@ const AdminPanel = () => {
         </DialogContent>
         <DialogActions><Button onClick={() => setWorkshopDialogOpen(false)}>Отмена</Button><Button onClick={handleWorkshopSubmit} variant="contained" disabled={!workshopForm.name}>Сохранить</Button></DialogActions>
       </Dialog>
-      <Dialog open={workshopDeleteDialogOpen} onClose={() => setWorkshopDeleteDialogOpen(false)}>
+      <Dialog open={workshopDeleteDialogOpen} onClose={() => setWorkshopDeleteDialogOpen(false)} fullScreen={isMobile}>
         <DialogTitle>Удалить цех?</DialogTitle><DialogContent><Typography>Удалить "{selectedWorkshop?.name}"?</Typography></DialogContent>
         <DialogActions><Button onClick={() => setWorkshopDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedWorkshop && deleteWorkshopMutation.mutate(selectedWorkshop.id)} color="error" variant="contained">Удалить</Button></DialogActions>
       </Dialog>
 
       {/* Employee */}
-      <Dialog open={employeeDialogOpen} onClose={() => setEmployeeDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={employeeDialogOpen} onClose={() => setEmployeeDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedEmployee ? 'Редактировать сотрудника' : 'Новый сотрудник'}</DialogTitle>
         <DialogContent>
           <TextField autoFocus fullWidth margin="dense" label="ФИО" value={employeeForm.fullName} onChange={(e) => setEmployeeForm({ ...employeeForm, fullName: e.target.value })} />
@@ -708,9 +801,33 @@ const AdminPanel = () => {
         </DialogContent>
         <DialogActions><Button onClick={() => setEmployeeDialogOpen(false)}>Отмена</Button><Button onClick={handleEmployeeSubmit} variant="contained" disabled={!employeeForm.username}>Сохранить</Button></DialogActions>
       </Dialog>
-      <Dialog open={employeeDeleteDialogOpen} onClose={() => setEmployeeDeleteDialogOpen(false)}>
+      <Dialog open={employeeDeleteDialogOpen} onClose={() => setEmployeeDeleteDialogOpen(false)} fullScreen={isMobile}>
         <DialogTitle>Удалить сотрудника?</DialogTitle><DialogContent><Typography>Удалить "{selectedEmployee?.fullName || selectedEmployee?.username}"?</Typography></DialogContent>
         <DialogActions><Button onClick={() => setEmployeeDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedEmployee && deleteEmployeeMutation.mutate(selectedEmployee.id)} color="error" variant="contained">Удалить</Button></DialogActions>
+      </Dialog>
+
+      {/* Product */}
+      <Dialog open={productDialogOpen} onClose={() => setProductDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
+        <DialogTitle>{selectedProduct ? 'Редактировать изделие' : 'Новое изделие'}</DialogTitle>
+        <DialogContent>
+          <TextField autoFocus fullWidth margin="dense" label="Название изделия" value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} />
+          <TextField fullWidth margin="dense" label="Артикул" value={productForm.article} onChange={(e) => setProductForm({ ...productForm, article: e.target.value })} />
+          <TextField fullWidth margin="dense" label="Описание" multiline rows={2} value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} />
+          <Grid container spacing={2}>
+            <Grid item xs={6}><TextField fullWidth margin="dense" label="Ширина" type="number" value={productForm.width} onChange={(e) => setProductForm({ ...productForm, width: e.target.value })} /></Grid>
+            <Grid item xs={6}><TextField fullWidth margin="dense" label="Высота" type="number" value={productForm.height} onChange={(e) => setProductForm({ ...productForm, height: e.target.value })} /></Grid>
+          </Grid>
+          <FormControl fullWidth margin="dense"><InputLabel>Ед. изм.</InputLabel>
+            <Select value={productForm.unit} label="Ед. изм." onChange={(e) => setProductForm({ ...productForm, unit: e.target.value })}><MenuItem value="шт">шт</MenuItem><MenuItem value="м2">м²</MenuItem><MenuItem value="м.п.">м.п.</MenuItem></Select>
+          </FormControl>
+          <TextField fullWidth margin="dense" label="Базовая цена" type="number" value={productForm.basePrice} onChange={(e) => setProductForm({ ...productForm, basePrice: e.target.value })} inputProps={{ step: 0.01 }} />
+          <TextField fullWidth margin="dense" label="Категория" value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} />
+        </DialogContent>
+        <DialogActions><Button onClick={() => setProductDialogOpen(false)}>Отмена</Button><Button onClick={handleProductSubmit} variant="contained" disabled={!productForm.name}>Сохранить</Button></DialogActions>
+      </Dialog>
+      <Dialog open={productDeleteDialogOpen} onClose={() => setProductDeleteDialogOpen(false)} fullScreen={isMobile}>
+        <DialogTitle>Удалить изделие?</DialogTitle><DialogContent><Typography>Удалить "{selectedProduct?.name}"?</Typography></DialogContent>
+        <DialogActions><Button onClick={() => setProductDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedProduct && deleteProductMutation.mutate(selectedProduct.id)} color="error" variant="contained">Удалить</Button></DialogActions>
       </Dialog>
 
       {/* Snackbar */}

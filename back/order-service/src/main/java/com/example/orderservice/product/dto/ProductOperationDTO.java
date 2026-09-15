@@ -15,4 +15,6 @@ public class ProductOperationDTO {
     private String unit;
     private Integer sortOrder;
     private String quantityFormula;
+    private BigDecimal quantity;
+    private BigDecimal coefficient;
 }

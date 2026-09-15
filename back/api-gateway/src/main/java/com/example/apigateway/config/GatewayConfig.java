@@ -36,6 +36,10 @@ public class GatewayConfig {
                 .path("/api/v1/materials/**")
                 .uri("http://material-service:8084")
             )
+            .route("product-service", r -> r
+                .path("/api/v1/products/**")
+                .uri("http://order-service:8081")
+            )
             .route("calculator-service", r -> r
                 .path("/api/v1/calculations/**")
                 .uri("http://calculator-service:8086")
@@ -65,11 +69,15 @@ public class GatewayConfig {
                 .path("/api/v1/admin/operations/**", "/api/v1/admin/operation-groups/**")
                 .uri("http://calculator-service:8086")
             )
-              .route("admin-order-service", r -> r
-                  .path("/api/v1/admin/orders/**")
-                  .uri("http://order-service:8081")
-              )
-              .route("admin-generate-data-service", r -> r
+            .route("admin-order-service", r -> r
+                .path("/api/v1/admin/orders/**")
+                .uri("http://order-service:8081")
+            )
+            .route("admin-product-service", r -> r
+                .path("/api/v1/admin/products/**")
+                .uri("http://order-service:8081")
+            )
+            .route("admin-generate-data-service", r -> r
                   .path("/api/v1/admin/generate/**")
                   .uri("http://generate-data-service:8090")
               )

@@ -74,6 +74,11 @@ const Navbar = () => {
     navigate('/orders/new');
   };
 
+  const handleCreateProduct = () => {
+    handleCloseCreate();
+    navigate('/orders/product');
+  };
+
   const handleStatusClick = (status) => {
     handleCloseOrders();
     navigate(`/orders?status=${status}`);
@@ -240,12 +245,16 @@ const Navbar = () => {
                      vertical: 'top',
                      horizontal: 'right',
                    }}
-                 >
-                   <MenuItem onClick={handleCreateOrder}>
-                     <Add fontSize="small" sx={{ mr: 1 }} />
-                     Создать заказ
-                   </MenuItem>
-                 </Menu>
+                  >
+                    <MenuItem onClick={handleCreateOrder}>
+                      <Add fontSize="small" sx={{ mr: 1 }} />
+                      Создать простой заказ
+                    </MenuItem>
+                    <MenuItem onClick={handleCreateProduct}>
+                      <Add fontSize="small" sx={{ mr: 1 }} />
+                      Создать продукт
+                    </MenuItem>
+                  </Menu>
                </>
              )}
 
