@@ -24,6 +24,8 @@ public class ProductOperation extends BaseEntity {
 
     private String name;
     private BigDecimal pricePerUnit;
+    @Convert(converter = com.example.orderservice.config.DurationConverter.class)
+    @Column(name = "norm_time")
     private Duration normTime;
     private String unit = "шт";
     private Integer sortOrder;
@@ -31,4 +33,12 @@ public class ProductOperation extends BaseEntity {
     /** Формула расчёта количества (например "helper.eyeletCount(step, edgeDistance, quantity)"). Если NULL, используется quantity заказа */
     @Column(name = "quantity_formula", length = 500)
     private String quantityFormula;
+
+    /** Базовое количество операции */
+    @Column(precision = 12, scale = 4)
+    private BigDecimal quantity = BigDecimal.ONE;
+
+    /** Коэффициент количества (понижающий или повышающий) */
+    @Column(name = "coefficient", precision = 5, scale = 3)
+    private BigDecimal coefficient = BigDecimal.ONE;
 }

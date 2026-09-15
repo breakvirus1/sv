@@ -17,6 +17,8 @@ import CreateOrderForm from './components/CreateOrderForm'
 import ManagerOrderDetail from './pages/ManagerOrderDetail'
 import ManagerDashboard from './pages/ManagerDashboard'
 import NotificationsList from './pages/NotificationsList'
+import ProductConstructorPage from './pages/ProductConstructorPage'
+import CreateProductOrder from './pages/CreateProductOrder'
 
 function App() {
   const { user, loading } = useAuth()
@@ -120,7 +122,17 @@ function App() {
                  <AdminPanel />
                </ProtectedRoute>
              } />
-              <Route path="/test-calculations" element={
+             <Route path="/constructor/new" element={
+               <ProtectedRoute requiresAdmin={true}>
+                 <ProductConstructorPage />
+               </ProtectedRoute>
+             } />
+             <Route path="/orders/product" element={
+               <ProtectedRoute requiresManager={true}>
+                 <CreateProductOrder />
+               </ProtectedRoute>
+             } />
+               <Route path="/test-calculations" element={
                 <ProtectedRoute>
                   <TestCalculations />
                 </ProtectedRoute>
