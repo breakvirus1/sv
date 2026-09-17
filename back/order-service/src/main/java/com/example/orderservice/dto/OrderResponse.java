@@ -28,6 +28,8 @@ public class OrderResponse {
     private ClientResponse client;
     /** Описание */
     private String description;
+    /** ID изделия, если заказ создан из конструктора */
+    private Long productId;
     /** Общая сумма */
     private BigDecimal totalAmount;
     /** Оплачено */

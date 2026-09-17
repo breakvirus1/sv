@@ -15,6 +15,8 @@ const CreateProductOrder = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [products, setProducts] = useState([]);
   const [selectedPositions, setSelectedPositions] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 
@@ -27,12 +29,27 @@ const CreateProductOrder = () => {
     enabled: true,
   });
 
+  const { data: clientsData = [] } = useQuery({
+    queryKey: ['clients-for-order'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/clients');
+      return response.data?.content || [];
+    },
+    enabled: true,
+  });
+
   useEffect(() => {
     if (productsData.length > 0) {
       setProducts(productsData);
     }
+    if (clientsData.length > 0) {
+      setClients(clientsData);
+      if (clientsData.length > 0 && !selectedClientId) {
+        setSelectedClientId(String(clientsData[0].id));
+      }
+    }
     setLoading(false);
-  }, [productsData]);
+  }, [productsData, clientsData]);
 
   const addProduct = (product) => {
     const newPositions = {
@@ -113,7 +130,62 @@ const CreateProductOrder = () => {
       setNotification({ open: true, message: 'Добавьте хотя бы одну позицию', severity: 'error' });
       return;
     }
-    setNotification({ open: true, message: 'Заказ сохранен (демо)', severity: 'success' });
+    if (!selectedClientId) {
+      setNotification({ open: true, message: 'Выберите клиента', severity: 'error' });
+      return;
+    }
+
+    try {
+      const productNames = selectedPositions.map(p => p.productName).join(', ');
+      const items = [];
+      for (const position of selectedPositions) {
+        for (const m of position.materials) {
+          items.push({
+            materialId: m.materialId,
+            fromProduct: true,
+            quantity: m.quantity || 1,
+            wasteCoefficient: m.wasteCoefficient || 1,
+            unit: m.unit || 'шт',
+              operations: position.operations.map(op => ({
+              operationId: op.id,
+              operationName: op.name,
+              pricePerUnit: op.pricePerUnit,
+              quantity: op.quantity || 1,
+              widthM: null,
+              heightM: null,
+            })),
+            widthM: null,
+            heightM: null,
+            readyDate: null,
+            eyeletId: null,
+            eyeletStepCm: null,
+            podvorotMmHorizontal: null,
+            podvorotMmVertical: null,
+            podvorotCountPerSide: null,
+            manualFilmSelectionValue: null,
+          });
+        }
+      }
+
+      const payload = {
+        clientId: Number(selectedClientId),
+        description: productNames,
+        orderDate: new Date().toISOString().split('T')[0],
+        dueDate: null,
+        managerId: null,
+        priceplus: 0,
+        items: items,
+        totalAmount: grandTotal,
+        clientTotalWithPriceplus: grandTotal,
+      };
+
+      await api.post('/api/v1/orders', payload);
+      setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
+      setTimeout(() => navigate('/orders'), 1000);
+    } catch (err) {
+      console.error('Failed to save order', err);
+      setNotification({ open: true, message: 'Ошибка создания заказа: ' + (err.response?.data?.message || err.message), severity: 'error' });
+    }
   };
 
   if (loading) {
@@ -130,6 +202,23 @@ const CreateProductOrder = () => {
         Назад
       </Button>
       <Typography variant="h4" gutterBottom sx={{ fontSize: { xs: '1.5rem', md: '2.125rem' } }}>Создать заказ из изделия</Typography>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Клиент</InputLabel>
+              <Select value={selectedClientId} label="Клиент" onChange={(e) => setSelectedClientId(e.target.value)}>
+                {clients.map(c => <MenuItem key={c.id} value={String(c.id)}>{c.name}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={8}>
+            <Typography variant="body2" color="text.secondary">
+              Выберите изделия из списка слева, нажмите "+" чтобы добавить в заказ. Настройте коэффициенты и количество для каждой позиции.
+            </Typography>
+          </Grid>
+        </Grid>
+      </Paper>
       <Grid container spacing={2}>
         {/* Left column - Products list */}
         <Grid item xs={12} md={5}>
@@ -298,3 +387,4 @@ const CreateProductOrder = () => {
 };
 
 export default CreateProductOrder;
+

@@ -11,6 +11,12 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class OrderOperationRequest {
     private Long operationId;
+    /** Название операции */
+    private String operationName;
+    /** Цена за единицу */
+    private BigDecimal pricePerUnit;
+    /** Количество */
+    private BigDecimal quantity;
     /** Ширина в метрах (опционально) */
     private BigDecimal widthM;
     /** Высота в метрах (опционально) */

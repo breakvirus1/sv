@@ -26,4 +26,12 @@ public class OrderMaterialCreateRequest {
     private BigDecimal podvorotMmVertical;
     private Integer podvorotCountPerSide;
     private Integer manualFilmSelectionValue;
+    /** Флаг: позиция создана из конструктора изделий */
+    private Boolean fromProduct;
+    /** Количество единиц материала (для заказов из конструктора) */
+    private BigDecimal quantity;
+    /** Коэффициент отхода (для заказов из конструктора) */
+    private BigDecimal wasteCoefficient;
+    /** Единица измерения (для заказов из конструктора) */
+    private String unit;
 }

@@ -28,6 +28,8 @@ public class OrderCreateRequest {
     private Long managerId;
     /** Процент добавки клиента (priceplus) */
     private BigDecimal priceplus;
+    /** ID изделия (если заказ создаётся из конструктора изделий) */
+    private Long productId;
     /** Список позиций заказа (материалы) */
     private List<OrderMaterialCreateRequest> items;
     /** Итоговая сумма заказа (с учетом наценки priceplus) */
