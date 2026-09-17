@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface OrderMapper {
 
+    @Mapping(target = "productId", source = "productId")
     @Mapping(target = "client", ignore = true)
     @Mapping(target = "manager", ignore = true)
     @Mapping(target = "items", ignore = true)
@@ -37,6 +38,7 @@ public interface OrderMapper {
         }
     }
 
+    @Mapping(target = "productId", source = "productId")
     @Mapping(target = "client", ignore = true)
     @Mapping(target = "manager", ignore = true)
     @Mapping(target = "items", ignore = true)

@@ -16,6 +16,10 @@ import com.example.orderservice.entity.OrderStage;
 import com.example.orderservice.entity.ProductionStage;
 import com.example.orderservice.entity.Payment;
 import com.example.orderservice.entity.Workshop;
+import com.example.orderservice.product.Product;
+import com.example.orderservice.product.ProductMaterial;
+import com.example.orderservice.product.ProductOperation;
+import com.example.orderservice.product.repository.ProductRepository;
 import com.example.orderservice.mapper.OrderMapper;
 import com.example.orderservice.repository.EmployeeRepository;
 import com.example.orderservice.repository.FileAttachmentRepository;
@@ -49,9 +53,8 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import com.example.orderservice.exception.NotFoundException;
-import java.math.BigDecimal;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
+ import java.math.BigDecimal;
+ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -84,6 +87,7 @@ public class OrderService {
     private final WorkshopRepository workshopRepository;
     private final OrderMapper orderMapper;
     private final OrderHistoryService orderHistoryService;
+    private final ProductRepository productRepository;
     @PersistenceContext
     private EntityManager entityManager;
     private final JdbcTemplate jdbcTemplate;
@@ -300,8 +304,69 @@ public OrderResponse getOrderById(Long id) {
 
         Order saved = orderRepository.save(order);
 
-        // Обработка позиций заказа
-        if (request.getItems() != null && !request.getItems().isEmpty()) {
+        // Обработка заказа из конструктора изделий
+        if (request.getProductId() != null) {
+            Product product = productRepository.findById(request.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Изделие не найдено: " + request.getProductId()));
+            if (product.getMaterials() == null || product.getMaterials().isEmpty()) {
+                throw new RuntimeException("В изделии нет материалов");
+            }
+
+            BigDecimal total = BigDecimal.ZERO;
+            for (ProductMaterial pm : product.getMaterials()) {
+                Material material = pm.getMaterial();
+                if (material == null) continue;
+
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrder(saved);
+                orderItem.setName(material.getName());
+                orderItem.setQuantity(pm.getQuantity() != null ? pm.getQuantity().intValue() : 1);
+
+                BigDecimal materialPrice = material.getPrice() != null ? material.getPrice() : BigDecimal.ZERO;
+                BigDecimal qty = new BigDecimal(orderItem.getQuantity());
+                BigDecimal waste = pm.getWasteCoefficient() != null ? pm.getWasteCoefficient() : BigDecimal.ONE;
+                BigDecimal itemTotal = materialPrice.multiply(qty).multiply(waste).setScale(2, RoundingMode.HALF_UP);
+                orderItem.setPrice(itemTotal);
+                orderItem.setCost(itemTotal);
+
+                OrderMaterial orderMaterial = new OrderMaterial();
+                orderMaterial.setOrder(saved);
+                orderMaterial.setOrderItem(orderItem);
+                orderMaterial.setMaterial(material);
+                orderMaterial.setQuantity(qty);
+                orderMaterial.setWidthM(BigDecimal.ZERO);
+                orderMaterial.setHeightM(BigDecimal.ZERO);
+                orderMaterial.setWasteCoefficient(waste);
+                orderMaterial.setCost(itemTotal);
+                saved.getMaterials().add(orderMaterial);
+                orderItem.getMaterials().add(orderMaterial);
+
+                // Add product operations to order item
+                if (product.getOperations() != null) {
+                    for (ProductOperation po : product.getOperations()) {
+                        OrderOperation orderOp = new OrderOperation();
+                        orderOp.setOrderItem(orderItem);
+                        orderOp.setOperationId(po.getId());
+                        orderOp.setOperationName(po.getName());
+                        orderOp.setPricePerUnit(po.getPricePerUnit());
+                        orderOp.setCalculatedQuantity(po.getQuantity() != null ? po.getQuantity() : BigDecimal.ONE);
+                        orderOp.setSubtotal(po.getPricePerUnit().multiply(po.getQuantity() != null ? po.getQuantity() : BigDecimal.ONE).setScale(2, RoundingMode.HALF_UP));
+                        orderItem.getOperations().add(orderOp);
+                        total = total.add(orderOp.getSubtotal());
+                    }
+                }
+
+                total = total.add(itemTotal);
+                saved.getItems().add(orderItem);
+                orderItemRepository.save(orderItem);
+            }
+
+            saved.setTotalAmount(total);
+            BigDecimal priceplus = saved.getPriceplus() != null ? saved.getPriceplus() : BigDecimal.ZERO;
+            BigDecimal totalWithPriceplus = total.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+            saved.setTotalWithPriceplus(totalWithPriceplus.setScale(2, RoundingMode.HALF_UP));
+            orderRepository.save(saved);
+        } else if (request.getItems() != null && !request.getItems().isEmpty()) {
             // Get current user's JWT token to propagate to calculator service
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             String jwtToken = null;
@@ -316,7 +381,54 @@ public OrderResponse getOrderById(Long id) {
                     throw new RuntimeException("Материал не найден: " + itemReq.getMaterialId());
                 }
 
-                 // Build request to calculator service
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrder(saved);
+                orderItem.setName(material.getName() + (itemReq.getWidthM() != null ? " " + itemReq.getWidthM() + "x" + itemReq.getHeightM() + "m" : ""));
+                orderItem.setQuantity(itemReq.getQuantity() != null ? itemReq.getQuantity().intValue() : 1);
+                orderItem.setReadyDate(itemReq.getReadyDate());
+
+                if (Boolean.TRUE.equals(itemReq.getFromProduct())) {
+                    BigDecimal unitPrice = material.getPrice() != null ? material.getPrice() : BigDecimal.ZERO;
+                    BigDecimal qty = new BigDecimal(orderItem.getQuantity());
+                    BigDecimal waste = itemReq.getWasteCoefficient() != null ? itemReq.getWasteCoefficient() : BigDecimal.ONE;
+                    BigDecimal itemTotal = unitPrice.multiply(qty).multiply(waste).setScale(2, RoundingMode.HALF_UP);
+                    orderItem.setPrice(itemTotal);
+                    orderItem.setCost(itemTotal);
+
+                    OrderMaterial orderMaterial = new OrderMaterial();
+                    orderMaterial.setOrder(saved);
+                    orderMaterial.setOrderItem(orderItem);
+                    orderMaterial.setMaterial(material);
+                    orderMaterial.setQuantity(qty);
+                    orderMaterial.setWidthM(BigDecimal.ZERO);
+                    orderMaterial.setHeightM(BigDecimal.ZERO);
+                    orderMaterial.setWasteCoefficient(waste);
+                    orderMaterial.setCost(itemTotal);
+                    saved.getMaterials().add(orderMaterial);
+                    orderItem.getMaterials().add(orderMaterial);
+
+                    if (itemReq.getOperations() != null) {
+                        for (OrderOperationRequest reqOp : itemReq.getOperations()) {
+                            OrderOperation orderOp = new OrderOperation();
+                            orderOp.setOrderItem(orderItem);
+                            orderOp.setOperationId(reqOp.getOperationId());
+                            orderOp.setOperationName(reqOp.getOperationName());
+                            orderOp.setPricePerUnit(reqOp.getPricePerUnit());
+                            orderOp.setCalculatedQuantity(reqOp.getQuantity() != null ? reqOp.getQuantity() : BigDecimal.ONE);
+                            orderOp.setSubtotal(reqOp.getPricePerUnit().multiply(reqOp.getQuantity() != null ? reqOp.getQuantity() : BigDecimal.ONE).setScale(2, RoundingMode.HALF_UP));
+                            orderOp.setWidthM(reqOp.getWidthM());
+                            orderOp.setHeightM(reqOp.getHeightM());
+                            orderItem.getOperations().add(orderOp);
+                        }
+                    }
+
+                    saved.getItems().add(orderItem);
+                    orderItemRepository.save(orderItem);
+                    total = total.add(itemTotal);
+                    continue;
+                }
+
+                // Build request to calculator service
                  Map<String, Object> calcRequest = new HashMap<>();
                  calcRequest.put("materialId", material.getId());
                  calcRequest.put("widthM", itemReq.getWidthM());
@@ -459,7 +571,7 @@ public OrderResponse getOrderById(Long id) {
                 BigDecimal costPriceplus = totalPrice.multiply(BigDecimal.ONE.add(priceplus.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
 
                 // Create OrderItem
-                OrderItem orderItem = new OrderItem();
+                orderItem = new OrderItem();
                 orderItem.setOrder(saved);
                 orderItem.setName(material.getName() + " " + itemReq.getWidthM() + "x" + itemReq.getHeightM() + "m");
                 orderItem.setQuantity(1);
@@ -491,13 +603,13 @@ public OrderResponse getOrderById(Long id) {
                 }
 
                 saved.getItems().add(orderItem);
-                // Only add to total if we need to calculate it (not provided)
-                if (request.getTotalAmount() == null) {
-                    total = total.add(totalPrice);
-                }
+                total = total.add(totalPrice);
             }
-            // Only update total if we calculated it ourselves
-            if (request.getTotalAmount() == null) {
+            // Use frontend totalAmount if provided, otherwise calculated total
+            if (request.getTotalAmount() != null) {
+                total = request.getTotalAmount();
+                saved.setTotalAmount(request.getTotalAmount());
+            } else {
                 saved.setTotalAmount(total);
             }
             // Calculate totalWithPriceplus
