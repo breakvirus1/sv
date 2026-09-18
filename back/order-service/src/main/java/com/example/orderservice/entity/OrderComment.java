@@ -20,6 +20,10 @@ import lombok.Setter;
 @NoArgsConstructor
 public class OrderComment extends BaseEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     /** Заказ, к которому относится комментарий */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
