@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
-  Container,
   Typography,
   Paper,
   Tabs,
@@ -39,6 +38,7 @@ import { useAuth } from '../context/AuthContext';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import PositionsTab from '../components/PositionsTab';
 import CommentsTab from '../components/CommentsTab';
+import HistoryTab from '../components/HistoryTab';
 
 const ProductionOrderInfoCard = ({ order }) => {
   const statusKey = order?.productionStage || order?.status;
@@ -402,15 +402,15 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
   // ==================== Conditional Render ====================
   if (mode === 'create') {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box display="flex" alignItems="center" gap={2} mb={3}>
-          <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
-            Назад
-          </Button>
-          <Typography variant="h4">Новый заказ</Typography>
-        </Box>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0 }}>
+         <Box display="flex" alignItems="center" gap={2} mb={3}>
+           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
+             Назад
+           </Button>
+           <Typography variant="h4">Новый заказ</Typography>
+         </Box>
 
-        <Paper sx={{ p: 4 }}>
+         <Paper sx={{ p: 3 }}>
           <form onSubmit={handleCreateSubmit}>
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
@@ -483,10 +483,10 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
                     <TableHead>
                       <TableRow>
                         <TableCell>Материал</TableCell>
-                        <TableCell width={100}>Размер 1 (мм)</TableCell>
-                        <TableCell width={100}>Размер 2 (мм)</TableCell>
-                        <TableCell width={130}>Срок готовности</TableCell>
-                        <TableCell width={50}>Действия</TableCell>
+                        <TableCell>Размер 1 (мм)</TableCell>
+                        <TableCell>Размер 2 (мм)</TableCell>
+                        <TableCell>Срок готовности</TableCell>
+                        <TableCell sx={{ width: 80 }}>Действия</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -643,7 +643,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
             {notification.message}
           </Alert>
         </Snackbar>
-      </Container>
+      </Box>
     );
   }
 
@@ -659,28 +659,28 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
   }
 
    if (error) {
-     return (
-       <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-           <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
-         </Box>
-       </Container>
-     );
-   }
+      return (
+        <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0 }}>
+          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+            <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
+          </Box>
+        </Box>
+      );
+    }
 
    if (mode === 'edit') {
      return (
-       <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-         <Box display="flex" alignItems="center" gap={2} mb={3}>
-           <Button startIcon={<ArrowBack />} onClick={() => navigate(`/orders/${id}`)}>
-             Назад
-           </Button>
-           <Typography variant="h4">
-             Редактировать заказ #{order?.orderNumber}
-           </Typography>
-         </Box>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0 }}>
+           <Box display="flex" alignItems="center" gap={2} mb={3}>
+             <Button startIcon={<ArrowBack />} onClick={() => navigate(`/orders/${id}`)}>
+               Назад
+             </Button>
+             <Typography variant="h4">
+               Редактировать заказ #{order?.orderNumber}
+             </Typography>
+           </Box>
 
-         <Paper sx={{ p: 4 }}>
+           <Paper sx={{ p: 3 }}>
            <form onSubmit={handleEditSubmit}>
              <Grid container spacing={3}>
                <Grid item xs={12} md={6}>
@@ -770,13 +770,13 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
            <Alert severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })}>
              {notification.message}
            </Alert>
-         </Snackbar>
-       </Container>
-     );
-   }
+          </Snackbar>
+        </Box>
+      );
+    }
 
   return (
-    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={2}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
@@ -820,9 +820,10 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
               <Tab label="Позиции" />
               <Tab label="Комментарии" />
+              <Tab label="История действий" />
             </Tabs>
             <Divider />
-            <Box sx={{ p: 3 }}>
+            <Box sx={{ p: 2 }}>
               {activeTab === 0 && (
                 <PositionsTab 
                   materials={order?.materials || []} 
@@ -831,6 +832,9 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
               )}
               {activeTab === 1 && (
                 <CommentsTab orderId={order?.id} />
+              )}
+              {activeTab === 2 && (
+                <HistoryTab history={order?.history} />
               )}
             </Box>
           </Paper>
@@ -876,7 +880,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
           {notification.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 };
 
@@ -910,26 +914,6 @@ const StagesTab = ({ stages }) => {
               </Typography>
             )}
           </Box>
-        </Paper>
-      ))}
-    </Box>
-  );
-};
-
-const HistoryTab = ({ history }) => {
-  if (!history) {
-    return <Typography>Нет истории изменений</Typography>;
-  }
-
-  const entries = history.split('\n').filter(entry => entry.trim());
-
-  return (
-    <Box>
-      {entries.map((entry, idx) => (
-        <Paper key={idx} sx={{ p: 2, mb: 2 }} variant="outlined">
-          <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem', margin: 0 }}>
-            {entry}
-          </Typography>
         </Paper>
       ))}
     </Box>

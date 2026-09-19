@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Box,
-  Container,
   Typography,
   Paper,
   Button,
@@ -949,34 +948,28 @@ const oldUnit = item.unit || 'м';
 
   if (isError) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-          <Alert severity="error">Заказ не найден</Alert>
-        </Box>
-      </Container>
-    );
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0 }}>
+         <Alert severity="error">Заказ не найден</Alert>
+       </Box>
+     );
   }
 
   if (isLoading || !orderData) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
+         <CircularProgress />
+       </Box>
+     );
   }
 
   return (
-    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate(getRedirectPath())}>
-          Назад
-        </Button>
-        <Typography variant="h4">Редактировать заказ #{orderData.orderNumber}</Typography>
-      </Box>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+      <Button startIcon={<ArrowBack />} onClick={() => navigate(getRedirectPath())}>
+        Назад
+      </Button>
+      <Typography variant="h4">Редактировать заказ #{orderData.orderNumber}</Typography>
 
-      <Paper sx={{ p: 4 }}>
+      <Paper sx={{ p: 3 }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
 <Grid item xs={12} md={6}>
@@ -1075,19 +1068,19 @@ value={priceplus}
             <Grid item xs={12}>
               <Typography variant="h6" mb={2}>Позиции заказа</Typography>
 
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Материал</TableCell>
-                      <TableCell width={180}>Размер 1</TableCell>
-                      <TableCell width={180}>Размер 2</TableCell>
-                      <TableCell width={120}>Операции</TableCell>
-                      <TableCell width={200}>Файл</TableCell>
-                      <TableCell width={130}>Срок готовности</TableCell>
-                      <TableCell width={50}>Действия</TableCell>
-                    </TableRow>
-                  </TableHead>
+               <TableContainer component={Paper} variant="outlined">
+                 <Table size="small">
+                   <TableHead>
+                     <TableRow>
+                       <TableCell>Материал</TableCell>
+                       <TableCell>Размер 1</TableCell>
+                       <TableCell>Размер 2</TableCell>
+                       <TableCell>Операции</TableCell>
+                       <TableCell>Файл</TableCell>
+                       <TableCell>Срок готовности</TableCell>
+                       <TableCell sx={{ width: 80 }}>Действия</TableCell>
+                     </TableRow>
+                   </TableHead>
                   <TableBody>
                     {formData.items.map((item, index) => {
                       const material = materialsData.find(m => m.id === parseInt(item.materialId));
@@ -1584,7 +1577,7 @@ value={priceplus}
         onChange={handleFileUpload}
         style={{ display: 'none' }}
       />
-    </Container>
+    </Box>
   );
 };
 

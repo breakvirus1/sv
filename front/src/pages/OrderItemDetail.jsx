@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box, Container, Typography, Paper, Tabs, Tab, Button, CircularProgress, Alert, Snackbar, Divider, Chip
+  Box, Typography, Paper, Tabs, Tab, Button, CircularProgress, Alert, Snackbar, Divider, Chip
 } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
@@ -50,36 +50,31 @@ const OrderItemDetail = () => {
 
   if (orderLoading) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   if (orderError || !orderItem) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-          <Alert severity="error">Позиция заказа не найдена</Alert>
-          <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)} sx={{ mt: 2 }}>
-            Назад
-          </Button>
-        </Box>
-      </Container>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+        <Alert severity="error">Позиция заказа не найдена</Alert>
+        <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)} sx={{ mt: 2 }}>
+          Назад
+        </Button>
+      </Box>
     );
   }
 
   return (
-    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-        <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate(`/orders/${orderId}`)}>
-          Назад к заказу
-        </Button>
-        <Typography variant="h4">Позиция: {orderItem.name}</Typography>
-      </Box>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+      <Box display="flex" alignItems="center" gap={2} mb={3}>
+      <Button startIcon={<ArrowBack />} onClick={() => navigate(`/orders/${orderId}`)}>
+        Назад к заказу
+      </Button>
+      <Typography variant="h4">Позиция: {orderItem.name}</Typography>
+    </Box>
 
       <Paper sx={{ p: 3 }}>
         <Box display="flex" justifyContent="space-between" mb={2}>
@@ -138,7 +133,6 @@ const OrderItemDetail = () => {
         </Alert>
       </Snackbar>
     </Box>
-    </Container>
   );
 };
 

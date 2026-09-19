@@ -36,21 +36,17 @@ const ManagerDashboard = () => {
 
   if (isLoading) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-          <Alert severity="error">Ошибка загрузки данных: {error.message}</Alert>
-        </Box>
-      </Container>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+        <Alert severity="error">Ошибка загрузки данных: {error.message}</Alert>
+      </Box>
     );
   }
 
@@ -63,97 +59,95 @@ const ManagerDashboard = () => {
   const managerCashPercent = earnings?.managerCashPercent ?? 0;
 
   return (
-    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-        <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/manager')}>
-          Назад
-        </Button>
-        <Typography variant="h4">Личный кабинет</Typography>
-      </Box>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+      <Box display="flex" alignItems="center" gap={2} mb={3}>
+      <Button startIcon={<ArrowBack />} onClick={() => navigate('/manager')}>
+        Назад
+      </Button>
+      <Typography variant="h4">Личный кабинет</Typography>
+    </Box>
 
-      <Typography variant="h6" color="text.secondary" gutterBottom>
-        {earnings?.managerName || user?.name}
-        {managerCashPercent > 0 && (
-          <Chip label={`${managerCashPercent}% с прибыли`} size="small" sx={{ ml: 1 }} color="primary" variant="outlined" />
-        )}
-      </Typography>
+    <Typography variant="h6" color="text.secondary" gutterBottom>
+      {earnings?.managerName || user?.name}
+      {managerCashPercent > 0 && (
+        <Chip label={`${managerCashPercent}% с прибыли`} size="small" sx={{ ml: 1 }} color="primary" variant="outlined" />
+      )}
+    </Typography>
 
-      <Divider sx={{ mb: 3 }} />
+    <Divider sx={{ mb: 3 }} />
 
-      <Grid container spacing={3}>
-        {/* Заработок с готовых заказов */}
-        <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%', bgcolor: '#e8f5e9' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <CheckCircle sx={{ color: '#2e7d32' }} />
-                <Typography variant="h6" color="success.dark">Готовые заказы</Typography>
-              </Box>
-              <Typography variant="h3" fontWeight={700} color="success.dark">
-                {Number(readyEarnings).toFixed(2)} ₽
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {readyOrdersCount} {readyOrdersCount === 1 ? 'заказ' : 'заказов'}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Потенциальный заработок с заказов в работе */}
-        <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%', bgcolor: '#fff3e0' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <HourglassEmpty sx={{ color: '#e65100' }} />
-                <Typography variant="h6" color="warning.dark">В работе</Typography>
-              </Box>
-              <Typography variant="h3" fontWeight={700} color="warning.dark">
-                {Number(inProgressEarnings).toFixed(2)} ₽
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {inProgressOrdersCount} {inProgressOrdersCount === 1 ? 'заказ' : 'заказов'} (потенциально)
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Потенциальный заработок с заказов на согласовании */}
-        <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%', bgcolor: '#fce4ec' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <PendingActions sx={{ color: '#c62828' }} />
-                <Typography variant="h6" color="error.dark">На согласовании</Typography>
-              </Box>
-              <Typography variant="h3" fontWeight={700} color="error.dark">
-                {Number(approvalEarnings).toFixed(2)} ₽
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {approvalOrdersCount} {approvalOrdersCount === 1 ? 'заказ' : 'заказов'} (потенциально)
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+    <Grid container spacing={3}>
+      {/* Заработок с готовых заказов */}
+      <Grid item xs={12} md={4}>
+        <Card sx={{ height: '100%', bgcolor: '#e8f5e9' }}>
+          <CardContent>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <CheckCircle sx={{ color: '#2e7d32' }} />
+              <Typography variant="h6" color="success.dark">Готовые заказы</Typography>
+            </Box>
+            <Typography variant="h3" fontWeight={700} color="success.dark">
+              {Number(readyEarnings).toFixed(2)} ₽
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {readyOrdersCount} {readyOrdersCount === 1 ? 'заказ' : 'заказов'}
+            </Typography>
+          </CardContent>
+        </Card>
       </Grid>
 
-      <Paper sx={{ mt: 3, p: 3 }}>
-        <Typography variant="h6" gutterBottom>Информация</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Заработок рассчитывается как процент от суммы прибыли (priceplus) с каждого заказа.
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          <strong>Готовые заказы</strong> — заказы со статусом "Готов", заработок по которым уже начислен.
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          <strong>В работе</strong> — заказы со статусом "В работе", показывают потенциальный заработок после завершения.
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          <strong>На согласовании</strong> — заказы со статусом "Согласование", показывают потенциальный заработок после утверждения.
-        </Typography>
-      </Paper>
-    </Box>
-    </Container>
+      {/* Потенциальный заработок с заказов в работе */}
+      <Grid item xs={12} md={4}>
+        <Card sx={{ height: '100%', bgcolor: '#fff3e0' }}>
+          <CardContent>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <HourglassEmpty sx={{ color: '#e65100' }} />
+              <Typography variant="h6" color="warning.dark">В работе</Typography>
+            </Box>
+            <Typography variant="h3" fontWeight={700} color="warning.dark">
+              {Number(inProgressEarnings).toFixed(2)} ₽
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {inProgressOrdersCount} {inProgressOrdersCount === 1 ? 'заказ' : 'заказов'} (потенциально)
+            </Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* Потенциальный заработок с заказов на согласовании */}
+      <Grid item xs={12} md={4}>
+        <Card sx={{ height: '100%', bgcolor: '#fce4ec' }}>
+          <CardContent>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <PendingActions sx={{ color: '#c62828' }} />
+              <Typography variant="h6" color="error.dark">На согласовании</Typography>
+            </Box>
+            <Typography variant="h3" fontWeight={700} color="error.dark">
+              {Number(approvalEarnings).toFixed(2)} ₽
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {approvalOrdersCount} {approvalOrdersCount === 1 ? 'заказ' : 'заказов'} (потенциально)
+            </Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+
+    <Paper sx={{ mt: 3, p: 3 }}>
+      <Typography variant="h6" gutterBottom>Информация</Typography>
+      <Typography variant="body2" color="text.secondary">
+        Заработок рассчитывается как процент от суммы прибыли (priceplus) с каждого заказа.
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+        <strong>Готовые заказы</strong> — заказы со статусом "Готов", заработок по которым уже начислен.
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+        <strong>В работе</strong> — заказы со статусом "В работе", показывают потенциальный заработок после завершения.
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+        <strong>На согласовании</strong> — заказы со статусом "Согласование", показывают потенциальный заработок после утверждения.
+      </Typography>
+    </Paper>
+  </Box>
   );
 };
 

@@ -214,8 +214,8 @@ const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
     const indent = level * 2;
 
     return (
-      <Box key={reply.id} sx={{ ml: indent, mt: 1.5 }}>
-        <Paper id={`reply-${reply.id}`} sx={{ p: 1.5 }} variant="outlined">
+      <Box key={reply.id} sx={{ mt: 1.5 }}>
+        <Paper id={`reply-${reply.id}`} sx={{ p: 1.5, pl: `${2 + level * 2}` }} variant="outlined">
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
             <Typography variant="subtitle2">{reply.employeeName || `Сотрудник #${reply.employeeId}`}</Typography>
             <Typography variant="caption" color="text.secondary">

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
-  Container,
   TextField,
   FormControl,
   InputLabel,
@@ -786,8 +785,7 @@ const handleSubmit = async (e) => {
   }
 
   return (
-    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
       <Typography variant="h6" gutterBottom sx={{ color: '#0055ea', fontWeight: 600 }}>
         {workshopName ? workshopName + ' — ' : ''}Создание нового заказа
       </Typography>
@@ -867,17 +865,17 @@ const handleSubmit = async (e) => {
               Добавьте хотя бы одну позицию в заказ
             </Alert>
           ) : (
-            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}>
+             <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}>
               <Table size="small">
                  <TableHead>
                    <TableRow>
                       <TableCell>Материал</TableCell>
-                      <TableCell width={180}>Размер 1</TableCell>
-                      <TableCell width={180}>Размер 2</TableCell>
-                     <TableCell width={120}>Операции</TableCell>
-                     <TableCell width={130}>Срок готовности</TableCell>
-                     <TableCell width={140}>Файл</TableCell>
-                     <TableCell width={50}>Действия</TableCell>
+                      <TableCell>Размер 1</TableCell>
+                      <TableCell>Размер 2</TableCell>
+                     <TableCell>Операции</TableCell>
+                     <TableCell>Срок готовности</TableCell>
+                     <TableCell>Файл</TableCell>
+                     <TableCell sx={{ width: 80 }}>Действия</TableCell>
                    </TableRow>
                  </TableHead>
                 <TableBody>
@@ -1530,7 +1528,6 @@ const handleSubmit = async (e) => {
         </DialogActions>
       </Dialog>
     </Box>
-    </Container>
   );
 };
 

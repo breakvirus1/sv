@@ -101,11 +101,11 @@ const Navbar = () => {
     <AppBar position="static">
       <Toolbar>
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Print SV — Производство
+          Система управления производством
         </Typography>
 
-         {isAuthenticated ? (
-           <Box display="flex" alignItems="center" gap={2}>
+         {isAuthenticated && (
+            <Box display="flex" alignItems="center" gap={2}>
              {/* Production: View dropdown */}
              {isProduction && (
                <>
@@ -294,10 +294,6 @@ const Navbar = () => {
               </MenuItem>
             </Menu>
           </Box>
-        ) : (
-          <Button color="inherit" onClick={login}>
-            Войти
-          </Button>
         )}
       </Toolbar>
     </AppBar>

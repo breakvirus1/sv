@@ -48,6 +48,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeExchange(exchanges -> exchanges
+                .pathMatchers("/api/v1/auth/**").permitAll()
                 .anyExchange().permitAll()
             );
         return http.build();

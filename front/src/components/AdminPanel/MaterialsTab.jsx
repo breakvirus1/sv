@@ -181,14 +181,14 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
       {materialsData.length === 0 && <Typography>Нет данных</Typography>}
       {materialsData.length > 0 && (
         <TableContainer component={Paper}>
-          <Table size="small">
+          <Table size="small" sx={{ width: 'auto' }}>
             <TableHead>
               <TableRow>
                 <TableCell>Название</TableCell>
                 <TableCell>Ед. изм.</TableCell>
                 <TableCell>Цена</TableCell>
                 <TableCell>Коэф. отход</TableCell>
-                <TableCell align="right">Действия</TableCell>
+                <TableCell align="right" sx={{ width: 120 }}>Действия</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

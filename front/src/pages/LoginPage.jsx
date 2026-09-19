@@ -1,70 +1,69 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Box, Button, Card, CardContent, Typography, Container } from '@mui/material'
+import { Box, Button, Typography, TextField, Alert } from '@mui/material'
 
 const LoginPage = () => {
-  const { login, isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const { loginWithPassword, login, isAuthenticated, authError, setAuthError } = useAuth()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  const handleLogin = () => {
+  const handlePasswordLogin = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setAuthError(null)
+    const result = await loginWithPassword(username, password)
+    setSubmitting(false)
+    if (result.success) {
+      navigate('/orders')
+    }
+  }
+
+  const handleKeycloakLogin = () => {
     login()
   }
 
   if (isAuthenticated) {
     return (
-      <Container maxWidth="sm" sx={{ px: 2.5 }}>
-        <Box mt={10}>
-          <Card>
-            <CardContent>
-              <Typography variant="h5" gutterBottom>
-                Вы уже авторизованы
-              </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                fullWidth
-                onClick={() => window.location.href = '/orders'}
-              >
-                Перейти к заказам
-              </Button>
-            </CardContent>
-          </Card>
-        </Box>
-      </Container>
+      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={2}>
+        <Typography variant="h5">Вы уже авторизованы</Typography>
+        <Button variant="contained" color="primary" onClick={() => navigate('/orders')}>
+          Перейти к заказам
+        </Button>
+      </Box>
     )
   }
 
   return (
-    <Container maxWidth="sm" sx={{ px: 2.5 }}>
-      <Box mt={10}>
-        <Card>
-          <CardContent>
-            <Typography variant="h4" gutterBottom align="center" sx={{ mb: 3 }}>
-              Print SV
-            </Typography>
-            <Typography variant="h6" gutterBottom align="center" sx={{ mb: 4 }}>
-              Система управления производством
-            </Typography>
-            <Typography variant="body1" paragraph align="center" sx={{ mb: 3 }}>
-              Войдите через Keycloak для доступа к системе
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              size="large"
-              fullWidth
-              onClick={handleLogin}
-              sx={{ py: 1.5 }}
-            >
-              Войти в систему
-            </Button>
-            <Box mt={3} textAlign="center">
-              <Typography variant="caption" color="text.secondary">
-                Тестовые пользователи: admin/admin, manager/manager, production/production, accountant/accountant
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
+    <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={3} px={2}>
+      <Box textAlign="center">
+        <Typography variant="h4" gutterBottom>Авторизация</Typography>
+        <Typography variant="h6" color="text.secondary">Система управления производством</Typography>
       </Box>
-    </Container>
+
+      <Box component="form" onSubmit={handlePasswordLogin} display="flex" flexDirection="column" gap={2} width="100%" maxWidth={400}>
+        <TextField label="Логин" value={username} onChange={(e) => setUsername(e.target.value)} required fullWidth autoFocus />
+        <TextField label="Пароль" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required fullWidth />
+        {authError && <Alert severity="error">{authError}</Alert>}
+        <Button type="submit" variant="contained" color="primary" size="large" fullWidth disabled={submitting}>
+          {submitting ? 'Вход...' : 'Войти'}
+        </Button>
+      </Box>
+
+      <Typography variant="body2" color="text.secondary">
+        или
+      </Typography>
+
+      <Button variant="outlined" color="primary" size="large" fullWidth onClick={handleKeycloakLogin} sx={{ maxWidth: 400 }}>
+        Войти через Keycloak
+      </Button>
+
+      <Typography variant="caption" color="text.secondary" textAlign="center">
+        Тестовые пользователи: admin/admin, manager/manager, production/production, accountant/accountant
+      </Typography>
+    </Box>
   )
 }
 

@@ -42,8 +42,8 @@ if (-not (Test-DockerRunning)) {
     Start-DockerDesktop
 }
 
-Write-Host "=== Building comment-service with Maven ==="
-mvn --% clean package -pl back/comment-service -am -Dmaven.test.skip=true
+Write-Host "=== Building $SERVICE with Maven ==="
+mvn clean install -pl "back/$SERVICE" -am -Dmaven.test.skip=true
 
 Write-Host "=== Rebuilding comment-service Docker container (no cache) ==="
 docker compose build --no-cache comment-service

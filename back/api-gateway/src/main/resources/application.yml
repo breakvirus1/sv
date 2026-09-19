@@ -1,6 +1,12 @@
 server:
   port: 8085
 
+app:
+  keycloak:
+    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://192.168.1.40:8080/realms/print-sv}
+    client-id: ${KEYCLOAK_CLIENT_ID:frontend}
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:}
+
 spring:
   servlet:
     multipart:

@@ -1,11 +1,11 @@
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import { DataGrid } from '@mui/x-data-grid';
+import { useGridApiRef } from '@mui/x-data-grid';
 import {
   Box,
   Button,
   Chip,
   Typography,
-  Container,
   Paper,
   CircularProgress,
   Alert,
@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { Add, Person, Close, Notifications } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useInfiniteQuery, useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -39,26 +39,36 @@ const saveColumnWidths = (widths) => {
   } catch { /* ignore */ }
 };
 
-const fetchOrders = async ({ pageParam = 0, queryKey }) => {
-  const [, { status, my, managerId }] = queryKey;
-  const searchParams = new URLSearchParams();
-  searchParams.set('page', String(pageParam));
-  searchParams.set('size', String(PAGE_SIZE));
-  if (status) searchParams.set('status', status);
-  if (my && managerId) searchParams.set('managerId', managerId);
-  const response = await api.get(`/api/v1/orders?${searchParams}`);
-  return response.data;
-};
-
 const OrdersList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.roles?.includes('ROLE_ADMIN');
   const [searchParams] = useSearchParams();
-  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: PAGE_SIZE });
-  const loadingRef = useRef(false);
+  const apiRef = useGridApiRef();
+  const [currPage, setCurrPage] = useState(1);
+  const [prevPage, setPrevPage] = useState(0);
+  const [allOrders, setAllOrders] = useState([]);
+  const [wasLastList, setWasLastList] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const statusFilter = searchParams.get('status');
+  const fetchingRef = useRef(fetching);
+  const wasLastListRef = useRef(wasLastList);
+  const fetchingDataRef = useRef(false);
+
+  useEffect(() => {
+    console.log('OrdersList mounted');
+  }, []);
+
+   useEffect(() => {
+     fetchingRef.current = fetching;
+   }, [fetching]);
+
+   useEffect(() => {
+     wasLastListRef.current = wasLastList;
+   }, [wasLastList]);
+
+   const statusFilter = searchParams.get('status');
   const myOrders = searchParams.get('my');
 
   const { data: currentEmployee } = useQuery({
@@ -95,48 +105,113 @@ const OrdersList = () => {
     }
   }, [hasUnreadNotifications]);
 
-  const {
-    data,
-    isLoading,
-    error,
-    fetchNextPage,
-    isFetchingNextPage,
-  } = useInfiniteQuery({
-    queryKey: ['orders', { status: statusFilter, my: myOrders, managerId }],
-    queryFn: fetchOrders,
-    enabled: !!user,
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.last ? undefined : allPages.length;
-    },
-    refetchInterval: 30000,
-    retry: 1,
-    retryDelay: 1000,
-  });
+  const buildOrdersParams = (pageNumber) => {
+    const searchParams = new URLSearchParams();
+    searchParams.set('page', String(pageNumber));
+    searchParams.set('size', String(PAGE_SIZE));
+    if (statusFilter) searchParams.set('status', statusFilter);
+    if (myOrders && managerId) searchParams.set('managerId', managerId);
+    return searchParams.toString();
+  };
 
-  const allOrders = data?.pages?.flatMap(page => page.content) ?? [];
-  const totalCount = data?.pages?.[0]?.totalElements ?? 0;
+   useEffect(() => {
+     let cancelled = false;
+     const fetchData = async () => {
+       if (fetchingDataRef.current) return;
+       fetchingDataRef.current = true;
+       setFetching(true);
+       try {
+         const response = await api.get(`/api/v1/orders?${buildOrdersParams(currPage - 1)}`);
+         const pageData = response.data;
+         console.log('Orders fetch page', currPage - 1, pageData);
+         if (!pageData.content || pageData.content.length === 0) {
+           setWasLastList(true);
+           return;
+         }
+         if (!cancelled) {
+           setPrevPage(currPage);
+           setAllOrders((prev) => [...prev, ...pageData.content]);
+           setTotalCount(pageData.totalElements ?? 0);
+         }
+       } catch (err) {
+         console.error('Failed to load orders:', err);
+       } finally {
+         setFetching(false);
+         fetchingDataRef.current = false;
+       }
+     };
 
-  useEffect(() => {
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [statusFilter, myOrders, managerId]);
+     if (!wasLastList && prevPage !== currPage) {
+       fetchData();
+     }
+
+     return () => {
+       cancelled = true;
+     };
+   }, [currPage, wasLastList, prevPage, statusFilter, myOrders, managerId]);
+
+   useEffect(() => {
+     console.log('OrdersList mount effect, allOrders.length=', allOrders.length);
+     const SCROLL_SELECTOR = '.MuiDataGrid-virtualScroller';
+     const scrollerRef = { current: apiRef.current?.virtualScrollerRef?.current ?? document.querySelector(SCROLL_SELECTOR) };
+     const attachedRef = { current: false };
+
+      const onScroll = () => {
+        console.log('onScroll fired');
+        if (fetchingRef.current || wasLastListRef.current) return;
+        const current = apiRef.current?.virtualScrollerRef?.current || document.querySelector(SCROLL_SELECTOR) || scrollerRef.current;
+        if (!current) return;
+        const { scrollTop, scrollHeight, clientHeight } = current;
+        console.log('Scroll values', { scrollTop, scrollHeight, clientHeight, delta: scrollHeight - (scrollTop + clientHeight) });
+        if (scrollHeight - (scrollTop + clientHeight) < 120) {
+          console.log('Scroll end detected, next page', currPage + 1);
+          setCurrPage((prev) => prev + 1);
+        }
+      };
+
+     const tryAttach = () => {
+       scrollerRef.current = apiRef.current?.virtualScrollerRef?.current || document.querySelector(SCROLL_SELECTOR);
+       console.log('Infinite scroll tryAttach, scroller=', !!scrollerRef.current, 'apiRef.virtualScrollerRef=', !!apiRef.current?.virtualScrollerRef?.current);
+       if (!scrollerRef.current) return false;
+       if (attachedRef.current) return true;
+       scrollerRef.current.addEventListener('scroll', onScroll);
+       attachedRef.current = true;
+       console.log('Infinite scroll attached');
+       return true;
+     };
+
+     const timeout = setTimeout(() => {
+       const interval = setInterval(() => {
+         if (tryAttach()) {
+           clearInterval(interval);
+         }
+       }, 300);
+       scrollerRef.current._infiniteInterval = interval;
+     }, 100);
+
+     return () => {
+       clearTimeout(timeout);
+       if (scrollerRef.current && scrollerRef.current._infiniteInterval) {
+         clearInterval(scrollerRef.current._infiniteInterval);
+       }
+       if (scrollerRef.current) {
+         scrollerRef.current.removeEventListener('scroll', onScroll);
+       }
+       attachedRef.current = false;
+     };
+   }, [allOrders.length]);
+
+   useEffect(() => {
+     setAllOrders([]);
+     setCurrPage(1);
+     setPrevPage(0);
+     setWasLastList(false);
+     setTotalCount(0);
+     setFetching(false);
+     fetchingDataRef.current = false;
+   }, [statusFilter, myOrders, managerId]);
 
   const [columnWidths, setColumnWidths] = useState(loadColumnWidths);
-
-  const prefetchPages = useCallback(async (targetPage) => {
-    if (loadingRef.current) return;
-    loadingRef.current = true;
-    try {
-      const loadedPages = data?.pages?.length ?? 0;
-      if (targetPage >= loadedPages) {
-        const pagesToFetch = targetPage - loadedPages + 1;
-        for (let i = 0; i < pagesToFetch; i++) {
-          await fetchNextPage();
-        }
-      }
-    } finally {
-      loadingRef.current = false;
-    }
-  }, [data?.pages?.length, fetchNextPage]);
 
   const handleColumnWidthChange = useCallback((params) => {
     setColumnWidths(prev => {
@@ -267,7 +342,12 @@ const OrdersList = () => {
   const closeOrderMutation = useMutation({
     mutationFn: (orderId) => api.put(`/api/v1/orders/${orderId}/close`),
     onSuccess: () => {
-      fetchNextPage();
+      setAllOrders([]);
+      setCurrPage(1);
+      setPrevPage(0);
+      setWasLastList(false);
+      setTotalCount(0);
+      setFetching(false);
     },
   });
 
@@ -281,123 +361,116 @@ const OrdersList = () => {
     return 'Заказы';
   };
 
-  if (isLoading) {
+  if (fetching && allOrders.length === 0) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-          <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
-        </Box>
-      </Container>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
+      <Box>
         <Typography variant="h4">{getTitle()}</Typography>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Typography variant="body2" color="text.secondary">
-            Заказов: {totalCount}
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => navigate('/orders/new')}
-          >
-            Новый заказ
-          </Button>
-        </Box>
+        <Typography variant="body2" color="text.secondary">
+          Заказов: {totalCount}
+        </Typography>
       </Box>
+      <Box display="flex" alignItems="center" gap={2}>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={() => navigate('/orders/new')}
+        >
+          Новый заказ
+        </Button>
+      </Box>
+    </Box>
 
-      <Paper>
-        <DataGrid
-          rows={allOrders}
-          columns={columns}
-          rowCount={totalCount}
-          loading={isLoading || isFetchingNextPage}
-          paginationMode="server"
-          paginationModel={paginationModel}
-          onPaginationModelChange={async (model) => {
-            await prefetchPages(model.page);
-            setPaginationModel(model);
-          }}
-          pageSizeOptions={[PAGE_SIZE]}
-          disableRowSelectionOnClick
-          columnBuffer={8}
-          density="compact"
-          sx={{
-            height: '100%',
-            border: 'none',
-            '& .MuiDataGrid-cell:hover': { cursor: 'pointer' },
-            '& .MuiDataGrid-columnSeparator': { visibility: 'visible', resize: 'horizontal' },
-            '& .MuiDataGrid-virtualScroller': { overflowX: 'auto' },
-          }}
-          onRowClick={(params) => navigate(`/orders/${params.id}`)}
-          onColumnWidthChange={handleColumnWidthChange}
-          slots={{
-            noRowsOverlay: () => (
-              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-                <Typography color="text.secondary">Нет заказов</Typography>
-              </Box>
-            ),
-          }}
-          initialState={{
-            sorting: {
-              sortModel: [{ field: 'updatedAt', sort: 'desc' }]
-            },
-            columns: {
-              columnVisibilityModel: {},
-              dimensions: Object.entries(columnWidths).reduce((acc, [field, width]) => {
-                acc[field] = { width };
-                return acc;
-              }, {})
-            }
-          }}
-        />
-      </Paper>
-      <Dialog
-        open={showNotificationDialog}
-        onClose={() => setShowNotificationDialog(false)}
-        aria-labelledby="notification-dialog-title"
-        aria-describedby="notification-dialog-description"
-        PaperProps={{
-          sx: {
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            m: 0,
-            width: 320,
+    <Paper sx={{ m: 0, p: 0 }}>
+      <DataGrid
+        apiRef={apiRef}
+        rows={allOrders}
+        columns={columns}
+        loading={fetching && allOrders.length === 0}
+        pagination={false}
+        disableRowSelectionOnClick
+        columnBuffer={8}
+        density="compact"
+        sx={{
+          height: '100%',
+          border: 'none',
+          '& .MuiDataGrid-cell:hover': { cursor: 'pointer' },
+          '& .MuiDataGrid-columnSeparator': { visibility: 'visible', resize: 'horizontal' },
+          '& .MuiDataGrid-virtualScroller': { overflowX: 'auto' },
+        }}
+        onRowClick={(params) => navigate(`/orders/${params.id}`)}
+        onColumnWidthChange={handleColumnWidthChange}
+        slots={{
+          noRowsOverlay: () => (
+            <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+              <Typography color="text.secondary">Нет заказов</Typography>
+            </Box>
+          ),
+        }}
+        initialState={{
+          sorting: {
+            sortModel: [{ field: 'updatedAt', sort: 'desc' }]
+          },
+          columns: {
+            columnVisibilityModel: {},
+            dimensions: Object.entries(columnWidths).reduce((acc, [field, width]) => {
+              acc[field] = { width };
+              return acc;
+            }, {})
           }
         }}
-      >
-        <DialogTitle id="notification-dialog-title">
-          <Box display="flex" alignItems="center" gap={1}>
-            <Notifications color="primary" />
-            Уведомление
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography>Проверь уведомления</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowNotificationDialog(false)} autoFocus>
-            Закрыть
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-    </Container>
+      />
+      {fetching && (
+        <Box display="flex" justifyContent="center" alignItems="center" p={1}>
+          <CircularProgress size={20} sx={{ mr: 1 }} />
+          <Typography variant="body2">Загрузка...</Typography>
+        </Box>
+      )}
+      {!fetching && allOrders.length > 0 && allOrders.length === totalCount && (
+        <Box display="flex" justifyContent="center" alignItems="center" p={1}>
+          <Typography variant="body2" color="text.secondary">Все данные загружены</Typography>
+        </Box>
+      )}
+    </Paper>
+    <Dialog
+      open={showNotificationDialog}
+      onClose={() => setShowNotificationDialog(false)}
+      aria-labelledby="notification-dialog-title"
+      aria-describedby="notification-dialog-description"
+      PaperProps={{
+        sx: {
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          m: 0,
+          width: 320,
+        }
+      }}
+    >
+      <DialogTitle id="notification-dialog-title">
+        <Box display="flex" alignItems="center" gap={1}>
+          <Notifications color="primary" />
+          Уведомление
+        </Box>
+      </DialogTitle>
+      <DialogContent>
+        <Typography>Проверь уведомления</Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setShowNotificationDialog(false)} autoFocus>
+          Закрыть
+        </Button>
+      </DialogActions>
+    </Dialog>
+  </Box>
   );
 };
 

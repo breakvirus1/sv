@@ -262,106 +262,100 @@ const ProductionOrderList = () => {
 
   if (isLoading) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-          <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
-        </Box>
-      </Container>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+        <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
+      </Box>
     );
   }
 
   return (
-    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
-        <Typography variant="h4">{getTitle()}</Typography>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Typography variant="body2" color="text.secondary">
-            Заказов: {totalCount}
-          </Typography>
-        </Box>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
+      <Typography variant="h4">{getTitle()}</Typography>
+      <Box display="flex" alignItems="center" gap={2}>
+        <Typography variant="body2" color="text.secondary">
+          Заказов: {totalCount}
+        </Typography>
+      </Box>
+    </Box>
+
+    <Paper sx={{ flex: 1, minHeight: 0, width: '100%', overflow: 'auto', m: 0, p: 0 }}>
+      <Box sx={{ display: 'flex', p: 1.5, borderBottom: '2px solid', borderColor: 'divider', bgcolor: 'grey.100' }}>
+        <Typography variant="caption" sx={{ flex: 0.8, minWidth: 100 }}>№ заказа</Typography>
+        <Typography variant="caption" sx={{ flex: 1.5, minWidth: 120 }}>Клиент</Typography>
+        <Typography variant="caption" sx={{ flex: 1.2, minWidth: 120 }}>Менеджер</Typography>
+        <Typography variant="caption" sx={{ flex: 1, minWidth: 100 }}>Статус</Typography>
+        <Typography variant="caption" sx={{ flex: 1, minWidth: 140 }}>Изменён</Typography>
+        <Typography variant="caption" sx={{ flex: 0.8, minWidth: 90 }}>Срок</Typography>
+        <Box sx={{ width: 48 }} />
       </Box>
 
-      <Paper sx={{ flex: 1, minHeight: 0, width: '100%', overflow: 'auto' }}>
-        <Box sx={{ display: 'flex', p: 1.5, borderBottom: '2px solid', borderColor: 'divider', bgcolor: 'grey.100' }}>
-          <Typography variant="caption" sx={{ flex: 0.8, minWidth: 100 }}>№ заказа</Typography>
-          <Typography variant="caption" sx={{ flex: 1.5, minWidth: 120 }}>Клиент</Typography>
-          <Typography variant="caption" sx={{ flex: 1.2, minWidth: 120 }}>Менеджер</Typography>
-          <Typography variant="caption" sx={{ flex: 1, minWidth: 100 }}>Статус</Typography>
-          <Typography variant="caption" sx={{ flex: 1, minWidth: 140 }}>Изменён</Typography>
-          <Typography variant="caption" sx={{ flex: 0.8, minWidth: 90 }}>Срок</Typography>
-          <Box sx={{ width: 48 }} />
+      {allOrders.length === 0 ? (
+        <Box display="flex" justifyContent="center" alignItems="center" height={200}>
+          <Typography color="text.secondary">Нет заказов</Typography>
         </Box>
+      ) : (
+        allOrders.map(order => (
+          <OrderRow
+            key={order.id}
+            order={order}
+            onNavigate={(id) => navigate(`/production/orders/${id}`)}
+          />
+        ))
+      )}
 
-        {allOrders.length === 0 ? (
-          <Box display="flex" justifyContent="center" alignItems="center" height={200}>
-            <Typography color="text.secondary">Нет заказов</Typography>
-          </Box>
-        ) : (
-          allOrders.map(order => (
-            <OrderRow
-              key={order.id}
-              order={order}
-              onNavigate={(id) => navigate(`/production/orders/${id}`)}
-            />
-          ))
-        )}
-
-        {hasNextPage && (
-          <Box display="flex" justifyContent="center" p={2}>
-            <Typography
-              variant="body2"
-              color="primary"
-              sx={{ cursor: 'pointer' }}
-              onClick={() => fetchNextPage()}
-            >
-              {isFetchingNextPage ? 'Загрузка...' : 'Загрузить ещё'}
-            </Typography>
-          </Box>
-        )}
-      </Paper>
-      <Dialog
-        open={showNotificationDialog}
-        onClose={() => setShowNotificationDialog(false)}
-        aria-labelledby="notification-dialog-title"
-        aria-describedby="notification-dialog-description"
-        PaperProps={{
-          sx: {
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            m: 0,
-            width: 320,
-          }
-        }}
-      >
-        <DialogTitle id="notification-dialog-title">
-          <Box display="flex" alignItems="center" gap={1}>
-            <Notifications color="primary" />
-            Уведомление
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography>Проверь уведомления</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowNotificationDialog(false)} autoFocus>
-            Закрыть
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-    </Container>
+      {hasNextPage && (
+        <Box display="flex" justifyContent="center" p={2}>
+          <Typography
+            variant="body2"
+            color="primary"
+            sx={{ cursor: 'pointer' }}
+            onClick={() => fetchNextPage()}
+          >
+            {isFetchingNextPage ? 'Загрузка...' : 'Загрузить ещё'}
+          </Typography>
+        </Box>
+      )}
+    </Paper>
+    <Dialog
+      open={showNotificationDialog}
+      onClose={() => setShowNotificationDialog(false)}
+      aria-labelledby="notification-dialog-title"
+      aria-describedby="notification-dialog-description"
+      PaperProps={{
+        sx: {
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          m: 0,
+          width: 320,
+        }
+      }}
+    >
+      <DialogTitle id="notification-dialog-title">
+        <Box display="flex" alignItems="center" gap={1}>
+          <Notifications color="primary" />
+          Уведомление
+        </Box>
+      </DialogTitle>
+      <DialogContent>
+        <Typography>Проверь уведомления</Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setShowNotificationDialog(false)} autoFocus>
+          Закрыть
+        </Button>
+      </DialogActions>
+    </Dialog>
+  </Box>
   );
 };
 

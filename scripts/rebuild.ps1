@@ -45,7 +45,7 @@ Get-Process -Name java -ErrorAction SilentlyContinue | Stop-Process -Force -Erro
 Start-Sleep -Seconds 3
 
 Write-Host "=== Building microservices with Maven ==="
-mvn --% clean install -Dmaven.test.skip=true
+mvn clean install -Dmaven.test.skip=true
 
 Write-Host "=== Rebuilding Docker containers (no cache) ==="
 docker compose build --no-cache
