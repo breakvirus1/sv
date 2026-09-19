@@ -3,7 +3,6 @@ import {
   Box,
   Chip,
   Typography,
-  Container,
   Paper,
   CircularProgress,
   Alert,
@@ -259,37 +258,32 @@ const ProductionOrdersPositionsList = () => {
 
   if (isLoading) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-          <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
-        </Box>
-      </Container>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+        <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
+      </Box>
     );
   }
 
   return (
-    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
-        <Typography variant="h4">{getTitle()}</Typography>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Typography variant="body2" color="text.secondary">
-            Позиций: {sortedPositions.length}
-          </Typography>
-        </Box>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
+      <Typography variant="h4">{getTitle()}</Typography>
+      <Box display="flex" alignItems="center" gap={2}>
+        <Typography variant="body2" color="text.secondary">
+          Позиций: {sortedPositions.length}
+        </Typography>
       </Box>
+    </Box>
 
-      <Paper sx={{ flex: 1, minHeight: 0, width: '100%', overflow: 'auto' }}>
+    <Paper sx={{ flex: 1, minHeight: 0, width: '100%', overflow: 'auto', m: 0, p: 0 }}>
         <Box sx={{ display: 'flex', p: 1.5, borderBottom: '2px solid', borderColor: 'divider', bgcolor: 'grey.100' }}>
           <Box onClick={() => handleSort('orderNumber')} sx={{ flex: 1, minWidth: 120, cursor: 'pointer', display: 'flex', alignItems: 'center', userSelect: 'none' }}>
             <Typography variant="caption">№ заказа</Typography>
@@ -352,8 +346,7 @@ const ProductionOrdersPositionsList = () => {
           </Box>
         )}
       </Paper>
-    </Box>
-    </Container>
+  </Box>
   );
 };
 

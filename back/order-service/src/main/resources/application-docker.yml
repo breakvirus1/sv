@@ -16,6 +16,11 @@ spring:
     properties:
       hibernate:
         default_schema: svschema
+  data:
+    web:
+      pageable:
+        default-page-size: 50
+        max-page-size: 100
   security:
     oauth2:
       resourceserver:

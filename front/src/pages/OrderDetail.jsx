@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
-  Container,
   Typography,
   Paper,
   Tabs,
@@ -39,6 +38,7 @@ import { useAuth } from '../context/AuthContext';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import OrderInfoCard from '../components/OrderInfoCard';
 import CommentsTab from '../components/CommentsTab';
+import HistoryTab from '../components/HistoryTab';
 import EditOrder from './EditOrder';
 
 const OrderDetail = ({ mode = 'view' }) => {
@@ -333,15 +333,15 @@ const OrderDetail = ({ mode = 'view' }) => {
   // ==================== Conditional Render ====================
   if (mode === 'create') {
     return (
-       <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box display="flex" alignItems="center" gap={2} mb={3}>
-          <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
-            Назад
-          </Button>
-          <Typography variant="h4">Новый заказ</Typography>
-        </Box>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0 }}>
+         <Box display="flex" alignItems="center" gap={2} mb={3}>
+           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
+             Назад
+           </Button>
+           <Typography variant="h4">Новый заказ</Typography>
+         </Box>
 
-        <Paper sx={{ p: 4 }}>
+         <Paper sx={{ p: 3 }}>
           <form onSubmit={handleCreateSubmit}>
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
@@ -413,10 +413,10 @@ const OrderDetail = ({ mode = 'view' }) => {
                     <TableHead>
                       <TableRow>
                         <TableCell>Материал</TableCell>
-                        <TableCell width={100}>Размер 1 (мм)</TableCell>
-                        <TableCell width={100}>Размер 2 (мм)</TableCell>
-                        <TableCell width={130}>Срок готовности</TableCell>
-                        <TableCell width={50}>Действия</TableCell>
+                        <TableCell>Размер 1 (мм)</TableCell>
+                        <TableCell>Размер 2 (мм)</TableCell>
+                        <TableCell>Срок готовности</TableCell>
+                        <TableCell sx={{ width: 80 }}>Действия</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -578,7 +578,7 @@ const OrderDetail = ({ mode = 'view' }) => {
             {notification.message}
           </Alert>
         </Snackbar>
-      </Container>
+      </Box>
     );
   }
 
@@ -593,99 +593,103 @@ const OrderDetail = ({ mode = 'view' }) => {
     );
   }
 
-   if (error) {
-      const status = error.response?.status;
-      if (status === 404) {
-        navigate('/orders');
-        return null;
-      }
-      return (
-       <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-          <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
-        </Container>
-      );
-    }
+    if (error) {
+       const status = error.response?.status;
+       if (status === 404) {
+         navigate('/orders');
+         return null;
+       }
+       return (
+        <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0 }}>
+           <Alert severity="error">Ошибка загрузки заказа: {error.message}</Alert>
+        </Box>
+       );
+     }
 
     if (mode === 'edit') {
       return <EditOrder order={order} onSuccess={() => navigate(`/orders/${id}`)} />;
     }
 
    return (
-     <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
-            Назад
-          </Button>
-          <Typography variant="h4">
-            Заказ #{order?.orderNumber}
-          </Typography>
-          <Chip
-            label={order?.status}
-            color={getStatusColor(order?.status)}
-            size="medium"
-          />
-        </Box>
-        <Box display="flex" gap={1}>
-          {canEdit && (
-            <Button
-              variant="outlined"
-              startIcon={<Edit />}
-              onClick={() => navigate(`/orders/${id}/edit`)}
-            >
-              Редактировать
-            </Button>
-          )}
-          {!isManagerNotOwner && (
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setNewStatus(order?.status);
-                setStatusDialogOpen(true);
-              }}
-            >
-              Изменить статус
-            </Button>
-          )}
-          {!isManagerNotOwner && (
-            <Button
-              variant="contained"
-              startIcon={<Payment />}
-              onClick={() => setPaymentDialogOpen(true)}
-            >
-              Добавить оплату
-            </Button>
-          )}
-        </Box>
-      </Box>
+       <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0 }}>
+       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+         <Box display="flex" alignItems="center" gap={2}>
+           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
+             Назад
+           </Button>
+           <Typography variant="h4">
+             Заказ #{order?.orderNumber}
+           </Typography>
+           <Chip
+             label={order?.status}
+             color={getStatusColor(order?.status)}
+             size="medium"
+           />
+         </Box>
+         <Box display="flex" gap={1}>
+           {canEdit && (
+             <Button
+               variant="outlined"
+               startIcon={<Edit />}
+               onClick={() => navigate(`/orders/${id}/edit`)}
+             >
+               Редактировать
+             </Button>
+           )}
+           {!isManagerNotOwner && (
+             <Button
+               variant="outlined"
+               onClick={() => {
+                 setNewStatus(order?.status);
+                 setStatusDialogOpen(true);
+               }}
+             >
+               Изменить статус
+             </Button>
+           )}
+           {!isManagerNotOwner && (
+             <Button
+               variant="contained"
+               startIcon={<Payment />}
+               onClick={() => setPaymentDialogOpen(true)}
+             >
+               Добавить оплату
+             </Button>
+           )}
+         </Box>
+       </Box>
 
-       <Grid container spacing={3}>
-         <Grid item xs={12}>
-           <OrderInfoCard order={order} />
-            <Paper sx={{ mt: 3 }}>
-              <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
-                <Tab label="Позиции" />
-                <Tab label="Оплаты" />
-                <Tab label="Комментарии" />
-              </Tabs>
-              <Divider />
-              <Box sx={{ p: 3 }}>
-                {activeTab === 0 && (
-                  <PositionsTab 
-                    materials={order?.materials || []} 
-                    items={order?.items || []} 
-                  />
-                )}
-                {activeTab === 1 && (
-                  <PaymentsTab payments={order?.payments || []} />
-                )}
-                {activeTab === 2 && (
-                  <CommentsTab orderId={order?.id} highlightCommentId={highlightCommentId} highlightReplyId={highlightReplyId} />
-                )}
-              </Box>
-            </Paper>
-         </Grid>
-       </Grid>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <OrderInfoCard order={order} />
+             <Paper sx={{ mt: 3 }}>
+               <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
+                 <Tab label="Позиции" />
+                 <Tab label="Оплаты" />
+                 <Tab label="Комментарии" />
+                 <Tab label="История действий" />
+               </Tabs>
+               <Divider />
+               <Box sx={{ p: 2 }}>
+                 {activeTab === 0 && (
+                   <PositionsTab 
+                     materials={order?.materials || []} 
+                     items={order?.items || []} 
+                   />
+                 )}
+                 {activeTab === 1 && (
+                   <PaymentsTab payments={order?.payments || []} />
+                 )}
+                 {activeTab === 2 && (
+                   <CommentsTab orderId={order?.id} highlightCommentId={highlightCommentId} highlightReplyId={highlightReplyId} />
+                 )}
+                 {activeTab === 3 && (
+                   <HistoryTab history={order?.history} />
+                 )}
+               </Box>
+             </Paper>
+          </Grid>
+        </Grid>
 
       {/* Dialog for Status Change */}
       <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)}>
@@ -734,7 +738,7 @@ const OrderDetail = ({ mode = 'view' }) => {
           {notification.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 };
 

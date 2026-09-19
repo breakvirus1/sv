@@ -271,13 +271,13 @@ const ProductConstructorPage = () => {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Материал</TableCell>
-                      <TableCell>Кол-во</TableCell>
-                      <TableCell>Коэф. отход</TableCell>
-                      <TableCell>Коэф. кол-ва</TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>Материал</TableCell>
+                      <TableCell sx={{ minWidth: 80 }}>Кол-во</TableCell>
+                      <TableCell sx={{ minWidth: 100 }}>Коэф. отход</TableCell>
+                      <TableCell sx={{ minWidth: 120 }}>Коэф. кол-ва</TableCell>
                       <TableCell>Ед. изм.</TableCell>
                       <TableCell>Стоимость</TableCell>
-                      <TableCell align="right"></TableCell>
+                      <TableCell align="right" sx={{ width: 80 }}></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -324,18 +324,18 @@ const ProductConstructorPage = () => {
           <Box>
             <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>Работы / Операции</Typography>
             {!isMobile ? (
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Операция</TableCell>
-                      <TableCell>Кол-во</TableCell>
-                      <TableCell>Коэф. кол-ва</TableCell>
-                      <TableCell>Ед. изм.</TableCell>
-                      <TableCell>Стоимость</TableCell>
-                      <TableCell align="right"></TableCell>
-                    </TableRow>
-                  </TableHead>
+               <TableContainer component={Paper} variant="outlined">
+                 <Table size="small">
+                   <TableHead>
+                     <TableRow>
+                       <TableCell sx={{ minWidth: 200 }}>Операция</TableCell>
+                       <TableCell sx={{ minWidth: 80 }}>Кол-во</TableCell>
+                       <TableCell sx={{ minWidth: 120 }}>Коэф. кол-ва</TableCell>
+                       <TableCell>Ед. изм.</TableCell>
+                       <TableCell>Стоимость</TableCell>
+                       <TableCell align="right" sx={{ width: 80 }}></TableCell>
+                     </TableRow>
+                   </TableHead>
                   <TableBody>
                     {operations.map((op) => (
                       <TableRow key={op.id}>

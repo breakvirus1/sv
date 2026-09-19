@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
-  Container,
   Typography,
   Paper,
   Tabs,
@@ -41,6 +40,7 @@ import OrderInfoCard from '../components/OrderInfoCard';
 import PositionsTab from '../components/PositionsTab';
 import PaymentsTab from '../components/PaymentsTab';
 import CommentsTab from '../components/CommentsTab';
+import HistoryTab from '../components/HistoryTab';
 import StatusChangeDialog from '../components/StatusChangeDialog';
 import PaymentDialog from '../components/PaymentDialog';
 import NewClientDialog from '../components/NewClientDialog';
@@ -289,15 +289,15 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
 
   if (mode === 'create') {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box display="flex" alignItems="center" gap={2} mb={3}>
-          <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
-            Назад
-          </Button>
-          <Typography variant="h4">Новый заказ</Typography>
-        </Box>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0 }}>
+         <Box display="flex" alignItems="center" gap={2} mb={3}>
+           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
+             Назад
+           </Button>
+           <Typography variant="h4">Новый заказ</Typography>
+         </Box>
 
-        <Paper sx={{ p: 4 }}>
+         <Paper sx={{ p: 3 }}>
           <form onSubmit={handleCreateSubmit}>
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
@@ -336,10 +336,10 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
                     <TableHead>
                       <TableRow>
                         <TableCell>Материал</TableCell>
-                        <TableCell width={180}>Размер 1</TableCell>
-                        <TableCell width={180}>Размер 2</TableCell>
-                        <TableCell width={130}>Срок готовности</TableCell>
-                        <TableCell width={50}>Действия</TableCell>
+                        <TableCell>Размер 1</TableCell>
+                        <TableCell>Размер 2</TableCell>
+                        <TableCell>Срок готовности</TableCell>
+                        <TableCell sx={{ width: 80 }}>Действия</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -428,7 +428,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
             {notification.message}
           </Alert>
         </Snackbar>
-      </Container>
+      </Box>
     );
   }
 
@@ -443,10 +443,10 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   if (error) {
     const isNotFound = error.response?.status === 404;
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Alert severity="error">{isNotFound ? 'Заказ не найден' : `Ошибка загрузки заказа: ${error.message}`}</Alert>
-      </Container>
-    );
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0 }}>
+         <Alert severity="error">{isNotFound ? 'Заказ не найден' : `Ошибка загрузки заказа: ${error.message}`}</Alert>
+       </Box>
+     );
   }
 
   if (mode === 'edit') {
@@ -454,7 +454,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   }
 
   return (
-    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={2}>
           <Button startIcon={<ArrowBack />} onClick={() => navigate('/orders')}>
@@ -493,29 +493,33 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
 
       <Grid container spacing={3}>
         <Grid item xs={12}>
-          <OrderInfoCard order={order} />
-          <Paper sx={{ mt: 3 }}>
-            <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
-              <Tab label="Позиции" />
-              <Tab label="Оплаты" />
-              <Tab label="Комментарии" />
-            </Tabs>
-            <Divider />
-            <Box sx={{ p: 3 }}>
-              {activeTab === 0 && (
-                <PositionsTab 
-                  materials={order?.materials || []} 
-                  items={order?.items || []} 
-                />
-              )}
-              {activeTab === 1 && (
-                <PaymentsTab payments={order?.payments || []} />
-              )}
-              {activeTab === 2 && (
-                <CommentsTab orderId={order?.id} />
-              )}
-            </Box>
-          </Paper>
+           <OrderInfoCard order={order} />
+           <Paper sx={{ mt: 3 }}>
+             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
+               <Tab label="Позиции" />
+               <Tab label="Оплаты" />
+               <Tab label="Комментарии" />
+               <Tab label="История действий" />
+             </Tabs>
+             <Divider />
+             <Box sx={{ p: 2 }}>
+               {activeTab === 0 && (
+                 <PositionsTab 
+                   materials={order?.materials || []} 
+                   items={order?.items || []} 
+                 />
+               )}
+               {activeTab === 1 && (
+                 <PaymentsTab payments={order?.payments || []} />
+               )}
+               {activeTab === 2 && (
+                 <CommentsTab orderId={order?.id} />
+               )}
+               {activeTab === 3 && (
+                 <HistoryTab history={order?.history} />
+               )}
+             </Box>
+           </Paper>
         </Grid>
       </Grid>
 
@@ -537,7 +541,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
           {notification.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 };
 

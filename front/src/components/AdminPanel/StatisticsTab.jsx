@@ -72,7 +72,7 @@ const StatisticsTab = () => {
 
       {rows.length > 0 && (
         <TableContainer component={Paper}>
-          <Table size="small">
+          <Table size="small" sx={{ width: 'auto' }}>
             <TableHead>
               <TableRow>
                 <TableCell>Тип</TableCell>

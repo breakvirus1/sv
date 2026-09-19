@@ -89,7 +89,7 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
                 <Typography variant="caption" color="text.secondary" gutterBottom display="block">
                   Операции:
                 </Typography>
-                <Table size="small" sx={{ mt: 0.5 }}>
+                <Table size="small" sx={{ width: 'auto' }}>
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600 }}>Операция</TableCell>

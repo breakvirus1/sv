@@ -5,7 +5,6 @@ import {
   Button,
   Chip,
   Typography,
-  Container,
   Paper,
   CircularProgress,
   Alert,
@@ -248,98 +247,91 @@ const ManagerOrderList = () => {
 
   if (isLoading) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-          <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
-        </Box>
-      </Container>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+        <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
+      </Box>
     );
   }
 
   return (
-    <Container sx={{ maxWidth: 1600, mx: 'auto', mt: 4, px: 2.5 }}>
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
-        <Typography variant="h4">{getTitle()}</Typography>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Typography variant="body2" color="text.secondary">
-            Заказов: {totalCount}
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => navigate('/orders/new')}
-          >
-            Новый заказ
-          </Button>
-        </Box>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
+      <Typography variant="h4">{getTitle()}</Typography>
+      <Box display="flex" alignItems="center" gap={2}>
+        <Typography variant="body2" color="text.secondary">
+          Заказов: {totalCount}
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={() => navigate('/orders/new')}
+        >
+          Новый заказ
+        </Button>
       </Box>
-
-      <Paper sx={{ flex: 1, minHeight: 0, width: '100%', position: 'relative' }}>
-        {isFetchingNextPage && (
-          <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, display: 'flex', justifyContent: 'center', py: 1 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-        <DataGrid
-          rows={allOrders}
-          columns={columns}
-          rowCount={totalCount}
-          loading={isLoading || isFetchingNextPage}
-          paginationMode="server"
-          paginationModel={paginationModel}
-          onPaginationModelChange={async (model) => {
-            await prefetchPages(model.page);
-            setPaginationModel(model);
-          }}
-          pageSizeOptions={[PAGE_SIZE]}
-          disableRowSelectionOnClick
-          columnBuffer={8}
-          density="compact"
-          sx={{
-            height: '100%',
-            border: 'none',
-            '& .MuiDataGrid-cell:hover': { cursor: 'pointer' },
-            '& .MuiDataGrid-columnSeparator': { visibility: 'visible', resize: 'horizontal' },
-            '& .MuiDataGrid-virtualScroller': { overflowX: 'auto' },
-          }}
-          onRowClick={(params) => navigate(`/manager/orders/${params.id}`)}
-          onColumnWidthChange={handleColumnWidthChange}
-          slots={{
-            noRowsOverlay: () => (
-              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-                <Typography color="text.secondary">Нет заказов</Typography>
-              </Box>
-            ),
-          }}
-          initialState={{
-            sorting: {
-              sortModel: [{ field: 'updatedAt', sort: 'desc' }]
-            },
-            columns: {
-              columnVisibilityModel: {},
-              dimensions: Object.entries(columnWidths).reduce((acc, [field, width]) => {
-                acc[field] = { width };
-                return acc;
-              }, {})
-            }
-          }}
-        />
-      </Paper>
     </Box>
-    </Container>
 
-    );
+    <Paper sx={{ flex: 1, minHeight: 0, width: '100%', position: 'relative', m: 0, p: 0 }}>
+      {isFetchingNextPage && (
+        <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, display: 'flex', justifyContent: 'center', py: 1 }}>
+          <CircularProgress size={24} />
+        </Box>
+      )}
+      <DataGrid
+        rows={allOrders}
+        columns={columns}
+        rowCount={totalCount}
+        loading={isLoading || isFetchingNextPage}
+        paginationMode="server"
+        paginationModel={paginationModel}
+        onPaginationModelChange={async (model) => {
+          await prefetchPages(model.page);
+          setPaginationModel(model);
+        }}
+        pageSizeOptions={[PAGE_SIZE]}
+        disableRowSelectionOnClick
+        columnBuffer={8}
+        density="compact"
+        sx={{
+          height: '100%',
+          border: 'none',
+          '& .MuiDataGrid-cell:hover': { cursor: 'pointer' },
+          '& .MuiDataGrid-columnSeparator': { visibility: 'visible', resize: 'horizontal' },
+          '& .MuiDataGrid-virtualScroller': { overflowX: 'auto' },
+        }}
+        onRowClick={(params) => navigate(`/manager/orders/${params.id}`)}
+        onColumnWidthChange={handleColumnWidthChange}
+        slots={{
+          noRowsOverlay: () => (
+            <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+              <Typography color="text.secondary">Нет заказов</Typography>
+            </Box>
+          ),
+        }}
+        initialState={{
+          sorting: {
+            sortModel: [{ field: 'updatedAt', sort: 'desc' }]
+          },
+          columns: {
+            columnVisibilityModel: {},
+            dimensions: Object.entries(columnWidths).reduce((acc, [field, width]) => {
+              acc[field] = { width };
+              return acc;
+            }, {})
+          }
+        }}
+      />
+    </Paper>
+  </Box>
+  );
 };
 
 export default ManagerOrderList;

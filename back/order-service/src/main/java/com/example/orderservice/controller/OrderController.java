@@ -9,7 +9,9 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -38,40 +40,42 @@ public class OrderController {
      @Operation(summary = "Получить список заказов с фильтрами")
      @GetMapping
      @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
-     public ResponseEntity<Page<OrderResponse>> getAllOrders(
-             @Parameter(description = "Статус заказа") @RequestParam(required = false) String status,
-             @Parameter(description = "ID менеджера") @RequestParam(required = false) Long managerId,
-             @Parameter(description = "ID клиента") @RequestParam(required = false) Long clientId,
-             @Parameter(description = "Дата с") @RequestParam(required = false) LocalDate fromDate,
-             @Parameter(description = "Дата по") @RequestParam(required = false) LocalDate toDate,
-             Pageable pageable) {
+      public ResponseEntity<Page<OrderResponse>> getAllOrders(
+              @Parameter(description = "Статус заказа") @RequestParam(required = false) String status,
+              @Parameter(description = "ID менеджера") @RequestParam(required = false) Long managerId,
+              @Parameter(description = "ID клиента") @RequestParam(required = false) Long clientId,
+              @Parameter(description = "Дата с") @RequestParam(required = false) LocalDate fromDate,
+              @Parameter(description = "Дата по") @RequestParam(required = false) LocalDate toDate,
+              @RequestParam(required = false, defaultValue = "50") Integer size,
+              Pageable pageable) {
 
-         Specification<Order> spec = Specification.where(null);
+          Specification<Order> spec = Specification.where(null);
 
-         if (status != null) {
-             spec = spec.and((root, query, cb) ->
-                      cb.equal(root.get("status"), ProductionStage.valueOf(status)));
-         }
-         if (managerId != null) {
-             spec = spec.and((root, query, cb) ->
-                     cb.equal(root.get("manager").get("id"), managerId));
-         }
-         if (clientId != null) {
-             spec = spec.and((root, query, cb) ->
-                     cb.equal(root.get("client").get("id"), clientId));
-         }
-         if (fromDate != null) {
-             spec = spec.and((root, query, cb) ->
-                     cb.greaterThanOrEqualTo(root.get("orderDate"), fromDate));
-         }
-         if (toDate != null) {
-             spec = spec.and((root, query, cb) ->
-                     cb.lessThanOrEqualTo(root.get("orderDate"), toDate));
-         }
+          if (status != null) {
+              spec = spec.and((root, query, cb) ->
+                       cb.equal(root.get("status"), ProductionStage.valueOf(status)));
+          }
+          if (managerId != null) {
+              spec = spec.and((root, query, cb) ->
+                      cb.equal(root.get("manager").get("id"), managerId));
+          }
+          if (clientId != null) {
+              spec = spec.and((root, query, cb) ->
+                      cb.equal(root.get("client").get("id"), clientId));
+          }
+          if (fromDate != null) {
+              spec = spec.and((root, query, cb) ->
+                      cb.greaterThanOrEqualTo(root.get("orderDate"), fromDate));
+          }
+          if (toDate != null) {
+              spec = spec.and((root, query, cb) ->
+                      cb.lessThanOrEqualTo(root.get("orderDate"), toDate));
+          }
 
-         Page<OrderResponse> page = orderService.getAllOrders(spec, pageable);
-         return ResponseEntity.ok(page);
-     }
+          Pageable explicitPageable = PageRequest.of(pageable.getPageNumber(), size, pageable.getSort());
+          Page<OrderResponse> page = orderService.getAllOrders(spec, explicitPageable);
+          return ResponseEntity.ok(page);
+      }
 
     /**
      * Получить детальную информацию о заказе.

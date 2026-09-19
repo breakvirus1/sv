@@ -20,14 +20,14 @@ const UNIT_DISPLAY_TO_ENUM = {
 };
 
 const ENTITY_TABS = [
-  { label: 'Clients', value: 'clients' },
-  { label: 'Materials', value: 'materials' },
-  { label: 'Operations', value: 'operations' },
-  { label: 'Operation Groups', value: 'operationGroups' },
-  { label: 'Workshops', value: 'workshops' },
-  { label: 'Employees', value: 'employees' },
-  { label: 'Statistics', value: 'statistics' },
-  { label: 'Generate Data', value: 'generate' },
+  { label: 'Клиенты', value: 'clients' },
+  { label: 'Материалы', value: 'materials' },
+  { label: 'Операции', value: 'operations' },
+  { label: 'Группы операций', value: 'operationGroups' },
+  { label: 'Цеха', value: 'workshops' },
+  { label: 'Сотрудники', value: 'employees' },
+  { label: 'Статистика', value: 'statistics' },
+  { label: 'Генерация данных', value: 'generate' },
   { label: 'Конструктор изделий', value: 'constructor' }
 ];
 
@@ -455,8 +455,8 @@ const AdminPanel = () => {
       {clientsData.length === 0 && <Typography>Нет данных</Typography>}
       {clientsData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small">
-            <TableHead><TableRow><TableCell>Имя</TableCell><TableCell>Тип</TableCell><TableCell>Контактное лицо</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
+            <TableHead><TableRow><TableCell>Имя</TableCell><TableCell>Тип</TableCell><TableCell>Контактное лицо</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {clientsData.map((c) => (
                 <TableRow key={c.id}><TableCell>{c.name}</TableCell><TableCell>{c.type}</TableCell><TableCell>{c.contactPerson || '-'}</TableCell><TableCell>{c.phone || '-'}</TableCell><TableCell>{c.email || '-'}</TableCell>
@@ -482,8 +482,8 @@ const AdminPanel = () => {
       {filteredOperations.length === 0 && <Typography>Нет операций</Typography>}
       {filteredOperations.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small">
-            <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Цена</TableCell><TableCell>Ед. изм.</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
+            <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Цена</TableCell><TableCell>Ед. изм.</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {filteredOperations.map((op) => (
                 <TableRow key={op.id}>
@@ -512,8 +512,8 @@ const AdminPanel = () => {
       {operationGroupsData.length === 0 && <Typography>Нет группировок</Typography>}
       {operationGroupsData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small">
-            <TableHead><TableRow><TableCell>Слово</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
+            <TableHead><TableRow><TableCell>Слово</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {operationGroupsData.map((grp) => (
                 <TableRow key={grp.id}>
@@ -540,8 +540,8 @@ const AdminPanel = () => {
       {workshopsData.length === 0 && <Typography>Нет цехов</Typography>}
       {workshopsData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small">
-            <TableHead><TableRow><TableCell>ID</TableCell><TableCell>Название</TableCell><TableCell>Операции</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
+            <TableHead><TableRow><TableCell>ID</TableCell><TableCell>Название</TableCell><TableCell>Операции</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {workshopsData.map((ws) => (
                 <TableRow key={ws.id}>
@@ -579,8 +579,8 @@ const AdminPanel = () => {
       {employeesData.length === 0 && <Typography>Нет сотрудников</Typography>}
       {employeesData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small">
-             <TableHead><TableRow><TableCell>ID</TableCell><TableCell>ФИО</TableCell><TableCell>Логин</TableCell><TableCell>Должность</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell>Роль</TableCell><TableCell>Роли</TableCell><TableCell>Цех</TableCell><TableCell>% заработка</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
+             <TableHead><TableRow><TableCell>ID</TableCell><TableCell>ФИО</TableCell><TableCell>Логин</TableCell><TableCell>Должность</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell>Роль</TableCell><TableCell>Роли</TableCell><TableCell>Цех</TableCell><TableCell>% заработка</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {employeesData.map((emp) => (
                 <TableRow key={emp.id}>
@@ -629,8 +629,8 @@ const AdminPanel = () => {
       {productsData.length === 0 && <Typography>Нет изделий</Typography>}
       {productsData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small">
-            <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Артикул</TableCell><TableCell>Описание</TableCell><TableCell>Ед. изм.</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
+            <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Артикул</TableCell><TableCell>Описание</TableCell><TableCell>Ед. изм.</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {productsData.map((p) => (
                 <TableRow key={p.id}>
@@ -653,13 +653,13 @@ const AdminPanel = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
-      <Typography variant="h4" gutterBottom sx={{ fontSize: { xs: '1.5rem', md: '2.125rem' } }}>Admin Panel</Typography>
+      <Typography variant="h4" gutterBottom sx={{ fontSize: { xs: '1.5rem', md: '2.125rem' } }}>Админ панель</Typography>
       <Paper sx={{ width: '100%', mt: 2, overflow: 'hidden' }}>
         <Tabs value={tab} onChange={handleTabChange} indicatorColor="secondary" textColor="secondary" variant="scrollable" scrollButtons="auto">
           {ENTITY_TABS.map((t, idx) => <Tab key={t.value} label={t.label} />)}
         </Tabs>
         <Divider />
-        <Box sx={{ p: { xs: 1, sm: 2 } }}>
+        <Box sx={{ p: { xs: 1, sm: 1 } }}>
           {tab === 0 && renderClientsTab()}
           {tab === 1 && <MaterialsTab
             materialsData={materialsData}

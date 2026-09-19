@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import api from '../services/api';
 
+const API_BASE_URL = api.defaults.baseURL;
+
 function generateState() {
   try {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -33,17 +35,10 @@ function decodeJwt(token) {
   }
 }
 
-function extractRoles(user) {
-  let roles = [];
-  if (user?.realm_access?.roles) {
-    roles = user.realm_access.roles;
-  } else if (user?.access_token) {
-    const decoded = decodeJwt(user.access_token);
-    if (decoded?.realm_access?.roles) {
-      roles = decoded.realm_access.roles;
-    }
-  }
-  return roles.map((role) => (role.startsWith('ROLE_') ? role : `ROLE_${role}`));
+function extractRolesFromToken(accessToken) {
+  const decoded = decodeJwt(accessToken);
+  if (!decoded?.realm_access?.roles) return [];
+  return decoded.realm_access.roles.map((role) => (role.startsWith('ROLE_') ? role : `ROLE_${role}`));
 }
 
 function getStoredAuth() {
@@ -70,6 +65,7 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -77,7 +73,7 @@ export const AuthProvider = ({ children }) => {
         const stored = getStoredAuth();
         console.log('Stored auth:', stored ? 'found' : 'none');
         if (stored) {
-          const roles = extractRoles(stored);
+          const roles = extractRolesFromToken(stored.access_token);
           console.log('User roles (raw):', stored.realm_access?.roles, '-> transformed:', roles);
           setUser({
             name: stored.name || stored.preferred_username,
@@ -98,6 +94,99 @@ export const AuthProvider = ({ children }) => {
 
     initAuth();
   }, []);
+
+  const applyToken = (accessToken, expiresIn, extra = {}) => {
+    const expiresAt = Date.now() + (expiresIn || 3600) * 1000;
+    const decoded = decodeJwt(accessToken) || {};
+    const auth = {
+      ...decoded,
+      access_token: accessToken,
+      expiresAt,
+      ...extra
+    };
+    storeAuth(auth);
+    const roles = extractRolesFromToken(accessToken);
+    setUser({
+      name: auth.name || auth.preferred_username,
+      email: auth.email,
+      roles,
+      accessToken,
+      username: auth.preferred_username || auth.sub
+    });
+    localStorage.setItem('token', accessToken);
+    setAuthError(null);
+    api.post('/api/v1/employees/sync').catch((err) => console.error('Employee sync failed:', err));
+  };
+
+  const loginWithPassword = async (username, password) => {
+    setAuthError(null);
+    try {
+      const params = new URLSearchParams();
+      params.append('grant_type', 'password');
+      params.append('client_id', CLIENT_ID);
+      params.append('username', username);
+      params.append('password', password);
+
+      const response = await fetch(`${KEYCLOAK_ISSUER}/protocol/openid-connect/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error_description || data.error || 'Ошибка авторизации');
+      }
+
+      const accessToken = data.access_token;
+      const refreshToken = data.refresh_token;
+      const expiresIn = data.expires_in || 3600;
+
+      applyToken(accessToken, expiresIn, { refresh_token: refreshToken });
+      return { success: true };
+    } catch (error) {
+      const message = error.message || 'Не удалось войти';
+      setAuthError(message);
+      return { success: false, error: message };
+    }
+  };
+
+  const refreshToken = async () => {
+    try {
+      const stored = getStoredAuth();
+      const refreshToken = stored?.refresh_token;
+      if (!refreshToken) {
+        logout();
+        return { success: false };
+      }
+
+      const params = new URLSearchParams();
+      params.append('grant_type', 'refresh_token');
+      params.append('client_id', CLIENT_ID);
+      params.append('refresh_token', refreshToken);
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Ошибка обновления токена');
+      }
+
+      applyToken(data.access_token, data.expires_in || 3600, { refresh_token: data.refresh_token || refreshToken });
+      return { success: true };
+    } catch (error) {
+      logout();
+      return { success: false };
+    }
+  };
 
   const login = () => {
     const state = generateState();
@@ -151,7 +240,7 @@ export const AuthProvider = ({ children }) => {
       };
 
       storeAuth(auth);
-      const roles = extractRoles(auth);
+      const roles = extractRolesFromToken(accessToken);
       setUser({
         name: auth.name || auth.preferred_username,
         email: auth.email,
@@ -174,6 +263,10 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     handleCallback,
+    loginWithPassword,
+    refreshToken,
+    authError,
+    setAuthError,
     isAuthenticated: !!user
   };
 
