@@ -25,6 +25,7 @@
     "react-dom": "^18.2.0",
     "react-draggable": "^4.4.6",
     "react-hook-form": "^7.52.1",
+    "react-infinite-scroll-component": "^7.2.1",
     "react-resizable": "^3.0.5",
     "react-router-dom": "^6.20.0",
     "zod": "^3.23.8",
