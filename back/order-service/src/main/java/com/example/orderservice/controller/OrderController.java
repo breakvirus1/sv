@@ -2,6 +2,7 @@ package com.example.orderservice.controller;
 
 import com.example.orderservice.dto.*;
 import com.example.orderservice.entity.Order;
+import com.example.orderservice.entity.OrderStage;
 import com.example.orderservice.entity.ProductionStage;
 import com.example.orderservice.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,6 +19,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -44,6 +47,8 @@ public class OrderController {
               @Parameter(description = "Статус заказа") @RequestParam(required = false) String status,
               @Parameter(description = "ID менеджера") @RequestParam(required = false) Long managerId,
               @Parameter(description = "ID клиента") @RequestParam(required = false) Long clientId,
+              @Parameter(description = "ID цеха") @RequestParam(required = false) Long workshopId,
+              @Parameter(description = "Поиск по номеру заказа или имени клиента") @RequestParam(required = false) String q,
               @Parameter(description = "Дата с") @RequestParam(required = false) LocalDate fromDate,
               @Parameter(description = "Дата по") @RequestParam(required = false) LocalDate toDate,
               @RequestParam(required = false, defaultValue = "50") Integer size,
@@ -61,7 +66,24 @@ public class OrderController {
           }
           if (clientId != null) {
               spec = spec.and((root, query, cb) ->
-                      cb.equal(root.get("client").get("id"), clientId));
+                       cb.equal(root.get("client").get("id"), clientId));
+          }
+          if (workshopId != null) {
+              spec = spec.and((root, query, cb) -> {
+                  Join<Order, OrderStage> join = root.join("stages", JoinType.INNER);
+                  query.distinct(true);
+                  return cb.equal(join.get("workshop").get("id"), workshopId);
+              });
+          }
+          if (q != null && !q.isBlank()) {
+              String like = "%" + q.toLowerCase() + "%";
+              spec = spec.and((root, query, cb) -> {
+                  Join<Order, com.example.clientservice.entity.Client> clientJoin = root.join("client", JoinType.INNER);
+                  return cb.or(
+                      cb.like(cb.lower(root.get("orderNumber")), like),
+                      cb.like(cb.lower(clientJoin.get("name")), like)
+                  );
+              });
           }
           if (fromDate != null) {
               spec = spec.and((root, query, cb) ->
@@ -75,6 +97,13 @@ public class OrderController {
           Pageable explicitPageable = PageRequest.of(pageable.getPageNumber(), size, pageable.getSort());
           Page<OrderResponse> page = orderService.getAllOrders(spec, explicitPageable);
           return ResponseEntity.ok(page);
+      }
+
+      @Operation(summary = "Получить варианты фильтров для списка заказов")
+      @GetMapping("/filter-options")
+      @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+      public ResponseEntity<OrderFilterOptionsResponse> getOrderFilterOptions() {
+          return ResponseEntity.ok(orderService.getOrderFilterOptions());
       }
 
     /**
@@ -248,5 +277,13 @@ public class OrderController {
             @Parameter(description = "ID заказа") @PathVariable Long id) {
         CalculatedOrderResponse response = orderService.getCalculatedOrder(id);
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Получить заработок менеджера по заказу")
+    @GetMapping("/{id}/manager-earnings")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<OrderManagerEarningsResponse> getOrderManagerEarnings(
+            @Parameter(description = "ID заказа") @PathVariable Long id) {
+        return ResponseEntity.ok(orderService.getOrderManagerEarnings(id));
     }
 }

@@ -72,6 +72,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <classifier>exec</classifier>
+                    <mainClass>com.example.apigateway.ApiGatewayApplication</mainClass>
                 </configuration>
             </plugin>
             <plugin>

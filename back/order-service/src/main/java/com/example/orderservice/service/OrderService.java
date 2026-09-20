@@ -21,6 +21,7 @@ import com.example.orderservice.product.ProductMaterial;
 import com.example.orderservice.product.ProductOperation;
 import com.example.orderservice.product.repository.ProductRepository;
 import com.example.orderservice.mapper.OrderMapper;
+import com.example.orderservice.repository.ClientRepository;
 import com.example.orderservice.repository.EmployeeRepository;
 import com.example.orderservice.repository.FileAttachmentRepository;
 import com.example.orderservice.repository.OrderCommentRepository;
@@ -85,6 +86,7 @@ public class OrderService {
     private final OrderCommentRepository orderCommentRepository;
     private final FileAttachmentRepository fileAttachmentRepository;
     private final WorkshopRepository workshopRepository;
+    private final ClientRepository clientRepository;
     private final OrderMapper orderMapper;
     private final OrderHistoryService orderHistoryService;
     private final ProductRepository productRepository;
@@ -109,6 +111,14 @@ public class OrderService {
         spec = spec.and(workshopFilterForCurrentUser());
         return orderRepository.findAll(spec, pageable)
                 .map(orderMapper::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderFilterOptionsResponse getOrderFilterOptions() {
+        List<Client> clients = clientRepository.findAll();
+        List<Employee> managers = employeeRepository.findAll();
+        List<Workshop> workshops = workshopRepository.findAll();
+        return new OrderFilterOptionsResponse(clients, managers, workshops);
     }
 
     private String getCurrentUsername() {
@@ -1567,5 +1577,33 @@ return new CalculatedOrderResponse(
         return priceplusAmount
                 .multiply(managerCashPercent)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderManagerEarningsResponse getOrderManagerEarnings(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+
+        Employee manager = order.getManager();
+        if (manager == null) {
+            return new OrderManagerEarningsResponse(
+                    orderId, order.getOrderNumber(), null, null, BigDecimal.ZERO, order.getTotalWithPriceplus(), BigDecimal.ZERO);
+        }
+
+        BigDecimal managerCashPercent = manager.getManagerCashPercent();
+        if (managerCashPercent == null || managerCashPercent.compareTo(BigDecimal.ZERO) <= 0) {
+            return new OrderManagerEarningsResponse(
+                    orderId, order.getOrderNumber(), manager.getId(), manager.getFullName(), BigDecimal.ZERO, order.getTotalWithPriceplus(), BigDecimal.ZERO);
+        }
+
+        BigDecimal managerEarnings = BigDecimal.ZERO;
+        if (order.getStatus() == ProductionStage.READY) {
+            managerEarnings = order.getCashFromPriceplus() != null ? order.getCashFromPriceplus() : BigDecimal.ZERO;
+        } else {
+            managerEarnings = calculatePotentialCash(order, managerCashPercent);
+        }
+
+        return new OrderManagerEarningsResponse(
+                orderId, order.getOrderNumber(), manager.getId(), manager.getFullName(), managerCashPercent, order.getTotalWithPriceplus(), managerEarnings);
     }
 }
