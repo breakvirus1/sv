@@ -48,7 +48,7 @@ function App() {
         </div>
 
          {/* Page content as "desktop icons" or background */}
-         <div className="pt-20" style={{ paddingLeft: 50, paddingRight: 50, maxWidth: '100%', margin: 0, width: '100%' }}>
+         <div style={{ paddingTop: 74, paddingLeft: 50, paddingRight: 50, maxWidth: '100%', margin: 0, width: '100%' }}>
           <Routes>
              <Route path="/" element={
                isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Dashboard />) : <Navigate to="/login" />
