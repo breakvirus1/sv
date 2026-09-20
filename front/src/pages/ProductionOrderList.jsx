@@ -17,10 +17,10 @@ import {
   TextField,
   InputAdornment
 } from '@mui/material';
-import { Person, ExpandMore, ExpandLess, AttachFile, Notifications, Search } from '@mui/icons-material';
+import { Person, ExpandMore, ExpandLess, AttachFile, Notifications, Search, ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -196,6 +196,8 @@ const OrderRow = ({ order, onNavigate }) => {
 const ProductionOrderList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+  const isManager = user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_ADMIN');
   const [searchParams] = useSearchParams();
 
   const statusFilter = searchParams.get('status');
@@ -215,6 +217,8 @@ const ProductionOrderList = () => {
   const [selectedWorkshopId, setSelectedWorkshopId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortField, setSortField] = useState('updatedAt');
+  const [sortDirection, setSortDirection] = useState('desc');
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -264,6 +268,42 @@ const ProductionOrderList = () => {
     if (isFetchingNextPage) return;
     await fetchNextPage();
   }, [fetchNextPage, isFetchingNextPage]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedOrders = useMemo(() => {
+    const orders = [...allOrders];
+    orders.sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+      
+      if (sortField === 'client' && a.client && b.client) {
+        aVal = a.client.name || '';
+        bVal = b.client.name || '';
+      } else if (sortField === 'manager' && a.manager && b.manager) {
+        aVal = a.manager.fullName || '';
+        bVal = b.manager.fullName || '';
+      }
+      
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+      
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return orders;
+  }, [allOrders, sortField, sortDirection]);
 
   const { data: unreadNotifications = [] } = useQuery({
     queryKey: ['notifications'],
@@ -393,6 +433,33 @@ const ProductionOrderList = () => {
 
         <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ flex: 1, minHeight: 0 }}>
+            <Box sx={{ display: 'flex', p: 1.5, borderBottom: '2px solid', borderColor: 'divider', bgcolor: 'grey.100', cursor: 'pointer' }}>
+              <Box sx={{ flex: 0.8, minWidth: 100, fontWeight: 600, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 0.5 }} onClick={() => handleSort('orderNumber')}>
+                № заказа
+                {sortField === 'orderNumber' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+              </Box>
+              <Box sx={{ flex: 1.5, minWidth: 120, fontWeight: 600, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 0.5 }} onClick={() => handleSort('client')}>
+                Клиент
+                {sortField === 'client' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+              </Box>
+              <Box sx={{ flex: 1.2, minWidth: 120, fontWeight: 600, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 0.5 }} onClick={() => handleSort('manager')}>
+                Менеджер
+                {sortField === 'manager' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 100, fontWeight: 600, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 0.5 }} onClick={() => handleSort('status')}>
+                Статус
+                {sortField === 'status' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 140, fontWeight: 600, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 0.5 }} onClick={() => handleSort('updatedAt')}>
+                Изменён
+                {sortField === 'updatedAt' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+              </Box>
+              <Box sx={{ flex: 0.8, minWidth: 90, fontWeight: 600, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 0.5 }} onClick={() => handleSort('dueDate')}>
+                Срок
+                {sortField === 'dueDate' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+              </Box>
+              <Box sx={{ width: 48 }} />
+            </Box>
             <InfiniteScroll
               dataLength={allOrders.length}
               next={fetchNext}
@@ -414,15 +481,15 @@ const ProductionOrderList = () => {
                 <Box display="flex" justifyContent="center" alignItems="center" height={200}>
                   <Typography color="text.secondary">Нет заказов</Typography>
                 </Box>
-              ) : (
-                allOrders.map(order => (
-                  <OrderRow
-                    key={order.id}
-                    order={order}
-                    onNavigate={(id) => navigate(`/production/orders/${id}`)}
-                  />
-                ))
-              )}
+                ) : (
+                  sortedOrders.map(order => (
+                    <OrderRow
+                      key={order.id}
+                      order={order}
+                      onNavigate={(id) => navigate(`/production/orders/${id}`)}
+                    />
+                  ))
+                )}
             </InfiniteScroll>
           </Box>
         </Box>

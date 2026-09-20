@@ -17,10 +17,10 @@ import {
   TextField,
   InputAdornment
 } from '@mui/material';
-import { Add, Person, Close, Notifications, Search } from '@mui/icons-material';
+import { Add, Person, Close, Notifications, Search, ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -58,6 +58,8 @@ const fetchOrders = async ({ pageParam = 0, queryKey }) => {
 const ManagerOrderList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+  const isManager = user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_ADMIN');
   const [searchParams, setSearchParams] = useSearchParams();
 
   const statusFilter = searchParams.get('status');
@@ -112,6 +114,8 @@ const ManagerOrderList = () => {
   const [selectedWorkshopId, setSelectedWorkshopId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortField, setSortField] = useState('updatedAt');
+  const [sortDirection, setSortDirection] = useState('desc');
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -163,6 +167,42 @@ const ManagerOrderList = () => {
     if (isFetchingNextPage) return;
     await fetchNextPage();
   }, [fetchNextPage, isFetchingNextPage]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedOrders = useMemo(() => {
+    const orders = [...allOrders];
+    orders.sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+      
+      if (sortField === 'client' && a.client && b.client) {
+        aVal = a.client.name || '';
+        bVal = b.client.name || '';
+      } else if (sortField === 'manager' && a.manager && b.manager) {
+        aVal = a.manager.fullName || '';
+        bVal = b.manager.fullName || '';
+      }
+      
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+      
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return orders;
+  }, [allOrders, sortField, sortDirection]);
 
   const [columnWidths, setColumnWidths] = useState(loadColumnWidths);
 
@@ -336,15 +376,33 @@ const ManagerOrderList = () => {
                     },
                   }}
                 >
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>№ заказа</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Клиент</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Менеджер</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right' }}>Сумма</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right' }}>Оплачено</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right' }}>Долг</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Статус</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Изменён</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Срок</Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('orderNumber')}>
+                    № заказа {sortField === 'orderNumber' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('client')}>
+                    Клиент {sortField === 'client' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('manager')}>
+                    Менеджер {sortField === 'manager' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('totalAmount')}>
+                    Сумма {sortField === 'totalAmount' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('paidAmount')}>
+                    Оплачено {sortField === 'paidAmount' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('debtAmount')}>
+                    Долг {sortField === 'debtAmount' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('status')}>
+                    Статус {sortField === 'status' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('updatedAt')}>
+                    Изменён {sortField === 'updatedAt' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('dueDate')}>
+                    Срок {sortField === 'dueDate' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
                 </Box>
               </Box>
 
@@ -353,7 +411,7 @@ const ManagerOrderList = () => {
                   display: 'table-row-group',
                 }}
               >
-                {allOrders.map((order) => (
+                {sortedOrders.map((order) => (
                   <Box
                     key={order.id}
                     onClick={() => navigate(`/manager/orders/${order.id}`)}
