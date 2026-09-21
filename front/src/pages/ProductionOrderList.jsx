@@ -25,6 +25,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const PAGE_SIZE = 50;
+const MAX_PAGES = 20;
 
 const fetchOrders = async ({ pageParam = 0, queryKey }) => {
   const [{ status, clientId, workshopId, q }] = queryKey;
@@ -255,6 +256,7 @@ const ProductionOrderList = () => {
       const totalCount = allPages[0]?.totalElements;
       if (totalCount != null && totalLoaded >= totalCount) return undefined;
       if (lastPage.content.length < PAGE_SIZE) return undefined;
+      if (allPages.length >= MAX_PAGES) return undefined;
       return allPages.length;
     },
     retry: 1,
@@ -264,10 +266,38 @@ const ProductionOrderList = () => {
   const allOrders = data?.pages?.flatMap(page => page.content ?? []) ?? [];
   const totalCount = data?.pages?.[0]?.totalElements ?? 0;
 
+  const sortedOrders = useMemo(() => {
+    const orders = [...allOrders];
+    orders.sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+
+      if (sortField === 'client' && a.client && b.client) {
+        aVal = a.client.name || '';
+        bVal = b.client.name || '';
+      } else if (sortField === 'manager' && a.manager && b.manager) {
+        aVal = a.manager.fullName || '';
+        bVal = b.manager.fullName || '';
+      }
+
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return orders;
+  }, [allOrders, sortField, sortDirection]);
+
   const fetchNext = useCallback(async () => {
     if (isFetchingNextPage) return;
+    if (!hasNextPage) return;
     await fetchNextPage();
-  }, [fetchNextPage, isFetchingNextPage]);
+  }, [fetchNextPage, isFetchingNextPage, hasNextPage]);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -278,32 +308,6 @@ const ProductionOrderList = () => {
     }
   };
 
-  const sortedOrders = useMemo(() => {
-    const orders = [...allOrders];
-    orders.sort((a, b) => {
-      let aVal = a[sortField];
-      let bVal = b[sortField];
-      
-      if (sortField === 'client' && a.client && b.client) {
-        aVal = a.client.name || '';
-        bVal = b.client.name || '';
-      } else if (sortField === 'manager' && a.manager && b.manager) {
-        aVal = a.manager.fullName || '';
-        bVal = b.manager.fullName || '';
-      }
-      
-      if (aVal == null) aVal = '';
-      if (bVal == null) bVal = '';
-      
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-      
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return orders;
-  }, [allOrders, sortField, sortDirection]);
 
   const { data: unreadNotifications = [] } = useQuery({
     queryKey: ['notifications'],
@@ -432,7 +436,7 @@ const ProductionOrderList = () => {
         </Box>
 
         <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ flex: 1, minHeight: 0 }}>
+          <Box id="production-order-list-scroll" sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
             <Box sx={{ display: 'flex', p: 1.5, borderBottom: '2px solid', borderColor: 'divider', bgcolor: 'grey.100', cursor: 'pointer' }}>
               <Box sx={{ flex: 0.8, minWidth: 100, fontWeight: 600, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 0.5 }} onClick={() => handleSort('orderNumber')}>
                 № заказа
@@ -461,9 +465,10 @@ const ProductionOrderList = () => {
               <Box sx={{ width: 48 }} />
             </Box>
             <InfiniteScroll
-              dataLength={allOrders.length}
+              dataLength={sortedOrders.length}
               next={fetchNext}
               hasMore={!!hasNextPage}
+              hasChildren
               loader={
                 <Box display="flex" justifyContent="center" alignItems="center" py={2}>
                   <CircularProgress size={24} />
@@ -476,8 +481,10 @@ const ProductionOrderList = () => {
                   </Typography>
                 </Box>
               }
+              scrollableTarget="production-order-list-scroll"
+              style={{ overflow: 'visible' }}
             >
-              {allOrders.length === 0 ? (
+              {sortedOrders.length === 0 ? (
                 <Box display="flex" justifyContent="center" alignItems="center" height={200}>
                   <Typography color="text.secondary">Нет заказов</Typography>
                 </Box>

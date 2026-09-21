@@ -142,6 +142,8 @@ services:
     build:
       context: .
       dockerfile: back/calculator-service/Dockerfile
+    ports:
+      - "0.0.0.0:8086:8086"
     depends_on:
       postgres:
         condition: service_healthy

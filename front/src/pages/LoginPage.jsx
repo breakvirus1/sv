@@ -8,7 +8,8 @@ const LoginPage = () => {
   const { loginWithPassword, login, isAuthenticated, authError, setAuthError, user } = useAuth()
 
   const getRedirectPath = () => {
-    if (user?.roles?.includes('ROLE_ADMIN') || user?.roles?.includes('ROLE_MANAGER')) return '/manager'
+    if (user?.roles?.includes('ROLE_MANAGER')) return '/manager'
+    if (user?.roles?.includes('ROLE_ADMIN')) return '/orders'
     if (user?.roles?.includes('ROLE_PRODUCTION')) return '/production'
     return '/orders'
   }

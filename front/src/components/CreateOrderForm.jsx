@@ -45,6 +45,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const username = user?.username;
+  const isManager = user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_ADMIN');
 
   // ── State: Form Data ──
   const [formData, setFormData] = useState({
@@ -1057,7 +1058,7 @@ const handleSubmit = async (e) => {
             >
               Сумма: {totalOrderAmount.toFixed(2)} ₽{workshopTags ? '   ' + workshopTags : ''}
             </Box>
-            {currentEmployee && cashFromPriceplus > 0 && (
+            {isManager && currentEmployee && (
               <Box
                 sx={{
                   border: '1px solid',
