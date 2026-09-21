@@ -9,21 +9,29 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  TextField,
+  InputAdornment
 } from '@mui/material';
-import { Add, Person, Close, Notifications } from '@mui/icons-material';
+import { Add, Person, Close, Notifications, Search, ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const PAGE_SIZE = 50;
+const MAX_PAGES = 20;
 
 const OrdersList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+  const isManager = user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_ADMIN');
   const [searchParams] = useSearchParams();
 
   const statusFilter = searchParams.get('status');
@@ -63,12 +71,43 @@ const OrdersList = () => {
     }
   }, [hasUnreadNotifications]);
 
+  const { data: filterOptions } = useQuery({
+    queryKey: ['orderFilterOptions'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/orders/filter-options');
+      return response.data;
+    },
+  });
+
+  const clients = filterOptions?.clients ?? [];
+  const managers = filterOptions?.managers ?? [];
+  const workshops = filterOptions?.workshops ?? [];
+
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [selectedManagerId, setSelectedManagerId] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState(statusFilter || '');
+  const [selectedWorkshopId, setSelectedWorkshopId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortField, setSortField] = useState('updatedAt');
+  const [sortDirection, setSortDirection] = useState('desc');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const buildOrdersParams = (pageNumber) => {
     const params = new URLSearchParams();
     params.set('page', String(pageNumber));
     params.set('size', String(PAGE_SIZE));
-    if (statusFilter) params.set('status', statusFilter);
-    if (myOrders && managerId) params.set('managerId', managerId);
+    if (selectedStatus) params.set('status', selectedStatus);
+    if (selectedManagerId) params.set('managerId', selectedManagerId);
+    if (selectedClientId) params.set('clientId', selectedClientId);
+    if (selectedWorkshopId) params.set('workshopId', selectedWorkshopId);
+    if (debouncedSearch) params.set('q', debouncedSearch);
     return params.toString();
   };
 
@@ -76,9 +115,11 @@ const OrdersList = () => {
   const ordersQueryKey = [
     'orders',
     {
-      status: statusFilter,
-      my: myOrders,
-      managerId: myOrders ? managerId : undefined,
+      status: selectedStatus,
+      clientId: selectedClientId,
+      managerId: selectedManagerId,
+      workshopId: selectedWorkshopId,
+      q: debouncedSearch,
     },
   ];
 
@@ -102,6 +143,7 @@ const OrdersList = () => {
       const totalCount = allPages[0]?.totalElements;
       if (totalCount != null && totalLoaded >= totalCount) return undefined;
       if (lastPage.content.length < PAGE_SIZE) return undefined;
+      if (allPages.length >= MAX_PAGES) return undefined;
       return allPages.length;
     },
     retry: 1,
@@ -111,10 +153,48 @@ const OrdersList = () => {
   const allOrders = data?.pages?.flatMap((page) => page.content ?? []) ?? [];
   const totalCount = data?.pages?.[0]?.totalElements ?? 0;
 
+  const sortedOrders = useMemo(() => {
+    const orders = [...allOrders];
+    orders.sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+
+      if (sortField === 'client' && a.client && b.client) {
+        aVal = a.client.name || '';
+        bVal = b.client.name || '';
+      } else if (sortField === 'manager' && a.manager && b.manager) {
+        aVal = a.manager.fullName || '';
+        bVal = b.manager.fullName || '';
+      }
+
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return orders;
+  }, [allOrders, sortField, sortDirection]);
+
   const fetchNext = useCallback(async () => {
     if (isFetchingNextPage) return;
+    if (!hasNextPage) return;
     await fetchNextPage();
-  }, [fetchNextPage, isFetchingNextPage]);
+  }, [fetchNextPage, isFetchingNextPage, hasNextPage]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
 
   const closeOrderMutation = useMutation({
     mutationFn: (orderId) => api.put(`/api/v1/orders/${orderId}/close`),
@@ -124,13 +204,39 @@ const OrdersList = () => {
     },
   });
 
-  const handleCloseOrder = (orderId) => {
-    closeOrderMutation.mutate(orderId);
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [selectedOrderForClose, setSelectedOrderForClose] = useState(null);
+  const { data: managerEarnings, isLoading: isLoadingEarnings } = useQuery({
+    queryKey: ['orderManagerEarnings', selectedOrderForClose?.id],
+    queryFn: async () => {
+      if (!selectedOrderForClose?.id) return null;
+      const response = await api.get(`/api/v1/orders/${selectedOrderForClose.id}/manager-earnings`);
+      return response.data;
+    },
+    enabled: !!closeDialogOpen && !!selectedOrderForClose?.id,
+  });
+
+  const handleCloseOrder = (order) => {
+    setSelectedOrderForClose(order);
+    setCloseDialogOpen(true);
+  };
+
+  const handleConfirmClose = () => {
+    if (selectedOrderForClose?.id) {
+      closeOrderMutation.mutate(selectedOrderForClose.id);
+    }
+    setCloseDialogOpen(false);
+    setSelectedOrderForClose(null);
+  };
+
+  const handleCloseDialog = () => {
+    setCloseDialogOpen(false);
+    setSelectedOrderForClose(null);
   };
 
   const getTitle = () => {
     if (myOrders) return 'Мои заказы';
-    if (statusFilter) return `Заказы: ${getStatusLabel(statusFilter)}`;
+    if (selectedStatus) return `Заказы: ${getStatusLabel(selectedStatus)}`;
     return 'Заказы';
   };
 
@@ -146,13 +252,94 @@ const OrdersList = () => {
     <>
       <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
-          <Box>
-            <Typography variant="h4">{getTitle()}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Заказов: {totalCount}
-            </Typography>
+          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+            <Box>
+              <Typography variant="h4">{getTitle()}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Заказов: {totalCount}
+              </Typography>
+            </Box>
+            <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Клиент</InputLabel>
+                <Select
+                  value={selectedClientId}
+                  onChange={(e) => setSelectedClientId(e.target.value)}
+                  label="Клиент"
+                >
+                  <MenuItem value="">Все</MenuItem>
+                  {clients.map((client) => (
+                    <MenuItem key={client.id} value={client.id}>
+                      {client.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Менеджер</InputLabel>
+                <Select
+                  value={selectedManagerId}
+                  onChange={(e) => setSelectedManagerId(e.target.value)}
+                  label="Менеджер"
+                >
+                  <MenuItem value="">Все</MenuItem>
+                  {managers.map((emp) => (
+                    <MenuItem key={emp.id} value={emp.id}>
+                      {emp.fullName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ minWidth: 130 }}>
+                <InputLabel>Статус</InputLabel>
+                <Select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  label="Статус"
+                >
+                  <MenuItem value="">Все</MenuItem>
+                  <MenuItem value="DRAFT">Черновик</MenuItem>
+                  <MenuItem value="IN_PROGRESS">В работе</MenuItem>
+                  <MenuItem value="READY">Готов</MenuItem>
+                  {isAdmin && <MenuItem value="CLOSED">Закрыт</MenuItem>}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ minWidth: 130 }}>
+                <InputLabel>Цех</InputLabel>
+                <Select
+                  value={selectedWorkshopId}
+                  onChange={(e) => setSelectedWorkshopId(e.target.value)}
+                  label="Цех"
+                >
+                  <MenuItem value="">Все</MenuItem>
+                  {workshops.map((workshop) => (
+                    <MenuItem key={workshop.id} value={workshop.id}>
+                      {workshop.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <TextField
+                size="small"
+                placeholder="Поиск по номеру или клиенту"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{ minWidth: 220 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
           </Box>
-          <Box display="flex" alignItems="center" gap={2}>
+          <Box>
             <Button
               variant="contained"
               startIcon={<Add />}
@@ -163,13 +350,13 @@ const OrdersList = () => {
           </Box>
         </Box>
 
-        {!allOrders.length ? (
-          <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+        {!sortedOrders.length ? (
+          <Box display="flex" justifyContent="center" alignItems="center" flex={1}>
             <Typography color="text.secondary">Нет заказов</Typography>
           </Box>
         ) : (
           <InfiniteScroll
-            dataLength={allOrders.length}
+            dataLength={sortedOrders.length}
             next={fetchNext}
             hasMore={!!hasNextPage}
             loader={
@@ -210,16 +397,39 @@ const OrdersList = () => {
                     },
                   }}
                 >
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>№ заказа</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Клиент</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Менеджер</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right' }}>Сумма</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right' }}>Оплачено</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right' }}>Долг</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Статус</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Изменён</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Срок</Box>
-                  <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Цех</Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('orderNumber')}>
+                    № заказа {sortField === 'orderNumber' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('client')}>
+                    Клиент {sortField === 'client' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('manager')}>
+                    Менеджер {sortField === 'manager' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('totalAmount')}>
+                    Сумма {sortField === 'totalAmount' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  {(isAdmin || isManager) && <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('cashFromPriceplus')}>
+                    Чистая прибыль {sortField === 'cashFromPriceplus' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>}
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('paidAmount')}>
+                    Оплачено {sortField === 'paidAmount' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('debtAmount')}>
+                    Долг {sortField === 'debtAmount' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('status')}>
+                    Статус {sortField === 'status' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('updatedAt')}>
+                    Изменён {sortField === 'updatedAt' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('dueDate')}>
+                    Срок {sortField === 'dueDate' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
+                  <Box sx={{ display: 'table-cell', padding: '12px 8px', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('workshopId')}>
+                    Цех {sortField === 'workshopId' && (sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />)}
+                  </Box>
                   {isAdmin && <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Действия</Box>}
                 </Box>
               </Box>
@@ -229,7 +439,7 @@ const OrdersList = () => {
                   display: 'table-row-group',
                 }}
               >
-                {allOrders.map((order) => (
+                {sortedOrders.map((order) => (
                   <Box
                     key={order.id}
                     onClick={() => navigate(`/orders/${order.id}`)}
@@ -256,6 +466,7 @@ const OrdersList = () => {
                       </Box>
                     </Box>
                     <Box sx={{ display: 'table-cell', textAlign: 'right' }}>{order.totalAmount?.toFixed(2)} ₽</Box>
+                    {(isAdmin || isManager) && <Box sx={{ display: 'table-cell', textAlign: 'right' }}>{order.cashFromPriceplus?.toFixed(2) ?? '0.00'} ₽</Box>}
                     <Box sx={{ display: 'table-cell', textAlign: 'right' }}>{order.paidAmount?.toFixed(2)} ₽</Box>
                     <Box sx={{ display: 'table-cell', textAlign: 'right' }}>{order.debtAmount?.toFixed(2)} ₽</Box>
                     <Box sx={{ display: 'table-cell' }}>
@@ -272,12 +483,12 @@ const OrdersList = () => {
                     <Box sx={{ display: 'table-cell' }}>{order.workshopId || '—'}</Box>
                     {isAdmin && (
                       <Box sx={{ display: 'table-cell' }} onClick={(e) => e.stopPropagation()}>
-                        {order.status !== 'CLOSED' && (
+                        {order.status === 'READY' && (
                           <Button
                             size="small"
                             color="error"
                             startIcon={<Close />}
-                            onClick={(e) => { e.stopPropagation(); handleCloseOrder(order.id); }}
+                            onClick={(e) => { e.stopPropagation(); handleCloseOrder(order); }}
                           >
                             Закрыть
                           </Button>
@@ -288,9 +499,61 @@ const OrdersList = () => {
                 ))}
               </Box>
             </Box>
-          </InfiniteScroll>
-        )}
+           </InfiniteScroll>
+         )}
       </Box>
+      <Dialog
+        open={closeDialogOpen}
+        onClose={handleCloseDialog}
+        aria-labelledby="close-order-dialog-title"
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle id="close-order-dialog-title">
+          Закрыть заказ
+        </DialogTitle>
+        <DialogContent>
+          {selectedOrderForClose && (
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                № заказа: {selectedOrderForClose.orderNumber}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Менеджер: {selectedOrderForClose.manager?.fullName || '—'}
+              </Typography>
+
+              {isLoadingEarnings ? (
+                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : managerEarnings ? (
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography variant="body2">
+                    Сумма заказа с priceplus: {managerEarnings.totalWithPriceplus?.toFixed(2)} ₽
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    Процент менеджера: {managerEarnings.managerCashPercent?.toFixed(2)}%
+                  </Typography>
+                  <Typography variant="subtitle1" sx={{ mt: 1, fontWeight: 600 }}>
+                    Заработок менеджера: {managerEarnings.managerEarnings?.toFixed(2)} ₽
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  Нет данных о заработке
+                </Typography>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Отмена</Button>
+          <Button onClick={handleConfirmClose} color="error" variant="contained" disabled={closeOrderMutation.isPending}>
+            Закрыть заказ
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog
         open={showNotificationDialog}
         onClose={() => setShowNotificationDialog(false)}
