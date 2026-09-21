@@ -355,14 +355,16 @@ const OrdersList = () => {
             <Typography color="text.secondary">Нет заказов</Typography>
           </Box>
         ) : (
-          <InfiniteScroll
-            dataLength={sortedOrders.length}
-            next={fetchNext}
-            hasMore={!!hasNextPage}
-            threshold={300}
-            scrollToTopOnChange={false}
-            initialLoaderHeight={80}
-            loader={
+          <Box id="orders-list-scroll" sx={{ flex: 1, overflow: 'auto' }}>
+            <InfiniteScroll
+              dataLength={sortedOrders.length}
+              next={fetchNext}
+              hasMore={!!hasNextPage}
+              threshold={300}
+              scrollToTopOnChange={false}
+              initialLoaderHeight={80}
+              scrollableTarget="orders-list-scroll"
+              loader={
               <Box display="flex" justifyContent="center" alignItems="center" py={2}>
                 <CircularProgress size={24} />
               </Box>
@@ -386,6 +388,9 @@ const OrdersList = () => {
                 sx={{
                   display: 'table-header-group',
                   bgcolor: 'background.paper',
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1,
                 }}
               >
                 <Box
@@ -503,8 +508,8 @@ const OrdersList = () => {
               </Box>
             </Box>
            </InfiniteScroll>
-         )}
-      </Box>
+         </Box>
+       )}
       <Dialog
         open={closeDialogOpen}
         onClose={handleCloseDialog}
@@ -587,6 +592,7 @@ const OrdersList = () => {
           </Button>
         </DialogActions>
       </Dialog>
+    </Box>
     </>
   );
 };

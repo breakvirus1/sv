@@ -338,14 +338,16 @@ const ManagerOrderList = () => {
             <Typography color="text.secondary">Нет заказов</Typography>
           </Box>
         ) : (
-          <InfiniteScroll
-            dataLength={sortedOrders.length}
-            next={fetchNext}
-            hasMore={!!hasNextPage}
-            threshold={300}
-            scrollToTopOnChange={false}
-            initialLoaderHeight={80}
-            loader={
+          <Box id="manager-order-list-scroll" sx={{ flex: 1, overflow: 'auto' }}>
+            <InfiniteScroll
+              dataLength={sortedOrders.length}
+              next={fetchNext}
+              hasMore={!!hasNextPage}
+              threshold={300}
+              scrollToTopOnChange={false}
+              initialLoaderHeight={80}
+              scrollableTarget="manager-order-list-scroll"
+              loader={
               <Box display="flex" justifyContent="center" alignItems="center" py={2}>
                 <CircularProgress size={24} />
               </Box>
@@ -369,6 +371,9 @@ const ManagerOrderList = () => {
                 sx={{
                   display: 'table-header-group',
                   bgcolor: 'background.paper',
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1,
                 }}
               >
                 <Box
@@ -463,8 +468,8 @@ const ManagerOrderList = () => {
               </Box>
             </Box>
            </InfiniteScroll>
-         )}
-      </Box>
+         </Box>
+       )}
       <Dialog
         open={showNotificationDialog}
         onClose={() => setShowNotificationDialog(false)}
@@ -495,6 +500,7 @@ const ManagerOrderList = () => {
           </Button>
         </DialogActions>
       </Dialog>
+    </Box>
     </>
   );
 };
