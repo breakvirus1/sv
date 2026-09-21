@@ -38,7 +38,7 @@ const downloadFile = async (fileUrl) => {
   window.URL.revokeObjectURL(url);
 };
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 150;
 
 const fetchOrders = async ({ pageParam = 0, queryKey }) => {
   const [, { status }] = queryKey;
