@@ -25,6 +25,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const PAGE_SIZE = 50;
+const MAX_PAGES = 20;
 
 const loadColumnWidths = () => {
   try {
@@ -154,6 +155,7 @@ const ManagerOrderList = () => {
       const totalCount = allPages[0]?.totalElements;
       if (totalCount != null && totalLoaded >= totalCount) return undefined;
       if (lastPage.content.length < PAGE_SIZE) return undefined;
+      if (allPages.length >= MAX_PAGES) return undefined;
       return allPages.length;
     },
     retry: 1,
@@ -163,10 +165,38 @@ const ManagerOrderList = () => {
   const allOrders = data?.pages?.flatMap(page => page.content ?? []) ?? [];
   const totalCount = data?.pages?.[0]?.totalElements ?? 0;
 
+  const sortedOrders = useMemo(() => {
+    const orders = [...allOrders];
+    orders.sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+
+      if (sortField === 'client' && a.client && b.client) {
+        aVal = a.client.name || '';
+        bVal = b.client.name || '';
+      } else if (sortField === 'manager' && a.manager && b.manager) {
+        aVal = a.manager.fullName || '';
+        bVal = b.manager.fullName || '';
+      }
+
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return orders;
+  }, [allOrders, sortField, sortDirection]);
+
   const fetchNext = useCallback(async () => {
     if (isFetchingNextPage) return;
+    if (!hasNextPage) return;
     await fetchNextPage();
-  }, [fetchNextPage, isFetchingNextPage]);
+  }, [fetchNextPage, isFetchingNextPage, hasNextPage]);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -177,32 +207,6 @@ const ManagerOrderList = () => {
     }
   };
 
-  const sortedOrders = useMemo(() => {
-    const orders = [...allOrders];
-    orders.sort((a, b) => {
-      let aVal = a[sortField];
-      let bVal = b[sortField];
-      
-      if (sortField === 'client' && a.client && b.client) {
-        aVal = a.client.name || '';
-        bVal = b.client.name || '';
-      } else if (sortField === 'manager' && a.manager && b.manager) {
-        aVal = a.manager.fullName || '';
-        bVal = b.manager.fullName || '';
-      }
-      
-      if (aVal == null) aVal = '';
-      if (bVal == null) bVal = '';
-      
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-      
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return orders;
-  }, [allOrders, sortField, sortDirection]);
 
   const [columnWidths, setColumnWidths] = useState(loadColumnWidths);
 
@@ -329,28 +333,32 @@ const ManagerOrderList = () => {
           </Box>
         </Box>
 
-        {!allOrders.length ? (
-          <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+        {!sortedOrders.length ? (
+          <Box display="flex" justifyContent="center" alignItems="center" flex={1}>
             <Typography color="text.secondary">Нет заказов</Typography>
           </Box>
         ) : (
-          <InfiniteScroll
-            dataLength={allOrders.length}
-            next={fetchNext}
-            hasMore={!!hasNextPage}
-            loader={
-              <Box display="flex" justifyContent="center" alignItems="center" py={2}>
-                <CircularProgress size={24} />
-              </Box>
-            }
-            endMessage={
-              <Box display="flex" justifyContent="center" alignItems="center" py={2}>
-                <Typography variant="body2" color="text.secondary">
-                  Все заказы загружены
-                </Typography>
-              </Box>
-            }
-          >
+          <Box id="manager-order-list-scroll" sx={{ flex: 1, overflow: 'auto' }}>
+            <InfiniteScroll
+              dataLength={sortedOrders.length}
+              next={fetchNext}
+              hasMore={!!hasNextPage}
+              hasChildren
+              loader={
+                <Box display="flex" justifyContent="center" alignItems="center" py={2}>
+                  <CircularProgress size={24} />
+                </Box>
+              }
+              endMessage={
+                <Box display="flex" justifyContent="center" alignItems="center" py={2}>
+                  <Typography variant="body2" color="text.secondary">
+                    Все заказы загружены
+                  </Typography>
+                </Box>
+              }
+              scrollableTarget="manager-order-list-scroll"
+              style={{ overflow: 'visible' }}
+            >
             <Box
               sx={{
                 display: 'table',
@@ -455,8 +463,9 @@ const ManagerOrderList = () => {
                 ))}
               </Box>
             </Box>
-          </InfiniteScroll>
-        )}
+           </InfiniteScroll>
+         </Box>
+       )}
       </Box>
       <Dialog
         open={showNotificationDialog}

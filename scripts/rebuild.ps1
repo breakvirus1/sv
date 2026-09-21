@@ -42,10 +42,13 @@ Write-Host "=== Stopping all containers and removing volumes ==="
 docker compose down
 
 Get-Process -Name java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 3
+Start-Sleep -Seconds 10
+
+Write-Host "=== Cleaning target directories ==="
+Get-ChildItem -Path back -Recurse -Directory -Filter target | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host "=== Building microservices with Maven ==="
-mvn clean install -Dmaven.test.skip=true
+mvn clean install "-Dmaven.test.skip=true"
 
 Write-Host "=== Rebuilding Docker containers (no cache) ==="
 docker compose build --no-cache

@@ -28,11 +28,19 @@ function App() {
   }
 
   const isAuthenticated = !!user
-  const isManager = user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_ADMIN')
+  const isManager = user?.roles?.includes('ROLE_MANAGER')
+  const isAdmin = user?.roles?.includes('ROLE_ADMIN')
   const isProduction = user?.roles?.includes('ROLE_PRODUCTION')
   const hasPermission = user?.roles?.some(role =>
     ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_PRODUCTION', 'ROLE_ACCOUNTANT'].includes(role)
   )
+
+  const getRedirectPath = () => {
+    if (isManager) return '/manager'
+    if (isAdmin) return '/orders'
+    if (isProduction) return '/production'
+    return '/orders'
+  }
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-[#0a5c8a] via-[#1a8cbf] to-[#0a5c8a]">
@@ -50,12 +58,12 @@ function App() {
          {/* Page content as "desktop icons" or background */}
          <div style={{ paddingTop: 74, paddingLeft: 50, paddingRight: 50, maxWidth: '100%', margin: 0, width: '100%' }}>
           <Routes>
-             <Route path="/" element={
-               isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Dashboard />) : <Navigate to="/login" />
-             } />
-             <Route path="/login" element={
-               isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Navigate to="/orders" />) : <LoginPage />
-             } />
+              <Route path="/" element={
+                isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isAdmin ? <Navigate to="/orders" /> : isProduction ? <Navigate to="/production" /> : <Dashboard />) : <Navigate to="/login" />
+              } />
+              <Route path="/login" element={
+                isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isAdmin ? <Navigate to="/orders" /> : isProduction ? <Navigate to="/production" /> : <Navigate to="/orders" />) : <LoginPage />
+              } />
             <Route path="/callback" element={<CallbackPage />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
