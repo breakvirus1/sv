@@ -359,7 +359,7 @@ const OrdersList = () => {
             dataLength={sortedOrders.length}
             next={fetchNext}
             hasMore={!!hasNextPage}
-            threshold={0}
+            threshold={300}
             loader={
               <Box display="flex" justifyContent="center" alignItems="center" py={2}>
                 <CircularProgress size={24} />
