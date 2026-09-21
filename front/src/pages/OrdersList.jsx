@@ -360,6 +360,8 @@ const OrdersList = () => {
             next={fetchNext}
             hasMore={!!hasNextPage}
             threshold={300}
+            scrollToTopOnChange={false}
+            initialLoaderHeight={80}
             loader={
               <Box display="flex" justifyContent="center" alignItems="center" py={2}>
                 <CircularProgress size={24} />
