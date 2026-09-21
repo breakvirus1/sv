@@ -24,7 +24,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 150;
 const MAX_PAGES = 20;
 
 const OrdersList = () => {
