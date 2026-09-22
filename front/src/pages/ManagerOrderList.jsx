@@ -246,24 +246,24 @@ const ManagerOrderList = () => {
   };
 
   if (isLoading) {
-    return (
-      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+     return (
+       <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
+         <CircularProgress />
+       </Box>
+     );
+   }
 
-  if (error) {
-    return (
-      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
-        <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
-      </Box>
-    );
-  }
+   if (error) {
+     return (
+       <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2 }}>
+         <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
+       </Box>
+     );
+   }
 
   return (
-    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" flexShrink={0}>
       <Typography variant="h4">{getTitle()}</Typography>
       <Box display="flex" alignItems="center" gap={2}>
         <Typography variant="body2" color="text.secondary">

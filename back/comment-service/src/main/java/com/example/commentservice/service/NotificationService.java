@@ -35,7 +35,7 @@ public class NotificationService {
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
             String username = jwtAuth.getToken().getClaimAsString("preferred_username");
             if (username == null || username.isBlank()) {
-                throw new IllegalStateException("Username not found in token");
+                return null;
             }
             try {
                 var responseType = new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
@@ -53,18 +53,22 @@ public class NotificationService {
                 );
                 var body = response.getBody();
                 if (body == null || !body.containsKey("id")) {
-                    throw new IllegalStateException("Employee not found for username: " + username);
+                    return null;
                 }
                 Object idObj = body.get("id");
                 if (idObj instanceof Number n) {
                     return n.longValue();
                 }
-                return Long.parseLong(idObj.toString());
+                try {
+                    return Long.parseLong(idObj.toString());
+                } catch (NumberFormatException e) {
+                    return null;
+                }
             } catch (Exception e) {
-                throw new IllegalStateException("Failed to fetch employee for username: " + username, e);
+                return null;
             }
         }
-        throw new IllegalStateException("Unsupported authentication type");
+        return null;
     }
 
     public NotificationResponse createNotification(String message, String type, Long referenceId, String referenceType, Long referenceSubId, Long userId) {
@@ -83,6 +87,9 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public List<NotificationResponse> getNotificationsForCurrentUser() {
         Long userId = getCurrentUserId();
+        if (userId == null) {
+            return List.of();
+        }
         return notificationRepository.findByUserIdAndDeletedFalseOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(notificationMapper::toDto)
@@ -92,6 +99,9 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public long getUnreadCountForCurrentUser() {
         Long userId = getCurrentUserId();
+        if (userId == null) {
+            return 0;
+        }
         return notificationRepository.countByUserIdAndReadedFalseAndDeletedFalse(userId);
     }
 
@@ -105,6 +115,9 @@ public class NotificationService {
 
     public void markAllAsRead() {
         Long userId = getCurrentUserId();
+        if (userId == null) {
+            return;
+        }
         List<Notification> notifications = notificationRepository.findByUserIdAndReadedFalseAndDeletedFalseOrderByCreatedAtDesc(userId);
         notifications.forEach(n -> n.setReaded(true));
         notificationRepository.saveAll(notifications);

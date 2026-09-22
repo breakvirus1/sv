@@ -261,24 +261,24 @@ const ProductionOrderList = () => {
   };
 
   if (isLoading) {
-    return (
-      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+     return (
+       <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
+         <CircularProgress />
+       </Box>
+     );
+   }
 
-  if (error) {
-    return (
-      <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
-        <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
-      </Box>
-    );
-  }
+   if (error) {
+     return (
+       <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2 }}>
+         <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
+       </Box>
+     );
+   }
 
   return (
-    <Box sx={{ maxWidth: 1900, mx: 'auto', mt: 4, px: 0, height: '100%', display: 'flex', flexDirection: 'column', py: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
+    <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" flexShrink={0}>
       <Typography variant="h4">{getTitle()}</Typography>
       <Box display="flex" alignItems="center" gap={2}>
         <Typography variant="body2" color="text.secondary">
@@ -287,8 +287,8 @@ const ProductionOrderList = () => {
       </Box>
     </Box>
 
-    <Paper sx={{ flex: 1, minHeight: 0, width: '100%', overflow: 'auto', m: 0, p: 0 }}>
-      <Box sx={{ display: 'flex', p: 1.5, borderBottom: '2px solid', borderColor: 'divider', bgcolor: 'grey.100' }}>
+    <Paper sx={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', m: 0, p: 0 }}>
+      <Box sx={{ display: 'flex', p: 1.5, borderBottom: '2px solid', borderColor: 'divider', bgcolor: 'grey.100', flexShrink: 0 }}>
         <Typography variant="caption" sx={{ flex: 0.8, minWidth: 100 }}>№ заказа</Typography>
         <Typography variant="caption" sx={{ flex: 1.5, minWidth: 120 }}>Клиент</Typography>
         <Typography variant="caption" sx={{ flex: 1.2, minWidth: 120 }}>Менеджер</Typography>
@@ -298,32 +298,34 @@ const ProductionOrderList = () => {
         <Box sx={{ width: 48 }} />
       </Box>
 
-      {allOrders.length === 0 ? (
-        <Box display="flex" justifyContent="center" alignItems="center" height={200}>
-          <Typography color="text.secondary">Нет заказов</Typography>
-        </Box>
-      ) : (
-        allOrders.map(order => (
-          <OrderRow
-            key={order.id}
-            order={order}
-            onNavigate={(id) => navigate(`/production/orders/${id}`)}
-          />
-        ))
-      )}
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        {allOrders.length === 0 ? (
+          <Box display="flex" justifyContent="center" alignItems="center" height={200}>
+            <Typography color="text.secondary">Нет заказов</Typography>
+          </Box>
+        ) : (
+          allOrders.map(order => (
+            <OrderRow
+              key={order.id}
+              order={order}
+              onNavigate={(id) => navigate(`/production/orders/${id}`)}
+            />
+          ))
+        )}
 
-      {hasNextPage && (
-        <Box display="flex" justifyContent="center" p={2}>
-          <Typography
-            variant="body2"
-            color="primary"
-            sx={{ cursor: 'pointer' }}
-            onClick={() => fetchNextPage()}
-          >
-            {isFetchingNextPage ? 'Загрузка...' : 'Загрузить ещё'}
-          </Typography>
-        </Box>
-      )}
+        {hasNextPage && (
+          <Box display="flex" justifyContent="center" p={2}>
+            <Typography
+              variant="body2"
+              color="primary"
+              sx={{ cursor: 'pointer' }}
+              onClick={() => fetchNextPage()}
+            >
+              {isFetchingNextPage ? 'Загрузка...' : 'Загрузить ещё'}
+            </Typography>
+          </Box>
+        )}
+      </Box>
     </Paper>
     <Dialog
       open={showNotificationDialog}
