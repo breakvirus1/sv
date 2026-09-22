@@ -1,8 +1,9 @@
 # Stage 1: Build
-FROM node:20 AS builder
+FROM node:20-alpine AS builder
+RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 COPY . .
 ARG VITE_SERVER_IP
 ARG VITE_API_URL
