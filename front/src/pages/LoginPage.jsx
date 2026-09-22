@@ -40,7 +40,6 @@ const LoginPage = () => {
     <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={3} px={2}>
       <Box textAlign="center">
         <Typography variant="h4" gutterBottom>Авторизация</Typography>
-        <Typography variant="h6" color="text.secondary">Система управления производством</Typography>
       </Box>
 
       <Box component="form" onSubmit={handlePasswordLogin} display="flex" flexDirection="column" gap={2} width="100%" maxWidth={400}>
@@ -52,16 +51,10 @@ const LoginPage = () => {
         </Button>
       </Box>
 
-      <Typography variant="body2" color="text.secondary">
-        или
-      </Typography>
-
-      <Button variant="outlined" color="primary" size="large" fullWidth onClick={handleKeycloakLogin} sx={{ maxWidth: 400 }}>
-        Войти через Keycloak
-      </Button>
 
       <Typography variant="caption" color="text.secondary" textAlign="center">
-        Тестовые пользователи: admin/admin, manager/manager, production/production, accountant/accountant
+        Тестовые пользователи: 
+        admin manager production
       </Typography>
     </Box>
   )
