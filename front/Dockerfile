@@ -1,6 +1,5 @@
 # Stage 1: Build
 FROM node:20-alpine AS builder
-RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --no-audit --no-fund
