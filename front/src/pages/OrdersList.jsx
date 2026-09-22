@@ -214,9 +214,9 @@ const OrdersList = () => {
                   </Box>
                 </Box>
               </Box>
-                <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }} ref={setOrdersScrollRef}>
-                  {ordersScrollTarget ? (
-                    <InfiniteScroll
+                 <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }} ref={setOrdersScrollRef}>
+                   {ordersScrollTarget ? (
+                     <InfiniteScroll
                       dataLength={allOrders.length}
                       next={fetchNext}
                       hasMore={!!hasNextPage}
@@ -306,9 +306,10 @@ const OrdersList = () => {
                   </Box>
                 </Box>
               </InfiniteScroll>
-            </Box>
-            </Box>
-          )}
+             ) : null}
+             </Box>
+             </Box>
+           )}
         </Box>
        <Dialog
          open={showNotificationDialog}
