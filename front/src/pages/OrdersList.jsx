@@ -9,9 +9,15 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  TextField,
+  InputAdornment
 } from '@mui/material';
-import { Add, Person, Close, Notifications } from '@mui/icons-material';
+import { Add, Person, Close, Notifications, Search } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -72,12 +78,41 @@ const OrdersList = () => {
     }
   }, [hasUnreadNotifications]);
 
+  const { data: filterOptions } = useQuery({
+    queryKey: ['orderFilterOptions'],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/orders/filter-options');
+      return response.data;
+    },
+  });
+
+  const clients = filterOptions?.clients ?? [];
+  const managers = filterOptions?.managers ?? [];
+  const workshops = filterOptions?.workshops ?? [];
+
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [selectedManagerId, setSelectedManagerId] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState(statusFilter || '');
+  const [selectedWorkshopId, setSelectedWorkshopId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const buildOrdersParams = (pageNumber) => {
     const params = new URLSearchParams();
     params.set('page', String(pageNumber));
     params.set('size', String(PAGE_SIZE));
-    if (statusFilter) params.set('status', statusFilter);
-    if (myOrders && managerId) params.set('managerId', managerId);
+    if (selectedStatus) params.set('status', selectedStatus);
+    if (selectedManagerId) params.set('managerId', selectedManagerId);
+    if (selectedClientId) params.set('clientId', selectedClientId);
+    if (selectedWorkshopId) params.set('workshopId', selectedWorkshopId);
+    if (debouncedSearch) params.set('q', debouncedSearch);
     return params.toString();
   };
 
@@ -85,9 +120,11 @@ const OrdersList = () => {
   const ordersQueryKey = [
     'orders',
     {
-      status: statusFilter,
-      my: myOrders,
-      managerId: myOrders ? managerId : undefined,
+      status: selectedStatus,
+      clientId: selectedClientId,
+      managerId: selectedManagerId,
+      workshopId: selectedWorkshopId,
+      q: debouncedSearch,
     },
   ];
 
@@ -125,6 +162,18 @@ const OrdersList = () => {
     await fetchNextPage();
   }, [fetchNextPage, isFetchingNextPage]);
 
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [selectedOrderForClose, setSelectedOrderForClose] = useState(null);
+  const { data: managerEarnings, isLoading: isLoadingEarnings } = useQuery({
+    queryKey: ['orderManagerEarnings', selectedOrderForClose?.id],
+    queryFn: async () => {
+      if (!selectedOrderForClose?.id) return null;
+      const response = await api.get(`/api/v1/orders/${selectedOrderForClose.id}/manager-earnings`);
+      return response.data;
+    },
+    enabled: !!closeDialogOpen && !!selectedOrderForClose?.id,
+  });
+
   const closeOrderMutation = useMutation({
     mutationFn: (orderId) => api.put(`/api/v1/orders/${orderId}/close`),
     onSuccess: () => {
@@ -133,13 +182,27 @@ const OrdersList = () => {
     },
   });
 
-  const handleCloseOrder = (orderId) => {
-    closeOrderMutation.mutate(orderId);
+  const handleCloseOrder = (order) => {
+    setSelectedOrderForClose(order);
+    setCloseDialogOpen(true);
+  };
+
+  const handleConfirmClose = () => {
+    if (selectedOrderForClose?.id) {
+      closeOrderMutation.mutate(selectedOrderForClose.id);
+    }
+    setCloseDialogOpen(false);
+    setSelectedOrderForClose(null);
+  };
+
+  const handleCloseDialog = () => {
+    setCloseDialogOpen(false);
+    setSelectedOrderForClose(null);
   };
 
   const getTitle = () => {
     if (myOrders) return 'Мои заказы';
-    if (statusFilter) return `Заказы: ${getStatusLabel(statusFilter)}`;
+    if (selectedStatus) return `Заказы: ${getStatusLabel(selectedStatus)}`;
     return 'Заказы';
   };
 
@@ -151,25 +214,106 @@ const OrdersList = () => {
      );
    }
 
-     return (
-     <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2 }}>
-       <Box display="flex" justifyContent="space-between" alignItems="center" flexShrink={0}>
-         <Box>
-           <Typography variant="h4">{getTitle()}</Typography>
-           <Typography variant="body2" color="text.secondary">
-             Заказов: {totalCount}
-           </Typography>
-         </Box>
-         <Box display="flex" alignItems="center" gap={2}>
-           <Button
-             variant="contained"
-             startIcon={<Add />}
-             onClick={() => navigate('/orders/new')}
-           >
-             Новый заказ
-           </Button>
-         </Box>
-       </Box>
+      return (
+      <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" flexShrink={0}>
+          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+            <Box>
+              <Typography variant="h4">{getTitle()}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Заказов: {totalCount}
+              </Typography>
+            </Box>
+            <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Клиент</InputLabel>
+                <Select
+                  value={selectedClientId}
+                  onChange={(e) => setSelectedClientId(e.target.value)}
+                  label="Клиент"
+                >
+                  <MenuItem value="">Все</MenuItem>
+                  {clients.map((client) => (
+                    <MenuItem key={client.id} value={client.id}>
+                      {client.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Менеджер</InputLabel>
+                <Select
+                  value={selectedManagerId}
+                  onChange={(e) => setSelectedManagerId(e.target.value)}
+                  label="Менеджер"
+                >
+                  <MenuItem value="">Все</MenuItem>
+                  {managers.map((emp) => (
+                    <MenuItem key={emp.id} value={emp.id}>
+                      {emp.fullName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ minWidth: 130 }}>
+                <InputLabel>Статус</InputLabel>
+                <Select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  label="Статус"
+                >
+                  <MenuItem value="">Все</MenuItem>
+                  <MenuItem value="DRAFT">Черновик</MenuItem>
+                  <MenuItem value="IN_PROGRESS">В работе</MenuItem>
+                  <MenuItem value="READY">Готов</MenuItem>
+                  {isAdmin && <MenuItem value="CLOSED">Закрыт</MenuItem>}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ minWidth: 130 }}>
+                <InputLabel>Цех</InputLabel>
+                <Select
+                  value={selectedWorkshopId}
+                  onChange={(e) => setSelectedWorkshopId(e.target.value)}
+                  label="Цех"
+                >
+                  <MenuItem value="">Все</MenuItem>
+                  {workshops.map((workshop) => (
+                    <MenuItem key={workshop.id} value={workshop.id}>
+                      {workshop.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <TextField
+                size="small"
+                placeholder="Поиск по номеру или клиенту"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{ minWidth: 220 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
+          </Box>
+          <Box>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => navigate('/orders/new')}
+            >
+              Новый заказ
+            </Button>
+          </Box>
+        </Box>
 
         <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', mt: 1 }}>
           {!allOrders.length ? (
@@ -289,12 +433,12 @@ const OrdersList = () => {
                         <Box sx={{ display: 'table-cell' }}>{order.workshopId || '—'}</Box>
                         {isAdmin && (
                           <Box sx={{ display: 'table-cell' }} onClick={(e) => e.stopPropagation()}>
-                            {order.status !== 'CLOSED' && (
+                            {order.status === 'READY' && (
                               <Button
                                 size="small"
                                 color="error"
                                 startIcon={<Close />}
-                                onClick={(e) => { e.stopPropagation(); handleCloseOrder(order.id); }}
+                                onClick={(e) => { e.stopPropagation(); handleCloseOrder(order); }}
                               >
                                 Закрыть
                               </Button>
@@ -310,39 +454,91 @@ const OrdersList = () => {
              </Box>
              </Box>
            )}
-        </Box>
-       <Dialog
-         open={showNotificationDialog}
-         onClose={() => setShowNotificationDialog(false)}
-         aria-labelledby="notification-dialog-title"
-         aria-describedby="notification-dialog-description"
-         PaperProps={{
-           sx: {
-             position: 'fixed',
-             bottom: 24,
-             right: 24,
-             m: 0,
-             width: 320,
-           }
-         }}
-       >
-         <DialogTitle id="notification-dialog-title">
-           <Box display="flex" alignItems="center" gap={1}>
-             <Notifications color="primary" />
-             Уведомление
-           </Box>
-         </DialogTitle>
-         <DialogContent>
-           <Typography>Проверь уведомления</Typography>
-         </DialogContent>
-         <DialogActions>
-           <Button onClick={() => setShowNotificationDialog(false)} autoFocus>
-             Закрыть
-           </Button>
-         </DialogActions>
-       </Dialog>
-     </Box>
-    );
+         </Box>
+      <Dialog
+        open={closeDialogOpen}
+        onClose={handleCloseDialog}
+        aria-labelledby="close-order-dialog-title"
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle id="close-order-dialog-title">
+          Закрыть заказ
+        </DialogTitle>
+        <DialogContent>
+          {selectedOrderForClose && (
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                № заказа: {selectedOrderForClose.orderNumber}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Менеджер: {selectedOrderForClose.manager?.fullName || '—'}
+              </Typography>
+
+              {isLoadingEarnings ? (
+                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : managerEarnings ? (
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography variant="body2">
+                    Сумма заказа с priceplus: {managerEarnings.totalWithPriceplus?.toFixed(2)} ₽
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    Процент менеджера: {managerEarnings.managerCashPercent?.toFixed(2)}%
+                  </Typography>
+                  <Typography variant="subtitle1" sx={{ mt: 1, fontWeight: 600 }}>
+                    Заработок менеджера: {managerEarnings.managerEarnings?.toFixed(2)} ₽
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  Нет данных о заработке
+                </Typography>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Отмена</Button>
+          <Button onClick={handleConfirmClose} color="error" variant="contained" disabled={closeOrderMutation.isPending}>
+            Закрыть заказ
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={showNotificationDialog}
+        onClose={() => setShowNotificationDialog(false)}
+        aria-labelledby="notification-dialog-title"
+        aria-describedby="notification-dialog-description"
+        PaperProps={{
+          sx: {
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            m: 0,
+            width: 320,
+          }
+        }}
+      >
+        <DialogTitle id="notification-dialog-title">
+          <Box display="flex" alignItems="center" gap={1}>
+            <Notifications color="primary" />
+            Уведомление
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography>Проверь уведомления</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowNotificationDialog(false)} autoFocus>
+            Закрыть
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+   );
   };
 
 export default OrdersList;
