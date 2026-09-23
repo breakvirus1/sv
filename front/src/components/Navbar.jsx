@@ -98,7 +98,7 @@ const Navbar = () => {
   };
 
   return (
-    <AppBar position="fixed" sx={{ bgcolor: '#1d1d1d', width: '80%' }}>
+    <AppBar position="fixed" sx={{ bgcolor: '#1d1d1d', width: '100%' }}>
       <Toolbar>
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
           Система управления производством рекламы ПАЗЛ МОРЕ SV

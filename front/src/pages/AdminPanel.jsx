@@ -455,12 +455,12 @@ const AdminPanel = () => {
       {clientsData.length === 0 && <Typography>Нет данных</Typography>}
       {clientsData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
-            <TableHead><TableRow><TableCell>Имя</TableCell><TableCell>Тип</TableCell><TableCell>Контактное лицо</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell align="right">% добавки</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
+            <TableHead><TableRow><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>Имя</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 100 }}>Тип</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Контактное лицо</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Телефон</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 200 }}>Email</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'right', minWidth: 100 }}>% добавки</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {clientsData.map((c) => (
-                <TableRow key={c.id}><TableCell>{c.name}</TableCell><TableCell>{c.type}</TableCell><TableCell>{c.contactPerson || '-'}</TableCell><TableCell>{c.phone || '-'}</TableCell><TableCell>{c.email || '-'}</TableCell><TableCell align="right">{c.priceplus != null ? `${c.priceplus}%` : '-'}</TableCell>
-                  <TableCell align="right"><IconButton size="small" onClick={() => openClientDialog(c)}><Edit /></IconButton><IconButton size="small" color="error" onClick={() => { setSelectedClient(c); setClientDeleteDialogOpen(true); }}><Delete /></IconButton></TableCell>
+                <TableRow key={c.id}><TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{c.name}</TableCell><TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{c.type}</TableCell><TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{c.contactPerson || '-'}</TableCell><TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{c.phone || '-'}</TableCell><TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{c.email || '-'}</TableCell><TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right' }}>{c.priceplus != null ? `${c.priceplus}%` : '-'}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}><IconButton size="small" onClick={() => openClientDialog(c)}><Edit /></IconButton><IconButton size="small" color="error" onClick={() => { setSelectedClient(c); setClientDeleteDialogOpen(true); }}><Delete /></IconButton></TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -482,15 +482,15 @@ const AdminPanel = () => {
       {filteredOperations.length === 0 && <Typography>Нет операций</Typography>}
       {filteredOperations.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
-            <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Цена</TableCell><TableCell>Ед. изм.</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
+            <TableHead><TableRow><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>Название</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'right', minWidth: 100 }}>Цена</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>Ед. изм.</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {filteredOperations.map((op) => (
                 <TableRow key={op.id}>
-                  <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" value={editOperationForm.name} onChange={handleEditOperationChange('name')} /> : op.name}</TableCell>
-                  <TableCell>{editingOperationId === op.id ? <TextField fullWidth size="small" type="number" value={editOperationForm.price} onChange={handleEditOperationChange('price')} inputProps={{ step: 0.01 }} /> : `${op.price?.toFixed(2)} ₽`}</TableCell>
-                   <TableCell>{editingOperationId === op.id ? <FormControl fullWidth size="small"><Select value={editOperationForm.unit} onChange={(e) => handleEditOperationChange('unit')(e)}><MenuItem value="SQUARE_METER">м²</MenuItem><MenuItem value="LINEAR_METER">п.м.</MenuItem><MenuItem value="PIECE">шт</MenuItem></Select></FormControl> : op.unit}</TableCell>
-                   <TableCell align="right">
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{editingOperationId === op.id ? <TextField fullWidth size="small" value={editOperationForm.name} onChange={handleEditOperationChange('name')} /> : op.name}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{editingOperationId === op.id ? <TextField fullWidth size="small" type="number" value={editOperationForm.price} onChange={handleEditOperationChange('price')} inputProps={{ step: 0.01 }} /> : `${op.price?.toFixed(2)} ₽`}</TableCell>
+                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{editingOperationId === op.id ? <FormControl fullWidth size="small"><Select value={editOperationForm.unit} onChange={(e) => handleEditOperationChange('unit')(e)}><MenuItem value="SQUARE_METER">м²</MenuItem><MenuItem value="LINEAR_METER">п.м.</MenuItem><MenuItem value="PIECE">шт</MenuItem></Select></FormControl> : op.unit}</TableCell>
+                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
                      {editingOperationId === op.id ? <><IconButton size="small" color="success" onClick={() => saveOperationEdit(op.id)}><Save /></IconButton><IconButton size="small" onClick={cancelEditOperation}><Cancel /></IconButton></> : <IconButton size="small" onClick={() => startEditOperation(op)}><Edit /></IconButton>}
                      <IconButton size="small" color="error" onClick={() => { setSelectedOperation(op); setOperationDeleteDialogOpen(true); }}><Delete /></IconButton>
                    </TableCell>
@@ -512,13 +512,13 @@ const AdminPanel = () => {
       {operationGroupsData.length === 0 && <Typography>Нет группировок</Typography>}
       {operationGroupsData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
-            <TableHead><TableRow><TableCell>Слово</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
+            <TableHead><TableRow><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>Слово</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {operationGroupsData.map((grp) => (
                 <TableRow key={grp.id}>
-                  <TableCell>{grp.name}</TableCell>
-                  <TableCell align="right">
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{grp.name}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
                     <IconButton size="small" onClick={() => openGroupDialog(grp)}><Edit /></IconButton>
                     <IconButton size="small" color="error" onClick={() => { setSelectedGroup(grp); setGroupDeleteDialogOpen(true); }}><Delete /></IconButton>
                   </TableCell>
@@ -540,15 +540,15 @@ const AdminPanel = () => {
       {workshopsData.length === 0 && <Typography>Нет цехов</Typography>}
       {workshopsData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
-            <TableHead><TableRow><TableCell>ID</TableCell><TableCell>Название</TableCell><TableCell>Операции</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
+            <TableHead><TableRow><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>ID</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>Название</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 200 }}>Операции</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {workshopsData.map((ws) => (
                 <TableRow key={ws.id}>
-                  <TableCell>{ws.id}</TableCell>
-                  <TableCell>{ws.name}</TableCell>
-                  <TableCell><Box display="flex" flexWrap="wrap" gap={0.5}>{(Array.isArray(ws.operationIds) ? ws.operationIds : []).map(id => { const op = operationsData.find(o => o.id === id); return <Chip key={id} label={op ? op.name : `#${id}`} size="small" variant="outlined" />; })}</Box></TableCell>
-                  <TableCell align="right">
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{ws.id}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{ws.name}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 200 }}><Box display="flex" flexWrap="wrap" gap={0.5}>{(Array.isArray(ws.operationIds) ? ws.operationIds : []).map(id => { const op = operationsData.find(o => o.id === id); return <Chip key={id} label={op ? op.name : `#${id}`} size="small" variant="outlined" />; })}</Box></TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
                     <IconButton size="small" onClick={() => openWorkshopDialog(ws)}><Edit /></IconButton>
                     <IconButton size="small" color="error" onClick={() => { setSelectedWorkshop(ws); setWorkshopDeleteDialogOpen(true); }}><Delete /></IconButton>
                   </TableCell>
@@ -579,35 +579,25 @@ const AdminPanel = () => {
       {employeesData.length === 0 && <Typography>Нет сотрудников</Typography>}
       {employeesData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
-             <TableHead><TableRow><TableCell>ID</TableCell><TableCell>ФИО</TableCell><TableCell>Логин</TableCell><TableCell>Должность</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell>Роль</TableCell><TableCell>Роли</TableCell><TableCell>Цех</TableCell><TableCell>% заработка</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
-            <TableBody>
-              {employeesData.map((emp) => (
-                <TableRow key={emp.id}>
-                  <TableCell>{emp.id}</TableCell>
-                  <TableCell>{emp.fullName || '-'}</TableCell>
-                  <TableCell>{emp.username || '-'}</TableCell>
-                  <TableCell>{emp.position || '-'}</TableCell>
-                  <TableCell>{emp.phone || '-'}</TableCell>
-                  <TableCell>{emp.email || '-'}</TableCell>
-                  <TableCell>{emp.roleId ? <Chip label={`#${emp.roleId}`} size="small" color="primary" /> : '-'}</TableCell>
-                  <TableCell>
-                    <Box display="flex" flexWrap="wrap" gap={0.5}>
-                      {(emp.roles || []).map(role => (
-                        <Chip key={role} label={role.replace('ROLE_', '')} size="small" variant="outlined" />
-                      ))}
-                      {(!emp.roles || emp.roles.length === 0) && '-'}
-                    </Box>
-                  </TableCell>
-                  <TableCell>{emp.workshopId ? `#${emp.workshopId} ${getWorkshopName(emp.workshopId)}` : '-'}</TableCell>
-                  <TableCell>{emp.managerCashPercent != null ? `${emp.managerCashPercent}%` : '-'}</TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => openEmployeeDialog(emp)}><Edit /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => { setSelectedEmployee(emp); setEmployeeDeleteDialogOpen(true); }}><Delete /></IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
+             <TableHead><TableRow><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>ID</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>ФИО</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Логин</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Должность</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Телефон</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 200 }}>Email</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Цех</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell></TableRow></TableHead>
+             <TableBody>
+               {employeesData.map((emp) => (
+                 <TableRow key={emp.id}>
+                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.id}</TableCell>
+                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.fullName || '-'}</TableCell>
+                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.username || '-'}</TableCell>
+                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.position || '-'}</TableCell>
+                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.phone || '-'}</TableCell>
+                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.email || '-'}</TableCell>
+                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 160 }}>{emp.workshopId ? `#${emp.workshopId} ${getWorkshopName(emp.workshopId)}` : '-'}</TableCell>
+                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                     <IconButton size="small" onClick={() => openEmployeeDialog(emp)}><Edit /></IconButton>
+                     <IconButton size="small" color="error" onClick={() => { setSelectedEmployee(emp); setEmployeeDeleteDialogOpen(true); }}><Delete /></IconButton>
+                   </TableCell>
+                 </TableRow>
+               ))}
+             </TableBody>
           </Table></TableContainer>
         </Box>
       )}
@@ -629,16 +619,16 @@ const AdminPanel = () => {
       {productsData.length === 0 && <Typography>Нет изделий</Typography>}
       {productsData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
-            <TableHead><TableRow><TableCell>Название</TableCell><TableCell>Артикул</TableCell><TableCell>Описание</TableCell><TableCell>Ед. изм.</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
+          <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
+            <TableHead><TableRow><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>Название</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Артикул</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 200 }}>Описание</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>Ед. изм.</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {productsData.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell>{p.name}</TableCell>
-                  <TableCell>{p.article || '-'}</TableCell>
-                  <TableCell>{p.description || '-'}</TableCell>
-                  <TableCell>{p.unit || 'шт'}</TableCell>
-                  <TableCell align="right">
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{p.name}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{p.article || '-'}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 200 }}>{p.description || '-'}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{p.unit || 'шт'}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
                     <IconButton size="small" onClick={() => openProductDialog(p)}><Edit /></IconButton>
                     <IconButton size="small" color="error" onClick={() => { setSelectedProduct(p); setProductDeleteDialogOpen(true); }}><Delete /></IconButton>
                   </TableCell>

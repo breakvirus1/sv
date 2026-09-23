@@ -413,14 +413,14 @@ const OrderDetail = ({ mode = 'view' }) => {
                 </Box>
 
                 <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
+                  <Table size="small" sx={{ fontSize: '0.875rem', borderCollapse: 'collapse' }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Материал</TableCell>
-                        <TableCell>Размер 1 (мм)</TableCell>
-                        <TableCell>Размер 2 (мм)</TableCell>
-                        <TableCell>Срок готовности</TableCell>
-                        <TableCell sx={{ width: 80 }}>Действия</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>Материал</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Размер 1 (мм)</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Размер 2 (мм)</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Срок готовности</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 80 }}>Действия</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -429,7 +429,7 @@ const OrderDetail = ({ mode = 'view' }) => {
                         const showSecond = material && material.unit === 'м2';
                         return (
                           <TableRow key={index}>
-                            <TableCell>
+                            <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
                               <FormControl fullWidth size="small">
                                 <Select
                                   value={item.materialId}
@@ -444,7 +444,7 @@ const OrderDetail = ({ mode = 'view' }) => {
                                 </Select>
                               </FormControl>
                             </TableCell>
-                            <TableCell>
+                            <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
                               <TextField
                                 fullWidth
                                 size="small"
@@ -456,7 +456,7 @@ const OrderDetail = ({ mode = 'view' }) => {
                               />
                             </TableCell>
                             {showSecond ? (
-                              <TableCell>
+                              <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
                                 <TextField
                                   fullWidth
                                   size="small"
@@ -468,9 +468,9 @@ const OrderDetail = ({ mode = 'view' }) => {
                                 />
                               </TableCell>
                             ) : (
-                              <TableCell />
+                              <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }} />
                             )}
-                            <TableCell>
+                            <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
                               <TextField
                                 fullWidth
                                 size="small"
@@ -480,7 +480,7 @@ const OrderDetail = ({ mode = 'view' }) => {
                                 InputLabelProps={{ shrink: true }}
                               />
                             </TableCell>
-                            <TableCell>
+                            <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
                               <IconButton onClick={() => removeItem(index)} color="error" size="small">
                                 <Delete />
                               </IconButton>

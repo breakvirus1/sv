@@ -115,6 +115,8 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       headerName: 'Наименование',
       flex: 2,
       editable: true,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-text',
       renderHeader: () => (
         <Tooltip title="Название материала, например: Сталь, Алюминий, Пластик">
           <span>Наименование</span>
@@ -127,7 +129,9 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       type: 'number',
       width: 120,
       editable: true,
-      valueFormatter: params => `${params.value} ₽`,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-number',
+      valueFormatter: params => `${params.value?.toFixed(2) ?? '0.00'} ₽`,
       renderHeader: () => (
         <Tooltip title="Цена за единицу материала в рублях">
           <span>Цена</span>
@@ -140,6 +144,8 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       type: 'number',
       width: 100,
       editable: true,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-number',
       renderHeader: () => (
         <Tooltip title="Количество материалов, требуется для производства">
           <span>Кол-во</span>
@@ -151,6 +157,8 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       headerName: 'Ед.изм.',
       width: 80,
       editable: true,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-text',
       renderHeader: () => (
         <Tooltip title="Единица измерения: шт, м, м2, м.п., кг и т.д.">
           <span>Ед.изм.</span>
@@ -163,6 +171,8 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       type: 'number',
       width: 110,
       editable: true,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-number',
       renderHeader: () => (
         <Tooltip title="Коэффициент отходов: 1 = 0% отходов, 1.1 = 10% отходов. Учитывает потери при раскрое">
           <span>Коэф.отх.</span>
@@ -174,7 +184,9 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       headerName: 'Стоимость',
       type: 'number',
       width: 130,
-      valueFormatter: params => `${params.value} ₽`,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-number',
+      valueFormatter: params => `${params.value?.toFixed(2) ?? '0.00'} ₽`,
       renderHeader: () => (
         <Tooltip title="Итоговая стоимость: цена × кол-во × коэффициент отходов">
           <span>Стоимость</span>
@@ -185,6 +197,8 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       field: 'actions',
       headerName: '',
       width: 60,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-actions',
       renderCell: (params) => (
         <IconButton color="error" onClick={() => deleteMaterial(params.row.id)}>
           <DeleteIcon />
@@ -199,6 +213,8 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       headerName: 'Наименование',
       flex: 2,
       editable: true,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-text',
       renderHeader: () => (
         <Tooltip title="Название операции или вида работы, например: Резка, гибка, сварка">
           <span>Наименование</span>
@@ -211,7 +227,9 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       type: 'number',
       width: 140,
       editable: true,
-      valueFormatter: params => `${params.value} ₽`,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-number',
+      valueFormatter: params => `${params.value?.toFixed(2) ?? '0.00'} ₽`,
       renderHeader: () => (
         <Tooltip title="Стоимость одной единицы работы (например, за метр, за штуку, за час)">
           <span>Цена за ед.</span>
@@ -224,6 +242,8 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       type: 'number',
       width: 100,
       editable: true,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-number',
       renderHeader: () => (
         <Tooltip title="Количество единиц работы (метров, штук, часов)">
           <span>Кол-во</span>
@@ -235,6 +255,8 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       headerName: 'Норма времени',
       width: 120,
       editable: true,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-text',
       renderHeader: () => (
         <Tooltip title="Нормативное время на выполнение операции в часах или минутах">
           <span>Норма времени</span>
@@ -246,7 +268,9 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       headerName: 'Стоимость',
       type: 'number',
       width: 130,
-      valueFormatter: params => `${params.value} ₽`,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-number',
+      valueFormatter: params => `${params.value?.toFixed(2) ?? '0.00'} ₽`,
       renderHeader: () => (
         <Tooltip title="Общая стоимость работы: цена за ед. × кол-во">
           <span>Стоимость</span>
@@ -257,6 +281,8 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
       field: 'actions',
       headerName: '',
       width: 60,
+      headerClassName: 'estimate-table-header',
+      cellClassName: 'estimate-table-cell estimate-table-cell-actions',
       renderCell: (params) => (
         <IconButton color="error" onClick={() => deleteOperation(params.row.id)}>
           <DeleteIcon />
@@ -266,7 +292,7 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
   ];
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <Paper sx={{ p: 3, '& .estimate-table-header': { fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', backgroundColor: '#f5f5f5' }, '& .estimate-table-cell': { padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }, '& .estimate-table-cell-text': { textAlign: 'left' }, '& .estimate-table-cell-number': { textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum"' }, '& .estimate-table-cell-actions': { textAlign: 'center' } }}>
       <Typography variant="h5" gutterBottom>Смета по калькулятору</Typography>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>

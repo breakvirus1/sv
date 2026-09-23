@@ -330,35 +330,34 @@ const ManagerOrderList = () => {
                  borderCollapse: 'collapse',
                }}
              >
-               <Box
-                 sx={{
-                   display: 'table-header-group',
-                   bgcolor: 'background.paper',
-                 }}
-               >
-                 <Box
-                   sx={{
-                     display: 'table-row',
-                     '& > *': {
-                       borderBottom: '1px solid',
-                       borderBottomColor: 'divider',
-                       fontWeight: 600,
-                       fontSize: '0.875rem',
-                       color: 'text.secondary',
-                     },
-                   }}
-                 >
-                   <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>№ заказа</Box>
-                   <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Клиент</Box>
-                   <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Менеджер</Box>
-                   <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right' }}>Сумма</Box>
-                   <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right' }}>Оплачено</Box>
-                   <Box sx={{ display: 'table-cell', padding: '12px 8px', textAlign: 'right' }}>Долг</Box>
-                   <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Статус</Box>
-                   <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Изменён</Box>
-                   <Box sx={{ display: 'table-cell', padding: '12px 8px' }}>Срок</Box>
-                 </Box>
-               </Box>
+                <Box
+                  sx={{
+                    display: 'table-header-group',
+                    bgcolor: 'background.paper',
+                    '& > *': {
+                      borderBottom: '2px solid',
+                      borderBottomColor: 'primary.main',
+                      '& > *': {
+                        fontWeight: 600,
+                        fontSize: '0.875rem',
+                        color: 'text.secondary',
+                        padding: '8px 16px',
+                      },
+                    },
+                  }}
+                >
+                  <Box sx={{ display: 'table-row' }}>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>№ заказа</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 180 }}>Клиент</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 180 }}>Менеджер</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', textAlign: 'right', minWidth: 120 }}>Сумма</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', textAlign: 'right', minWidth: 120 }}>Оплачено</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', textAlign: 'right', minWidth: 120 }}>Долг</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Статус</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 160 }}>Изменён</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Срок</Box>
+                  </Box>
+                </Box>
 
                <Box
                  sx={{
@@ -366,46 +365,46 @@ const ManagerOrderList = () => {
                  }}
                >
                  {allOrders.map((order) => (
-                   <Box
-                     key={order.id}
-                     onClick={() => navigate(`/manager/orders/${order.id}`)}
-                     sx={{
-                       display: 'table-row',
-                       cursor: 'pointer',
-                       '&:hover': {
-                         bgcolor: 'action.hover',
-                       },
-                       '& > *': {
-                         borderBottom: '1px solid',
-                         borderBottomColor: 'divider',
-                         padding: '10px 8px',
-                         fontSize: '0.875rem',
-                       },
-                     }}
-                   >
-                     <Box sx={{ display: 'table-cell' }}>{order.orderNumber}</Box>
-                     <Box sx={{ display: 'table-cell' }}>{order.client?.name || '—'}</Box>
-                     <Box sx={{ display: 'table-cell' }}>
-                       <Box display="flex" alignItems="center" gap={0.5}>
-                         <Person fontSize="small" color="action" />
-                         {order.manager?.fullName || '—'}
-                       </Box>
-                     </Box>
-                     <Box sx={{ display: 'table-cell', textAlign: 'right' }}>{order.totalAmount?.toFixed(2)} ₽</Box>
-                     <Box sx={{ display: 'table-cell', textAlign: 'right' }}>{order.paidAmount?.toFixed(2)} ₽</Box>
-                     <Box sx={{ display: 'table-cell', textAlign: 'right' }}>{order.debtAmount?.toFixed(2)} ₽</Box>
-                     <Box sx={{ display: 'table-cell' }}>
-                       <Chip
-                         label={getStatusLabel(order.status)}
-                         color={getStatusColor(order.status)}
-                         size="small"
-                       />
-                     </Box>
-                     <Box sx={{ display: 'table-cell' }}>
-                       {order.updatedAt ? new Date(order.updatedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
-                     </Box>
-                     <Box sx={{ display: 'table-cell' }}>{order.dueDate || ''}</Box>
-                   </Box>
+                    <Box
+                      key={order.id}
+                      onClick={() => navigate(`/manager/orders/${order.id}`)}
+                      sx={{
+                        display: 'table-row',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                        },
+                        '& > *': {
+                          borderBottom: '1px solid',
+                          borderBottomColor: 'divider',
+                          padding: '8px 16px',
+                          fontSize: '0.875rem',
+                        },
+                      }}
+                    >
+                      <Box sx={{ display: 'table-cell' }}>{order.orderNumber}</Box>
+                      <Box sx={{ display: 'table-cell' }}>{order.client?.name || '—'}</Box>
+                      <Box sx={{ display: 'table-cell' }}>
+                        <Box display="flex" alignItems="center" gap={0.5}>
+                          <Person fontSize="small" color="action" />
+                          {order.manager?.fullName || '—'}
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{order.totalAmount != null ? `${Number(order.totalAmount).toFixed(2)} ₽` : '—'}</Box>
+                      <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{order.paidAmount != null ? `${Number(order.paidAmount).toFixed(2)} ₽` : '—'}</Box>
+                      <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{order.debtAmount != null ? `${Number(order.debtAmount).toFixed(2)} ₽` : '—'}</Box>
+                      <Box sx={{ display: 'table-cell' }}>
+                        <Chip
+                          label={getStatusLabel(order.status)}
+                          color={getStatusColor(order.status)}
+                          size="small"
+                        />
+                      </Box>
+                      <Box sx={{ display: 'table-cell' }}>
+                        {order.updatedAt ? new Date(order.updatedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                      </Box>
+                      <Box sx={{ display: 'table-cell' }}>{order.dueDate || ''}</Box>
+                    </Box>
                  ))}
                </Box>
              </Box>

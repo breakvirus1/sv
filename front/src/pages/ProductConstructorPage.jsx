@@ -266,51 +266,51 @@ const ProductConstructorPage = () => {
         {materials.length > 0 && (
           <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>Материалы</Typography>
-            {!isMobile ? (
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ minWidth: 200 }}>Материал</TableCell>
-                      <TableCell sx={{ minWidth: 80 }}>Кол-во</TableCell>
-                      <TableCell sx={{ minWidth: 100 }}>Коэф. отход</TableCell>
-                      <TableCell sx={{ minWidth: 120 }}>Коэф. кол-ва</TableCell>
-                      <TableCell>Ед. изм.</TableCell>
-                      <TableCell>Стоимость</TableCell>
-                      <TableCell align="right" sx={{ width: 80 }}></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {materials.map((m) => (
-                      <TableRow key={m.id}>
-                        <TableCell sx={{ minWidth: 200 }}>
-                          <FormControl fullWidth size="small">
-                            <InputLabel>Материал</InputLabel>
-                            <Select value={m.materialId || ''} label="Материал" onChange={(e) => updateMaterial(m.id, 'materialId', Number(e.target.value))}>
-                              <MenuItem value="">Выберите материал</MenuItem>
-                              {allMaterials.map(mat => <MenuItem key={mat.id} value={mat.id}>{mat.name} — {mat.price?.toFixed(2)} ₽</MenuItem>)}
-                            </Select>
-                          </FormControl>
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 80 }}>
-                          <TextField size="small" type="number" value={m.quantity} onChange={(e) => updateMaterial(m.id, 'quantity', parseFloat(e.target.value) || 0)} inputProps={{ step: 0.01, min: 0 }} />
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 100 }}>
-                          <TextField size="small" type="number" value={m.wasteCoef} onChange={(e) => updateMaterial(m.id, 'wasteCoef', parseFloat(e.target.value) || 1)} inputProps={{ step: 0.1, min: 0 }} />
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 120 }}>
-                          <TextField size="small" type="number" value={m.coefficient} onChange={(e) => updateMaterial(m.id, 'coefficient', parseFloat(e.target.value) || 1)} inputProps={{ step: 0.1, min: 0 }} />
-                        </TableCell>
-                        <TableCell>{m.unit}</TableCell>
-                        <TableCell>{m.cost?.toFixed(2) || '0.00'} ₽</TableCell>
-                        <TableCell align="right">
-                          <IconButton color="error" onClick={() => deleteMaterial(m.id)}><Delete /></IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+             {!isMobile ? (
+               <TableContainer component={Paper} variant="outlined">
+                 <Table size="small" sx={{ fontSize: '0.875rem', borderCollapse: 'collapse' }}>
+                   <TableHead>
+                     <TableRow>
+                       <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 200 }}>Материал</TableCell>
+                       <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>Кол-во</TableCell>
+                       <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 100 }}>Коэф. отход</TableCell>
+                       <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Коэф. кол-ва</TableCell>
+                       <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>Ед. изм.</TableCell>
+                       <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'right', minWidth: 100 }}>Стоимость</TableCell>
+                       <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 80 }}></TableCell>
+                     </TableRow>
+                   </TableHead>
+                   <TableBody>
+                     {materials.map((m) => (
+                       <TableRow key={m.id}>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 200 }}>
+                           <FormControl fullWidth size="small">
+                             <InputLabel>Материал</InputLabel>
+                             <Select value={m.materialId || ''} label="Материал" onChange={(e) => updateMaterial(m.id, 'materialId', Number(e.target.value))}>
+                               <MenuItem value="">Выберите материал</MenuItem>
+                               {allMaterials.map(mat => <MenuItem key={mat.id} value={mat.id}>{mat.name} — {mat.price?.toFixed(2)} ₽</MenuItem>)}
+                             </Select>
+                           </FormControl>
+                         </TableCell>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 80 }}>
+                           <TextField size="small" type="number" value={m.quantity} onChange={(e) => updateMaterial(m.id, 'quantity', parseFloat(e.target.value) || 0)} inputProps={{ step: 0.01, min: 0 }} />
+                         </TableCell>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 100 }}>
+                           <TextField size="small" type="number" value={m.wasteCoef} onChange={(e) => updateMaterial(m.id, 'wasteCoef', parseFloat(e.target.value) || 1)} inputProps={{ step: 0.1, min: 0 }} />
+                         </TableCell>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 120 }}>
+                           <TextField size="small" type="number" value={m.coefficient} onChange={(e) => updateMaterial(m.id, 'coefficient', parseFloat(e.target.value) || 1)} inputProps={{ step: 0.1, min: 0 }} />
+                         </TableCell>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{m.unit}</TableCell>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{m.cost?.toFixed(2) || '0.00'} ₽</TableCell>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                           <IconButton color="error" onClick={() => deleteMaterial(m.id)}><Delete /></IconButton>
+                         </TableCell>
+                       </TableRow>
+                     ))}
+                   </TableBody>
+                 </Table>
+               </TableContainer>
             ) : (
               <Box>{materials.map(renderMaterialFields)}</Box>
             )}
@@ -323,47 +323,47 @@ const ProductConstructorPage = () => {
         {operations.length > 0 && (
           <Box>
             <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>Работы / Операции</Typography>
-            {!isMobile ? (
-               <TableContainer component={Paper} variant="outlined">
-                 <Table size="small">
-                   <TableHead>
-                     <TableRow>
-                       <TableCell sx={{ minWidth: 200 }}>Операция</TableCell>
-                       <TableCell sx={{ minWidth: 80 }}>Кол-во</TableCell>
-                       <TableCell sx={{ minWidth: 120 }}>Коэф. кол-ва</TableCell>
-                       <TableCell>Ед. изм.</TableCell>
-                       <TableCell>Стоимость</TableCell>
-                       <TableCell align="right" sx={{ width: 80 }}></TableCell>
-                     </TableRow>
-                   </TableHead>
-                  <TableBody>
-                    {operations.map((op) => (
-                      <TableRow key={op.id}>
-                        <TableCell sx={{ minWidth: 200 }}>
-                          <FormControl fullWidth size="small">
-                            <InputLabel>Операция</InputLabel>
-                            <Select value={op.operationId || ''} label="Операция" onChange={(e) => updateOperation(op.id, 'operationId', Number(e.target.value))}>
-                              <MenuItem value="">Выберите операцию</MenuItem>
-                              {allOperations.map(o => <MenuItem key={o.id} value={o.id}>{o.name} — {o.price?.toFixed(2)} ₽</MenuItem>)}
-                            </Select>
-                          </FormControl>
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 80 }}>
-                          <TextField size="small" type="number" value={op.quantity} onChange={(e) => updateOperation(op.id, 'quantity', parseFloat(e.target.value) || 0)} inputProps={{ step: 0.01, min: 0 }} />
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 120 }}>
-                          <TextField size="small" type="number" value={op.coefficient} onChange={(e) => updateOperation(op.id, 'coefficient', parseFloat(e.target.value) || 1)} inputProps={{ step: 0.1, min: 0 }} />
-                        </TableCell>
-                        <TableCell>{op.unit}</TableCell>
-                        <TableCell>{op.cost?.toFixed(2) || '0.00'} ₽</TableCell>
-                        <TableCell align="right">
-                          <IconButton color="error" onClick={() => deleteOperation(op.id)}><Delete /></IconButton>
-                        </TableCell>
+             {!isMobile ? (
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small" sx={{ fontSize: '0.875rem', borderCollapse: 'collapse' }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 200 }}>Операция</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>Кол-во</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Коэф. кол-ва</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>Ед. изм.</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'right', minWidth: 100 }}>Стоимость</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 80 }}></TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                   <TableBody>
+                     {operations.map((op) => (
+                       <TableRow key={op.id}>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 200 }}>
+                           <FormControl fullWidth size="small">
+                             <InputLabel>Операция</InputLabel>
+                             <Select value={op.operationId || ''} label="Операция" onChange={(e) => updateOperation(op.id, 'operationId', Number(e.target.value))}>
+                               <MenuItem value="">Выберите операцию</MenuItem>
+                               {allOperations.map(o => <MenuItem key={o.id} value={o.id}>{o.name} — {o.price?.toFixed(2)} ₽</MenuItem>)}
+                             </Select>
+                           </FormControl>
+                         </TableCell>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 80 }}>
+                           <TextField size="small" type="number" value={op.quantity} onChange={(e) => updateOperation(op.id, 'quantity', parseFloat(e.target.value) || 0)} inputProps={{ step: 0.01, min: 0 }} />
+                         </TableCell>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 120 }}>
+                           <TextField size="small" type="number" value={op.coefficient} onChange={(e) => updateOperation(op.id, 'coefficient', parseFloat(e.target.value) || 1)} inputProps={{ step: 0.1, min: 0 }} />
+                         </TableCell>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{op.unit}</TableCell>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{op.cost?.toFixed(2) || '0.00'} ₽</TableCell>
+                         <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                           <IconButton color="error" onClick={() => deleteOperation(op.id)}><Delete /></IconButton>
+                         </TableCell>
+                       </TableRow>
+                     ))}
+                   </TableBody>
+                 </Table>
+               </TableContainer>
             ) : (
               <Box>{operations.map(renderOperationFields)}</Box>
             )}

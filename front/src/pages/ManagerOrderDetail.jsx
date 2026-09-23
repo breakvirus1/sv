@@ -336,14 +336,14 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
                   <Button startIcon={<Add />} onClick={addItem} variant="outlined">Добавить позицию</Button>
                 </Box>
                 <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
+                  <Table size="small" sx={{ fontSize: '0.875rem', borderCollapse: 'collapse' }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Материал</TableCell>
-                        <TableCell>Размер 1</TableCell>
-                        <TableCell>Размер 2</TableCell>
-                        <TableCell>Срок готовности</TableCell>
-                        <TableCell sx={{ width: 80 }}>Действия</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>Материал</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Размер 1</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Размер 2</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Срок готовности</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 80 }}>Действия</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -351,8 +351,8 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
                         const material = materialsData.find(m => m.id === parseInt(item.materialId));
                         const showSecond = isM2(material);
                         return (
-                          <TableRow key={index}>
-                            <TableCell>
+                          <TableRow key={item.id || index}>
+                            <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
                               <FormControl fullWidth size="small">
                                 <Select value={item.materialId} onChange={(e) => updateItem(index, 'materialId', e.target.value)}>
                                   <MenuItem value="">Выберите материал</MenuItem>
@@ -364,7 +364,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
                                 </Select>
                               </FormControl>
                             </TableCell>
-                            <TableCell>
+                            <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
                               <Box display="flex" gap={0.5} alignItems="center">
                                 <TextField size="small" type="number" value={item.qty1value} onChange={(e) => updateItem(index, 'qty1value', e.target.value)} inputProps={{ min: 0, step: 0.001 }} placeholder={isM2(material) ? 'Ширина' : 'Длина'} sx={{ width: 100 }} />
                                 <Select size="small" value={item.qty1unit || 'м'} onChange={(e) => updateItem(index, 'qty1unit', e.target.value)} sx={{ width: 70 }}>
@@ -374,7 +374,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
                               </Box>
                             </TableCell>
                             {showSecond ? (
-                              <TableCell>
+                              <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
                                 <Box display="flex" gap={0.5} alignItems="center">
                                   <TextField size="small" type="number" value={item.qty2value} onChange={(e) => updateItem(index, 'qty2value', e.target.value)} inputProps={{ min: 0, step: 0.001 }} placeholder="Высота" sx={{ width: 100 }} />
                                   <Select size="small" value={item.qty2unit || 'м'} onChange={(e) => updateItem(index, 'qty2unit', e.target.value)} sx={{ width: 70 }}>
@@ -384,12 +384,12 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
                                 </Box>
                               </TableCell>
                             ) : (
-                              <TableCell />
+                              <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }} />
                             )}
-                            <TableCell>
+                            <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
                               <TextField fullWidth size="small" type="date" value={item.readyDate} onChange={(e) => updateItem(index, 'readyDate', e.target.value)} InputLabelProps={{ shrink: true }} />
                             </TableCell>
-                            <TableCell>
+                            <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
                               <IconButton onClick={() => removeItem(index)} color="error" size="small">
                                 <Delete />
                               </IconButton>

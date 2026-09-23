@@ -1069,26 +1069,26 @@ value={priceplus}
               <Typography variant="h6" mb={2}>Позиции заказа</Typography>
 
                <TableContainer component={Paper} variant="outlined">
-                 <Table size="small">
-                   <TableHead>
-                     <TableRow>
-                       <TableCell>Материал</TableCell>
-                       <TableCell>Размер 1</TableCell>
-                       <TableCell>Размер 2</TableCell>
-                       <TableCell>Операции</TableCell>
-                       <TableCell>Файл</TableCell>
-                       <TableCell>Срок готовности</TableCell>
-                       <TableCell sx={{ width: 80 }}>Действия</TableCell>
-                     </TableRow>
-                   </TableHead>
+                  <Table size="small" sx={{ fontSize: '0.875rem', borderCollapse: 'collapse' }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>Материал</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Размер 1</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Размер 2</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Операции</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Файл</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Срок готовности</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 80 }}>Действия</TableCell>
+                      </TableRow>
+                    </TableHead>
                   <TableBody>
                     {formData.items.map((item, index) => {
                       const material = materialsData.find(m => m.id === parseInt(item.materialId));
                       const showSecond = isM2(material);
                       return (
-                        <TableRow key={item.id || index}>
-                          <TableCell>
-                            <FormControl fullWidth size="small">
+                         <TableRow key={item.id || index}>
+                           <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
+                             <FormControl fullWidth size="small">
                               <Select
                                 value={item.materialId}
                                 onChange={(e) => updateItem(index, 'materialId', e.target.value)}
@@ -1101,9 +1101,9 @@ value={priceplus}
                                 ))}
                               </Select>
                             </FormControl>
-                          </TableCell>
-                          <TableCell>
-                            <Box display="flex" gap={0.5} alignItems="center">
+                           </TableCell>
+                           <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
+                             <Box display="flex" gap={0.5} alignItems="center">
                               <TextField
                                 size="small"
                                 type="number"
@@ -1125,7 +1125,7 @@ value={priceplus}
                             </Box>
                           </TableCell>
                           {showSecond ? (
-                            <TableCell>
+                             <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
                               <TextField
                                 size="small"
                                 type="number"
@@ -1136,11 +1136,11 @@ value={priceplus}
                                 sx={{ width: 100 }}
                               />
                             </TableCell>
-                          ) : (
-                            <TableCell />
-                          )}
-                          <TableCell>
-                            <Button
+                           ) : (
+                             <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }} />
+                           )}
+                           <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 160 }}>
+                             <Button
                               variant="outlined"
                               size="small"
                               onClick={() => handleOpenGroupSelectionDialog(index)}
@@ -1163,9 +1163,9 @@ value={priceplus}
                                 ))}
                               </Box>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            {item.fileUrl ? (
+                           </TableCell>
+                           <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 140 }}>
+                             {item.fileUrl ? (
                               <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
                                 <Link
                                    href={`http://${import.meta.env.VITE_SERVER_IP || '192.168.1.40'}:8085${item.fileUrl}`}
@@ -1185,9 +1185,9 @@ value={priceplus}
                                 Загрузить
                               </Button>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            <TextField
+                           </TableCell>
+                           <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
+                             <TextField
                               fullWidth
                               size="small"
                               type="date"
@@ -1195,9 +1195,9 @@ value={priceplus}
                               onChange={(e) => updateItem(index, 'readyDate', e.target.value)}
                               InputLabelProps={{ shrink: true }}
                             />
-                          </TableCell>
-                          <TableCell>
-                            <IconButton onClick={() => removeItem(index)} color="error" size="small">
+                           </TableCell>
+                           <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                             <IconButton onClick={() => removeItem(index)} color="error" size="small">
                               <Delete />
                             </IconButton>
                           </TableCell>
