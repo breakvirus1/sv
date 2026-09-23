@@ -46,7 +46,7 @@ const AdminPanel = () => {
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientDeleteDialogOpen, setClientDeleteDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
-  const [clientForm, setClientForm] = useState({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' });
+  const [clientForm, setClientForm] = useState({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '', priceplus: '' });
 
   // ---- Materials state ----
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
@@ -332,7 +332,7 @@ const AdminPanel = () => {
   // ---- Handlers ----
   const handleTabChange = (_event, newValue) => { setTab(newValue); };
 
-  const resetClientForm = () => { setClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' }); setSelectedClient(null); };
+  const resetClientForm = () => { setClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '', priceplus: '' }); setSelectedClient(null); };
   const resetMaterialForm = () => { setMaterialForm({ name: '', unit: '', price: '', wasteCoefficient: '1' }); setSelectedMaterial(null); };
   const resetOperationForm = () => { setOperationForm({ name: '', unit: 'SQUARE_METER', price: '' }); setSelectedOperation(null); };
   const resetGroupForm = () => { setGroupForm({ name: '' }); setSelectedGroup(null); };
@@ -341,7 +341,7 @@ const AdminPanel = () => {
   const resetProductForm = () => { setProductForm({ name: '', article: '', description: '', width: '', height: '', unit: 'шт', basePrice: '', category: '' }); setSelectedProduct(null); };
 
   const openClientDialog = (client = null) => {
-    if (client) { setSelectedClient(client); setClientForm({ name: client.name || '', type: client.type || 'PRIVATE', contactPerson: client.contactPerson || '', phone: client.phone || '', email: client.email || '' }); } else { resetClientForm(); }
+    if (client) { setSelectedClient(client); setClientForm({ name: client.name || '', type: client.type || 'PRIVATE', contactPerson: client.contactPerson || '', phone: client.phone || '', email: client.email || '', priceplus: client.priceplus != null ? String(client.priceplus) : '' }); } else { resetClientForm(); }
     setClientDialogOpen(true);
   };
   const openMaterialDialog = (mat = null) => {
@@ -393,7 +393,7 @@ const AdminPanel = () => {
 
   const handleClientSubmit = () => {
     if (!clientForm.name) { showNotification('Введите название', 'error'); return; }
-    const payload = { ...clientForm };
+    const payload = { ...clientForm, priceplus: clientForm.priceplus ? parseFloat(clientForm.priceplus) : null };
     selectedClient ? updateClientMutation.mutate({ id: selectedClient.id, data: payload }) : createClientMutation.mutate(payload);
   };
   const handleMaterialSubmit = () => {
@@ -456,10 +456,10 @@ const AdminPanel = () => {
       {clientsData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
           <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto' }}>
-            <TableHead><TableRow><TableCell>Имя</TableCell><TableCell>Тип</TableCell><TableCell>Контактное лицо</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
+            <TableHead><TableRow><TableCell>Имя</TableCell><TableCell>Тип</TableCell><TableCell>Контактное лицо</TableCell><TableCell>Телефон</TableCell><TableCell>Email</TableCell><TableCell align="right">% добавки</TableCell><TableCell align="right" sx={{ width: 120 }}>Действия</TableCell></TableRow></TableHead>
             <TableBody>
               {clientsData.map((c) => (
-                <TableRow key={c.id}><TableCell>{c.name}</TableCell><TableCell>{c.type}</TableCell><TableCell>{c.contactPerson || '-'}</TableCell><TableCell>{c.phone || '-'}</TableCell><TableCell>{c.email || '-'}</TableCell>
+                <TableRow key={c.id}><TableCell>{c.name}</TableCell><TableCell>{c.type}</TableCell><TableCell>{c.contactPerson || '-'}</TableCell><TableCell>{c.phone || '-'}</TableCell><TableCell>{c.email || '-'}</TableCell><TableCell align="right">{c.priceplus != null ? `${c.priceplus}%` : '-'}</TableCell>
                   <TableCell align="right"><IconButton size="small" onClick={() => openClientDialog(c)}><Edit /></IconButton><IconButton size="small" color="error" onClick={() => { setSelectedClient(c); setClientDeleteDialogOpen(true); }}><Delete /></IconButton></TableCell>
                 </TableRow>
               ))}
@@ -691,6 +691,7 @@ const AdminPanel = () => {
           <TextField fullWidth margin="dense" label="Контактное лицо" value={clientForm.contactPerson} onChange={(e) => setClientForm({ ...clientForm, contactPerson: e.target.value })} />
           <TextField fullWidth margin="dense" label="Телефон" value={clientForm.phone} onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })} />
           <TextField fullWidth margin="dense" label="Email" value={clientForm.email} onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })} />
+          <TextField fullWidth margin="dense" label="Процент добавки (priceplus)" type="number" value={clientForm.priceplus} onChange={(e) => setClientForm({ ...clientForm, priceplus: e.target.value })} inputProps={{ min: 0, max: 100, step: 0.01 }} />
         </DialogContent>
         <DialogActions><Button onClick={() => setClientDialogOpen(false)}>Отмена</Button><Button onClick={handleClientSubmit} variant="contained">Сохранить</Button></DialogActions>
       </Dialog>
