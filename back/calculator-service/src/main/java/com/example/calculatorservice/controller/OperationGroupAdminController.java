@@ -30,11 +30,15 @@ public class OperationGroupAdminController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping
     public ResponseEntity<List<OperationGroupDto>> getAllOperationGroups() {
-        return ResponseEntity.ok(
-                operationService.getAllOperationGroups().stream()
-                        .map(this::toDto)
-                        .toList()
-        );
+        try {
+            return ResponseEntity.ok(
+                    operationService.getAllOperationGroups().stream()
+                            .map(this::toDto)
+                            .toList()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.ok(List.of());
+        }
     }
 
     /**
