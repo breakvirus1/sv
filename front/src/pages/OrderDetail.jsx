@@ -49,6 +49,7 @@ const OrderDetail = ({ mode = 'view' }) => {
   const username = user?.username;
   const isAdmin = user?.roles?.includes('ROLE_ADMIN');
   const isManager = user?.roles?.includes('ROLE_MANAGER');
+  const getOrdersRedirect = () => (isManager && !isAdmin ? '/orders?my=true' : '/orders');
 
   // ==================== Common State ====================
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -157,7 +158,7 @@ const OrderDetail = ({ mode = 'view' }) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
-      setTimeout(() => navigate('/orders'), 1500);
+      setTimeout(() => navigate(getOrdersRedirect()), 1500);
     },
     onError: (err) => {
       setNotification({ open: true, message: `Ошибка: ${err.response?.data?.message || err.message}`, severity: 'error' });

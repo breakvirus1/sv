@@ -8,11 +8,16 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const CreateProductOrder = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+  const isManager = user?.roles?.includes('ROLE_MANAGER');
+  const getOrdersRedirect = () => (isManager && !isAdmin ? '/orders?my=true' : '/orders');
   const [products, setProducts] = useState([]);
   const [selectedPositions, setSelectedPositions] = useState([]);
   const [clients, setClients] = useState([]);
@@ -181,7 +186,7 @@ const CreateProductOrder = () => {
 
       await api.post('/api/v1/orders', payload);
       setNotification({ open: true, message: 'Заказ успешно создан', severity: 'success' });
-      setTimeout(() => navigate('/orders'), 1000);
+      setTimeout(() => navigate(getOrdersRedirect()), 1000);
     } catch (err) {
       console.error('Failed to save order', err);
       setNotification({ open: true, message: 'Ошибка создания заказа: ' + (err.response?.data?.message || err.message), severity: 'error' });

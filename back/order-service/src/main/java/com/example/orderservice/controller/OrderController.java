@@ -72,8 +72,8 @@ public class OrderController {
                       cb.lessThanOrEqualTo(root.get("orderDate"), toDate));
           }
 
-          Pageable explicitPageable = PageRequest.of(pageable.getPageNumber(), size, pageable.getSort());
-          Page<OrderResponse> page = orderService.getAllOrders(spec, explicitPageable);
+           Pageable explicitPageable = PageRequest.of(pageable.getPageNumber(), size, pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.DESC, "createdAt"));
+           Page<OrderResponse> page = orderService.getAllOrders(spec, explicitPageable);
           return ResponseEntity.ok(page);
       }
 
