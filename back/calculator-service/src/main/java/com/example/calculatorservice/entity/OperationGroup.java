@@ -12,11 +12,7 @@ import lombok.Setter;
 @Table(name = "operation_groups", schema = "svschema")
 @Getter
 @Setter
-public class OperationGroup {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class OperationGroup extends BaseEntity {
 
     @Column(nullable = false, length = 255, unique = true)
     private String name;
