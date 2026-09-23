@@ -45,6 +45,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const username = user?.username;
+  const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+  const isManager = user?.roles?.includes('ROLE_MANAGER');
+  const getOrdersRedirect = () => (isManager && !isAdmin ? '/orders?my=true' : '/orders');
 
   // ── State: Form Data ──
   const [formData, setFormData] = useState({
@@ -589,7 +592,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
 
 const handleClose = () => {
     if (closeWindow) closeWindow();
-    else navigate('/orders');
+    else navigate(getOrdersRedirect());
   };
 
   const [totalOrderAmount, setTotalOrderAmount] = useState(0);
@@ -758,7 +761,7 @@ const handleSubmit = async (e) => {
 
       setTimeout(() => {
         if (closeWindow) closeWindow();
-        else navigate('/orders');
+        else navigate(getOrdersRedirect());
       }, 1500);
     } catch (err) {
       setNotification({
