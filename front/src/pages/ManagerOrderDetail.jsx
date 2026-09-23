@@ -132,7 +132,8 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
     type: 'PRIVATE',
     contactPerson: '',
     phone: '',
-    email: ''
+    email: '',
+    priceplus: ''
   });
 
   const createClientMutation = useMutation({
@@ -140,7 +141,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       setClientDialogOpen(false);
-      setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' });
+      setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '', priceplus: '' });
       setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
     },
     onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
@@ -279,7 +280,10 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
       setNotification({ open: true, message: 'Введите название клиента', severity: 'error' });
       return;
     }
-    createClientMutation.mutate(newClientForm);
+    createClientMutation.mutate({
+      ...newClientForm,
+      priceplus: newClientForm.priceplus ? parseFloat(newClientForm.priceplus) : null
+    });
   };
 
   const handleCreateSubmit = (e) => {
