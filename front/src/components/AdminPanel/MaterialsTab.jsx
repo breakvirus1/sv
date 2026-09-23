@@ -181,24 +181,24 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
       {materialsData.length === 0 && <Typography>Нет данных</Typography>}
       {materialsData.length > 0 && (
         <TableContainer component={Paper}>
-          <Table size="small" sx={{ width: 'auto' }}>
+          <Table size="small" sx={{ width: 'auto', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
             <TableHead>
               <TableRow>
-                <TableCell>Название</TableCell>
-                <TableCell>Ед. изм.</TableCell>
-                <TableCell>Цена</TableCell>
-                <TableCell>Коэф. отход</TableCell>
-                <TableCell align="right" sx={{ width: 120 }}>Действия</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>Название</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>Ед. изм.</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'right', minWidth: 100 }}>Цена</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Коэф. отход</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {materialsData.map((mat) => (
                 <TableRow key={mat.id}>
-                  <TableCell>{mat.name}</TableCell>
-                  <TableCell>{mat.unit}</TableCell>
-                  <TableCell>{mat.price?.toFixed(2)} ₽</TableCell>
-                  <TableCell>{mat.wasteCoefficient?.toString()}</TableCell>
-                  <TableCell align="right">
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 180 }}>{mat.name}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 80 }}>{mat.unit}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right', fontVariantNumeric: 'tabular-nums', minWidth: 100 }}>{mat.price?.toFixed(2)} ₽</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 120 }}>{mat.wasteCoefficient?.toString()}</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center', minWidth: 100 }}>
                     <IconButton size="small" onClick={() => onEditClick(mat)}><Edit /></IconButton>
                     <IconButton size="small" color="error" onClick={() => onDeleteClick(mat)}><Delete /></IconButton>
                     <Button size="small" variant="outlined" onClick={() => openOpsDialog(mat)}>
