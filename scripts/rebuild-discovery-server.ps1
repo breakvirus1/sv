@@ -45,7 +45,7 @@ if (-not (Test-DockerRunning)) {
 }
 
 Write-Host "=== Building $SERVICE with Maven ==="
-mvn clean install -pl "back/$SERVICE" -am -Dmaven.test.skip=true
+mvn clean install -pl "back/$SERVICE" -am -DskipTests
 
 Write-Host "=== Rebuilding $SERVICE Docker container (no cache) ==="
 docker compose build --no-cache $SERVICE
