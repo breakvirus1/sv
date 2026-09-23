@@ -98,6 +98,12 @@ const OrdersList = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {
+    if (myOrders && managerId) {
+      setSelectedManagerId(String(managerId));
+    }
+  }, [myOrders, managerId]);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery.trim());
     }, 300);
@@ -411,45 +417,45 @@ const OrdersList = () => {
                             fontSize: '0.875rem',
                           },
                         }}
-                      >
-                        <Box sx={{ display: 'table-cell' }}>{order.orderNumber}</Box>
-                        <Box sx={{ display: 'table-cell' }}>{order.client?.name || '—'}</Box>
-                        <Box sx={{ display: 'table-cell' }}>
-                          <Box display="flex" alignItems="center" gap={0.5}>
-                            <Person fontSize="small" color="action" />
-                            {order.manager?.fullName || '—'}
-                          </Box>
-                        </Box>
-                        <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{order.totalAmount != null ? `${Number(order.totalAmount).toFixed(2)} ₽` : '—'}</Box>
-                        <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{order.paidAmount != null ? `${Number(order.paidAmount).toFixed(2)} ₽` : '—'}</Box>
-                        <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{order.debtAmount != null ? `${Number(order.debtAmount).toFixed(2)} ₽` : '—'}</Box>
-                        <Box sx={{ display: 'table-cell' }}>
-                          <Chip
-                            label={getStatusLabel(order.status)}
-                            color={getStatusColor(order.status)}
-                            size="small"
-                          />
-                        </Box>
-                        <Box sx={{ display: 'table-cell' }}>
-                          {order.updatedAt ? new Date(order.updatedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
-                        </Box>
-                        <Box sx={{ display: 'table-cell' }}>{order.dueDate || ''}</Box>
-                        <Box sx={{ display: 'table-cell' }}>{order.workshopId || '—'}</Box>
-                        {isAdmin && (
-                          <Box sx={{ display: 'table-cell', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                            {order.status === 'READY' && (
-                              <Button
-                                size="small"
-                                color="error"
-                                startIcon={<Close />}
-                                onClick={(e) => { e.stopPropagation(); handleCloseOrder(order); }}
-                              >
-                                Закрыть
-                              </Button>
-                            )}
-                          </Box>
-                        )}
-                      </Box>
+                       >
+                         <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.orderNumber}</Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 180 }}>{order.client?.name || '—'}</Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 180 }}>
+                           <Box display="flex" alignItems="center" gap={0.5}>
+                             <Person fontSize="small" color="action" />
+                             {order.manager?.fullName || '—'}
+                           </Box>
+                         </Box>
+                         <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums', minWidth: 120 }}>{order.totalAmount != null ? `${Number(order.totalAmount).toFixed(2)} ₽` : '—'}</Box>
+                         <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums', minWidth: 120 }}>{order.paidAmount != null ? `${Number(order.paidAmount).toFixed(2)} ₽` : '—'}</Box>
+                         <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums', minWidth: 120 }}>{order.debtAmount != null ? `${Number(order.debtAmount).toFixed(2)} ₽` : '—'}</Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 120 }}>
+                           <Chip
+                             label={getStatusLabel(order.status)}
+                             color={getStatusColor(order.status)}
+                             size="small"
+                           />
+                         </Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 160 }}>
+                           {order.updatedAt ? new Date(order.updatedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                         </Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.dueDate || ''}</Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.workshopId || '—'}</Box>
+                         {isAdmin && (
+                           <Box sx={{ display: 'table-cell', textAlign: 'center', minWidth: 100 }} onClick={(e) => e.stopPropagation()}>
+                             {order.status === 'READY' && (
+                               <Button
+                                 size="small"
+                                 color="error"
+                                 startIcon={<Close />}
+                                 onClick={(e) => { e.stopPropagation(); handleCloseOrder(order); }}
+                               >
+                                 Закрыть
+                               </Button>
+                             )}
+                           </Box>
+                         )}
+                       </Box>
                     ))}
                   </Box>
                 </Box>
