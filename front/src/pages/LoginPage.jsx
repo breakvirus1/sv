@@ -38,9 +38,6 @@ const LoginPage = () => {
 
   return (
     <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={3} px={2}>
-      <Box textAlign="center">
-        <Typography variant="h4" gutterBottom>Авторизация</Typography>
-      </Box>
 
       <Box component="form" onSubmit={handlePasswordLogin} display="flex" flexDirection="column" gap={2} width="100%" maxWidth={400}>
         <TextField label="Логин" value={username} onChange={(e) => setUsername(e.target.value)} required fullWidth autoFocus />
