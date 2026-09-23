@@ -100,7 +100,7 @@ const ProductConstructorPage = () => {
             updated.unit = op.unit || 'шт';
           }
         }
-        if (['pricePerUnit', 'quantity', 'coefficient'].includes(field)) {
+        if (['operationId', 'pricePerUnit', 'quantity', 'coefficient'].includes(field)) {
           updated.cost = Number((updated.pricePerUnit * updated.quantity * (updated.coefficient || 1)).toFixed(2));
         }
         return updated;
