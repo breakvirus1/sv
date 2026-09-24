@@ -10,7 +10,7 @@ import org.mapstruct.Named;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
 public interface CalculationMapper {
 
     @Mapping(target = "materialName", source = "material.name")
@@ -27,7 +27,7 @@ public interface CalculationMapper {
     OperationResultDto toOperationResult(CalculationOperation op);
 
     @Named("operationUnit")
-    static String operationUnit(com.example.calculatorservice.entity.Operation operation) {
+    default String operationUnit(com.example.calculatorservice.entity.Operation operation) {
         if (operation == null || operation.getUnit() == null) {
             return null;
         }
