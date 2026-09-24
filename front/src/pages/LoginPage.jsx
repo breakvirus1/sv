@@ -17,12 +17,14 @@ const LoginPage = () => {
     const result = await loginWithPassword(username, password)
     setSubmitting(false)
     if (result.success) {
-      const roles = result.roles || []
-      if (roles.includes('ROLE_PRODUCTION')) {
-        navigate('/production')
-      } else {
-        navigate('/orders')
-      }
+      setTimeout(() => {
+        const roles = result.roles || user?.roles || []
+        if (roles.includes('ROLE_PRODUCTION')) {
+          navigate('/production')
+        } else {
+          navigate('/orders')
+        }
+      }, 50)
     }
   }
 
