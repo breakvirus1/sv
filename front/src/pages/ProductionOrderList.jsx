@@ -85,7 +85,7 @@ const OrderRow = ({ order, onNavigate }) => {
         <Box sx={{ flex: 0.8, minWidth: 120 }}>
           <Typography variant="body2" fontWeight="medium">{order.orderNumber}</Typography>
         </Box>
-        <Box sx={{ flex: 1.5, minWidth: 180, textAlign: 'center' }}>
+        <Box sx={{ flex: 1.5, minWidth: 180 }}>
           <Typography variant="body2">{order.client?.name || '—'}</Typography>
         </Box>
         <Box sx={{ flex: 1.2, minWidth: 180, textAlign: 'center' }} display="flex" alignItems="center" gap={0.5}>
@@ -293,7 +293,7 @@ const ProductionOrderList = () => {
     <Paper sx={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', m: 0, p: 0 }}>
        <Box sx={{ display: 'flex', p: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', bgcolor: 'grey.50', flexShrink: 0 }}>
          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', flex: 0.8, minWidth: 120 }}>№ заказа</Typography>
-         <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', flex: 1.5, minWidth: 180, textAlign: 'center' }}>Клиент</Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', flex: 1.5, minWidth: 180 }}>Клиент</Typography>
          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', flex: 1.2, minWidth: 180, textAlign: 'center' }}>Менеджер</Typography>
          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', flex: 1, minWidth: 120, textAlign: 'center' }}>Статус</Typography>
          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', flex: 1, minWidth: 160, textAlign: 'center' }}>Изменён</Typography>

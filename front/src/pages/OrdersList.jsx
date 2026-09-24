@@ -355,7 +355,7 @@ const OrdersList = () => {
                 >
                   <Box sx={{ display: 'table-row' }}>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>№ заказа</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 180, textAlign: 'center' }}>Клиент</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 180 }}>Клиент</Box>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 180, textAlign: 'center' }}>Менеджер</Box>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120, textAlign: 'right' }}>Сумма</Box>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120, textAlign: 'right' }}>Оплачено</Box>
@@ -419,7 +419,7 @@ const OrdersList = () => {
                         }}
                         >
                          <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.orderNumber}</Box>
-                         <Box sx={{ display: 'table-cell', minWidth: 180, textAlign: 'center' }}>{order.client?.name || '—'}</Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 180 }}>{order.client?.name || '—'}</Box>
                          <Box sx={{ display: 'table-cell', minWidth: 180, textAlign: 'center' }}>
                            <Box display="flex" alignItems="center" gap={0.5}>
                              <Person fontSize="small" color="action" />
