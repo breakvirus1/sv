@@ -17,7 +17,7 @@ const LoginPage = () => {
     const result = await loginWithPassword(username, password)
     setSubmitting(false)
     if (result.success) {
-      const roles = user?.roles || []
+      const roles = result.roles || []
       if (roles.includes('ROLE_PRODUCTION')) {
         navigate('/production')
       } else {
