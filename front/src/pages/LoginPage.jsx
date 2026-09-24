@@ -5,7 +5,7 @@ import { Box, Button, Typography, TextField, Alert } from '@mui/material'
 
 const LoginPage = () => {
   const navigate = useNavigate()
-  const { loginWithPassword, login, isAuthenticated, authError, setAuthError } = useAuth()
+  const { loginWithPassword, login, isAuthenticated, authError, setAuthError, user } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -17,7 +17,12 @@ const LoginPage = () => {
     const result = await loginWithPassword(username, password)
     setSubmitting(false)
     if (result.success) {
-      navigate('/orders')
+      const roles = user?.roles || []
+      if (roles.includes('ROLE_PRODUCTION')) {
+        navigate('/production/orders')
+      } else {
+        navigate('/orders')
+      }
     }
   }
 
