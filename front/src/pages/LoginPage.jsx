@@ -19,7 +19,7 @@ const LoginPage = () => {
     if (result.success) {
       const roles = user?.roles || []
       if (roles.includes('ROLE_PRODUCTION')) {
-        navigate('/production/orders')
+        navigate('/production')
       } else {
         navigate('/orders')
       }
