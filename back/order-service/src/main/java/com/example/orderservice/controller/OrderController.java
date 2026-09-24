@@ -74,8 +74,15 @@ public class OrderController {
 
            Pageable explicitPageable = PageRequest.of(pageable.getPageNumber(), size, pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.DESC, "createdAt"));
            Page<OrderResponse> page = orderService.getAllOrders(spec, explicitPageable);
-          return ResponseEntity.ok(page);
-      }
+           return ResponseEntity.ok(page);
+       }
+
+       @Operation(summary = "Получить опции для фильтров")
+       @GetMapping("/filter-options")
+       @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+       public ResponseEntity<java.util.Map<String, java.util.List<java.util.Map<String, Object>>>> getFilterOptions() {
+           return ResponseEntity.ok(orderService.getFilterOptions());
+       }
 
     /**
      * Получить детальную информацию о заказе.
