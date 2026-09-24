@@ -350,9 +350,9 @@ const ManagerOrderList = () => {
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>№ заказа</Box>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 180 }}>Клиент</Box>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 180 }}>Менеджер</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', textAlign: 'right', minWidth: 120 }}>Сумма</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', textAlign: 'right', minWidth: 120 }}>Оплачено</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', textAlign: 'right', minWidth: 120 }}>Долг</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Сумма</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Оплачено</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Долг</Box>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Статус</Box>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 160 }}>Изменён</Box>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Срок</Box>
@@ -390,9 +390,9 @@ const ManagerOrderList = () => {
                            {order.manager?.fullName || '—'}
                          </Box>
                        </Box>
-                       <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums', minWidth: 120 }}>{order.totalAmount != null ? `${Number(order.totalAmount).toFixed(2)} ₽` : '—'}</Box>
-                       <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums', minWidth: 120 }}>{order.paidAmount != null ? `${Number(order.paidAmount).toFixed(2)} ₽` : '—'}</Box>
-                       <Box sx={{ display: 'table-cell', textAlign: 'right', fontVariantNumeric: 'tabular-nums', minWidth: 120 }}>{order.debtAmount != null ? `${Number(order.debtAmount).toFixed(2)} ₽` : '—'}</Box>
+                       <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.totalAmount != null ? `${Number(order.totalAmount).toFixed(2)} ₽` : '—'}</Box>
+                       <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.paidAmount != null ? `${Number(order.paidAmount).toFixed(2)} ₽` : '—'}</Box>
+                       <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.debtAmount != null ? `${Number(order.debtAmount).toFixed(2)} ₽` : '—'}</Box>
                        <Box sx={{ display: 'table-cell', minWidth: 120 }}>
                          <Chip
                            label={getStatusLabel(order.status)}
