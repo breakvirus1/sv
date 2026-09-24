@@ -356,6 +356,8 @@ const ManagerOrderList = () => {
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120, textAlign: 'center' }}>Статус</Box>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 160, textAlign: 'center' }}>Изменён</Box>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120, textAlign: 'center' }}>Срок</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120, textAlign: 'center' }}>Цех</Box>
+                    {isAdmin && <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 100 }}>Действия</Box>}
                   </Box>
                 </Box>
 
@@ -403,8 +405,23 @@ const ManagerOrderList = () => {
                        <Box sx={{ display: 'table-cell', minWidth: 160, textAlign: 'center' }}>
                          {order.updatedAt ? new Date(order.updatedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
                        </Box>
-                       <Box sx={{ display: 'table-cell', minWidth: 120, textAlign: 'center' }}>{order.dueDate || ''}</Box>
-                     </Box>
+                        <Box sx={{ display: 'table-cell', minWidth: 120, textAlign: 'center' }}>{order.dueDate || ''}</Box>
+                        <Box sx={{ display: 'table-cell', minWidth: 120, textAlign: 'center' }}>{order.workshopId || '—'}</Box>
+                        {isAdmin && (
+                          <Box sx={{ display: 'table-cell', minWidth: 100 }} onClick={(e) => e.stopPropagation()}>
+                            {order.status === 'READY' && (
+                              <Button
+                                size="small"
+                                color="error"
+                                startIcon={<Close />}
+                                onClick={(e) => { e.stopPropagation(); handleCloseOrder(order); }}
+                              >
+                                Закрыть
+                              </Button>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
                   ))}
                </Box>
              </Box>
