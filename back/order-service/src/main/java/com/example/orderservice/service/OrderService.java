@@ -21,6 +21,7 @@ import com.example.orderservice.product.ProductMaterial;
 import com.example.orderservice.product.ProductOperation;
 import com.example.orderservice.product.repository.ProductRepository;
 import com.example.orderservice.mapper.OrderMapper;
+import com.example.orderservice.repository.ClientRepository;
 import com.example.orderservice.repository.EmployeeRepository;
 import com.example.orderservice.repository.FileAttachmentRepository;
 import com.example.orderservice.repository.OrderCommentRepository;
@@ -93,6 +94,7 @@ public class OrderService {
     private final JdbcTemplate jdbcTemplate;
     private final RestTemplate restTemplate;
     private final EmployeeRepository employeeRepository;
+    private final ClientRepository clientRepository;
     private final StatisticSyncService statisticSyncService;
 
     @Value("${calculator.service.url}")
@@ -109,6 +111,45 @@ public class OrderService {
         spec = spec.and(workshopFilterForCurrentUser());
         return orderRepository.findAll(spec, pageable)
                 .map(orderMapper::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<String, java.util.List<java.util.Map<String, Object>>> getFilterOptions() {
+        java.util.List<java.util.Map<String, Object>> clients = clientRepository.findAll().stream()
+                .filter(c -> !c.getDeleted())
+                .map(c -> {
+                    java.util.Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("id", c.getId());
+                    map.put("name", c.getName());
+                    return map;
+                })
+                .toList();
+
+        java.util.List<java.util.Map<String, Object>> managers = employeeRepository.findAll().stream()
+                .filter(e -> !e.getDeleted())
+                .map(e -> {
+                    java.util.Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("id", e.getId());
+                    map.put("fullName", e.getFullName());
+                    return map;
+                })
+                .toList();
+
+        java.util.List<java.util.Map<String, Object>> workshops = workshopRepository.findAll().stream()
+                .filter(w -> !w.getDeleted())
+                .map(w -> {
+                    java.util.Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("id", w.getId());
+                    map.put("name", w.getName());
+                    return map;
+                })
+                .toList();
+
+        java.util.Map<String, java.util.List<java.util.Map<String, Object>>> result = new java.util.HashMap<>();
+        result.put("clients", clients);
+        result.put("managers", managers);
+        result.put("workshops", workshops);
+        return result;
     }
 
     private String getCurrentUsername() {
