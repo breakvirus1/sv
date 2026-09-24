@@ -355,15 +355,15 @@ const OrdersList = () => {
                 >
                   <Box sx={{ display: 'table-row' }}>
                     <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>№ заказа</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 180 }}>Клиент</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 180 }}>Менеджер</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Сумма</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Оплачено</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Долг</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Статус</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 160 }}>Изменён</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Срок</Box>
-                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120 }}>Цех</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 180, textAlign: 'center' }}>Клиент</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 180, textAlign: 'center' }}>Менеджер</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120, textAlign: 'right' }}>Сумма</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120, textAlign: 'right' }}>Оплачено</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120, textAlign: 'right' }}>Долг</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120, textAlign: 'center' }}>Статус</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 160, textAlign: 'center' }}>Изменён</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120, textAlign: 'center' }}>Срок</Box>
+                    <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 120, textAlign: 'center' }}>Цех</Box>
                     {isAdmin && <Box sx={{ display: 'table-cell', padding: '8px 16px', minWidth: 100 }}>Действия</Box>}
                   </Box>
                 </Box>
@@ -419,28 +419,28 @@ const OrdersList = () => {
                         }}
                         >
                          <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.orderNumber}</Box>
-                         <Box sx={{ display: 'table-cell', minWidth: 180 }}>{order.client?.name || '—'}</Box>
-                         <Box sx={{ display: 'table-cell', minWidth: 180 }}>
+                         <Box sx={{ display: 'table-cell', minWidth: 180, textAlign: 'center' }}>{order.client?.name || '—'}</Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 180, textAlign: 'center' }}>
                            <Box display="flex" alignItems="center" gap={0.5}>
                              <Person fontSize="small" color="action" />
                              {order.manager?.fullName || '—'}
                            </Box>
                          </Box>
-                         <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.totalAmount != null ? `${Number(order.totalAmount).toFixed(2)} ₽` : '—'}</Box>
-                         <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.paidAmount != null ? `${Number(order.paidAmount).toFixed(2)} ₽` : '—'}</Box>
-                         <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.debtAmount != null ? `${Number(order.debtAmount).toFixed(2)} ₽` : '—'}</Box>
-                         <Box sx={{ display: 'table-cell', minWidth: 120 }}>
+                         <Box sx={{ display: 'table-cell', minWidth: 120, textAlign: 'right' }}>{order.totalAmount != null ? `${Number(order.totalAmount).toFixed(2)} ₽` : '—'}</Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 120, textAlign: 'right' }}>{order.paidAmount != null ? `${Number(order.paidAmount).toFixed(2)} ₽` : '—'}</Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 120, textAlign: 'right' }}>{order.debtAmount != null ? `${Number(order.debtAmount).toFixed(2)} ₽` : '—'}</Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 120, textAlign: 'center' }}>
                            <Chip
                              label={getStatusLabel(order.status)}
                              color={getStatusColor(order.status)}
                              size="small"
                            />
                          </Box>
-                         <Box sx={{ display: 'table-cell', minWidth: 160 }}>
+                         <Box sx={{ display: 'table-cell', minWidth: 160, textAlign: 'center' }}>
                            {order.updatedAt ? new Date(order.updatedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
                          </Box>
-                         <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.dueDate || ''}</Box>
-                         <Box sx={{ display: 'table-cell', minWidth: 120 }}>{order.workshopId || '—'}</Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 120, textAlign: 'center' }}>{order.dueDate || ''}</Box>
+                         <Box sx={{ display: 'table-cell', minWidth: 120, textAlign: 'center' }}>{order.workshopId || '—'}</Box>
                          {isAdmin && (
                            <Box sx={{ display: 'table-cell', minWidth: 100 }} onClick={(e) => e.stopPropagation()}>
                              {order.status === 'READY' && (
