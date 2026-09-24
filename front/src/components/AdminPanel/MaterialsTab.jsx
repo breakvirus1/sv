@@ -186,9 +186,9 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
               <TableRow>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>Название</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>Ед. изм.</TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'right', minWidth: 100 }}>Цена</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 100 }}>Цена</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Коэф. отход</TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 100 }}>Действия</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -196,7 +196,7 @@ const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, o
                 <TableRow key={mat.id}>
                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 180 }}>{mat.name}</TableCell>
                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 80 }}>{mat.unit}</TableCell>
-                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right', fontVariantNumeric: 'tabular-nums', minWidth: 100 }}>{mat.price?.toFixed(2)} ₽</TableCell>
+                  <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 100 }}>{mat.price?.toFixed(2)} ₽</TableCell>
                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 120 }}>{mat.wasteCoefficient?.toString()}</TableCell>
                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center', minWidth: 100 }}>
                     <IconButton size="small" onClick={() => onEditClick(mat)}><Edit /></IconButton>

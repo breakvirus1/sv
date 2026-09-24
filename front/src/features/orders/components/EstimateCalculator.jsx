@@ -292,7 +292,7 @@ const EstimateCalculator = ({ orderItemId, productId, initialData, onSave }) => 
   ];
 
   return (
-    <Paper sx={{ p: 3, '& .estimate-table-header': { fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', backgroundColor: '#f5f5f5' }, '& .estimate-table-cell': { padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }, '& .estimate-table-cell-text': { textAlign: 'left' }, '& .estimate-table-cell-number': { textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum"' }, '& .estimate-table-cell-actions': { textAlign: 'center' } }}>
+     <Paper sx={{ p: 3, '& .estimate-table-header': { fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', backgroundColor: '#f5f5f5' }, '& .estimate-table-cell': { padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }, '& .estimate-table-cell-text': { textAlign: 'left' }, '& .estimate-table-cell-actions': { textAlign: 'left' } }}>
       <Typography variant="h5" gutterBottom>Смета по калькулятору</Typography>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>

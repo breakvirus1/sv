@@ -91,22 +91,22 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
                 </Typography>
                 <Table size="small" sx={{ width: 'auto' }}>
                   <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600 }}>Операция</TableCell>
-                      <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600 }}>Цена за ед.</TableCell>
-                      <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600 }}>Кол-во</TableCell>
-                      <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600, textAlign: 'right' }}>Сумма</TableCell>
-                    </TableRow>
+                     <TableRow>
+                       <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600 }}>Операция</TableCell>
+                       <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600 }}>Цена за ед.</TableCell>
+                       <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600 }}>Кол-во</TableCell>
+                       <TableCell sx={{ py: 0.5, px: 1, fontWeight: 600 }}>Сумма</TableCell>
+                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {operations.map((op, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell sx={{ py: 0.5, px: 1 }}>{op.operationName}</TableCell>
-                        <TableCell sx={{ py: 0.5, px: 1 }}>{op.pricePerUnit != null ? fmt(op.pricePerUnit) : '—'}</TableCell>
-                        <TableCell sx={{ py: 0.5, px: 1 }}>{op.calculatedQuantity != null ? op.calculatedQuantity : '—'}</TableCell>
-                        <TableCell sx={{ py: 0.5, px: 1, textAlign: 'right' }}>{op.subtotal != null ? fmt(op.subtotal) : '—'}</TableCell>
-                      </TableRow>
-                    ))}
+                     {operations.map((op, idx) => (
+                       <TableRow key={idx}>
+                         <TableCell sx={{ py: 0.5, px: 1 }}>{op.operationName}</TableCell>
+                         <TableCell sx={{ py: 0.5, px: 1 }}>{op.pricePerUnit != null ? fmt(op.pricePerUnit) : '—'}</TableCell>
+                         <TableCell sx={{ py: 0.5, px: 1 }}>{op.calculatedQuantity != null ? op.calculatedQuantity : '—'}</TableCell>
+                         <TableCell sx={{ py: 0.5, px: 1 }}>{op.subtotal != null ? fmt(op.subtotal) : '—'}</TableCell>
+                       </TableRow>
+                     ))}
                   </TableBody>
                 </Table>
                 {operationsTotal != null && (
