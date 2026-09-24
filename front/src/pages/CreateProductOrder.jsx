@@ -320,7 +320,7 @@ const CreateProductOrder = () => {
                           inputProps={{ step: 0.1, min: 0 }}
                           sx={{ width: 120 }}
                         />
-                        <Typography variant="body2" sx={{ minWidth: 80, textAlign: 'right' }}>{m.cost?.toFixed(2) || '0.00'} ₽</Typography>
+                         <Typography variant="body2" sx={{ minWidth: 80 }}>{m.cost?.toFixed(2) || '0.00'} ₽</Typography>
                       </Box>
                     ))}
                   </Box>
@@ -359,7 +359,7 @@ const CreateProductOrder = () => {
                           inputProps={{ step: 0.1, min: 0 }}
                           sx={{ width: 120 }}
                         />
-                        <Typography variant="body2" sx={{ minWidth: 80, textAlign: 'right' }}>{op.cost?.toFixed(2) || '0.00'} ₽</Typography>
+                         <Typography variant="body2" sx={{ minWidth: 80 }}>{op.cost?.toFixed(2) || '0.00'} ₽</Typography>
                       </Box>
                     ))}
                   </Box>
