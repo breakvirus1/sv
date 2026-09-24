@@ -145,7 +145,7 @@ export const AuthProvider = ({ children }) => {
       const expiresIn = data.expires_in || 3600;
 
       applyToken(accessToken, expiresIn, { refresh_token: refreshToken });
-      return { success: true };
+      return { success: true, roles: extractRolesFromToken(accessToken) };
     } catch (error) {
       const message = error.message || 'Не удалось войти';
       setAuthError(message);
