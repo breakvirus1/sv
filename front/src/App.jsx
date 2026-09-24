@@ -51,11 +51,11 @@ function App() {
          <div style={{ paddingTop: 74, paddingLeft: 50, paddingRight: 50, maxWidth: '100%', margin: 0, width: '100%' }}>
           <Routes>
              <Route path="/" element={
-               isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Dashboard />) : <Navigate to="/login" />
-             } />
-             <Route path="/login" element={
-               isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Navigate to="/orders" />) : <LoginPage />
-             } />
+                isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production/orders" /> : <Dashboard />) : <Navigate to="/login" />
+              } />
+              <Route path="/login" element={
+                isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production/orders" /> : <Navigate to="/orders" />) : <LoginPage />
+              } />
             <Route path="/callback" element={<CallbackPage />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
@@ -156,7 +156,7 @@ function App() {
 
     if (requiresManager && !(user.roles?.includes('ROLE_MANAGER') || user.roles?.includes('ROLE_ADMIN'))) {
       if (user.roles?.includes('ROLE_PRODUCTION')) {
-        return <Navigate to="/production" />
+        return <Navigate to="/production/orders" />
       }
       return <Navigate to="/orders" />
     }

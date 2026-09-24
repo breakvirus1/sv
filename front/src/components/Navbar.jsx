@@ -126,7 +126,7 @@ const Navbar = () => {
                    onClose={handleCloseOrders}
                    PaperProps={{ sx: { minWidth: 200 } }}
                  >
-                  <MenuItem onClick={() => { handleCloseOrders(); navigate('/production'); }}>
+                   <MenuItem onClick={() => { handleCloseOrders(); navigate('/production/orders'); }}>
                     <ListItemIcon>
                       <ShoppingBag fontSize="small" />
                     </ListItemIcon>
