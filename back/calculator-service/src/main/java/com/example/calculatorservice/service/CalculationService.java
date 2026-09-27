@@ -34,6 +34,8 @@ public class CalculationService {
     private final CalculationMapper calculationMapper;
 
     public CalculationResponseDto createAndCalculate(CalculationRequestDto request) {
+        log.info("createAndCalculate: materialId={}, widthM={}, heightM={}, operationIds={}, eyeletId={}",
+                request.getMaterialId(), request.getWidthM(), request.getHeightM(), request.getOperationIds(), request.getEyeletId());
         if (request.getMaterialId() == null) {
             throw new BadRequestException("materialId обязателен");
         }
@@ -55,6 +57,8 @@ public class CalculationService {
      * Используется order-service для расчёта итогов по материалам и операциям.
      */
     public CalculationResponseDto calculateWithoutSaving(CalculationRequestDto request) {
+        log.info("calculateWithoutSaving: materialId={}, widthM={}, heightM={}, operationIds={}, eyeletId={}",
+                request.getMaterialId(), request.getWidthM(), request.getHeightM(), request.getOperationIds(), request.getEyeletId());
         if (request.getMaterialId() == null) {
             throw new BadRequestException("materialId обязателен");
         }
@@ -84,9 +88,12 @@ public class CalculationService {
         calc.setManualFilmSelectionValue(request.getManualFilmSelectionValue());
 
         if (request.getEyeletId() != null) {
-            Eyelet eyelet = eyeletRepository.findById(request.getEyeletId())
-                    .orElseThrow(() -> new BadRequestException("Люверс не найден"));
-            calc.setEyelet(eyelet);
+            Eyelet eyelet = resolveEyelet(request.getEyeletId());
+            if (eyelet != null) {
+                calc.setEyelet(eyelet);
+            } else {
+                log.warn("Eyelet not resolved for id={}, skipping eyelet", request.getEyeletId());
+            }
         }
 
         if (request.getOperationIds() != null) {
@@ -94,8 +101,11 @@ public class CalculationService {
                     .distinct()
                     .collect(Collectors.toList());
             for (Long opId : uniqueOpIds) {
-                Operation op = operationRepository.findById(opId)
-                        .orElseThrow(() -> new BadRequestException("Операция с ID " + opId + " не найдена"));
+                Operation op = operationRepository.findById(opId).orElse(null);
+                if (op == null) {
+                    log.warn("Operation with id={} not found, skipping", opId);
+                    continue;
+                }
                 CalculationOperation calcOp = new CalculationOperation();
                 calcOp.setOperation(op);
                 calcOp.setPricePerUnit(op.getPrice());
@@ -103,6 +113,34 @@ public class CalculationService {
             }
         }
         return calc;
+    }
+
+    private Eyelet resolveEyelet(Long eyeletId) {
+        if (eyeletId == null) return null;
+        return materialRepository.findByIdAndDeletedFalse(eyeletId)
+                .filter(m -> m.getName() != null && m.getName().toLowerCase().contains("люверс"))
+                .flatMap(m -> {
+                    String name = m.getName();
+                    BigDecimal pricePerPiece = m.getPricePerSquareMeter() != null ? m.getPricePerSquareMeter() : BigDecimal.ZERO;
+                    return eyeletRepository.findAll().stream()
+                            .filter(e -> name.equalsIgnoreCase(e.getName()))
+                            .findFirst()
+                            .map(e -> {
+                                e.setPricePerPiece(pricePerPiece);
+                                return e;
+                            });
+                })
+                .orElseGet(() -> materialRepository.findByIdAndDeletedFalse(eyeletId)
+                        .filter(m -> m.getName() != null && m.getName().toLowerCase().contains("люверс"))
+                        .map(m -> {
+                            Eyelet e = new Eyelet();
+                            e.setName(m.getName());
+                            e.setPricePerPiece(m.getPricePerSquareMeter() != null ? m.getPricePerSquareMeter() : BigDecimal.ZERO);
+                            e.setDeleted(false);
+                            return eyeletRepository.save(e);
+                        })
+                        .orElse(null)
+                );
     }
 
     /**
@@ -237,14 +275,6 @@ public class CalculationService {
             total = total.add(subtotal);
         }
 
-        // 3. Стоимость люверсов (фурнитура)
-        if (calc.getEyelet() != null) {
-            BigDecimal eyeletQty = BigDecimal.valueOf(calculateEyeletsQuantity(calc));
-            BigDecimal eyeletPrice = calc.getEyelet().getPricePerPiece();
-            BigDecimal eyeletCost = eyeletQty.multiply(eyeletPrice);
-            total = total.add(eyeletCost);
-        }
-
         calc.setTotalPrice(total.setScale(2, RoundingMode.HALF_UP));
     }
 
@@ -329,15 +359,15 @@ public class CalculationService {
             throw new BadRequestException("Ширина должна быть больше нуля");
         }
         if (calc.getHeightM() == null) {
-            throw new BadRequestException("Высота должна быть указана");
+            calc.setHeightM(BigDecimal.ONE);
         }
-
         if (calc.getPodvorotCountPerSide() != null && calc.getPodvorotCountPerSide() < 1) {
-            throw new BadRequestException("Количество подворотов на сторону должно быть больше 0");
+            log.warn("Invalid podvorotCountPerSide={}, using default 2", calc.getPodvorotCountPerSide());
+            calc.setPodvorotCountPerSide(2);
         }
-
         if (calc.getEyeletStepCm() != null && calc.getEyeletStepCm() <= 0) {
-            throw new BadRequestException("Шаг люверсов должен быть больше 0");
+            log.warn("Invalid eyeletStepCm={}, using default 40", calc.getEyeletStepCm());
+            calc.setEyeletStepCm(40);
         }
     }
 
@@ -349,6 +379,16 @@ public class CalculationService {
         if (calc.getEyelet() != null) {
             BigDecimal qty = BigDecimal.valueOf(calculateEyeletsQuantity(calc));
             BigDecimal price = calc.getEyelet().getPricePerPiece();
+            
+            for (CalculationOperation calcOp : calc.getSelectedOperations()) {
+                Operation op = calcOp.getOperation();
+                String name = op.getName() != null ? op.getName().toLowerCase() : "";
+                if (name.contains("люверс") || name.contains("установка")) {
+                    price = calcOp.getPricePerUnit();
+                    break;
+                }
+            }
+            
             BigDecimal subtotal = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
 
             EyeletResultDto eyeletDto = new EyeletResultDto();
