@@ -55,8 +55,9 @@ public class GenerateDataService {
     private static final String[] MATERIAL_UNITS = { "м2", "м.п." };
     private static final MaterialType[] MATERIAL_TYPES = { MaterialType.MATERIAL, MaterialType.OPERATION };
     private static final String[] OPERATION_NAMES = {
-        "Печать 720 dpi", "Печать 1440 dpi", "Резка плоттерная", "Подворот",
-        "Установка люверсов", "Сварка", "Ламинация", "УФ-лакировка", "Тиснение", "Фрезеровка"
+        "Подворот",
+        "Установка люверсов",
+        "Ручная выборка пленки"
     };
     private static final UnitType[] UNIT_TYPES = { UnitType.SQUARE_METER, UnitType.LINEAR_METER, UnitType.PIECE };
     private static final String[] WORKSHOP_NAMES = {

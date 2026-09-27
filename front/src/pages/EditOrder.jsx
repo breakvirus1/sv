@@ -555,9 +555,6 @@ const oldUnit = item.unit || 'м';
     const { itemIndex, pendingOps, pendingRegularOps, params } = operationParamsDialog;
     const opsWithParams = pendingOps.map(op => {
       const opParams = params[op.id] || {};
-      if (opParams.eyeletId !== undefined) {
-        opParams.eyeletId = opParams.eyeletId ? parseInt(opParams.eyeletId, 10) : null;
-      }
       return { ...op, ...opParams };
     });
 
@@ -654,7 +651,7 @@ const oldUnit = item.unit || 'м';
       const allAlreadyConfigured = allSpecialOps.every(sop => {
         const existing = currentOps.find(cop => cop.id === sop.id);
         const opName = (sop.name || '').toLowerCase();
-        if (opName.includes('люверс')) return existing && existing.eyeletId;
+        if (opName.includes('люверс')) return existing && existing.eyeletStepCm != null;
         if (opName.includes('подворот')) return existing && existing.hemWidthMm != null;
         if (opName.includes('выборка')) return existing && existing.manualFilmSelectionValue != null;
         return false;
@@ -680,7 +677,7 @@ const oldUnit = item.unit || 'м';
           if (opName.includes('подворот')) {
             defaultParams[opId] = { hemWidthMm: existing?.hemWidthMm || op.hemWidthMm || 20, hemCount: existing?.hemCount || op.hemCount || 2, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
           } else if (opName.includes('люверс')) {
-            defaultParams[opId] = { eyeletId: existing?.eyeletId || '', eyeletStepCm: existing?.eyeletStepCm || op.eyeletStepCm || 40, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
+            defaultParams[opId] = { eyeletStepCm: existing?.eyeletStepCm || op.eyeletStepCm || 40 };
           } else if (opName.includes('выборка')) {
             defaultParams[opId] = { manualFilmSelectionValue: existing?.manualFilmSelectionValue ?? '', widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
           }
@@ -784,11 +781,6 @@ const oldUnit = item.unit || 'м';
         const params = [];
         if (op.hemWidthMm != null) params.push(`podvorot${op.hemWidthMm}mm`);
         if (op.hemCount != null) params.push(`x${op.hemCount}`);
-        if (op.eyeletId) {
-          const eyelet = eyeletsData.find(e => String(e.id) === String(op.eyeletId));
-          const diameter = eyelet?.diameterMm || op.eyeletId;
-          params.push(`d${diameter}mm`);
-        }
         if (op.eyeletStepCm != null) params.push(`shag${op.eyeletStepCm}sm`);
         if (op.widthMm != null) params.push(`w${op.widthMm}mm`);
         if (op.heightMm != null) params.push(`h${op.heightMm}mm`);
@@ -891,8 +883,7 @@ const oldUnit = item.unit || 'м';
             widthM: op.widthM != null ? op.widthM : null,
             heightM: op.heightM != null ? op.heightM : null
           })),
-          ...(item.operations?.find(op => op.eyeletId) ? { eyeletId: item.operations.find(op => op.eyeletId).eyeletId } : {}),
-          ...(item.operations?.find(op => op.eyeletStepCm) ? { eyeletStepCm: item.operations.find(op => op.eyeletStepCm).eyeletStepCm } : {}),
+          ...(item.operations?.find(op => op.eyeletStepCm != null) ? { eyeletStepCm: item.operations.find(op => op.eyeletStepCm != null).eyeletStepCm } : {}),
           ...(item.operations?.find(op => op.hemWidthMm != null) ? { podvorotMmHorizontal: item.operations.find(op => op.hemWidthMm != null).hemWidthMm } : {}),
           ...(item.operations?.find(op => op.hemCount != null) ? { podvorotCountPerSide: item.operations.find(op => op.hemCount != null).hemCount } : {}),
           ...(item.manualFilmSelectionValue != null ? { manualFilmSelectionValue: item.manualFilmSelectionValue } : {})
@@ -1401,33 +1392,18 @@ value={priceplus}
                 );
               }
               if (opName.includes('люверс')) {
-                const params = operationParamsDialog.params[op.id] || { eyeletId: '', eyeletStepCm: 40 };
+                const params = operationParamsDialog.params[op.id] || { eyeletStepCm: 40 };
                 return (
                   <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom color="primary">{op.name}</Typography>
-                    <TextField
-                      select fullWidth margin="dense" label="Размер люверса"
-                      value={params.eyeletId}
-                      onChange={(e) => setOperationParamsDialog(prev => ({
-                        ...prev, params: {
-                          ...prev.params, [op.id]: { ...prev.params[op.id], eyeletId: e.target.value }
-                        }
-                      }))}
-                      required
-                    >
-                      <MenuItem value="">Выберите размер</MenuItem>
-                      {eyeletsData.map(eyelet => (
-                        <MenuItem key={eyelet.id} value={eyelet.id}>
-                          {eyelet.name} — {eyelet.pricePerPiece} ₽/шт
-                        </MenuItem>
-                      ))}
-                    </TextField>
                     <TextField
                       fullWidth margin="dense" label="Шаг установки (см)" type="number"
                       value={params.eyeletStepCm}
                       onChange={(e) => setOperationParamsDialog(prev => ({
                         ...prev, params: {
-                          ...prev.params, [op.id]: { ...prev.params[op.id], eyeletStepCm: parseInt(e.target.value) || 0 }
+                          ...prev.params, [op.id]: {
+                            ...prev.params[op.id], eyeletStepCm: parseInt(e.target.value) || 0
+                          }
                         }
                       }))}
                       inputProps={{ min: 10 }} required
@@ -1456,8 +1432,8 @@ value={priceplus}
                       }))}
                       inputProps={{ min: 0 }}
                     />
-                   </Box>
-                 );
+                  </Box>
+                );
                }
                if (opName.includes('выборка')) {
                  const params = operationParamsDialog.params[op.id] || { manualFilmSelectionValue: '' };
@@ -1534,10 +1510,10 @@ value={priceplus}
                 if (opName.includes('подворот')) {
                   const p = operationParamsDialog.params[op.id];
                   return p && p.hemWidthMm > 0 && p.hemCount > 0;
-                } else if (opName.includes('люверс')) {
-                  const p = operationParamsDialog.params[op.id];
-                  return p && p.eyeletId;
-                } else if (opName.includes('выборка')) {
+                  } else if (opName.includes('люверс')) {
+                    const p = operationParamsDialog.params[op.id];
+                    return p && p.eyeletStepCm > 0;
+                  } else if (opName.includes('выборка')) {
                   const p = operationParamsDialog.params[op.id];
                   return p && p.manualFilmSelectionValue > 0;
                 }

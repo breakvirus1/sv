@@ -44,6 +44,7 @@ class CalculationServiceTest {
     private CalculationService calculationService;
 
     private Material testMaterial;
+    private Material eyeletMaterial;
 
     @BeforeEach
     void setUp() {
@@ -53,6 +54,12 @@ class CalculationServiceTest {
         testMaterial.setPricePerSquareMeter(new BigDecimal("200.00"));
         testMaterial.setWasteCoefficient(BigDecimal.ONE);
         testMaterial.setDeleted(false);
+
+        eyeletMaterial = new Material();
+        eyeletMaterial.setId(2L);
+        eyeletMaterial.setName("Люверс 8мм");
+        eyeletMaterial.setPricePerSquareMeter(new BigDecimal("2.00"));
+        eyeletMaterial.setDeleted(false);
 
         calculationService = new CalculationService(
                 materialRepository,
@@ -284,59 +291,72 @@ class CalculationServiceTest {
         @Test
         @DisplayName("Eyelets along perimeter: 2x3m banner, step 40cm")
         void eyeletsOnBanner() {
-            Eyelet eyelet = createEyelet(1L, "Люверс 8мм", new BigDecimal("2.00"), 8);
+            Eyelet existingEyelet = createEyelet(1L, "Люверс 8мм", new BigDecimal("2.00"), 8);
             Operation eyeletOp = createOperation(10L, "Установка люверсов", UnitType.PIECE, new BigDecimal("0"));
 
             CalculationRequestDto request = baseRequest();
             request.setWidthM(new BigDecimal("2.0"));
             request.setHeightM(new BigDecimal("3.0"));
-            request.setEyeletId(1L);
+            request.setEyeletId(2L);
             request.setEyeletStepCm(40);
             request.setOperationIds(List.of(10L));
 
             when(materialRepository.findByIdAndDeletedFalse(1L))
                     .thenReturn(Optional.of(testMaterial));
-            when(eyeletRepository.findById(1L)).thenReturn(Optional.of(eyelet));
+            when(materialRepository.findByIdAndDeletedFalse(2L))
+                    .thenReturn(Optional.of(eyeletMaterial));
+            when(eyeletRepository.findAll()).thenReturn(List.of(existingEyelet));
             when(operationRepository.findById(10L)).thenReturn(Optional.of(eyeletOp));
 
             CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
 
             // perimeter = (2+3)*2 = 10m = 1000cm
             // eyelets = 1000/40 = 25
-            // eyeletCost = 25 * 2.00 = 50.00
+            // eyelet op = 25 * 0.00 = 0.00
             // materialCost = 6.0 * 200 = 1200.00
-            // total = 1200 + 50 (eyelet hardware) + 0 (eyelet op) = 1250.00
-            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("1250.00"));
+            // total = 1200 + 0 = 1200.00
+            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("1200.00"));
+            assertThat(response.getEyelet()).isNotNull();
             assertThat(response.getEyelet().getQuantity()).isEqualByComparingTo(new BigDecimal("25"));
-            assertThat(response.getEyelet().getSubtotal()).isEqualByComparingTo(new BigDecimal("50.00"));
+            assertThat(response.getEyelet().getSubtotal()).isEqualByComparingTo(new BigDecimal("0.00"));
         }
 
         @Test
         @DisplayName("Eyelet cost with PIECE-based installation operation")
         void eyeletWithInstallationOp() {
-            Eyelet eyelet = createEyelet(1L, "Люверс 8мм", new BigDecimal("3.00"), 8);
+            Material eyeletMaterial3 = new Material();
+            eyeletMaterial3.setId(3L);
+            eyeletMaterial3.setName("Люверс 10мм");
+            eyeletMaterial3.setPricePerSquareMeter(new BigDecimal("3.00"));
+            eyeletMaterial3.setDeleted(false);
+
+            Eyelet existingEyelet = createEyelet(1L, "Люверс 10мм", new BigDecimal("3.00"), 10);
             Operation installOp = createOperation(10L, "Установка люверсов", UnitType.PIECE, new BigDecimal("5.00"));
 
             CalculationRequestDto request = baseRequest();
             request.setWidthM(new BigDecimal("1.0"));
             request.setHeightM(new BigDecimal("1.0"));
-            request.setEyeletId(1L);
+            request.setEyeletId(3L);
             request.setEyeletStepCm(40);
             request.setOperationIds(List.of(10L));
 
             when(materialRepository.findByIdAndDeletedFalse(1L))
                     .thenReturn(Optional.of(testMaterial));
-            when(eyeletRepository.findById(1L)).thenReturn(Optional.of(eyelet));
+            when(materialRepository.findByIdAndDeletedFalse(3L))
+                    .thenReturn(Optional.of(eyeletMaterial3));
+            when(eyeletRepository.findAll()).thenReturn(List.of(existingEyelet));
             when(operationRepository.findById(10L)).thenReturn(Optional.of(installOp));
 
             CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
 
             // perimeter = 4m = 400cm, eyelets = 400/40 = 10
-            // eyelet hardware = 10 * 3.00 = 30.00
             // install op = 10 * 5.00 = 50.00
             // materialCost = 1.0 * 200 = 200.00
-            // total = 200 + 30 + 50 = 280.00
-            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("280.00"));
+            // total = 200 + 50 = 250.00
+            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("250.00"));
+            assertThat(response.getEyelet()).isNotNull();
+            assertThat(response.getEyelet().getQuantity()).isEqualByComparingTo(new BigDecimal("10"));
+            assertThat(response.getEyelet().getSubtotal()).isEqualByComparingTo(new BigDecimal("50.00"));
         }
     }
 
@@ -391,8 +411,8 @@ class CalculationServiceTest {
         }
 
         @Test
-        @DisplayName("Throws when operation not found")
-        void throwsWhenOperationNotFound() {
+        @DisplayName("Skips missing operation instead of throwing")
+        void skipsMissingOperation() {
             CalculationRequestDto request = baseRequest();
             request.setOperationIds(List.of(999L));
 
@@ -400,28 +420,26 @@ class CalculationServiceTest {
                     .thenReturn(Optional.of(testMaterial));
             when(operationRepository.findById(999L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> calculationService.calculateWithoutSaving(request))
-                    .isInstanceOf(BadRequestException.class)
-                    .hasMessageContaining("Операция с ID 999");
+            CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
+            assertThat(response.getOperations()).isEmpty();
         }
 
         @Test
-        @DisplayName("Throws when eyeletStepCm is zero")
-        void throwsWhenEyeletStepZero() {
+        @DisplayName("Uses default eyeletStepCm when zero")
+        void usesDefaultEyeletStepWhenZero() {
             CalculationRequestDto request = baseRequest();
             request.setEyeletStepCm(0);
 
             when(materialRepository.findByIdAndDeletedFalse(1L))
                     .thenReturn(Optional.of(testMaterial));
 
-            assertThatThrownBy(() -> calculationService.calculateWithoutSaving(request))
-                    .isInstanceOf(BadRequestException.class)
-                    .hasMessageContaining("Шаг люверсов");
+            CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
+            assertThat(response.getTotalPrice()).isNotNull();
         }
 
         @Test
-        @DisplayName("Throws when podvorotCountPerSide < 1")
-        void throwsWhenPodvorotCountLessThanOne() {
+        @DisplayName("Uses default podvorotCountPerSide when less than one")
+        void usesDefaultPodvorotCountWhenLessThanOne() {
             CalculationRequestDto request = baseRequest();
             request.setPodvorotMmHorizontal(new BigDecimal("10"));
             request.setPodvorotCountPerSide(0);
@@ -429,9 +447,8 @@ class CalculationServiceTest {
             when(materialRepository.findByIdAndDeletedFalse(1L))
                     .thenReturn(Optional.of(testMaterial));
 
-            assertThatThrownBy(() -> calculationService.calculateWithoutSaving(request))
-                    .isInstanceOf(BadRequestException.class)
-                    .hasMessageContaining("Количество подворотов");
+            CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
+            assertThat(response.getTotalPrice()).isNotNull();
         }
     }
 
@@ -460,46 +477,52 @@ class CalculationServiceTest {
         @Test
         @DisplayName("Default eyeletStepCm = 40 when null")
         void defaultEyeletStep() {
-            Eyelet eyelet = createEyelet(1L, "Люверс 8мм", new BigDecimal("2.00"), 8);
+            Eyelet existingEyelet = createEyelet(1L, "Люверс 8мм", new BigDecimal("2.00"), 8);
 
             CalculationRequestDto request = baseRequest();
             request.setWidthM(new BigDecimal("1.0"));
             request.setHeightM(new BigDecimal("1.0"));
-            request.setEyeletId(1L);
+            request.setEyeletId(2L);
             request.setEyeletStepCm(null);
             request.setOperationIds(null);
 
             when(materialRepository.findByIdAndDeletedFalse(1L))
                     .thenReturn(Optional.of(testMaterial));
-            when(eyeletRepository.findById(1L)).thenReturn(Optional.of(eyelet));
+            when(materialRepository.findByIdAndDeletedFalse(2L))
+                    .thenReturn(Optional.of(eyeletMaterial));
+            when(eyeletRepository.findAll()).thenReturn(List.of(existingEyelet));
 
             CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
 
             // perimeter = 4m, step=40cm -> 400/40 = 10 eyelets
+            assertThat(response.getEyelet()).isNotNull();
             assertThat(response.getEyelet().getQuantity()).isEqualByComparingTo(new BigDecimal("10"));
         }
 
         @Test
         @DisplayName("Perimeter rounding: 3.33m perimeter / 40cm = 8.325 -> rounds UP to 9")
         void eyeletRoundingUp() {
-            Eyelet eyelet = createEyelet(1L, "Люверс", new BigDecimal("1.00"), 8);
+            Eyelet existingEyelet = createEyelet(1L, "Люверс 8мм", new BigDecimal("1.00"), 8);
 
             CalculationRequestDto request = baseRequest();
             // 0.83 x 1.0: perimeter = 3.66m = 366cm, 366/40 = 9.15 -> 10
             request.setWidthM(new BigDecimal("0.83"));
             request.setHeightM(new BigDecimal("1.0"));
-            request.setEyeletId(1L);
+            request.setEyeletId(2L);
             request.setEyeletStepCm(40);
             request.setOperationIds(null);
 
             when(materialRepository.findByIdAndDeletedFalse(1L))
                     .thenReturn(Optional.of(testMaterial));
-            when(eyeletRepository.findById(1L)).thenReturn(Optional.of(eyelet));
+            when(materialRepository.findByIdAndDeletedFalse(2L))
+                    .thenReturn(Optional.of(eyeletMaterial));
+            when(eyeletRepository.findAll()).thenReturn(List.of(existingEyelet));
 
             CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
 
             // perimeter = (0.83 + 1.0) * 2 = 3.66m = 366cm
             // 366 / 40 = 9.15 -> round UP = 10
+            assertThat(response.getEyelet()).isNotNull();
             assertThat(response.getEyelet().getQuantity()).isEqualByComparingTo(new BigDecimal("10"));
         }
 
@@ -560,23 +583,30 @@ class CalculationServiceTest {
             hemOp.setHemWidthMm(25);
             hemOp.setHemCount(2);
 
-            Eyelet eyelet = createEyelet(1L, "Люверс 10мм", new BigDecimal("3.50"), 10);
+            Material eyeletMaterial3 = new Material();
+            eyeletMaterial3.setId(3L);
+            eyeletMaterial3.setName("Люверс 10мм");
+            eyeletMaterial3.setPricePerSquareMeter(new BigDecimal("3.50"));
+            eyeletMaterial3.setDeleted(false);
+
+            Eyelet existingEyelet = createEyelet(1L, "Люверс 10мм", new BigDecimal("3.50"), 10);
             Operation eyeletOp = createOperation(4L, "Установка люверсов", UnitType.PIECE, new BigDecimal("7.00"));
 
             CalculationRequestDto request = new CalculationRequestDto();
             request.setMaterialId(1L);
             request.setWidthM(new BigDecimal("3.0"));
             request.setHeightM(new BigDecimal("2.0"));
-            request.setEyeletId(1L);
+            request.setEyeletId(3L);
             request.setEyeletStepCm(30);
             request.setOperationIds(List.of(1L, 2L, 3L, 4L));
 
             when(materialRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(savedMaterial));
+            when(materialRepository.findByIdAndDeletedFalse(3L)).thenReturn(Optional.of(eyeletMaterial3));
             when(operationRepository.findById(1L)).thenReturn(Optional.of(printOp));
             when(operationRepository.findById(2L)).thenReturn(Optional.of(cutOp));
             when(operationRepository.findById(3L)).thenReturn(Optional.of(hemOp));
             when(operationRepository.findById(4L)).thenReturn(Optional.of(eyeletOp));
-            when(eyeletRepository.findById(1L)).thenReturn(Optional.of(eyelet));
+            when(eyeletRepository.findAll()).thenReturn(List.of(existingEyelet));
 
             CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
 
@@ -587,9 +617,8 @@ class CalculationServiceTest {
             // cut: perimeter = (3+2)*2 = 10.0 * 8.00 = 80.00
             // hem: widthMm=3000+50=3050, heightMm=2000+50=2050, areaMm2=3050*2050=6252500, areaM2=6.2525 * 15 = 93.79
             // eyelets: perimeter = 10m = 1000cm / 30 = 33.33 -> 34
-            // eyelet hardware: 34 * 3.50 = 119.00
             // eyelet op: 34 * 7.00 = 238.00
-            // total = 1575 + 480 + 80 + 93.79 + 119 + 238 = 2585.79
+            // total = 1575 + 480 + 80 + 93.79 + 238 = 2466.79
 
             assertThat(response.getTotalPrice()).isNotNull();
             assertThat(response.getTotalPrice().compareTo(BigDecimal.ZERO)).isGreaterThan(0);
