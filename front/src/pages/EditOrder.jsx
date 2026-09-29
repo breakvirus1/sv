@@ -677,7 +677,7 @@ const oldUnit = item.unit || 'м';
           if (opName.includes('подворот')) {
             defaultParams[opId] = { hemWidthMm: existing?.hemWidthMm || op.hemWidthMm || 20, hemCount: existing?.hemCount || op.hemCount || 2, widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
           } else if (opName.includes('люверс')) {
-            defaultParams[opId] = { eyeletStepCm: existing?.eyeletStepCm || op.eyeletStepCm || 40 };
+            defaultParams[opId] = { eyeletStepCm: existing?.eyeletStepCm || op.eyeletStepCm || 30 };
           } else if (opName.includes('выборка')) {
             defaultParams[opId] = { manualFilmSelectionValue: existing?.manualFilmSelectionValue ?? '', widthMm: existing?.widthMm || null, heightMm: existing?.heightMm || null };
           }
@@ -837,15 +837,7 @@ const oldUnit = item.unit || 'м';
     }
   };
 
-  const getRedirectPath = () => {
-    if (userRoles.includes('ROLE_MANAGER')) {
-      return `/manager/orders/${orderData.id}`;
-    }
-    if (userRoles.includes('ROLE_PRODUCTION')) {
-      return `/production/orders/${orderData.id}`;
-    }
-    return `/orders/${orderData.id}`;
-  };
+  const getRedirectPath = () => '/orders?my=1';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1392,7 +1384,7 @@ value={priceplus}
                 );
               }
               if (opName.includes('люверс')) {
-                const params = operationParamsDialog.params[op.id] || { eyeletStepCm: 40 };
+                const params = operationParamsDialog.params[op.id] || { eyeletStepCm: 30 };
                 return (
                   <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom color="primary">{op.name}</Typography>

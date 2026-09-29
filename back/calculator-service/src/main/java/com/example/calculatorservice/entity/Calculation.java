@@ -58,7 +58,7 @@ public class Calculation extends BaseEntity {
 
     /** Шаг установки люверсов в сантиметрах (по умолчанию 40 см) */
     @Column(name = "eyelet_step_cm")
-    private Integer eyeletStepCm = 40;
+    private Integer eyeletStepCm = 30;
 
     /** Значение для ручной выборки пленки (определяет множитель цены) */
     @Transient

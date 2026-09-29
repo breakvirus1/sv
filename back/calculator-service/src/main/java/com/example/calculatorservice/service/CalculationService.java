@@ -366,8 +366,8 @@ public class CalculationService {
             calc.setPodvorotCountPerSide(2);
         }
         if (calc.getEyeletStepCm() != null && calc.getEyeletStepCm() <= 0) {
-            log.warn("Invalid eyeletStepCm={}, using default 40", calc.getEyeletStepCm());
-            calc.setEyeletStepCm(40);
+            log.warn("Invalid eyeletStepCm={}, using default 30", calc.getEyeletStepCm());
+            calc.setEyeletStepCm(30);
         }
     }
 
