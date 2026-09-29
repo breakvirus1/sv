@@ -22,7 +22,7 @@ public class CalculationRequestDto {
 
     // Eyelet parameters
     private Long eyeletId;
-    private Integer eyeletStepCm = 40;
+    private Integer eyeletStepCm = 30;
 
     // Manual film selection parameter
     private Integer manualFilmSelectionValue;

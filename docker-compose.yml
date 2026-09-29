@@ -117,6 +117,7 @@ services:
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
+      - KEYCLOAK_ADMIN_SERVER_URL=http://keycloak:8080
 
   material-service:
     build:

@@ -475,7 +475,7 @@ class CalculationServiceTest {
         }
 
         @Test
-        @DisplayName("Default eyeletStepCm = 40 when null")
+        @DisplayName("Default eyeletStepCm = 30 when null")
         void defaultEyeletStep() {
             Eyelet existingEyelet = createEyelet(1L, "Люверс 8мм", new BigDecimal("2.00"), 8);
 
@@ -494,9 +494,9 @@ class CalculationServiceTest {
 
             CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
 
-            // perimeter = 4m, step=40cm -> 400/40 = 10 eyelets
+            // perimeter = 4m, step=30cm -> 400/30 = 13.33 -> 14 eyelets
             assertThat(response.getEyelet()).isNotNull();
-            assertThat(response.getEyelet().getQuantity()).isEqualByComparingTo(new BigDecimal("10"));
+            assertThat(response.getEyelet().getQuantity()).isEqualByComparingTo(new BigDecimal("14"));
         }
 
         @Test

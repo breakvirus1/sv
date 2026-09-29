@@ -49,9 +49,9 @@ const recalculateOrderBackend = async (items, priceplusPercent = 0) => {
       heightMm: op.heightMm
     }));
     
-    const eyeletOp = (item.operations || []).find(op => op.eyeletId);
+    const eyeletOp = (item.operations || []).find(op => op.eyeletStepCm != null);
     const eyeletId = item.eyeletId ?? eyeletOp?.eyeletId ?? null;
-    const eyeletStepCm = item.eyeletStepCm ?? eyeletOp?.eyeletStepCm ?? 40;
+    const eyeletStepCm = item.eyeletStepCm ?? eyeletOp?.eyeletStepCm ?? 30;
     
     const podvorotOp = (item.operations || []).find(op => op.hemWidthMm != null);
     const podvorotMmHorizontal = podvorotOp?.hemWidthMm ?? null;

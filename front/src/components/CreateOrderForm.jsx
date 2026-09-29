@@ -47,7 +47,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const username = user?.username;
   const isAdmin = user?.roles?.includes('ROLE_ADMIN');
   const isManager = user?.roles?.includes('ROLE_MANAGER');
-  const getOrdersRedirect = () => (isManager && !isAdmin ? '/orders?my=true' : '/orders');
+  const getOrdersRedirect = () => '/orders?my=1';
 
   // ── State: Form Data ──
   const [formData, setFormData] = useState({
@@ -346,9 +346,9 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
                 }
               } else if (op.name.toLowerCase().includes('люверс')) {
                 if (existing && existing.eyeletStepCm != null) {
-                  initialParams[opId] = { eyeletStepCm: existing.eyeletStepCm || 40 };
+                  initialParams[opId] = { eyeletStepCm: existing.eyeletStepCm || 30 };
                 } else {
-                  initialParams[opId] = { eyeletStepCm: 40 };
+                  initialParams[opId] = { eyeletStepCm: 30 };
                 }
               } else if (op.name.toLowerCase().includes('выборка')) {
                 if (existing && existing.manualFilmSelectionValue != null) {
@@ -454,10 +454,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
               } else if (opName.includes('люверс')) {
                 if (existing && existing.eyeletStepCm != null) {
                   initialParams[opId] = {
-                    eyeletStepCm: existing.eyeletStepCm || 40
+                    eyeletStepCm: existing.eyeletStepCm || 30
                   };
                 } else {
-                  initialParams[opId] = { eyeletStepCm: 40 };
+                  initialParams[opId] = { eyeletStepCm: 30 };
                 }
              } else if (opName.includes('выборка')) {
                if (existing && existing.manualFilmSelectionValue != null) {
@@ -517,9 +517,6 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     const opsWithParams = pendingOps.map(op => {
       const baseOp = operationsData.find(o => o.id === op.id);
       const opParams = params[op.id] || {};
-      if (opParams.eyeletId !== undefined) {
-        opParams.eyeletId = opParams.eyeletId ? parseInt(opParams.eyeletId, 10) : null;
-      }
       return { ...baseOp, ...opParams };
     }).filter(Boolean);
 
@@ -1335,37 +1332,12 @@ const handleSubmit = async (e) => {
                    </Box>
                 );
               } else if (opName.includes('люверс')) {
-                const params = operationParamsDialog.params[op.id] || { eyeletId: '', eyeletStepCm: 40 };
+                const params = operationParamsDialog.params[op.id] || { eyeletStepCm: 30 };
                 return (
                   <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom color="primary">
                       {op.name} — {op.price ?? ''} ₽
                     </Typography>
-                    <TextField
-                      select
-                      fullWidth
-                      margin="dense"
-                      label="Размер люверса"
-                      value={params.eyeletId}
-                      onChange={(e) => setOperationParamsDialog(prev => ({
-                        ...prev,
-                        params: {
-                          ...prev.params,
-                          [op.id]: {
-                            ...prev.params[op.id],
-                            eyeletId: e.target.value
-                          }
-                        }
-                      }))}
-                      required
-                    >
-                      <MenuItem value="">Выберите размер</MenuItem>
-                      {eyeletMaterials.map(mat => (
-                        <MenuItem key={mat.id} value={mat.id}>
-                          {mat.name}
-                        </MenuItem>
-                      ))}
-                    </TextField>
                     <TextField
                       fullWidth
                       margin="dense"
@@ -1440,7 +1412,7 @@ const handleSubmit = async (e) => {
                     return p && p.hemWidthMm > 0 && p.hemCount > 0;
                   } else if (opName.includes('люверс')) {
                     const p = operationParamsDialog.params[op.id];
-                    return p && p.eyeletId && p.eyeletStepCm > 0;
+                    return p && p.eyeletStepCm > 0;
                   } else if (opName.includes('выборка')) {
                     const p = operationParamsDialog.params[op.id];
                     return p && p.manualFilmSelectionValue > 0;
