@@ -1,8 +1,8 @@
-import { Box, Paper, Typography, Chip, Link, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
+import { Box, Paper, Typography, Chip, Link, Table, TableBody, TableCell, TableHead, TableRow, Checkbox } from '@mui/material';
 import { Download } from '@mui/icons-material';
 import api from '../services/api';
 
-const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) => {
+const PositionsTab = ({ materials = [], items = [], orderId, calculatedData, isProduction, onReadyChange }) => {
   const positions = calculatedData?.materials || (() => {
     if (!items || items.length === 0) return [];
     if (!materials || materials.length === 0) return items;
@@ -69,7 +69,16 @@ const PositionsTab = ({ materials = [], items = [], orderId, calculatedData }) =
                   <Typography variant="caption" color="text.secondary">{unit}</Typography>
                 )}
               </Box>
-              <Typography variant="h6">{cost != null ? fmt(cost) : '—'}</Typography>
+              <Box display="flex" alignItems="center" gap={2}>
+                <Typography variant="h6">{cost != null ? fmt(cost) : '—'}</Typography>
+                {isProduction && onReadyChange && (
+                  <Checkbox
+                    checked={!!pos.ready}
+                    onChange={() => onReadyChange(pos.id, pos.ready)}
+                    color="success"
+                  />
+                )}
+              </Box>
             </Box>
 
             <Box sx={{ mt: 1, display: 'flex', gap: 2, flexWrap: 'wrap' }}>

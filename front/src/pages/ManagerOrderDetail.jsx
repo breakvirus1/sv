@@ -212,7 +212,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: (status) => api.put(`/api/v1/orders/${id}/status?status=${status}`),
+    mutationFn: (status) => api.put(`/api/v1/orders/${id}/status`, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -533,6 +533,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
         onClose={() => setStatusDialogOpen(false)}
         onSave={(status) => updateStatusMutation.mutate(status)}
         currentStatus={newStatus}
+        isAdmin={isAdmin}
       />
 
       <PaymentDialog

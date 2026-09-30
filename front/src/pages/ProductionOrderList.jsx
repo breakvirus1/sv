@@ -14,11 +14,12 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  TextField
 } from '@mui/material';
-import { Person, ExpandMore, ExpandLess, AttachFile, Notifications } from '@mui/icons-material';
+import { Person, ExpandMore, ExpandLess, AttachFile, Notifications, Cancel } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -55,7 +56,7 @@ const fetchOrderDetail = async (orderId) => {
   return response.data;
 };
 
-const OrderRow = ({ order, onNavigate }) => {
+const OrderRow = ({ order, onNavigate, onReject, isProduction }) => {
   const [expanded, setExpanded] = useState(false);
 
   const { data: orderDetail, isLoading: detailLoading } = useQuery({
@@ -109,7 +110,12 @@ const OrderRow = ({ order, onNavigate }) => {
         <Box sx={{ flex: 0.8, minWidth: 120, textAlign: 'center' }}>
           <Typography variant="body2">{order.dueDate || '—'}</Typography>
         </Box>
-        <Box sx={{ minWidth: 100, width: 100, display: 'flex', justifyContent: 'center' }}>
+        <Box sx={{ minWidth: 100, width: 100, display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+          {isProduction && order.status !== 'REJECTED' && (
+            <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); onReject(order.id); }}>
+              <Cancel fontSize="small" />
+            </IconButton>
+          )}
           <IconButton size="small">
             {expanded ? <ExpandLess /> : <ExpandMore />}
           </IconButton>
@@ -209,11 +215,38 @@ const OrderRow = ({ order, onNavigate }) => {
 
 const ProductionOrderList = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const loadingRef = useRef(false);
 
   const statusFilter = searchParams.get('status');
+  const isProduction = user?.roles?.includes('ROLE_PRODUCTION');
+
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectOrderId, setRejectOrderId] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ orderId, reason }) => api.put(`/api/v1/orders/${orderId}/reject`, { rejectionReason: reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['productionOrders'] });
+      setRejectDialogOpen(false);
+      setRejectOrderId(null);
+      setRejectReason('');
+    }
+  });
+
+  const handleRejectClick = (orderId) => {
+    setRejectOrderId(orderId);
+    setRejectReason('');
+    setRejectDialogOpen(true);
+  };
+
+  const handleRejectSubmit = () => {
+    if (!rejectOrderId || !rejectReason.trim()) return;
+    rejectMutation.mutate({ orderId: rejectOrderId, reason: rejectReason });
+  };
 
   const {
     data,
@@ -312,6 +345,8 @@ const ProductionOrderList = () => {
               key={order.id}
               order={order}
               onNavigate={(id) => navigate(`/production/orders/${id}`)}
+              onReject={handleRejectClick}
+              isProduction={isProduction}
             />
           ))
         )}
@@ -357,6 +392,28 @@ const ProductionOrderList = () => {
       <DialogActions>
         <Button onClick={() => setShowNotificationDialog(false)} autoFocus>
           Закрыть
+        </Button>
+      </DialogActions>
+    </Dialog>
+
+    <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
+      <DialogTitle>Отклонить заказ</DialogTitle>
+      <DialogContent>
+        <TextField
+          autoFocus
+          fullWidth
+          margin="dense"
+          label="Причина отклонения"
+          multiline
+          rows={3}
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setRejectDialogOpen(false)}>Отмена</Button>
+        <Button onClick={handleRejectSubmit} variant="contained" color="error" disabled={rejectMutation.isLoading || !rejectReason.trim()}>
+          {rejectMutation.isLoading ? 'Сохранение...' : 'Отклонить'}
         </Button>
       </DialogActions>
     </Dialog>

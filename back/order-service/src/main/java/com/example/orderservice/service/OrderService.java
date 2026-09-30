@@ -169,6 +169,25 @@ public class OrderService {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_PRODUCTION"));
     }
 
+    private boolean isAdminUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+    }
+
+    private void checkOrderNotRejected(Order order) {
+        if (order.getStatus() == ProductionStage.REJECTED) {
+            throw new RuntimeException("Заказ отклонен и не может быть изменен или удален");
+        }
+    }
+
+    private void checkOrderNotRejected(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        checkOrderNotRejected(order);
+    }
+
     private List<Long> getWorkshopOperationIds(String username) {
         Employee employee = (Employee) entityManager.createQuery(
                 "SELECT e FROM Employee e WHERE e.username = :username AND e.deleted = false")
@@ -731,6 +750,9 @@ public OrderResponse getOrderById(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
+        checkOrderNotRejected(order);
+        checkStatusTransitionAllowed(order, status);
+
         order.setStatus(ProductionStage.valueOf(status));
 
         if (ProductionStage.valueOf(status) == ProductionStage.READY) {
@@ -799,6 +821,71 @@ public OrderResponse getOrderById(Long id) {
     }
 
     /**
+     * Отклонить заказ. Доступно только для пользователей с ролью PRODUCTION.
+     */
+    public OrderResponse rejectOrder(Long id, String rejectionReason) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+
+        if (!isProductionUser()) {
+            throw new RuntimeException("Только пользователь с ролью production может отклонить заказ");
+        }
+
+        order.setStatus(ProductionStage.REJECTED);
+        order.setRejectionReason(rejectionReason);
+        Order saved = orderRepository.save(order);
+
+        try {
+            String username = getCurrentUsername();
+            orderHistoryService.logUpdate(id, "Отклонен: " + rejectionReason, null, order, username);
+        } catch (Exception e) {
+            System.err.println("Failed to log rejection history: " + e.getMessage());
+        }
+
+        return orderMapper.toDto(saved);
+    }
+
+    /**
+     * Мягкое удаление заказа с проверкой, что заказ не отклонен.
+     */
+    public void deleteOrder(Long id) {
+        checkOrderNotRejected(id);
+        orderRepository.deleteById(id);
+    }
+
+    private void checkStatusTransitionAllowed(Order order, String newStatus) {
+        if (order.getStatus() == ProductionStage.REJECTED) {
+            throw new RuntimeException("Заказ отклонен и не может быть изменен");
+        }
+        if (ProductionStage.CLOSED.name().equals(newStatus) && !isAdminUser()) {
+            throw new RuntimeException("Только администратор может закрыть заказ");
+        }
+    }
+
+    private void maybeAutoSetOrderReady(Order order) {
+        if (order.getStatus() == ProductionStage.READY) return;
+        if (order.getStatus() == ProductionStage.CLOSED) return;
+        if (order.getStatus() == ProductionStage.REJECTED) return;
+
+        boolean allReady = order.getItems() != null && !order.getItems().isEmpty()
+                && order.getItems().stream().allMatch(item -> Boolean.TRUE.equals(item.getReady()));
+
+        if (allReady) {
+            order.setStatus(ProductionStage.READY);
+            order.setReadyAt(LocalDateTime.now());
+            calculateCashFromPriceplus(order);
+            orderRepository.save(order);
+
+            try {
+                String username = getCurrentUsername();
+                orderHistoryService.logUpdate(order.getId(), "Автоматически переведен в статус Готов (все позиции готовы)", null, order, username);
+            } catch (Exception e) {
+                System.err.println("Failed to log auto-ready history: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
      * Обновить стадию производства.
      * Используется для отслеживания прогресса в цехах.
      */
@@ -827,6 +914,8 @@ public OrderResponse getOrderById(Long id) {
     public OrderResponse updateOrder(Long id, OrderUpdateRequest request) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+
+        checkOrderNotRejected(order);
 
         Order oldOrder = new Order();
         oldOrder.setDescription(order.getDescription());
@@ -1547,6 +1636,23 @@ return new CalculatedOrderResponse(
         } catch (Exception e) {
             System.err.println("Failed to log add order item history: " + e.getMessage());
         }
+
+        return orderMapper.itemToDto(saved);
+    }
+
+    public OrderItemResponse updateOrderItemReady(Long orderId, Long itemId, Boolean ready) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+
+        OrderItem item = order.getItems().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Позиция заказа не найдена"));
+
+        item.setReady(ready != null ? ready : false);
+        OrderItem saved = orderItemRepository.save(item);
+
+        maybeAutoSetOrderReady(order);
 
         return orderMapper.itemToDto(saved);
     }

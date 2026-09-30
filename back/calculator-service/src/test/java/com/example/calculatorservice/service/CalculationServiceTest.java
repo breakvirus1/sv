@@ -650,6 +650,113 @@ class CalculationServiceTest {
         }
     }
 
+    // ===================== Manual film selection =====================
+
+    @Nested
+    @DisplayName("Manual film selection")
+    class ManualFilmSelection {
+
+        @Test
+        @DisplayName("filmValue < 10 multiplies price by 4")
+        void filmValueLessThan10MultipliesBy4() {
+            Operation filmOp = createOperation(100L, "Ручная выборка пленки", UnitType.SQUARE_METER, new BigDecimal("100.00"));
+
+            CalculationRequestDto request = baseRequest();
+            request.setWidthM(new BigDecimal("2.0"));
+            request.setHeightM(new BigDecimal("3.0"));
+            request.setOperationIds(List.of(100L));
+            request.setManualFilmSelectionValue(5); // < 10
+
+            when(materialRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(testMaterial));
+            when(operationRepository.findById(100L)).thenReturn(Optional.of(filmOp));
+
+            CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
+
+            // materialCost = 6.0 * 200 = 1200.00
+            // op qty = 6.0, pricePerUnit = 100 * 4 = 400, subtotal = 2400.00
+            // total = 1200 + 2400 = 3600.00
+            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("3600.00"));
+            assertThat(response.getOperations()).hasSize(1);
+            assertThat(response.getOperations().get(0).getPricePerUnit()).isEqualByComparingTo(new BigDecimal("400.00"));
+        }
+
+        @Test
+        @DisplayName("filmValue >= 10 and < 30 multiplies price by 2")
+        void filmValueBetween10And30MultipliesBy2() {
+            Operation filmOp = createOperation(100L, "Ручная выборка пленки", UnitType.SQUARE_METER, new BigDecimal("100.00"));
+
+            CalculationRequestDto request = baseRequest();
+            request.setWidthM(new BigDecimal("2.0"));
+            request.setHeightM(new BigDecimal("3.0"));
+            request.setOperationIds(List.of(100L));
+            request.setManualFilmSelectionValue(20); // >= 10 и < 30
+
+            when(materialRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(testMaterial));
+            when(operationRepository.findById(100L)).thenReturn(Optional.of(filmOp));
+
+            CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
+
+            // materialCost = 6.0 * 200 = 1200.00
+            // op qty = 6.0, pricePerUnit = 100 * 2 = 200, subtotal = 1200.00
+            // total = 1200 + 1200 = 2400.00
+            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("2400.00"));
+            assertThat(response.getOperations()).hasSize(1);
+            assertThat(response.getOperations().get(0).getPricePerUnit()).isEqualByComparingTo(new BigDecimal("200.00"));
+        }
+
+        @Test
+        @DisplayName("filmValue >= 30 does not multiply price")
+        void filmValue30OrMoreDoesNotMultiply() {
+            Operation filmOp = createOperation(100L, "Ручная выборка пленки", UnitType.SQUARE_METER, new BigDecimal("100.00"));
+
+            CalculationRequestDto request = baseRequest();
+            request.setWidthM(new BigDecimal("2.0"));
+            request.setHeightM(new BigDecimal("3.0"));
+            request.setOperationIds(List.of(100L));
+            request.setManualFilmSelectionValue(35); // >= 30
+
+            when(materialRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(testMaterial));
+            when(operationRepository.findById(100L)).thenReturn(Optional.of(filmOp));
+
+            CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
+
+            // materialCost = 6.0 * 200 = 1200.00
+            // op qty = 6.0, pricePerUnit = 100, subtotal = 600.00
+            // total = 1200 + 600 = 1800.00
+            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("1800.00"));
+            assertThat(response.getOperations()).hasSize(1);
+            assertThat(response.getOperations().get(0).getPricePerUnit()).isEqualByComparingTo(new BigDecimal("100.00"));
+        }
+
+        @Test
+        @DisplayName("Manual film selection with different character heights (heightM affects quantity)")
+        void manualFilmSelectionWithDifferentHeights() {
+            Operation filmOp = createOperation(100L, "Ручная выборка пленки", UnitType.SQUARE_METER, new BigDecimal("100.00"));
+
+            // heightM = 1.5m (different from width)
+            CalculationRequestDto request = new CalculationRequestDto();
+            request.setMaterialId(1L);
+            request.setWidthM(new BigDecimal("2.0"));
+            request.setHeightM(new BigDecimal("1.5"));
+            request.setOperationIds(List.of(100L));
+            request.setManualFilmSelectionValue(5); // < 10 -> ×4
+
+            when(materialRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(testMaterial));
+            when(operationRepository.findById(100L)).thenReturn(Optional.of(filmOp));
+
+            CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
+
+            // area = 2.0 * 1.5 = 3.0 m²
+            // materialCost = 3.0 * 200 = 600.00
+            // op qty = 3.0, pricePerUnit = 100 * 4 = 400, subtotal = 1200.00
+            // total = 600 + 1200 = 1800.00
+            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("1800.00"));
+            assertThat(response.getOperations()).hasSize(1);
+            assertThat(response.getOperations().get(0).getQuantity()).isEqualByComparingTo(new BigDecimal("3.0"));
+            assertThat(response.getOperations().get(0).getSubtotal()).isEqualByComparingTo(new BigDecimal("1200.00"));
+        }
+    }
+
     // ===================== Constants / default values =====================
 
     @Nested
