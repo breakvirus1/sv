@@ -35,4 +35,6 @@ public class OrderItemResponse {
 
     /** ID прикреплённого файла */
     private Long fileId;
+    /** Флаг готовности позиции */
+    private Boolean ready;
 }

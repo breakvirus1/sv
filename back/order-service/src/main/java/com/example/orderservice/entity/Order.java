@@ -158,4 +158,8 @@ public class Order extends BaseEntity {
     /** История изменений заказа в виде текстового лога для человека */
     @Column(name = "history", columnDefinition = "TEXT")
     private String history;
+
+    /** Причина отклонения заказа (заполняется при статусе REJECTED) */
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
 }

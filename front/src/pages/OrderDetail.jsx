@@ -49,6 +49,7 @@ const OrderDetail = ({ mode = 'view' }) => {
   const username = user?.username;
   const isAdmin = user?.roles?.includes('ROLE_ADMIN');
   const isManager = user?.roles?.includes('ROLE_MANAGER');
+  const isProduction = user?.roles?.includes('ROLE_PRODUCTION');
   const getOrdersRedirect = () => (isManager && !isAdmin ? '/orders?my=true' : '/orders');
 
   // ==================== Common State ====================
@@ -80,6 +81,7 @@ const OrderDetail = ({ mode = 'view' }) => {
     const [newStatus, setNewStatus] = useState('');
     const [highlightCommentId, setHighlightCommentId] = useState(null);
     const [highlightReplyId, setHighlightReplyId] = useState(null);
+    const [rejectedDialogOpen, setRejectedDialogOpen] = useState(false);
 
     useEffect(() => {
       const hash = window.location.hash;
@@ -134,10 +136,16 @@ const OrderDetail = ({ mode = 'view' }) => {
        const response = await api.get(`/api/v1/orders/${id}`);
        return response.data;
      },
-     enabled: mode !== 'create'
-   });
+      enabled: mode !== 'create'
+    });
 
-  const canEdit = !!(currentEmployee && order?.manager && (isAdmin || currentEmployee.id === order.manager.id));
+    useEffect(() => {
+      if (order?.status === 'REJECTED') {
+        setRejectedDialogOpen(true);
+      }
+    }, [order?.status]);
+
+   const canEdit = !!(currentEmployee && order?.manager && (isAdmin || currentEmployee.id === order.manager.id) && order?.status !== 'REJECTED');
   const isManagerNotOwner = isManager && !canEdit && !isAdmin;
 
   // ==================== Mutations ====================
@@ -166,7 +174,7 @@ const OrderDetail = ({ mode = 'view' }) => {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: (status) => api.put(`/api/v1/orders/${id}/status?status=${status}`),
+    mutationFn: (status) => api.put(`/api/v1/orders/${id}/status`, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -597,7 +605,7 @@ const OrderDetail = ({ mode = 'view' }) => {
   }
 
   // ==================== View Mode JSX ====================
-  const statusOptions = ['DRAFT', 'IN_PROGRESS', 'READY', 'CLOSED'];
+  const statusOptions = isAdmin ? ['DRAFT', 'IN_PROGRESS', 'READY', 'CLOSED'] : ['DRAFT', 'IN_PROGRESS'];
 
   if (isLoading) {
     return (
@@ -741,6 +749,21 @@ const OrderDetail = ({ mode = 'view' }) => {
         <DialogContent>
           <PaymentForm onSubmit={(data) => addPaymentMutation.mutate(data)} />
         </DialogContent>
+      </Dialog>
+
+      {/* Unclosable dialog for rejected orders */}
+      <Dialog open={rejectedDialogOpen} onClose={() => {}} disableEscapeKeyDown>
+        <DialogTitle>Заказ отклонен</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            {order?.rejectionReason || 'Причина отклонения не указана'}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => navigate('/orders')} variant="contained">
+            Назад к списку заказов
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Snackbar

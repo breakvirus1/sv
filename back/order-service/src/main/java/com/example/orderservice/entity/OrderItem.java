@@ -61,4 +61,8 @@ public class OrderItem extends BaseEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "file_id")
     private FileAttachment file;
+
+    /** Флаг готовности позиции (для производства) */
+    @Column(name = "ready")
+    private Boolean ready = false;
 }

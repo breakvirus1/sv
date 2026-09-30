@@ -26,8 +26,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -320,6 +322,139 @@ class OrderControllerTest {
             mockMvc.perform(post("/api/v1/orders/1/payments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    // ===================== PUT /api/v1/orders/{id}/reject =====================
+
+    @Nested
+    @DisplayName("PUT /api/v1/orders/{id}/reject")
+    class RejectOrder {
+
+        @Test
+        @DisplayName("PRODUCTION can reject order")
+        @WithMockUser(roles = "PRODUCTION")
+        void productionCanRejectOrder() throws Exception {
+            OrderResponse response = new OrderResponse();
+            response.setId(1L);
+            response.setStatus("REJECTED");
+            response.setRejectionReason("Не соответствует");
+
+            when(orderService.rejectOrder(eq(1L), anyString())).thenReturn(response);
+
+            mockMvc.perform(put("/api/v1/orders/1/reject")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("rejectionReason", "Не соответствует"))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("REJECTED"))
+                    .andExpect(jsonPath("$.rejectionReason").value("Не соответствует"));
+        }
+
+        @Test
+        @DisplayName("ADMIN cannot reject order")
+        @WithMockUser(roles = "ADMIN")
+        void adminCannotRejectOrder() throws Exception {
+            mockMvc.perform(put("/api/v1/orders/1/reject")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("rejectionReason", "test"))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("MANAGER cannot reject order")
+        @WithMockUser(roles = "MANAGER")
+        void managerCannotRejectOrder() throws Exception {
+            mockMvc.perform(put("/api/v1/orders/1/reject")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("rejectionReason", "test"))))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    // ===================== DELETE /api/v1/orders/{id} =====================
+
+    @Nested
+    @DisplayName("DELETE /api/v1/orders/{id}")
+    class DeleteOrder {
+
+        @Test
+        @DisplayName("ADMIN can delete order")
+        @WithMockUser(roles = "ADMIN")
+        void adminCanDeleteOrder() throws Exception {
+            doNothing().when(orderService).deleteOrder(1L);
+
+            mockMvc.perform(delete("/api/v1/orders/1"))
+                    .andExpect(status().isNoContent());
+        }
+
+        @Test
+        @DisplayName("MANAGER can delete order")
+        @WithMockUser(roles = "MANAGER")
+        void managerCanDeleteOrder() throws Exception {
+            doNothing().when(orderService).deleteOrder(1L);
+
+            mockMvc.perform(delete("/api/v1/orders/1"))
+                    .andExpect(status().isNoContent());
+        }
+
+        @Test
+        @DisplayName("PRODUCTION cannot delete order")
+        @WithMockUser(roles = "PRODUCTION")
+        void productionCannotDeleteOrder() throws Exception {
+            mockMvc.perform(delete("/api/v1/orders/1"))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("ACCOUNTANT cannot delete order")
+        @WithMockUser(roles = "ACCOUNTANT")
+        void accountantCannotDeleteOrder() throws Exception {
+            mockMvc.perform(delete("/api/v1/orders/1"))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    // ===================== PUT /api/v1/orders/{id}/items/{itemId}/ready =====================
+
+    @Nested
+    @DisplayName("PUT /api/v1/orders/{id}/items/{itemId}/ready")
+    class UpdateOrderItemReady {
+
+        @Test
+        @DisplayName("PRODUCTION can toggle item ready flag")
+        @WithMockUser(roles = "PRODUCTION")
+        void productionCanToggleItemReady() throws Exception {
+            OrderItemResponse itemResponse = new OrderItemResponse();
+            itemResponse.setId(1L);
+            itemResponse.setReady(true);
+
+            when(orderService.updateOrderItemReady(eq(1L), eq(1L), eq(true))).thenReturn(itemResponse);
+
+            mockMvc.perform(put("/api/v1/orders/1/items/1/ready")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("ready", true))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.ready").value(true));
+        }
+
+        @Test
+        @DisplayName("ADMIN cannot toggle item ready flag")
+        @WithMockUser(roles = "ADMIN")
+        void adminCannotToggleItemReady() throws Exception {
+            mockMvc.perform(put("/api/v1/orders/1/items/1/ready")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("ready", true))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("MANAGER cannot toggle item ready flag")
+        @WithMockUser(roles = "MANAGER")
+        void managerCannotToggleItemReady() throws Exception {
+            mockMvc.perform(put("/api/v1/orders/1/items/1/ready")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("ready", true))))
                     .andExpect(status().isForbidden());
         }
     }

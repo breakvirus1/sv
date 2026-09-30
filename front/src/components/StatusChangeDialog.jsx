@@ -15,7 +15,11 @@ const statusOptions = [
   { value: 'CLOSED', label: 'Закрыт' }
 ];
 
-const StatusChangeDialog = ({ open, onClose, onSave, currentStatus }) => {
+const StatusChangeDialog = ({ open, onClose, onSave, currentStatus, isAdmin = false }) => {
+  const filteredOptions = isAdmin
+    ? statusOptions
+    : statusOptions.filter(option => !['READY', 'CLOSED'].includes(option.value));
+
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>Изменить статус заказа</DialogTitle>
@@ -28,7 +32,7 @@ const StatusChangeDialog = ({ open, onClose, onSave, currentStatus }) => {
           defaultValue={currentStatus}
           onChange={(e) => onSave(e.target.value)}
         >
-          {statusOptions.map((option) => (
+          {filteredOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}
             </MenuItem>

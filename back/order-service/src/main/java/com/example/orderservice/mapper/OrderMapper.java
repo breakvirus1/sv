@@ -69,6 +69,7 @@ public interface OrderMapper {
             dto.setFileId(entity.getFile().getId());
             dto.setFileUrl(entity.getFile().getFileUrl());
         }
+        dto.setReady(entity.getReady());
     }
 
     @Mapping(target = "workshop", ignore = true)

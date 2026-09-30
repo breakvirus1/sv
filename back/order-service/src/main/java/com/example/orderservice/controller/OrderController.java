@@ -156,6 +156,36 @@ public class OrderController {
             @Parameter(description = "ID заказа") @PathVariable Long id) {
         return ResponseEntity.ok(orderService.updateStatus(id, ProductionStage.CLOSED.name()));
     }
+
+    @Operation(summary = "Отклонить заказ")
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasRole('PRODUCTION')")
+    public ResponseEntity<OrderResponse> rejectOrder(
+            @Parameter(description = "ID заказа") @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> request) {
+        String reason = request.getOrDefault("rejectionReason", "");
+        return ResponseEntity.ok(orderService.rejectOrder(id, reason));
+    }
+
+    @Operation(summary = "Удалить заказ (мягкое удаление)")
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<Void> deleteOrder(
+            @Parameter(description = "ID заказа") @PathVariable Long id) {
+        orderService.deleteOrder(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Обновить флаг готовности позиции заказа")
+    @PutMapping("/{id}/items/{itemId}/ready")
+    @PreAuthorize("hasRole('PRODUCTION')")
+    public ResponseEntity<OrderItemResponse> updateOrderItemReady(
+            @Parameter(description = "ID заказа") @PathVariable Long id,
+            @Parameter(description = "ID позиции") @PathVariable Long itemId,
+            @RequestBody java.util.Map<String, Boolean> request) {
+        Boolean ready = request.get("ready");
+        return ResponseEntity.ok(orderService.updateOrderItemReady(id, itemId, ready));
+    }
     @Operation(summary = "Обновить стадию производства")
     @PutMapping("/{id}/stage")
     @PreAuthorize("hasAnyRole('ADMIN', 'PRODUCTION')")

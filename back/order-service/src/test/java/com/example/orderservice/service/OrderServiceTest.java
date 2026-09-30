@@ -5,6 +5,7 @@ import com.example.materialservice.entity.Material;
 import com.example.orderservice.entity.*;
 import com.example.orderservice.exception.NotFoundException;
 import com.example.orderservice.mapper.OrderMapper;
+import com.example.orderservice.product.repository.ProductRepository;
 import com.example.orderservice.repository.*;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,10 +17,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,6 +47,14 @@ class OrderServiceTest {
     @Mock private EntityManager entityManager;
     @Mock private JdbcTemplate jdbcTemplate;
     @Mock private RestTemplate restTemplate;
+    @Mock private OrderHistoryService orderHistoryService;
+    @Mock private EmployeeRepository employeeRepository;
+    @Mock private ClientRepository clientRepository;
+    @Mock private StatisticSyncService statisticSyncService;
+    @Mock private WorkshopRepository workshopRepository;
+    @Mock private ProductRepository productRepository;
+    @Mock private SecurityContext securityContext;
+    @Mock private Authentication authentication;
 
     @InjectMocks
     private OrderService orderService;
@@ -58,6 +73,10 @@ class OrderServiceTest {
         testOrder.setTotalWithPriceplus(new BigDecimal("1100.00"));
         testOrder.setDescription("Test order");
         testOrder.setDeleted(false);
+
+        SecurityContextHolder.setContext(securityContext);
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
+        lenient().when(authentication.getAuthorities()).thenReturn(java.util.Collections.emptyList());
     }
 
     // ===================== getOrderById =====================
@@ -795,5 +814,188 @@ class OrderServiceTest {
                         .isCloseTo(expectedWith, within(new BigDecimal("0.01")));
             }
         }
+    }
+
+    // ===================== rejectOrder =====================
+
+    @Nested
+    @DisplayName("rejectOrder")
+    class RejectOrder {
+
+        @Test
+        @DisplayName("Rejects order when user has PRODUCTION role")
+        void rejectsOrderForProduction() {
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+            when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(orderMapper.toDto(any(Order.class))).thenReturn(new OrderResponse());
+
+            setCurrentUserRoles("ROLE_PRODUCTION");
+
+            OrderResponse result = orderService.rejectOrder(1L, "Не соответствует");
+
+            assertThat(result).isNotNull();
+            verify(orderRepository).save(argThat(o -> o.getStatus() == ProductionStage.REJECTED
+                    && "Не соответствует".equals(o.getRejectionReason())));
+        }
+
+        @Test
+        @DisplayName("Throws when user does not have PRODUCTION role")
+        void throwsWhenNotProduction() {
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+            setCurrentUserRoles("ROLE_ADMIN");
+
+            assertThatThrownBy(() -> orderService.rejectOrder(1L, "test"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("production");
+        }
+
+        @Test
+        @DisplayName("Throws when order not found")
+        void throwsWhenOrderNotFound() {
+            when(orderRepository.findById(999L)).thenReturn(Optional.empty());
+            setCurrentUserRoles("ROLE_PRODUCTION");
+
+            assertThatThrownBy(() -> orderService.rejectOrder(999L, "test"))
+                    .isInstanceOf(NotFoundException.class);
+        }
+    }
+
+    // ===================== deleteOrder =====================
+
+    @Nested
+    @DisplayName("deleteOrder")
+    class DeleteOrder {
+
+        @Test
+        @DisplayName("Deletes order when not rejected")
+        void deletesWhenNotRejected() {
+            testOrder.setStatus(ProductionStage.DRAFT);
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+            doNothing().when(orderRepository).deleteById(1L);
+
+            orderService.deleteOrder(1L);
+
+            verify(orderRepository).deleteById(1L);
+        }
+
+        @Test
+        @DisplayName("Throws when order is rejected")
+        void throwsWhenRejected() {
+            testOrder.setStatus(ProductionStage.REJECTED);
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+
+            assertThatThrownBy(() -> orderService.deleteOrder(1L))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("отклонен");
+        }
+    }
+
+    // ===================== updateOrderItemReady =====================
+
+    @Nested
+    @DisplayName("updateOrderItemReady")
+    class UpdateOrderItemReady {
+
+        @Test
+        @DisplayName("Sets item ready and auto-transitions order to READY when all items ready")
+        void setsReadyAndAutoTransitionsOrder() {
+            OrderItem item = new OrderItem();
+            item.setId(1L);
+            item.setOrder(testOrder);
+            item.setReady(false);
+            testOrder.setStatus(ProductionStage.IN_PROGRESS);
+            testOrder.setItems(new HashSet<>(List.of(item)));
+
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+            when(orderItemRepository.save(any(OrderItem.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            setCurrentUserRoles("ROLE_PRODUCTION");
+
+            OrderItemResponse response = new OrderItemResponse();
+            response.setId(1L);
+            response.setReady(true);
+            when(orderMapper.itemToDto(any(OrderItem.class))).thenReturn(response);
+
+            OrderItemResponse result = orderService.updateOrderItemReady(1L, 1L, true);
+
+            assertThat(result).isNotNull();
+            assertThat(result.getReady()).isTrue();
+            verify(orderRepository).save(argThat(o -> o.getStatus() == ProductionStage.READY));
+        }
+
+        @Test
+        @DisplayName("Does not auto-transition when not all items ready")
+        void doesNotAutoTransitionWhenNotAllReady() {
+            OrderItem item1 = new OrderItem();
+            item1.setId(1L);
+            item1.setOrder(testOrder);
+            item1.setReady(false);
+
+            OrderItem item2 = new OrderItem();
+            item2.setId(2L);
+            item2.setOrder(testOrder);
+            item2.setReady(false);
+
+            testOrder.setStatus(ProductionStage.IN_PROGRESS);
+            testOrder.setItems(new HashSet<>(List.of(item1, item2)));
+
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+            when(orderItemRepository.save(any(OrderItem.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            setCurrentUserRoles("ROLE_PRODUCTION");
+
+            OrderItemResponse response = new OrderItemResponse();
+            response.setId(1L);
+            response.setReady(true);
+            when(orderMapper.itemToDto(any(OrderItem.class))).thenReturn(response);
+
+            orderService.updateOrderItemReady(1L, 1L, true);
+
+            verify(orderRepository, never()).save(any(Order.class));
+        }
+    }
+
+    // ===================== checkStatusTransitionAllowed =====================
+
+    @Nested
+    @DisplayName("checkStatusTransitionAllowed")
+    class CheckStatusTransitionAllowed {
+
+        @Test
+        @DisplayName("Allows CLOSED only for ADMIN")
+        void allowsClosedOnlyForAdmin() {
+            testOrder.setStatus(ProductionStage.IN_PROGRESS);
+            setCurrentUserRoles("ROLE_ADMIN");
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+            when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(orderMapper.toDto(any(Order.class))).thenReturn(new OrderResponse());
+
+            assertThatCode(() -> orderService.updateStatus(1L, ProductionStage.CLOSED.name()))
+                    .doesNotThrowAnyException();
+            verify(orderRepository).save(argThat(o -> o.getStatus() == ProductionStage.CLOSED));
+        }
+
+        @Test
+        @DisplayName("Prevents CLOSED for non-ADMIN")
+        void preventsClosedForNonAdmin() {
+            testOrder.setStatus(ProductionStage.IN_PROGRESS);
+            setCurrentUserRoles("ROLE_MANAGER");
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+
+            assertThatThrownBy(() -> orderService.updateStatus(1L, ProductionStage.CLOSED.name()))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("администратор");
+        }
+    }
+
+    // ===================== Helpers =====================
+
+    private void setCurrentUserRoles(String... roles) {
+        java.util.List<org.springframework.security.core.GrantedAuthority> authorities = new java.util.ArrayList<>();
+        for (String role : roles) {
+            authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority(role));
+        }
+        org.mockito.Mockito.lenient().doReturn((java.util.Collection) authorities).when(authentication).getAuthorities();
     }
 }

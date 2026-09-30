@@ -70,4 +70,6 @@ public class OrderResponse {
     private List<OrderMaterialResponse> materials;
     /** История изменений заказа */
     private String history;
+    /** Причина отклонения заказа */
+    private String rejectionReason;
 }

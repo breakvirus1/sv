@@ -83,6 +83,8 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const username = user?.username;
+  const isProduction = user?.roles?.includes('ROLE_PRODUCTION');
+  const isAdmin = user?.roles?.includes('ROLE_ADMIN');
 
   // ==================== Common State ====================
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -109,6 +111,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
    const [activeTab, setActiveTab] = useState(0);
    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
    const [newStatus, setNewStatus] = useState('');
+   const [rejectedDialogOpen, setRejectedDialogOpen] = useState(false);
 
    // ==================== Edit Mode State ====================
    const [editForm, setEditForm] = useState({
@@ -197,7 +200,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
   });
 
    const updateStatusMutation = useMutation({
-     mutationFn: (status) => api.put(`/api/v1/orders/${id}/status?status=${status}`),
+     mutationFn: (status) => api.put(`/api/v1/orders/${id}/status`, status),
      onSuccess: () => {
        queryClient.invalidateQueries({ queryKey: ['order', id] });
        queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -206,18 +209,30 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
      }
    });
 
-   const updateOrderMutation = useMutation({
-     mutationFn: (data) => api.put(`/api/v1/orders/${id}`, data),
-     onSuccess: () => {
-       queryClient.invalidateQueries({ queryKey: ['order', id] });
-       queryClient.invalidateQueries({ queryKey: ['orders'] });
-       setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
-       setTimeout(() => navigate(`/orders/${id}`), 1500);
-     },
-     onError: (err) => {
-       setNotification({ open: true, message: `Ошибка: ${err.response?.data?.message || err.message}`, severity: 'error' });
-     }
-   });
+    const updateOrderMutation = useMutation({
+      mutationFn: (data) => api.put(`/api/v1/orders/${id}`, data),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['order', id] });
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+        setNotification({ open: true, message: 'Заказ успешно обновлен', severity: 'success' });
+        setTimeout(() => navigate(`/orders/${id}`), 1500);
+      },
+      onError: (err) => {
+        setNotification({ open: true, message: `Ошибка: ${err.response?.data?.message || err.message}`, severity: 'error' });
+      }
+    });
+
+    const updateItemReadyMutation = useMutation({
+      mutationFn: ({ itemId, ready }) => api.put(`/api/v1/orders/${id}/items/${itemId}/ready`, { ready }),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['order', id] });
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+      }
+    });
+
+    const handleItemReadyChange = (itemId, currentReady) => {
+      updateItemReadyMutation.mutate({ itemId, ready: !currentReady });
+    };
 
    // ==================== Effects ====================
    // Ensure current employee is synced from Keycloak when in create mode
@@ -229,21 +244,27 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
      }
    }, [mode, username, currentEmployee, refetchEmployee]);
 
-   // Populate edit form when order is loaded in edit mode
-   useEffect(() => {
-     if (mode === 'edit' && order) {
-       const formatDate = (dateStr) => {
-         if (!dateStr) return '';
-         return dateStr.split('T')[0];
-       };
-       setEditForm({
-         description: order.description || '',
-         orderDate: formatDate(order.orderDate),
-         dueDate: formatDate(order.dueDate),
-         managerId: order.manager?.id ? String(order.manager.id) : ''
-       });
-     }
-   }, [mode, order]);
+  // Populate edit form when order is loaded in edit mode
+  useEffect(() => {
+    if (mode === 'edit' && order) {
+      const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        return dateStr.split('T')[0];
+      };
+      setEditForm({
+        description: order.description || '',
+        orderDate: formatDate(order.orderDate),
+        dueDate: formatDate(order.dueDate),
+        managerId: order.manager?.id ? String(order.manager.id) : ''
+      });
+    }
+  }, [mode, order]);
+
+  useEffect(() => {
+    if (order?.status === 'REJECTED') {
+      setRejectedDialogOpen(true);
+    }
+  }, [order?.status]);
 
   // ==================== Create Mode Handlers ====================
   const addItem = () => {
@@ -648,7 +669,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
   }
 
   // ==================== View Mode JSX ====================
-  const statusOptions = ['DRAFT', 'IN_PROGRESS', 'READY', 'CLOSED'];
+  const statusOptions = isAdmin ? ['DRAFT', 'IN_PROGRESS', 'READY', 'CLOSED'] : ['DRAFT', 'IN_PROGRESS'];
 
   if (isLoading) {
     return (
@@ -792,7 +813,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
           />
         </Box>
         <Box display="flex" gap={1}>
-          {(user?.roles?.some(r => r === 'ROLE_ADMIN' || r === 'ROLE_MANAGER')) && (
+          {(user?.roles?.some(r => r === 'ROLE_ADMIN' || r === 'ROLE_MANAGER') && order?.status !== 'REJECTED') && (
             <Button
               variant="outlined"
               startIcon={<Edit />}
@@ -825,9 +846,11 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
             <Divider />
             <Box sx={{ p: 2 }}>
               {activeTab === 0 && (
-                <PositionsTab 
-                  materials={order?.materials || []} 
-                  items={order?.items || []} 
+                <PositionsTab
+                  materials={order?.materials || []}
+                  items={order?.items || []}
+                  isProduction={isProduction}
+                  onReadyChange={handleItemReadyChange}
                 />
               )}
               {activeTab === 1 && (
@@ -867,6 +890,21 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
             variant="contained"
           >
             Сохранить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Unclosable dialog for rejected orders */}
+      <Dialog open={rejectedDialogOpen} onClose={() => {}} disableEscapeKeyDown>
+        <DialogTitle>Заказ отклонен</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            {order?.rejectionReason || 'Причина отклонения не указана'}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => navigate('/production/orders')} variant="contained">
+            Назад к списку заказов
           </Button>
         </DialogActions>
       </Dialog>
