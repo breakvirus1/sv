@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:15-alpine
+    command: ["postgres", "-c", "max_connections=300"]
     environment:
       POSTGRES_DB: svdb
       POSTGRES_USER: postgres
@@ -33,6 +34,11 @@ services:
       KC_HOSTNAME: ${SERVER_IP}
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
+      KC_HTTP_CORS_ALLOWED_ORIGINS: "http://192.168.88.40:5174,http://192.168.1.131:5174"
+      KC_HTTP_CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
+      KC_HTTP_CORS_ALLOWED_HEADERS: "*"
+      KC_HTTP_CORS_EXPOSED_HEADERS: "*"
+      KC_HTTP_CORS_ALLOW_CREDENTIALS: "true"
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     depends_on:
@@ -122,7 +128,8 @@ services:
   material-service:
     build:
       context: .
-      dockerfile: back/material-service/Dockerfile
+      dockerfile: back/material-service/Dockerfile.fixed
+    image: sv-material-service-fixed
     depends_on:
       postgres:
         condition: service_healthy
@@ -134,9 +141,14 @@ services:
       - sv-network
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/svdb
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=12345
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
+      - SPRING_FLYWAY_ENABLED=false
       - EUREKA_URL=http://discovery-server:8761/eureka/
-      - DB_HOST=postgres
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
+      - KEYCLOAK_ADMIN_SERVER_URL=http://keycloak:8080
 
 
   calculator-service:

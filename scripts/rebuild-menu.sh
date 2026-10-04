@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 declare -a SCRIPTS=(
   "all|Rebuild ALL services (rebuild.sh)"
@@ -45,20 +45,15 @@ show_menu() {
     index=$((choice-1))
     IFS='|' read -r script_name label <<< "${SCRIPTS[$index]}"
 
+    script_name="${script_name#rebuild-}"
+
     if [ "$script_name" = "all" ]; then
       echo ""
       echo "=============================="
       echo " Running: $label"
       echo "=============================="
       echo ""
-      exec "${SCRIPTS_DIR}/rebuild.sh"
-    fi
-
-    script_path="${SCRIPTS_DIR}/${script_name}.sh"
-
-    if [ ! -f "$script_path" ]; then
-      echo "Script not found: $script_path"
-      exit 1
+      exec "${SCRIPT_DIR}/rebuild.sh"
     fi
 
     echo ""
@@ -66,7 +61,7 @@ show_menu() {
     echo " Running: $label"
     echo "=============================="
     echo ""
-    exec "$script_path"
+    exec "${SCRIPT_DIR}/rebuild-service.sh" "$script_name"
   else
     echo "Invalid choice: $choice"
     exit 1
