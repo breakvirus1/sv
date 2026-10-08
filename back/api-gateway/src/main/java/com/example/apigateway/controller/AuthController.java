@@ -2,14 +2,15 @@ package com.example.apigateway.controller;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.bind.annotation.RequestMethod;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
@@ -35,6 +36,11 @@ public class AuthController {
         this.tokenBaseUrl = tokenBaseUrl;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
+    }
+
+    @RequestMapping(method = RequestMethod.OPTIONS, value = {"/login", "/refresh"})
+    public Mono<ResponseEntity<Void>> options() {
+        return Mono.just(ResponseEntity.ok().build());
     }
 
     @PostMapping(value = "/login", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
