@@ -127,7 +127,7 @@ export const AuthProvider = ({ children }) => {
       params.append('username', username);
       params.append('password', password);
 
-      const response = await fetch(`${KEYCLOAK_ISSUER}/protocol/openid-connect/token`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -137,7 +137,7 @@ export const AuthProvider = ({ children }) => {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error_description || data.error || 'Ошибка авторизации');
+        throw new Error(data.error || data.error_description || 'Ошибка авторизации');
       }
 
       const accessToken = data.access_token;
@@ -250,7 +250,7 @@ export const AuthProvider = ({ children }) => {
       });
       localStorage.setItem('token', accessToken);
       api.post('/api/v1/employees/sync').catch((err) => console.error('Employee sync failed:', err));
-      window.history.replaceState({}, document.title, '/');
+      window.history.replaceState({}, document.title, '/orders?my=1');
     } catch (err) {
       console.error('Callback error:', err);
       throw err;

@@ -5,7 +5,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.BodyInserters;
@@ -21,59 +21,64 @@ public class AuthController {
 
     private final WebClient webClient;
     private final String keycloakIssuerUri;
+    private final String tokenBaseUrl;
     private final String clientId;
     private final String clientSecret;
 
     public AuthController(WebClient.Builder webClientBuilder,
                           @Value("${app.keycloak.issuer-uri:http://192.168.1.40:8080/realms/print-sv}") String keycloakIssuerUri,
+                          @Value("${app.keycloak.token-base-url:http://keycloak:8080/realms/print-sv}") String tokenBaseUrl,
                           @Value("${app.keycloak.client-id:frontend}") String clientId,
                           @Value("${app.keycloak.client-secret:}") String clientSecret) {
         this.webClient = webClientBuilder.build();
         this.keycloakIssuerUri = keycloakIssuerUri;
+        this.tokenBaseUrl = tokenBaseUrl;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
     }
 
     @PostMapping(value = "/login", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public Mono<ResponseEntity<Map<String, Object>>> login(@RequestBody Mono<Map<String, String>> formDataMono) {
-        return formDataMono.flatMap(formData -> {
-            String username = formData.get("username");
-            String password = formData.get("password");
+    public Mono<ResponseEntity<Map<String, Object>>> login(ServerWebExchange exchange) {
+        return exchange.getFormData()
+                .flatMap(formData -> {
+                    String username = formData.getFirst("username");
+                    String password = formData.getFirst("password");
 
-            if (username == null || password == null) {
-                Map<String, Object> error = new HashMap<>();
-                error.put("error", "username and password are required");
-                return Mono.just(ResponseEntity.badRequest().body(error));
-            }
+                    if (username == null || password == null) {
+                        Map<String, Object> error = new HashMap<>();
+                        error.put("error", "username and password are required");
+                        return Mono.just(ResponseEntity.badRequest().body(error));
+                    }
 
-            return callKeycloakTokenEndpoint(Map.of(
-                    "grant_type", "password",
-                    "client_id", clientId,
-                    "username", username,
-                    "password", password,
-                    "client_secret", clientSecret
-            ));
-        });
+                    return callKeycloakTokenEndpoint(Map.of(
+                            "grant_type", "password",
+                            "client_id", clientId,
+                            "username", username,
+                            "password", password,
+                            "client_secret", clientSecret
+                    ));
+                });
     }
 
     @PostMapping(value = "/refresh", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public Mono<ResponseEntity<Map<String, Object>>> refresh(@RequestBody Mono<Map<String, String>> formDataMono) {
-        return formDataMono.flatMap(formData -> {
-            String refreshToken = formData.get("refresh_token");
+    public Mono<ResponseEntity<Map<String, Object>>> refresh(ServerWebExchange exchange) {
+        return exchange.getFormData()
+                .flatMap(formData -> {
+                    String refreshToken = formData.getFirst("refresh_token");
 
-            if (refreshToken == null) {
-                Map<String, Object> error = new HashMap<>();
-                error.put("error", "refresh_token is required");
-                return Mono.just(ResponseEntity.badRequest().body(error));
-            }
+                    if (refreshToken == null) {
+                        Map<String, Object> error = new HashMap<>();
+                        error.put("error", "refresh_token is required");
+                        return Mono.just(ResponseEntity.badRequest().body(error));
+                    }
 
-            return callKeycloakTokenEndpoint(Map.of(
-                    "grant_type", "refresh_token",
-                    "client_id", clientId,
-                    "refresh_token", refreshToken,
-                    "client_secret", clientSecret
-            ));
-        });
+                    return callKeycloakTokenEndpoint(Map.of(
+                            "grant_type", "refresh_token",
+                            "client_id", clientId,
+                            "refresh_token", refreshToken,
+                            "client_secret", clientSecret
+                    ));
+                });
     }
 
     @SuppressWarnings("unchecked")
@@ -89,7 +94,7 @@ public class AuthController {
         }
 
         return webClient.post()
-                .uri(keycloakIssuerUri + "/protocol/openid-connect/token")
+                .uri(tokenBaseUrl + "/protocol/openid-connect/token")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(body)
                 .retrieve()

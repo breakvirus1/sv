@@ -290,6 +290,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
+      - KEYCLOAK_TOKEN_BASE_URL=http://keycloak:8080/realms/print-sv
       - KEYCLOAK_CLIENT_ID=frontend
       - KEYCLOAK_CLIENT_SECRET=
       - SERVER_IP=${SERVER_IP}
