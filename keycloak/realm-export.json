@@ -33,6 +33,11 @@
   "roles": {
     "realm": [
       {
+        "name": "GOD",
+        "description": "God - super admin with access to admin dashboard",
+        "composite": false
+      },
+      {
         "name": "ADMIN",
         "description": "Administrator with full access",
         "composite": false
@@ -141,6 +146,25 @@
       "enabled": true,
       "serviceAccountClientId": "order-service",
       "realmRoles": ["ADMIN"]
+    },
+    {
+      "username": "admingod",
+      "enabled": true,
+      "email": "admingod@example.com",
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "God",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admingod",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["GOD"],
+      "attributes": {
+        "fullName": ["Admin God"]
+      }
     }
   ]
 }

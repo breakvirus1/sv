@@ -78,4 +78,7 @@ public class OrderMaterial extends BaseEntity {
     /** Высота изделия в метрах */
     @Column(name = "height_m", precision = 10, scale = 4)
     private BigDecimal heightM;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

@@ -38,4 +38,7 @@ public class ProductMaterial extends BaseEntity {
     private BigDecimal wasteCoefficient = BigDecimal.ONE;
 
     private Integer sortOrder;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

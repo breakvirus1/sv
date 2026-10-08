@@ -63,4 +63,7 @@ public class Employee extends BaseEntity {
         inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private Set<Role> roles = new HashSet<>();
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

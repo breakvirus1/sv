@@ -72,6 +72,9 @@ public class Calculation extends BaseEntity {
     @OneToMany(mappedBy = "calculation", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CalculationOperation> selectedOperations = new ArrayList<>();
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     // ==================== Удобные методы ====================
 
     public void addOperation(CalculationOperation operation) {

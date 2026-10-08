@@ -31,4 +31,6 @@ public class ClientResponse {
     private String address;
     /** Процент добавки к сумме заказа */
     private BigDecimal priceplus;
+    /** ID компании */
+    private Long companyId;
 }

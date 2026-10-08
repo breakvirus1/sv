@@ -26,7 +26,16 @@ public class ClientService {
     private final ClientMapper clientMapper;
 
     public Page<ClientResponse> getAllClients(Specification<Client> spec, Pageable pageable) {
-        return clientRepository.findAll(spec, pageable)
+        return getAllClients(spec, pageable, null);
+    }
+
+    public Page<ClientResponse> getAllClients(Specification<Client> spec, Pageable pageable, Long companyId) {
+        Specification<Client> finalSpec = spec;
+        if (companyId != null) {
+            finalSpec = spec == null ? Specification.where(null) : spec;
+            finalSpec = finalSpec.and((root, query, cb) -> cb.equal(root.get("companyId"), companyId));
+        }
+        return clientRepository.findAll(finalSpec, pageable)
                 .map(clientMapper::toDto);
     }
 

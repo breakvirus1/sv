@@ -46,4 +46,7 @@ public class Payment extends BaseEntity {
     /** Флаг частичной оплаты (если true — сумма меньше общей) */
     @Column(name = "is_partial")
     private Boolean isPartial = false;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

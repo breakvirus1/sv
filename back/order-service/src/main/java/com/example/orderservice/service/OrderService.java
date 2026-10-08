@@ -108,8 +108,17 @@ public class OrderService {
      */
     @Transactional(readOnly = true)
     public Page<OrderResponse> getAllOrders(Specification<Order> spec, Pageable pageable) {
-        spec = spec.and(workshopFilterForCurrentUser());
-        return orderRepository.findAll(spec, pageable)
+        return getAllOrders(spec, pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> getAllOrders(Specification<Order> spec, Pageable pageable, Long companyId) {
+        Specification<Order> finalSpec = spec == null ? Specification.where(null) : spec;
+        if (companyId != null) {
+            finalSpec = finalSpec.and((root, query, cb) -> cb.equal(root.get("companyId"), companyId));
+        }
+        finalSpec = finalSpec.and(workshopFilterForCurrentUser());
+        return orderRepository.findAll(finalSpec, pageable)
                 .map(orderMapper::toDto);
     }
 
@@ -1382,7 +1391,7 @@ private void recalculatePaidAmount(Long orderId) {
     private CommentResponse mapComment(OrderComment comment) {
         Employee author = comment.getAuthor();
         EmployeeResponse authorDto = author != null ?
-                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername(), author.getWorkshopId(), author.getManagerCashPercent(), null, null) :
+                new EmployeeResponse(author.getId(), author.getFullName(), author.getPosition(), author.getPhone(), author.getEmail(), author.getUsername(), author.getWorkshopId(), author.getManagerCashPercent(), null, null, null) :
                 null;
 
         return new CommentResponse(

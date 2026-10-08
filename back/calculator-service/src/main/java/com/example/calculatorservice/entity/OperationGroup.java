@@ -16,4 +16,7 @@ public class OperationGroup extends BaseEntity {
 
     @Column(nullable = false, length = 255, unique = true)
     private String name;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

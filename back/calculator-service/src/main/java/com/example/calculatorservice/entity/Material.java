@@ -32,4 +32,7 @@ public class Material extends BaseEntity {
     /** Коэффициент отхода (например, 1.10 = 10% отход) */
     @Column(name = "waste_coefficient", precision = 5, scale = 3)
     private BigDecimal wasteCoefficient = BigDecimal.ONE;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

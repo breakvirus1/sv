@@ -41,4 +41,7 @@ public class ProductOperation extends BaseEntity {
     /** Коэффициент количества (понижающий или повышающий) */
     @Column(name = "coefficient", precision = 5, scale = 3)
     private BigDecimal coefficient = BigDecimal.ONE;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

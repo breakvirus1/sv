@@ -45,4 +45,7 @@ public class Product extends BaseEntity {
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sortOrder")
     private List<ProductOperation> operations = new ArrayList<>();
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

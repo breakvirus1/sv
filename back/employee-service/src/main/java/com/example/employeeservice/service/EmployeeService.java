@@ -48,7 +48,16 @@ public class EmployeeService {
     private String keycloakClientSecret;
 
     public Page<EmployeeResponse> getAllEmployees(Specification<Employee> spec, Pageable pageable) {
-        Page<EmployeeResponse> employees = employeeRepository.findAll(spec, pageable)
+        return getAllEmployees(spec, pageable, null);
+    }
+
+    public Page<EmployeeResponse> getAllEmployees(Specification<Employee> spec, Pageable pageable, Long companyId) {
+        Specification<Employee> finalSpec = spec;
+        if (companyId != null) {
+            finalSpec = spec == null ? Specification.where(null) : spec;
+            finalSpec = finalSpec.and((root, query, cb) -> cb.equal(root.get("companyId"), companyId));
+        }
+        Page<EmployeeResponse> employees = employeeRepository.findAll(finalSpec, pageable)
                 .map(employeeMapper::toDto);
 
         // Populate roles from DB

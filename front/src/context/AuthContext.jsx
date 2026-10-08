@@ -250,7 +250,8 @@ export const AuthProvider = ({ children }) => {
       });
       localStorage.setItem('token', accessToken);
       api.post('/api/v1/employees/sync').catch((err) => console.error('Employee sync failed:', err));
-      window.history.replaceState({}, document.title, '/orders?my=1');
+      const redirectTarget = roles.includes('ROLE_GOD') ? '/admin-dashboard' : '/orders?my=1';
+      window.history.replaceState({}, document.title, redirectTarget);
     } catch (err) {
       console.error('Callback error:', err);
       throw err;

@@ -15,4 +15,6 @@ public class EmployeeCreateRequest {
     private String email;
     private Long workshopId;
     private java.math.BigDecimal managerCashPercent;
+    /** ID компании */
+    private Long companyId;
 }

@@ -16,6 +16,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -39,7 +41,7 @@ public class OrderController {
      */
      @Operation(summary = "Получить список заказов с фильтрами")
      @GetMapping
-     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT', 'GOD')")
       public ResponseEntity<Page<OrderResponse>> getAllOrders(
               @Parameter(description = "Статус заказа") @RequestParam(required = false) String status,
               @Parameter(description = "ID менеджера") @RequestParam(required = false) Long managerId,
@@ -47,7 +49,8 @@ public class OrderController {
               @Parameter(description = "Дата с") @RequestParam(required = false) LocalDate fromDate,
               @Parameter(description = "Дата по") @RequestParam(required = false) LocalDate toDate,
               @RequestParam(required = false, defaultValue = "50") Integer size,
-              Pageable pageable) {
+              Pageable pageable,
+              @AuthenticationPrincipal Jwt jwt) {
 
           Specification<Order> spec = Specification.where(null);
 
@@ -73,13 +76,14 @@ public class OrderController {
           }
 
            Pageable explicitPageable = PageRequest.of(pageable.getPageNumber(), size, pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.DESC, "createdAt"));
-           Page<OrderResponse> page = orderService.getAllOrders(spec, explicitPageable);
+           Long companyId = extractCompanyId(jwt);
+           Page<OrderResponse> page = orderService.getAllOrders(spec, explicitPageable, companyId);
            return ResponseEntity.ok(page);
-       }
+        }
 
        @Operation(summary = "Получить опции для фильтров")
        @GetMapping("/filter-options")
-       @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+       @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT', 'GOD')")
        public ResponseEntity<java.util.Map<String, java.util.List<java.util.Map<String, Object>>>> getFilterOptions() {
            return ResponseEntity.ok(orderService.getFilterOptions());
        }
@@ -90,7 +94,7 @@ public class OrderController {
      */
     @Operation(summary = "Получить детальную информацию о заказе")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT', 'GOD')")
     public ResponseEntity<OrderResponse> getOrder(@Parameter(description = "ID заказа") @PathVariable Long id) {
         return ResponseEntity.ok(orderService.getOrderById(id));
     }
@@ -102,7 +106,7 @@ public class OrderController {
      */
     @Operation(summary = "Получить заказ по номеру")
     @GetMapping("/number/{orderNumber}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT', 'GOD')")
     public ResponseEntity<OrderResponse> getOrderByNumber(
             @Parameter(description = "Номер заказа") @PathVariable String orderNumber) {
         return ResponseEntity.ok(orderService.getOrderByOrderNumber(orderNumber));
@@ -114,7 +118,7 @@ public class OrderController {
      */
     @Operation(summary = "Создать новый заказ")
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<OrderResponse> createOrder(@RequestBody OrderCreateRequest request) {
         return new ResponseEntity<>(orderService.createOrder(request), HttpStatus.CREATED);
     }
@@ -125,7 +129,7 @@ public class OrderController {
      */
     @Operation(summary = "Обновить заказ")
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<OrderResponse> updateOrder(
             @Parameter(description = "ID заказа") @PathVariable Long id,
             @RequestBody OrderUpdateRequest request) {
@@ -138,7 +142,7 @@ public class OrderController {
      */
     @Operation(summary = "Обновить статус заказа")
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<OrderResponse> updateStatus(
             @Parameter(description = "ID заказа") @PathVariable Long id,
             @RequestParam String status) {
@@ -151,7 +155,7 @@ public class OrderController {
      */
     @Operation(summary = "Закрыть заказ")
     @PutMapping("/{id}/close")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<OrderResponse> closeOrder(
             @Parameter(description = "ID заказа") @PathVariable Long id) {
         return ResponseEntity.ok(orderService.updateStatus(id, ProductionStage.CLOSED.name()));
@@ -169,7 +173,7 @@ public class OrderController {
 
     @Operation(summary = "Удалить заказ (мягкое удаление)")
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<Void> deleteOrder(
             @Parameter(description = "ID заказа") @PathVariable Long id) {
         orderService.deleteOrder(id);
@@ -201,7 +205,7 @@ public class OrderController {
      */
      @Operation(summary = "Получить список оплат по заказу")
      @GetMapping("/{id}/payments")
-     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT', 'GOD')")
      public ResponseEntity<List<PaymentResponse>> getPayments(
              @Parameter(description = "ID заказа") @PathVariable Long id) {
          List<PaymentResponse> response = orderService.getPayments(id);
@@ -210,7 +214,7 @@ public class OrderController {
 
     @Operation(summary = "Добавить оплату к заказу")
     @PostMapping("/{id}/payments")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT', 'GOD')")
     public ResponseEntity<PaymentResponse> addPayment(
             @Parameter(description = "ID заказа") @PathVariable Long id,
             @RequestBody PaymentRequest payment) {
@@ -224,7 +228,7 @@ public class OrderController {
      */
     @Operation(summary = "Добавить комментарий к заказу")
     @PostMapping("/{id}/comments")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     public ResponseEntity<CommentResponse> addComment(
             @Parameter(description = "ID заказа") @PathVariable Long id,
             @RequestBody CommentRequest request) {
@@ -244,7 +248,7 @@ public class OrderController {
      */
     @Operation(summary = "Получить информацию о существующей позиции заказа")
     @GetMapping("/{id}/positions/{orderMaterialId}/default")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     public ResponseEntity<ItemPositionInfo> getItemPositionInfo(
             @Parameter(description = "ID заказа") @PathVariable Long id,
             @Parameter(description = "ID записи материала в заказе") @PathVariable Long orderMaterialId) {
@@ -260,7 +264,7 @@ public class OrderController {
      */
     @Operation(summary = "Получить открытую сумму отредактированного заказа")
     @GetMapping("/{id}/total-open")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT', 'GOD')")
     public ResponseEntity<java.math.BigDecimal> getTotalOpen(
             @Parameter(description = "ID заказа") @PathVariable Long id) {
         java.math.BigDecimal total = orderService.calculateOpenOrderTotal(id);
@@ -273,17 +277,31 @@ public class OrderController {
      */
     @Operation(summary = "Получить статистику заработка менеджера")
     @GetMapping("/manager-earnings/{managerId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<ManagerEarningsResponse> getManagerEarnings(
             @Parameter(description = "ID менеджера") @PathVariable Long managerId) {
         return ResponseEntity.ok(orderService.getManagerEarnings(managerId));
     }
     @Operation(summary = "Получить позиции заказа с расчетами priceplus")
     @GetMapping("/{id}/calculated")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT', 'GOD')")
     public ResponseEntity<CalculatedOrderResponse> getCalculatedOrder(
             @Parameter(description = "ID заказа") @PathVariable Long id) {
         CalculatedOrderResponse response = orderService.getCalculatedOrder(id);
         return ResponseEntity.ok(response);
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

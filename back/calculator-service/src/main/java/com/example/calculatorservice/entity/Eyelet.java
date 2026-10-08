@@ -31,4 +31,7 @@ public class Eyelet extends BaseEntity {
     /** Диаметр люверса в миллиметрах */
     @Column(name = "diameter_mm")
     private Integer diameterMm;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

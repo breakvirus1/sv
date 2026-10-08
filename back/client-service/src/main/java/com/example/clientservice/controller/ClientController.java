@@ -15,6 +15,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,10 +31,11 @@ public class ClientController {
 
     @Operation(summary = "Получить список клиентов")
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT', 'GOD')")
     public ResponseEntity<Page<ClientResponse>> getAllClients(
             @Parameter(description = "Поисковый запрос") @RequestParam(required = false) String q,
-            Pageable pageable) {
+            Pageable pageable,
+            @AuthenticationPrincipal Jwt jwt) {
 
         Specification<Client> spec = Specification.where(null);
         if (q != null && !q.trim().isEmpty()) {
@@ -43,12 +46,13 @@ public class ClientController {
                     ));
         }
 
-        return ResponseEntity.ok(clientService.getAllClients(spec, pageable));
+        Long companyId = extractCompanyId(jwt);
+        return ResponseEntity.ok(clientService.getAllClients(spec, pageable, companyId));
     }
 
     @Operation(summary = "Найти клиентов по запросу")
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT', 'GOD')")
     public ResponseEntity<List<Client>> searchClients(
             @RequestParam String q) {
         return ResponseEntity.ok(clientService.searchClients(q));
@@ -56,21 +60,21 @@ public class ClientController {
 
     @Operation(summary = "Получить клиента по ID")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT', 'GOD')")
     public ResponseEntity<ClientResponse> getClient(@Parameter(description = "ID клиента") @PathVariable Long id) {
         return ResponseEntity.ok(clientService.getClientById(id));
     }
 
     @Operation(summary = "Создать нового клиента")
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<ClientResponse> createClient(@RequestBody ClientCreateRequest request) {
         return new ResponseEntity<>(clientService.createClient(request), HttpStatus.CREATED);
     }
 
     @Operation(summary = "Обновить клиента")
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<ClientResponse> updateClient(
             @Parameter(description = "ID клиента") @PathVariable Long id,
             @RequestBody ClientUpdateRequest request) {
@@ -79,9 +83,23 @@ public class ClientController {
 
     @Operation(summary = "Удалить клиента")
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<Void> deleteClient(@Parameter(description = "ID клиента") @PathVariable Long id) {
         clientService.deleteClient(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

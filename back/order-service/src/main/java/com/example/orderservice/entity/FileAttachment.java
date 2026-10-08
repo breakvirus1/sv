@@ -52,4 +52,7 @@ public class FileAttachment extends BaseEntity {
     /** Кто загрузил файл (логин пользователя) */
     @Column(name = "uploaded_by", length = 100)
     private String uploadedBy;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

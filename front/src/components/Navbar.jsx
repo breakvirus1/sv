@@ -1,7 +1,7 @@
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery, ListItemIcon, ListItemText, Chip, Divider, Badge } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
-import { Person, Logout, Add, AdminPanelSettings, ShoppingBag, ArrowDropDown, Assignment, Visibility, Category, Notifications } from '@mui/icons-material';
+import { Person, Logout, Add, AdminPanelSettings, ShoppingBag, ArrowDropDown, Assignment, Visibility, Category, Notifications, Security } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
@@ -193,19 +193,33 @@ const Navbar = () => {
                </>
              )}
 
-             {/* Admin Panel button - only for ADMIN role */}
-             {user?.roles?.includes('ROLE_ADMIN') && (
-               <Button
-                 variant="outlined"
-                 color="inherit"
-                 size="small"
-                 onClick={() => navigate('/admin')}
-                 startIcon={<AdminPanelSettings />}
-                 sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
-               >
-                 Admin Panel
-               </Button>
-             )}
+              {/* Admin Panel button - only for ADMIN role */}
+              {user?.roles?.includes('ROLE_ADMIN') && (
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  size="small"
+                  onClick={() => navigate('/admin')}
+                  startIcon={<AdminPanelSettings />}
+                  sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
+                >
+                  Admin Panel
+                </Button>
+              )}
+
+              {/* Admin Dashboard button - only for GOD role */}
+              {user?.roles?.includes('ROLE_GOD') && (
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  size="small"
+                  onClick={() => navigate('/admin-dashboard')}
+                  startIcon={<Security />}
+                  sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
+                >
+                  Admin Dashboard
+                </Button>
+              )}
 
                {/* Manager Dashboard button - only for ROLE_MANAGER */}
                {user?.roles?.includes('ROLE_MANAGER') && !user?.roles?.includes('ROLE_ADMIN') && (

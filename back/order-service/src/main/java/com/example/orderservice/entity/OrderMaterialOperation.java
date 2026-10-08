@@ -83,4 +83,7 @@ public class OrderMaterialOperation extends BaseEntity {
     @Column(name = "active")
     @ColumnDefault("true")
     private Boolean active = true;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }
