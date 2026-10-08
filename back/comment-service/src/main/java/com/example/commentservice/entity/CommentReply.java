@@ -56,4 +56,7 @@ public class CommentReply extends BaseEntity {
 
     @OneToMany(mappedBy = "parentReply", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CommentReply> replies = new ArrayList<>();
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

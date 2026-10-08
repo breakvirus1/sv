@@ -65,4 +65,7 @@ public class StatisticOrder extends BaseEntity {
 
     @OneToMany(mappedBy = "statisticOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<StatisticOrderItem> items = new ArrayList<>();
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

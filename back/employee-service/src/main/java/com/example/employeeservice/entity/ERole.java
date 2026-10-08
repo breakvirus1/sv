@@ -5,6 +5,8 @@ package com.example.employeeservice.entity;
  * Используется для авторизации через Keycloak.
  */
 public enum ERole {
+    /** Божественный администратор — доступ к admin-dashboard, все права */
+    ROLE_GOD,
     /** Администратор — полный доступ ко всем функциям */
     ROLE_ADMIN,
     /** Менеджер — управление заказами и клиентами */

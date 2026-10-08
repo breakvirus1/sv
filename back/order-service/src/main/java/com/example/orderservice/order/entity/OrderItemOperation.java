@@ -28,4 +28,7 @@ public class OrderItemOperation extends BaseEntity {
     private Duration normTime;
     private BigDecimal quantity = BigDecimal.ONE;
     private BigDecimal cost;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

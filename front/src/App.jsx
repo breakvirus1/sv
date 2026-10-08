@@ -9,6 +9,7 @@ import OrderDetail from './pages/OrderDetail'
 import OrderItemDetail from './pages/OrderItemDetail'
 import CallbackPage from './pages/CallbackPage'
 import AdminPanel from './pages/AdminPanel'
+import AdminDashboard from './pages/AdminDashboard'
 import ProductionOrderList from './pages/ProductionOrderList'
 import ProductionOrderDetail from './pages/ProductionOrderDetail'
 import ProductionOrdersPositionsList from './pages/ProductionOrdersPositionsList'
@@ -117,11 +118,16 @@ function App() {
                 <OrderDetail mode="edit" />
               </ProtectedRoute>
             } />
-             <Route path="/admin" element={
-               <ProtectedRoute requiresAdmin={true}>
-                 <AdminPanel />
-               </ProtectedRoute>
-             } />
+              <Route path="/admin" element={
+                <ProtectedRoute requiresAdmin={true}>
+                  <AdminPanel />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin-dashboard" element={
+                <ProtectedRoute requiresGod={true}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } />
              <Route path="/constructor/new" element={
                <ProtectedRoute requiresAdmin={true}>
                  <ProductConstructorPage />
@@ -149,10 +155,14 @@ function App() {
   )
 }
 
-  const ProtectedRoute = ({ children, requiresManager, requiresAdmin }) => {
+  const ProtectedRoute = ({ children, requiresManager, requiresAdmin, requiresGod }) => {
     const { user } = useAuth()
 
     if (!user) return <Navigate to="/login" />
+
+    if (requiresGod && !user.roles?.includes('ROLE_GOD')) {
+      return <Navigate to="/dashboard" />
+    }
 
     if (requiresManager && !(user.roles?.includes('ROLE_MANAGER') || user.roles?.includes('ROLE_ADMIN'))) {
       if (user.roles?.includes('ROLE_PRODUCTION')) {

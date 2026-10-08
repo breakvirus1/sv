@@ -34,10 +34,11 @@ public class EmployeeController {
 
     @Operation(summary = "Получить список сотрудников")
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     public ResponseEntity<Page<EmployeeResponse>> getAllEmployees(
             @RequestParam(required = false) String q,
-            Pageable pageable) {
+            Pageable pageable,
+            @AuthenticationPrincipal Jwt jwt) {
 
         Specification<Employee> spec = Specification.where(null);
         if (q != null && !q.trim().isEmpty()) {
@@ -48,7 +49,8 @@ public class EmployeeController {
                     ));
         }
 
-        return ResponseEntity.ok(employeeService.getAllEmployees(spec, pageable));
+        Long companyId = extractCompanyId(jwt);
+        return ResponseEntity.ok(employeeService.getAllEmployees(spec, pageable, companyId));
     }
 
     @Operation(summary = "Получить сотрудника по username")
@@ -60,21 +62,21 @@ public class EmployeeController {
 
     @Operation(summary = "Получить сотрудника по ID")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<EmployeeResponse> getEmployee(@Parameter(description = "ID сотрудника") @PathVariable Long id) {
         return ResponseEntity.ok(employeeService.getEmployeeById(id));
     }
 
     @Operation(summary = "Создать нового сотрудника")
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<EmployeeResponse> createEmployee(@RequestBody EmployeeCreateRequest request) {
         return new ResponseEntity<>(employeeService.createEmployee(request), HttpStatus.CREATED);
     }
 
     @Operation(summary = "Обновить сотрудника")
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<EmployeeResponse> updateEmployee(
             @Parameter(description = "ID сотрудника") @PathVariable Long id,
             @RequestBody EmployeeUpdateRequest request) {
@@ -91,7 +93,7 @@ public class EmployeeController {
 
     @Operation(summary = "Синхронизировать всех пользователей из Keycloak (ADMIN)")
     @PostMapping("/sync-all")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<String> syncAllFromKeycloak() {
         String result = employeeService.syncAllFromKeycloak();
         return ResponseEntity.ok("Синхронизация завершена. " + result);
@@ -99,7 +101,7 @@ public class EmployeeController {
 
     @Operation(summary = "Удалить сотрудника")
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<Void> deleteEmployee(@Parameter(description = "ID сотрудника") @PathVariable Long id) {
         employeeService.deleteEmployee(id);
         return ResponseEntity.noContent().build();
@@ -107,8 +109,22 @@ public class EmployeeController {
 
     @Operation(summary = "Получить роли сотрудника из Keycloak по username")
     @GetMapping("/roles/{username}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<List<String>> getEmployeeRoles(@PathVariable String username) {
         return ResponseEntity.ok(employeeService.getKeycloakRolesForUser(username));
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

@@ -162,4 +162,7 @@ public class Order extends BaseEntity {
     /** Причина отклонения заказа (заполняется при статусе REJECTED) */
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

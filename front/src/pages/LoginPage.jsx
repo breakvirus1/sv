@@ -19,11 +19,13 @@ const LoginPage = () => {
     if (result.success) {
       setTimeout(() => {
         const roles = result.roles || user?.roles || []
-      if (roles.includes('ROLE_PRODUCTION')) {
-        navigate('/orders?my=1')
-      } else {
-        navigate('/orders?my=1')
-      }
+        if (roles.includes('ROLE_GOD')) {
+          navigate('/admin-dashboard')
+        } else if (roles.includes('ROLE_PRODUCTION')) {
+          navigate('/orders?my=1')
+        } else {
+          navigate('/orders?my=1')
+        }
       }, 50)
     }
   }
@@ -36,8 +38,8 @@ const LoginPage = () => {
     return (
       <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={2}>
         <Typography variant="h5">Вы уже авторизованы</Typography>
-        <Button variant="contained" color="primary" onClick={() => navigate('/orders?my=1')}>
-          Перейти к заказам
+        <Button variant="contained" color="primary" onClick={() => navigate(user?.roles?.includes('ROLE_GOD') ? '/admin-dashboard' : '/orders?my=1')}>
+          Перейти
         </Button>
       </Box>
     )

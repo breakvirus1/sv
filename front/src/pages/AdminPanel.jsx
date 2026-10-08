@@ -83,6 +83,9 @@ const AdminPanel = () => {
   const [employeeRoles, setEmployeeRoles] = useState([]);
   const [employeeForm, setEmployeeForm] = useState({ fullName: '', username: '', position: '', phone: '', email: '', workshopId: '', managerCashPercent: '' });
   const [syncing, setSyncing] = useState(false);
+  const [newEmployeeDialogOpen, setNewEmployeeDialogOpen] = useState(false);
+  const [newEmployeeForm, setNewEmployeeForm] = useState({ username: '', password: '', fullName: '', email: '', role: 'ROLE_MANAGER' });
+  const [creatingEmployee, setCreatingEmployee] = useState(false);
 
   // ---- Products (Constructor) state ----
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -566,11 +569,12 @@ const AdminPanel = () => {
     return ws ? ws.name : (workshopId || '-');
   };
 
-  const renderEmployeesTab = () => (
+   const renderEmployeesTab = () => (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexDirection={{ xs: 'column', sm: 'row' }} gap={1}>
         <Typography variant="h6">Управление сотрудниками</Typography>
         <Box display="flex" gap={2} width={{ xs: '100%', sm: 'auto' }} flexDirection={{ xs: 'column', sm: 'row' }}>
+          <Button variant="contained" startIcon={<Add />} onClick={() => setNewEmployeeDialogOpen(true)} fullWidth={isMobile}>Добавить сотрудника</Button>
           <Button variant="outlined" startIcon={syncing ? <CircularProgress size={16} /> : <Sync />} onClick={() => syncKeycloakMutation.mutate()} disabled={syncing} fullWidth={isMobile}>
             {syncing ? 'Синхронизация...' : 'Синхронизировать из Keycloak'}
           </Button>
@@ -580,24 +584,40 @@ const AdminPanel = () => {
       {employeesData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
           <TableContainer component={Paper}><Table size="small" sx={{ width: 'auto', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
-             <TableHead><TableRow><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>ID</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>ФИО</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Логин</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Должность</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Телефон</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 200 }}>Email</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Цех</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'right', minWidth: 120 }}>% заработка</TableCell><TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell></TableRow></TableHead>
-             <TableBody>
-                {employeesData.map((emp) => (
-                  <TableRow key={emp.id}>
-                    <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.id}</TableCell>
-                    <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.fullName || '-'}</TableCell>
-                    <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.username || '-'}</TableCell>
-                    <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.position || '-'}</TableCell>
-                    <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.phone || '-'}</TableCell>
-                    <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.email || '-'}</TableCell>
-                    <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 160 }}>{emp.workshopId ? `#${emp.workshopId} ${getWorkshopName(emp.workshopId)}` : '-'}</TableCell>
-                    <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right' }}>{emp.managerCashPercent != null ? `${emp.managerCashPercent.toFixed(2)}%` : '-'}</TableCell>
-                    <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
-                      <IconButton size="small" onClick={() => openEmployeeDialog(emp)}><Edit /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => { setSelectedEmployee(emp); setEmployeeDeleteDialogOpen(true); }}><Delete /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 80 }}>ID</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>ФИО</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Логин</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Должность</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Телефон</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 200 }}>Email</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Цех</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'right', minWidth: 120 }}>% заработка</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell>
+              </TableRow>
+            </TableHead>
+              <TableBody>
+                 {employeesData.map((emp) => {
+                   const roles = Array.isArray(emp.roles) ? emp.roles : [];
+                   const displayRoles = roles.filter(r => r !== 'ROLE_GOD');
+                   return (
+                   <TableRow key={emp.id}>
+                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.id}</TableCell>
+                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.fullName || '-'}</TableCell>
+                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.username || '-'}</TableCell>
+                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.position || '-'}</TableCell>
+                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.phone || '-'}</TableCell>
+                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.email || '-'}</TableCell>
+                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 160 }}>{emp.workshopId ? `#${emp.workshopId} ${getWorkshopName(emp.workshopId)}` : '-'}</TableCell>
+                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right' }}>{emp.managerCashPercent != null ? `${emp.managerCashPercent.toFixed(2)}%` : '-'}</TableCell>
+                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                       <IconButton size="small" onClick={() => openEmployeeDialog(emp)}><Edit /></IconButton>
+                       <IconButton size="small" color="error" onClick={() => { setSelectedEmployee(emp); setEmployeeDeleteDialogOpen(true); }}><Delete /></IconButton>
+                     </TableCell>
+                   </TableRow>
+                   );
+                 })}
               </TableBody>
           </Table></TableContainer>
         </Box>
@@ -796,6 +816,77 @@ const AdminPanel = () => {
       <Dialog open={employeeDeleteDialogOpen} onClose={() => setEmployeeDeleteDialogOpen(false)} fullScreen={isMobile}>
         <DialogTitle>Удалить сотрудника?</DialogTitle><DialogContent><Typography>Удалить "{selectedEmployee?.fullName || selectedEmployee?.username}"?</Typography></DialogContent>
         <DialogActions><Button onClick={() => setEmployeeDeleteDialogOpen(false)}>Отмена</Button><Button onClick={() => selectedEmployee && deleteEmployeeMutation.mutate(selectedEmployee.id)} color="error" variant="contained">Удалить</Button></DialogActions>
+      </Dialog>
+
+      {/* New Employee via Keycloak */}
+      <Dialog open={newEmployeeDialogOpen} onClose={() => setNewEmployeeDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Новый сотрудник</DialogTitle>
+        <DialogContent>
+          <TextField autoFocus fullWidth margin="dense" label="ФИО" value={newEmployeeForm.fullName} onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, fullName: e.target.value })} />
+          <TextField fullWidth margin="dense" label="Логин" value={newEmployeeForm.username} onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, username: e.target.value })} />
+          <TextField fullWidth margin="dense" label="Пароль" type="password" value={newEmployeeForm.password} onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, password: e.target.value })} />
+          <TextField fullWidth margin="dense" label="Email" value={newEmployeeForm.email} onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, email: e.target.value })} />
+          <FormControl fullWidth margin="dense">
+            <InputLabel>Роль</InputLabel>
+            <Select value={newEmployeeForm.role} label="Роль" onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, role: e.target.value })}>
+              <MenuItem value="ROLE_MANAGER">Менеджер</MenuItem>
+              <MenuItem value="ROLE_PRODUCTION">Производство</MenuItem>
+              <MenuItem value="ROLE_ACCOUNTANT">Бухгалтер</MenuItem>
+              <MenuItem value="ROLE_USER">Пользователь</MenuItem>
+              <MenuItem value="ROLE_ADMIN">Администратор</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNewEmployeeDialogOpen(false)}>Отмена</Button>
+          <Button variant="contained" onClick={async () => {
+            if (!newEmployeeForm.username || !newEmployeeForm.password || !newEmployeeForm.fullName) {
+              showNotification('Заполните все поля', 'error'); return;
+            }
+            setCreatingEmployee(true);
+            try {
+              const keycloakUrl = import.meta.env.VITE_KEYCLOAK_ISSUER || `http://${import.meta.env.VITE_SERVER_IP || '192.168.1.40'}:8080/realms/print-sv`;
+              const tokenRes = await fetch(`${keycloakUrl.replace('/realms/print-sv', '')}/realms/master/protocol/openid-connect/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ grant_type: 'password', client_id: 'admin-cli', username: 'admin', password: 'admin' })
+              });
+              if (!tokenRes.ok) throw new Error('Не удалось получить токен Keycloak');
+              const tokenData = await tokenRes.json();
+              const adminToken = tokenData.access_token;
+
+              const createRes = await fetch(`${keycloakUrl}/admin/realms/print-sv/users`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+                body: JSON.stringify({
+                  username: newEmployeeForm.username,
+                  password: newEmployeeForm.password,
+                  firstName: newEmployeeForm.fullName,
+                  lastName: '',
+                  email: newEmployeeForm.email,
+                  enabled: true,
+                  credentials: [{ type: 'password', value: newEmployeeForm.password, temporary: false }],
+                  realmRoles: [newEmployeeForm.role.replace('ROLE_', '')]
+                })
+              });
+              if (!createRes.ok) {
+                const errText = await createRes.text();
+                throw new Error(errText || 'Ошибка создания пользователя');
+              }
+              await api.post('/api/v1/employees/sync');
+              showNotification('Сотрудник создан');
+              setNewEmployeeDialogOpen(false);
+              setNewEmployeeForm({ username: '', password: '', fullName: '', email: '', role: 'ROLE_MANAGER' });
+              queryClient.invalidateQueries({ queryKey: ['admin-employees'] });
+            } catch (err) {
+              showNotification('Ошибка: ' + err.message, 'error');
+            } finally {
+              setCreatingEmployee(false);
+            }
+          }} disabled={creatingEmployee}>
+            {creatingEmployee ? <CircularProgress size={20} /> : 'Создать'}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Product */}

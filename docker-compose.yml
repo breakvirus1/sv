@@ -34,7 +34,7 @@ services:
       KC_HOSTNAME: ${SERVER_IP}
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
-      KC_HTTP_CORS_ALLOWED_ORIGINS: "http://192.168.88.40:5174,http://192.168.1.131:5174"
+      KC_HTTP_CORS_ALLOWED_ORIGINS: "http://localhost:5174,http://127.0.0.1:5174,http://192.168.247.131:5174,http://192.168.1.40:5174,http://192.168.88.40:5174,http://192.168.1.131:5174"
       KC_HTTP_CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
       KC_HTTP_CORS_ALLOWED_HEADERS: "*"
       KC_HTTP_CORS_EXPOSED_HEADERS: "*"
@@ -301,11 +301,11 @@ services:
       dockerfile: Dockerfile
       target: production
       args:
-        VITE_SERVER_IP: ${SERVER_IP}
-        VITE_API_URL: http://${SERVER_IP}:8085
-        VITE_KEYCLOAK_ISSUER: http://${SERVER_IP}:8080/realms/print-sv
+        VITE_SERVER_IP: ${SERVER_IP:-192.168.247.131}
+        VITE_API_URL: ${VITE_API_URL:-/}
+        VITE_KEYCLOAK_ISSUER: ${VITE_KEYCLOAK_ISSUER:-http://192.168.247.131:8080/realms/print-sv}
         VITE_KEYCLOAK_CLIENT_ID: frontend
-        SERVER_IP: ${SERVER_IP}
+        SERVER_IP: ${SERVER_IP:-192.168.247.131}
     ports:
       - "0.0.0.0:5174:5174"
     depends_on:
@@ -313,7 +313,7 @@ services:
     networks:
       - sv-network
     environment:
-      - SERVER_IP=${SERVER_IP}
+      - SERVER_IP=${SERVER_IP:-localhost}
 
 networks:
   sv-network:

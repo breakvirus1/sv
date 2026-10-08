@@ -37,7 +37,7 @@ public class CalculationController {
     private final EyeletService eyeletService;
     private final OperationMapper operationMapper;
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     @GetMapping("/materials")
     public ResponseEntity<List<MaterialDto>> getAllMaterials() {
         return ResponseEntity.ok(
@@ -47,7 +47,7 @@ public class CalculationController {
         );
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     @GetMapping("/materials/{type}")
     public ResponseEntity<List<MaterialDto>> getMaterialsByType(@PathVariable String type) {
         MaterialType matType;
@@ -63,13 +63,13 @@ public class CalculationController {
         );
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     @GetMapping("/eyelets")
     public ResponseEntity<List<Eyelet>> getAllEyelets() {
         return ResponseEntity.ok(eyeletService.getAllEyelets());
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     @GetMapping("/operations")
     public ResponseEntity<List<OperationDto>> getAllOperations() {
         return ResponseEntity.ok(
@@ -79,7 +79,7 @@ public class CalculationController {
         );
     }
 
-     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
      @PostMapping
      public ResponseEntity<CalculationResponseDto> createCalculation(
              @Valid @RequestBody CalculationRequestDto request) {
@@ -89,13 +89,13 @@ public class CalculationController {
          return ResponseEntity.ok(response);
      }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     @GetMapping("/{id}")
     public ResponseEntity<CalculationResponseDto> getCalculation(@PathVariable Long id) {
         return ResponseEntity.ok(calculationService.getById(id));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     @PostMapping("/calculate-area")
     public ResponseEntity<BigDecimal> calculateArea(
             @Valid @RequestBody AreaCalculationRequest request) {
@@ -109,7 +109,7 @@ public class CalculationController {
         return ResponseEntity.ok(area);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     @PostMapping("/estimate-item")
     public ResponseEntity<BigDecimal> estimateItemCost(@Valid @RequestBody ItemCostRequest request) {
         BigDecimal cost = calculationService.calculateItemCost(
@@ -124,20 +124,20 @@ public class CalculationController {
         return ResponseEntity.ok(cost);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     @PostMapping("/preview")
     public ResponseEntity<CalculationResponseDto> preview(@Valid @RequestBody CalculationRequestDto request) {
         CalculationResponseDto dto = calculationService.calculateWithoutSaving(request);
         return ResponseEntity.ok(dto);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     @GetMapping("/materials/{materialId}/grouped-operations")
     public ResponseEntity<GroupedOperationsResponse> getGroupedOperations(@PathVariable Long materialId) {
         return ResponseEntity.ok(operationService.getGroupedOperationsByMaterialId(materialId));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     @GetMapping("/operations/grouped")
     public ResponseEntity<GroupedOperationsResponse> getAllGroupedOperations(@RequestParam(required = false) Long materialId) {
         return ResponseEntity.ok(operationService.getGroupedOperationsByMaterialId(materialId));

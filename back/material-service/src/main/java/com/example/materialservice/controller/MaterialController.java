@@ -27,7 +27,7 @@ public class MaterialController {
 
     @Operation(summary = "Получить список материалов")
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     public ResponseEntity<Page<MaterialResponse>> getAllMaterials(
             @RequestParam(required = false) String q,
             Pageable pageable) {
@@ -43,21 +43,21 @@ public class MaterialController {
 
     @Operation(summary = "Получить материал по ID")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     public ResponseEntity<MaterialResponse> getMaterial(@Parameter(description = "ID материала") @PathVariable Long id) {
         return ResponseEntity.ok(materialService.getMaterialById(id));
     }
 
     @Operation(summary = "Создать новый материал")
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<MaterialResponse> createMaterial(@RequestBody MaterialCreateRequest request) {
         return new ResponseEntity<>(materialService.createMaterial(request), HttpStatus.CREATED);
     }
 
     @Operation(summary = "Обновить материал")
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<MaterialResponse> updateMaterial(
             @Parameter(description = "ID материала") @PathVariable Long id,
             @RequestBody MaterialUpdateRequest request) {
@@ -66,7 +66,7 @@ public class MaterialController {
 
     @Operation(summary = "Удалить материал")
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<Void> deleteMaterial(@Parameter(description = "ID материала") @PathVariable Long id) {
         materialService.deleteMaterial(id);
         return ResponseEntity.noContent().build();

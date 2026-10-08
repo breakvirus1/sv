@@ -45,4 +45,7 @@ public class Image extends BaseEntity {
     protected void onUpdate() {
         setUpdatedAt(LocalDateTime.now());
     }
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

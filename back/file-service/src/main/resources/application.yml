@@ -26,7 +26,11 @@ spring:
       max-request-size: 5GB
 
   flyway:
-    enabled: false
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+    schemas: public
 
 file:
   storage:

@@ -72,4 +72,7 @@ public class StatisticMaterialConsumption extends BaseEntity {
 
     @Column(name = "synced_at")
     private LocalDateTime syncedAt;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }
