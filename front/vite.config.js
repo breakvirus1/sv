@@ -11,6 +11,11 @@ export default defineConfig({
     port: 5174,
     host: true,
     proxy: {
+      '/api': {
+        target: `http://${serverIp}:8085`,
+        changeOrigin: true,
+        secure: false
+      },
       '/realms': {
         target: `http://${serverIp}:8080`,
         changeOrigin: true,

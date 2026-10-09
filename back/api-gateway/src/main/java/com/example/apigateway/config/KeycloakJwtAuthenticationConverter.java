@@ -1,12 +1,11 @@
 package com.example.apigateway.config;
 
 import org.springframework.core.convert.converter.Converter;
-import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
-import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -15,16 +14,17 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Конвертер JWT токена в аутентификационный токен для reactive WebFlux.
- * Извлекает роли из Keycloak JWT токена:
+ * Конвертер для извлечения ролей из Keycloak JWT токена.
+ * Используется в ReactiveJwtAuthenticationConverter для получения GrantedAuthority.
+ * Извлекает роли из:
  * - realm_access.roles
  * - resource_access.print-sv-client.roles
  */
-public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, Mono<AbstractAuthenticationToken>> {
+public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, Flux<GrantedAuthority>> {
 
     @Override
-    public Mono<AbstractAuthenticationToken> convert(Jwt jwt) {
-        Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
+    public Flux<GrantedAuthority> convert(Jwt jwt) {
+        Collection<GrantedAuthority> authorities = new ArrayList<>();
 
         // Извлекаем роли из realm_access
         Map<String, Object> realmAccess = jwt.getClaim("realm_access");
@@ -50,6 +50,6 @@ public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, Mono<A
             }
         }
 
-        return Mono.just(new JwtAuthenticationToken(jwt, authorities));
+        return Flux.fromIterable(authorities);
     }
 }
