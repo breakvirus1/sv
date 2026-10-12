@@ -12,18 +12,8 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class Company {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class Company extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 255)
     private String name;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private java.time.LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private java.time.LocalDateTime updatedAt;
 }
