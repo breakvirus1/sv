@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { Person, Logout, Add, AdminPanelSettings, ShoppingBag, ArrowDropDown, Assignment, Visibility, Category, Notifications, Security } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../hooks/queryKeys';
+import api from '../services/api';
+import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
 import { queryKeys } from '../hooks/queryKeys';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
@@ -22,6 +25,17 @@ const Navbar = () => {
   const [createAnchorEl, setCreateAnchorEl] = useState(null);
   const [ordersAnchorEl, setOrdersAnchorEl] = useState(null);
   const navigate = useNavigate();
+
+  const { data: companiesData = [] } = useQuery({
+    queryKey: queryKeys.companies('list'),
+    queryFn: async () => {
+      const r = await api.get('/api/v1/companies?size=100');
+      return r.data.content || [];
+    },
+    staleTime: 300000,
+  });
+
+  const companyName = companiesData.length > 0 ? companiesData[0].name : 'ПАЗЛ МОРЕ SV';
 
   const { data: orders = [] } = useQuery({
     queryKey: queryKeys.orders('navbar'),
@@ -102,7 +116,7 @@ const Navbar = () => {
     <AppBar position="fixed" sx={{ bgcolor: '#1d1d1d', width: '100%' }}>
       <Toolbar>
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Система учета заказов ПАЗЛ МОРЕ SV
+          Система учета заказов {companyName}
         </Typography>
 
          {isAuthenticated && (
