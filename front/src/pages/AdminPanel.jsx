@@ -6,8 +6,9 @@ import {
   Snackbar, Grid, Divider, TableContainer, Chip, useMediaQuery, useTheme
 } from '@mui/material';
 import { Add, Edit, Delete, Refresh, Save, Cancel, Sync } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../services/api';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCompanies, useEmployees, useMaterials, useOperations, useWorkshops, useProducts, useOperationGroups } from '../hooks/useSharedQueries';
+import { queryKeys } from '../hooks/queryKeys';
 import { useNavigate } from 'react-router-dom';
 import GenerateTab from '../components/AdminPanel/GenerateTab';
 import MaterialsTab from '../components/AdminPanel/MaterialsTab';
@@ -99,147 +100,113 @@ const AdminPanel = () => {
   const [generating, setGenerating] = useState({});
 
   // ---- Fetch data ----
-  const { data: clientsData = [], refetch: refetchClients } = useQuery({
-    queryKey: ['admin-clients'],
-    queryFn: async () => { const r = await api.get('/api/v1/clients?size=100'); return r.data.content || []; },
-    enabled: tab === 0
-  });
-
-  const { data: materialsData = [], refetch: refetchMaterials } = useQuery({
-    queryKey: ['admin-materials'],
-    queryFn: async () => { const r = await api.get('/api/v1/materials?size=100'); return r.data.content || []; },
-    enabled: tab === 1 || tab === 4
-  });
-
-  const { data: operationsData = [], refetch: refetchOperations } = useQuery({
-    queryKey: ['admin-operations'],
-    queryFn: async () => { const r = await api.get('/api/v1/calculations/operations'); return r.data || []; },
-    enabled: tab === 2 || tab === 4
-  });
-
-  const { data: operationGroupsData = [], refetch: refetchOperationGroups } = useQuery({
-    queryKey: ['admin-operation-groups'],
-    queryFn: async () => { const r = await api.get('/api/v1/admin/operation-groups'); return r.data || []; },
-    enabled: tab === 3
-  });
-
-  const { data: workshopsData = [], refetch: refetchWorkshops } = useQuery({
-    queryKey: ['admin-workshops'],
-    queryFn: async () => { const r = await api.get('/api/v1/workshops?size=100'); return r.data.content || []; },
-    enabled: tab === 4
-  });
-
-  const { data: employeesData = [], refetch: refetchEmployees } = useQuery({
-    queryKey: ['admin-employees'],
-    queryFn: async () => { const r = await api.get('/api/v1/employees?size=100'); return r.data.content || []; },
-    enabled: tab === 5
-  });
-
-  const { data: productsData = [], refetch: refetchProducts } = useQuery({
-    queryKey: ['admin-products'],
-    queryFn: async () => { const r = await api.get('/api/v1/products'); return r.data || []; },
-    enabled: tab === 8
-  });
+  const { data: clientsData = [], refetch: refetchClients } = useCompanies({ enabled: tab === 0 });
+  const { data: employeesData = [], refetch: refetchEmployees } = useEmployees({ enabled: tab === 5 });
+  const { data: materialsData = [], refetch: refetchMaterials } = useMaterials({ enabled: tab === 1 || tab === 4 });
+  const { data: operationsData = [], refetch: refetchOperations } = useOperations({ enabled: tab === 2 || tab === 4 });
+  const { data: operationGroupsData = [], refetch: refetchOperationGroups } = useOperationGroups();
+  const { data: workshopsData = [], refetch: refetchWorkshops } = useWorkshops();
+  const { data: productsData = [], refetch: refetchProducts } = useProducts();
 
   // ---- Client CRUD ----
   const createClientMutation = useMutation({
     mutationFn: (c) => api.post('/api/v1/clients', c),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-clients'] }); setClientDialogOpen(false); showNotification('Клиент создан'); resetClientForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.clients('list') }); setClientDialogOpen(false); showNotification('Клиент создан'); resetClientForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const updateClientMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/clients/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-clients'] }); setClientDialogOpen(false); showNotification('Клиент обновлен'); resetClientForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.clients('list') }); setClientDialogOpen(false); showNotification('Клиент обновлен'); resetClientForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const deleteClientMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/clients/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-clients'] }); setClientDeleteDialogOpen(false); showNotification('Клиент удален'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.clients('list') }); setClientDeleteDialogOpen(false); showNotification('Клиент удален'); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
   // ---- Material CRUD ----
   const createMaterialMutation = useMutation({
     mutationFn: (m) => api.post('/api/v1/materials', m),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-materials'] }); setMaterialDialogOpen(false); showNotification('Материал создан'); resetMaterialForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.materials('list') }); setMaterialDialogOpen(false); showNotification('Материал создан'); resetMaterialForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const updateMaterialMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/materials/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-materials'] }); showNotification('Материал обновлен'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.materials('list') }); showNotification('Материал обновлен'); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const deleteMaterialMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/materials/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-materials'] }); setMaterialDeleteDialogOpen(false); showNotification('Материал удален'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.materials('list') }); setMaterialDeleteDialogOpen(false); showNotification('Материал удален'); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
   // ---- Operation CRUD ----
   const createOperationMutation = useMutation({
     mutationFn: (op) => api.post('/api/v1/admin/operations', op),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-operations'] }); setOperationDialogOpen(false); showNotification('Операция создана'); resetOperationForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operations }); setOperationDialogOpen(false); showNotification('Операция создана'); resetOperationForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const updateOperationMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/admin/operations/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-operations'] }); showNotification('Операция обновлена'); setEditingOperationId(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operations }); showNotification('Операция обновлена'); setEditingOperationId(null); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const deleteOperationMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/admin/operations/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-operations'] }); setOperationDeleteDialogOpen(false); showNotification('Операция удалена'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operations }); setOperationDeleteDialogOpen(false); showNotification('Операция удалена'); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
   // ---- Operation Group CRUD ----
   const createGroupMutation = useMutation({
     mutationFn: (g) => api.post('/api/v1/admin/operation-groups', g),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-operation-groups'] }); setGroupDialogOpen(false); showNotification('Группировка создана'); resetGroupForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operationGroups }); setGroupDialogOpen(false); showNotification('Группировка создана'); resetGroupForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const updateGroupMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/admin/operation-groups/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-operation-groups'] }); setGroupDialogOpen(false); showNotification('Группировка обновлена'); setSelectedGroup(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operationGroups }); setGroupDialogOpen(false); showNotification('Группировка обновлена'); setSelectedGroup(null); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const deleteGroupMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/admin/operation-groups/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-operation-groups'] }); setGroupDeleteDialogOpen(false); showNotification('Группировка удалена'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operationGroups }); setGroupDeleteDialogOpen(false); showNotification('Группировка удалена'); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
   // ---- Workshop CRUD ----
   const createWorkshopMutation = useMutation({
     mutationFn: (w) => api.post('/api/v1/workshops', w),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-workshops'] }); setWorkshopDialogOpen(false); showNotification('Цех создан'); resetWorkshopForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.workshops }); setWorkshopDialogOpen(false); showNotification('Цех создан'); resetWorkshopForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const updateWorkshopMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/workshops/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-workshops'] }); setWorkshopDialogOpen(false); showNotification('Цех обновлен'); resetWorkshopForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.workshops }); setWorkshopDialogOpen(false); showNotification('Цех обновлен'); resetWorkshopForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const deleteWorkshopMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/workshops/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-workshops'] }); setWorkshopDeleteDialogOpen(false); showNotification('Цех удален'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.workshops }); setWorkshopDeleteDialogOpen(false); showNotification('Цех удален'); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
   // ---- Employee CRUD ----
   const createEmployeeMutation = useMutation({
     mutationFn: (e) => api.post('/api/v1/employees', e),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-employees'] }); setEmployeeDialogOpen(false); showNotification('Сотрудник создан'); resetEmployeeForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setEmployeeDialogOpen(false); showNotification('Сотрудник создан'); resetEmployeeForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const updateEmployeeMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/employees/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-employees'] }); setEmployeeDialogOpen(false); showNotification('Сотрудник обновлен'); resetEmployeeForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setEmployeeDialogOpen(false); showNotification('Сотрудник обновлен'); resetEmployeeForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const deleteEmployeeMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/employees/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-employees'] }); setEmployeeDeleteDialogOpen(false); showNotification('Сотрудник удален'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setEmployeeDeleteDialogOpen(false); showNotification('Сотрудник удален'); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
@@ -249,7 +216,7 @@ const AdminPanel = () => {
       const r = await api.post('/api/v1/employees/sync-all');
       return r.data;
     },
-    onSuccess: (data) => { showNotification(data); queryClient.invalidateQueries({ queryKey: ['admin-employees'] }); },
+    onSuccess: (data) => { showNotification(data); queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); },
     onError: (err) => {
       const msg = err.response?.data?.message || err.response?.data || err.message;
       showNotification('Ошибка синхронизации: ' + msg, 'error');
@@ -260,17 +227,17 @@ const AdminPanel = () => {
   // ---- Product CRUD ----
   const createProductMutation = useMutation({
     mutationFn: (p) => api.post('/api/v1/products', p),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setProductDialogOpen(false); showNotification('Изделие создано'); resetProductForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.products }); setProductDialogOpen(false); showNotification('Изделие создано'); resetProductForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const updateProductMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/products/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setProductDialogOpen(false); showNotification('Изделие обновлено'); resetProductForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.products }); setProductDialogOpen(false); showNotification('Изделие обновлено'); resetProductForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
   const deleteProductMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/products/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setProductDeleteDialogOpen(false); showNotification('Изделие удалено'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.products }); setProductDeleteDialogOpen(false); showNotification('Изделие удалено'); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
@@ -287,11 +254,11 @@ const AdminPanel = () => {
         orders: 'заказов',
       };
       showNotification(`Сгенерировано ${variables.count} ${labels[variables.endpoint] || ''}`);
-      queryClient.invalidateQueries({ queryKey: ['admin-clients'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-materials'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-operations'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-workshops'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-employees'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients('list') });
+      queryClient.invalidateQueries({ queryKey: queryKeys.materials('list') });
+      queryClient.invalidateQueries({ queryKey: queryKeys.operations });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workshops });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) });
     },
     onError: (err) => {
       const msg = err.response?.data?.message || err.response?.data || err.message;
@@ -316,11 +283,11 @@ const AdminPanel = () => {
       };
       const deleted = data?.deleted ?? 0;
       showNotification(`Удалено ${deleted} ${labels[endpoint] || ''}`);
-      queryClient.invalidateQueries({ queryKey: ['admin-clients'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-materials'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-operations'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-workshops'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-employees'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients('list') });
+      queryClient.invalidateQueries({ queryKey: queryKeys.materials('list') });
+      queryClient.invalidateQueries({ queryKey: queryKeys.operations });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workshops });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) });
     },
     onError: (err) => {
       const msg = err.response?.data?.message || err.response?.data || err.message;
@@ -875,7 +842,7 @@ const AdminPanel = () => {
               showNotification('Сотрудник создан');
               setNewEmployeeDialogOpen(false);
               setNewEmployeeForm({ username: '', password: '', fullName: '', email: '', role: 'ROLE_MANAGER' });
-              queryClient.invalidateQueries({ queryKey: ['admin-employees'] });
+              queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) });
             } catch (err) {
               showNotification('Ошибка: ' + err.message, 'error');
             } finally {

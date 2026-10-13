@@ -17,8 +17,6 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-const SERVER_IP = import.meta.env.VITE_SERVER_IP || '192.168.1.40';
-const API_BASE = `http://${SERVER_IP}:8085`;
 const PAGE_SIZE = 50;
 
 const downloadFile = async (fileUrl) => {
