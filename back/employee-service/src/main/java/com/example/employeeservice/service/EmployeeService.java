@@ -320,6 +320,7 @@ public class EmployeeService {
         if (kcRoleName == null) return null;
         switch (kcRoleName) {
             case "ADMIN":       return ERole.ROLE_ADMIN;
+            case "GOD":         return ERole.ROLE_GOD;
             case "MANAGER":     return ERole.ROLE_MANAGER;
             case "PRODUCTION":  return ERole.ROLE_PRODUCTION;
             case "ACCOUNTANT":  return ERole.ROLE_ACCOUNTANT;

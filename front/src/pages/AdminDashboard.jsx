@@ -26,7 +26,7 @@ const AdminDashboard = () => {
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [adminDeleteDialogOpen, setAdminDeleteDialogOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
-  const [adminForm, setAdminForm] = useState({ username: '', password: '', fullName: '', email: '', companyId: '', role: 'COMPANY_ADMIN' });
+  const [adminForm, setAdminForm] = useState({ username: '', password: '', fullName: '', email: '', companyId: '', role: 'ADMIN' });
 
   // ---- Fetch data ----
   const { data: companiesData = [], refetch: refetchCompanies } = useQuery({
@@ -59,8 +59,7 @@ const AdminDashboard = () => {
   // ---- Company Admin creation via Keycloak API ----
   const createAdminMutation = useMutation({
     mutationFn: async (adminData) => {
-      const keycloakUrl = import.meta.env.VITE_KEYCLOAK_ISSUER || `http://${import.meta.env.VITE_SERVER_IP || '192.168.1.40'}:8080/realms/print-sv`;
-      const adminTokenRes = await fetch(`${keycloakUrl.replace('/realms/print-sv', '')}/realms/master/protocol/openid-connect/token`, {
+       const adminTokenRes = await fetch('/realms/master/protocol/openid-connect/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -74,7 +73,7 @@ const AdminDashboard = () => {
       const tokenData = await adminTokenRes.json();
       const adminToken = tokenData.access_token;
 
-      const createUserRes = await fetch(`${keycloakUrl}/admin/realms/print-sv/users`, {
+      const createUserRes = await fetch('/admin/realms/print-sv/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,7 +81,6 @@ const AdminDashboard = () => {
         },
         body: JSON.stringify({
           username: adminData.username,
-          password: adminData.password,
           firstName: adminData.fullName,
           lastName: '',
           email: adminData.email,
@@ -112,7 +110,7 @@ const AdminDashboard = () => {
 
   // ---- Handlers ----
   const resetCompanyForm = () => { setCompanyForm({ name: '' }); setSelectedCompany(null); };
-  const resetAdminForm = () => { setAdminForm({ username: '', password: '', fullName: '', email: '', companyId: '', role: 'COMPANY_ADMIN' }); setSelectedAdmin(null); };
+  const resetAdminForm = () => { setAdminForm({ username: '', password: '', fullName: '', email: '', companyId: '', role: 'ADMIN' }); setSelectedAdmin(null); };
 
   const openCompanyDialog = (company = null) => {
     if (company) { setSelectedCompany(company); setCompanyForm({ name: company.name || '' }); } else { resetCompanyForm(); }
@@ -122,7 +120,7 @@ const AdminDashboard = () => {
   const openAdminDialog = (emp = null) => {
     if (emp) {
       setSelectedAdmin(emp);
-      setAdminForm({ username: emp.username || '', password: '', fullName: emp.fullName || '', email: emp.email || '', companyId: emp.companyId ? String(emp.companyId) : '', role: emp.roles?.includes('ROLE_ADMIN') ? 'COMPANY_ADMIN' : 'COMPANY_ADMIN' });
+      setAdminForm({ username: emp.username || '', password: '', fullName: emp.fullName || '', email: emp.email || '', companyId: emp.companyId ? String(emp.companyId) : '', role: 'ADMIN' });
     } else {
       resetAdminForm();
     }
@@ -158,7 +156,7 @@ const AdminDashboard = () => {
 
   const companyAdmins = employeesData.filter(emp => {
     const roles = Array.isArray(emp.roles) ? emp.roles : [];
-    return roles.includes('ROLE_ADMIN') || roles.includes('ROLE_GOD');
+    return roles.includes('ROLE_ADMIN');
   });
 
   // ---- Render ----
@@ -301,9 +299,8 @@ const AdminDashboard = () => {
           {!selectedAdmin && (
             <FormControl fullWidth margin="dense">
               <InputLabel>Роль</InputLabel>
-              <Select value={adminForm.role} label="Роль" onChange={(e) => setAdminForm({ ...adminForm, role: e.target.value })}>
-                <MenuItem value="COMPANY_ADMIN">Администратор компании</MenuItem>
-                <MenuItem value="ADMIN">Администратор</MenuItem>
+              <Select value={adminForm.role} label="Роль" onChange={(e) => setAdminForm({ ...adminForm, role: e.target.value })} disabled>
+                <MenuItem value="ADMIN">Администратор компании</MenuItem>
               </Select>
             </FormControl>
           )}
