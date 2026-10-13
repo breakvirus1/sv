@@ -16,13 +16,14 @@ import {
 } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { queryKeys } from '../hooks/queryKeys';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 
 const Dashboard = () => {
   const navigate = useNavigate();
 
   const { data: orders = [] } = useQuery({
-    queryKey: ['recentOrders'],
+    queryKey: queryKeys.orders('dashboard'),
     queryFn: async () => {
       const response = await api.get('/api/v1/orders?size=50');
       return response.data.content || [];

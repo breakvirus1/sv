@@ -8,7 +8,16 @@ import { ThemeProvider } from '@mui/material/styles'
 import { theme } from './theme'
 import './index.css'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 300000,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      retry: 1,
+    },
+  },
+})
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -5,8 +5,10 @@ import {
   Snackbar, Alert, CircularProgress, Divider, Chip, Tabs, Tab, TableContainer
 } from '@mui/material';
 import { Add, Edit, Delete, Refresh } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
+import { useCompanies, useEmployees } from '../hooks/useSharedQueries';
+import { queryKeys } from '../hooks/queryKeys';
 
 const AdminDashboard = () => {
   const [tab, setTab] = useState(0);
@@ -29,30 +31,23 @@ const AdminDashboard = () => {
   const [adminForm, setAdminForm] = useState({ username: '', password: '', fullName: '', email: '', companyId: '', role: 'ADMIN' });
 
   // ---- Fetch data ----
-  const { data: companiesData = [], refetch: refetchCompanies } = useQuery({
-    queryKey: ['admin-dashboard-companies'],
-    queryFn: async () => { const r = await api.get('/api/v1/companies?size=100'); return r.data.content || []; },
-  });
-
-  const { data: employeesData = [], refetch: refetchEmployees } = useQuery({
-    queryKey: ['admin-dashboard-employees'],
-    queryFn: async () => { const r = await api.get('/api/v1/employees?size=100'); return r.data.content || []; },
-  });
+  const { data: companiesData = [], refetch: refetchCompanies } = useCompanies();
+  const { data: employeesData = [], refetch: refetchEmployees } = useEmployees({ enabled: true });
 
   // ---- Company CRUD ----
   const createCompanyMutation = useMutation({
     mutationFn: (c) => api.post('/api/v1/companies', c),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-dashboard-companies'] }); setCompanyDialogOpen(false); showNotification('Компания создана'); resetCompanyForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.companies('list') }); setCompanyDialogOpen(false); showNotification('Компания создана'); resetCompanyForm(); },
     onError: (err) => showNotification('Ошибка: ' + (err.response?.data?.message || err.message), 'error')
   });
   const updateCompanyMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/companies/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-dashboard-companies'] }); setCompanyDialogOpen(false); showNotification('Компания обновлена'); resetCompanyForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.companies('list') }); setCompanyDialogOpen(false); showNotification('Компания обновлена'); resetCompanyForm(); },
     onError: (err) => showNotification('Ошибка: ' + (err.response?.data?.message || err.message), 'error')
   });
   const deleteCompanyMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/companies/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-dashboard-companies'] }); setCompanyDeleteDialogOpen(false); showNotification('Компания удалена'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.companies('list') }); setCompanyDeleteDialogOpen(false); showNotification('Компания удалена'); },
     onError: (err) => showNotification('Ошибка: ' + (err.response?.data?.message || err.message), 'error')
   });
 
@@ -98,13 +93,13 @@ const AdminDashboard = () => {
       await api.post('/api/v1/employees/sync');
       return true;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-dashboard-employees'] }); setAdminDialogOpen(false); showNotification('Администратор компании создан'); resetAdminForm(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setAdminDialogOpen(false); showNotification('Администратор компании создан'); resetAdminForm(); },
     onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
   });
 
   const deleteEmployeeMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/employees/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-dashboard-employees'] }); setAdminDeleteDialogOpen(false); showNotification('Администратор удален'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setAdminDeleteDialogOpen(false); showNotification('Администратор удален'); },
     onError: (err) => showNotification('Ошибка: ' + (err.response?.data?.message || err.message), 'error')
   });
 

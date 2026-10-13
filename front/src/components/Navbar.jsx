@@ -5,6 +5,7 @@ import { Person, Logout, Add, AdminPanelSettings, ShoppingBag, ArrowDropDown, As
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
+import { queryKeys } from '../hooks/queryKeys';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import { Dashboard } from '@mui/icons-material';
 
@@ -23,7 +24,7 @@ const Navbar = () => {
   const navigate = useNavigate();
 
   const { data: orders = [] } = useQuery({
-    queryKey: ['navbarOrders'],
+    queryKey: queryKeys.orders('navbar'),
     queryFn: async () => {
       const response = await api.get('/api/v1/orders?size=50');
       return response.data.content || [];
