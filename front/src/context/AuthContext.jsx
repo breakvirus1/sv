@@ -18,7 +18,7 @@ function generateState() {
   });
 }
 
-const KEYCLOAK_ISSUER = import.meta.env.VITE_KEYCLOAK_ISSUER || `http://${import.meta.env.VITE_SERVER_IP || '192.168.1.40'}:8080/realms/print-sv`;
+const KEYCLOAK_ISSUER = '/realms/print-sv';
 const CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'frontend';
 const BUILD_BUSTER = 1;
 
@@ -191,7 +191,7 @@ export const AuthProvider = ({ children }) => {
   const login = () => {
     const state = generateState();
     const redirectUri = `${window.location.origin}/callback`;
-    const url = new URL(`${KEYCLOAK_ISSUER}/protocol/openid-connect/auth`);
+    const url = new URL(window.location.origin + KEYCLOAK_ISSUER + '/protocol/openid-connect/auth');
     url.searchParams.set('client_id', CLIENT_ID);
     url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('response_type', 'id_token token');
@@ -206,7 +206,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('auth');
     const postLogoutRedirectUri = `${window.location.origin}/`;
-    const url = new URL(`${KEYCLOAK_ISSUER}/protocol/openid-connect/logout`);
+    const url = new URL(window.location.origin + KEYCLOAK_ISSUER + '/protocol/openid-connect/logout');
     url.searchParams.set('client_id', CLIENT_ID);
     url.searchParams.set('post_logout_redirect_uri', postLogoutRedirectUri);
     window.location.href = url.toString();

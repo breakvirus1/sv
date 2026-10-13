@@ -845,8 +845,7 @@ const AdminPanel = () => {
             }
             setCreatingEmployee(true);
             try {
-              const keycloakUrl = import.meta.env.VITE_KEYCLOAK_ISSUER || `http://${import.meta.env.VITE_SERVER_IP || '192.168.1.40'}:8080/realms/print-sv`;
-              const tokenRes = await fetch(`${keycloakUrl.replace('/realms/print-sv', '')}/realms/master/protocol/openid-connect/token`, {
+               const tokenRes = await fetch('/realms/master/protocol/openid-connect/token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ grant_type: 'password', client_id: 'admin-cli', username: 'admin', password: 'admin' })
@@ -855,12 +854,11 @@ const AdminPanel = () => {
               const tokenData = await tokenRes.json();
               const adminToken = tokenData.access_token;
 
-              const createRes = await fetch(`${keycloakUrl}/admin/realms/print-sv/users`, {
+              const createRes = await fetch('/admin/realms/print-sv/users', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
                 body: JSON.stringify({
                   username: newEmployeeForm.username,
-                  password: newEmployeeForm.password,
                   firstName: newEmployeeForm.fullName,
                   lastName: '',
                   email: newEmployeeForm.email,
