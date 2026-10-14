@@ -31,8 +31,8 @@ const AdminDashboard = () => {
   const [adminForm, setAdminForm] = useState({ username: '', password: '', fullName: '', email: '', companyId: '', role: 'ADMIN' });
 
   // ---- Fetch data ----
-  const { data: companiesData = [], refetch: refetchCompanies } = useCompanies();
-  const { data: employeesData = [], refetch: refetchEmployees } = useEmployees({ enabled: true });
+  const { data: companiesData = [], isLoading: isLoadingCompanies, refetch: refetchCompanies } = useCompanies();
+  const { data: employeesData = [], isLoading: isLoadingEmployees, refetch: refetchEmployees } = useEmployees({ enabled: true });
 
   // ---- Company CRUD ----
   const createCompanyMutation = useMutation({
@@ -154,6 +154,8 @@ const AdminDashboard = () => {
     return roles.includes('ROLE_ADMIN');
   });
 
+  const isLoading = isLoadingCompanies || isLoadingEmployees;
+
   // ---- Render ----
   const renderCompaniesTab = () => (
     <Box>
@@ -236,7 +238,25 @@ const AdminDashboard = () => {
   );
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, position: 'relative' }}>
+      {isLoading && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            bgcolor: 'background.paper',
+            zIndex: 10,
+          }}
+        >
+          <CircularProgress size={40} />
+        </Box>
+      )}
       <Typography variant="h4" gutterBottom sx={{ fontSize: { xs: '1.5rem', md: '2.125rem' } }}>Admin Dashboard</Typography>
       <Paper sx={{ width: '100%', mt: 2, overflow: 'hidden' }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

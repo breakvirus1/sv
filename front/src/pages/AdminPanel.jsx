@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import { Add, Edit, Delete, Refresh, Save, Cancel, Sync } from '@mui/icons-material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCompanies, useEmployees, useMaterials, useOperations, useWorkshops, useProducts, useOperationGroups } from '../hooks/useSharedQueries';
+import { useCompanies, useClients, useEmployees, useMaterials, useOperations, useWorkshops, useProducts, useOperationGroups } from '../hooks/useSharedQueries';
 import { queryKeys } from '../hooks/queryKeys';
 import { useNavigate } from 'react-router-dom';
 import GenerateTab from '../components/AdminPanel/GenerateTab';
@@ -100,13 +100,15 @@ const AdminPanel = () => {
   const [generating, setGenerating] = useState({});
 
   // ---- Fetch data ----
-  const { data: clientsData = [], refetch: refetchClients } = useCompanies({ enabled: tab === 0 });
-  const { data: employeesData = [], refetch: refetchEmployees } = useEmployees({ enabled: tab === 5 });
-  const { data: materialsData = [], refetch: refetchMaterials } = useMaterials({ enabled: tab === 1 || tab === 4 });
-  const { data: operationsData = [], refetch: refetchOperations } = useOperations({ enabled: tab === 2 || tab === 4 });
-  const { data: operationGroupsData = [], refetch: refetchOperationGroups } = useOperationGroups();
-  const { data: workshopsData = [], refetch: refetchWorkshops } = useWorkshops();
-  const { data: productsData = [], refetch: refetchProducts } = useProducts();
+  const { data: clientsData = [], isLoading: isLoadingClients, refetch: refetchClients } = useClients({ enabled: tab === 0 });
+  const { data: employeesData = [], isLoading: isLoadingEmployees, refetch: refetchEmployees } = useEmployees({ enabled: tab === 5 });
+  const { data: materialsData = [], isLoading: isLoadingMaterials, refetch: refetchMaterials } = useMaterials({ enabled: tab === 1 || tab === 4 });
+  const { data: operationsData = [], isLoading: isLoadingOperations, refetch: refetchOperations } = useOperations({ enabled: tab === 2 || tab === 4 });
+  const { data: operationGroupsData = [], isLoading: isLoadingOperationGroups, refetch: refetchOperationGroups } = useOperationGroups();
+  const { data: workshopsData = [], isLoading: isLoadingWorkshops, refetch: refetchWorkshops } = useWorkshops();
+  const { data: productsData = [], isLoading: isLoadingProducts, refetch: refetchProducts } = useProducts();
+
+  const isLoading = isLoadingClients || isLoadingEmployees || isLoadingMaterials || isLoadingOperations || isLoadingOperationGroups || isLoadingWorkshops || isLoadingProducts;
 
   // ---- Client CRUD ----
   const createClientMutation = useMutation({
@@ -631,6 +633,11 @@ const AdminPanel = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      {isLoading && (
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+          <CircularProgress size={40} />
+        </Box>
+      )}
       <Typography variant="h4" gutterBottom sx={{ fontSize: { xs: '1.5rem', md: '2.125rem' } }}>Админ панель</Typography>
       <Paper sx={{ width: '100%', mt: 2, overflow: 'hidden' }}>
         <Tabs value={tab} onChange={handleTabChange} indicatorColor="secondary" textColor="secondary" variant="scrollable" scrollButtons="auto">
