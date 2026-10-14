@@ -43,6 +43,9 @@ const AdminPanel = () => {
     setNotification({ open: true, message, severity });
   };
 
+  // ---- Company filter for employees ----
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+
   // ---- Clients state ----
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientDeleteDialogOpen, setClientDeleteDialogOpen] = useState(false);
@@ -101,7 +104,11 @@ const AdminPanel = () => {
 
   // ---- Fetch data ----
   const { data: clientsData = [], isLoading: isLoadingClients, refetch: refetchClients } = useClients({ enabled: tab === 0 });
-  const { data: employeesData = [], isLoading: isLoadingEmployees, refetch: refetchEmployees } = useEmployees({ enabled: tab === 5 });
+  const { data: companiesData = [], isLoading: isLoadingCompanies, refetch: refetchCompanies } = useCompanies({ enabled: tab === 5 });
+  const { data: employeesData = [], isLoading: isLoadingEmployees, refetch: refetchEmployees } = useEmployees({ 
+    enabled: tab === 5, 
+    companyId: selectedCompanyId 
+  });
   const { data: materialsData = [], isLoading: isLoadingMaterials, refetch: refetchMaterials } = useMaterials({ enabled: tab === 1 || tab === 4 });
   const { data: operationsData = [], isLoading: isLoadingOperations, refetch: refetchOperations } = useOperations({ enabled: tab === 2 || tab === 4 });
   const { data: operationGroupsData = [], isLoading: isLoadingOperationGroups, refetch: refetchOperationGroups } = useOperationGroups();
@@ -215,7 +222,8 @@ const AdminPanel = () => {
   const syncKeycloakMutation = useMutation({
     mutationFn: async () => {
       setSyncing(true);
-      const r = await api.post('/api/v1/employees/sync-all');
+      const url = selectedCompanyId ? `/api/v1/employees/sync-by-company?companyId=${selectedCompanyId}` : '/api/v1/employees/sync-all';
+      const r = await api.post(url);
       return r.data;
     },
     onSuccess: (data) => { showNotification(data); queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); },
@@ -302,7 +310,12 @@ const AdminPanel = () => {
   };
 
   // ---- Handlers ----
-  const handleTabChange = (_event, newValue) => { setTab(newValue); };
+  const handleTabChange = (_event, newValue) => { 
+    setTab(newValue); 
+    if (newValue !== 5) {
+      setSelectedCompanyId(null);
+    }
+  };
 
   const resetClientForm = () => { setClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '', priceplus: '' }); setSelectedClient(null); };
   const resetMaterialForm = () => { setMaterialForm({ name: '', unit: '', price: '', wasteCoefficient: '1' }); setSelectedMaterial(null); };
@@ -538,11 +551,27 @@ const AdminPanel = () => {
     return ws ? ws.name : (workshopId || '-');
   };
 
-   const renderEmployeesTab = () => (
+const renderEmployeesTab = () => (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexDirection={{ xs: 'column', sm: 'row' }} gap={1}>
         <Typography variant="h6">Управление сотрудниками</Typography>
         <Box display="flex" gap={2} width={{ xs: '100%', sm: 'auto' }} flexDirection={{ xs: 'column', sm: 'row' }}>
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Компания</InputLabel>
+            <Select
+              value={selectedCompanyId ? String(selectedCompanyId) : ''}
+              onChange={(e) => setSelectedCompanyId(e.target.value ? Number(e.target.value) : null)}
+              label="Компания"
+              displayEmpty
+            >
+              <MenuItem value="">Все компании</MenuItem>
+              {companiesData.map((company) => (
+                <MenuItem key={company.id} value={String(company.id)}>
+                  {company.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <Button variant="contained" startIcon={<Add />} onClick={() => setNewEmployeeDialogOpen(true)} fullWidth={isMobile}>Добавить сотрудника</Button>
           <Button variant="outlined" startIcon={syncing ? <CircularProgress size={16} /> : <Sync />} onClick={() => syncKeycloakMutation.mutate()} disabled={syncing} fullWidth={isMobile}>
             {syncing ? 'Синхронизация...' : 'Синхронизировать из Keycloak'}
@@ -561,6 +590,7 @@ const AdminPanel = () => {
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Должность</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Телефон</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 200 }}>Email</TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Компания</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Цех</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'right', minWidth: 120 }}>% заработка</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell>
@@ -568,26 +598,29 @@ const AdminPanel = () => {
             </TableHead>
               <TableBody>
                  {employeesData.map((emp) => {
-                   const roles = Array.isArray(emp.roles) ? emp.roles : [];
-                   const displayRoles = roles.filter(r => r !== 'ROLE_GOD');
-                   return (
-                   <TableRow key={emp.id}>
-                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.id}</TableCell>
-                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.fullName || '-'}</TableCell>
-                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.username || '-'}</TableCell>
-                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.position || '-'}</TableCell>
-                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.phone || '-'}</TableCell>
-                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.email || '-'}</TableCell>
-                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 160 }}>{emp.workshopId ? `#${emp.workshopId} ${getWorkshopName(emp.workshopId)}` : '-'}</TableCell>
-                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right' }}>{emp.managerCashPercent != null ? `${emp.managerCashPercent.toFixed(2)}%` : '-'}</TableCell>
-                     <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
-                       <IconButton size="small" onClick={() => openEmployeeDialog(emp)}><Edit /></IconButton>
-                       <IconButton size="small" color="error" onClick={() => { setSelectedEmployee(emp); setEmployeeDeleteDialogOpen(true); }}><Delete /></IconButton>
-                     </TableCell>
-                   </TableRow>
-                   );
-                 })}
-              </TableBody>
+                    const roles = Array.isArray(emp.roles) ? emp.roles : [];
+                    const displayRoles = roles.filter(r => r !== 'ROLE_GOD');
+                    return (
+                    <TableRow key={emp.id}>
+                      <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.id}</TableCell>
+                      <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.fullName || '-'}</TableCell>
+                      <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.username || '-'}</TableCell>
+                      <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.position || '-'}</TableCell>
+                      <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.phone || '-'}</TableCell>
+                      <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.email || '-'}</TableCell>
+                      <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 160 }}>
+                        {emp.companyId ? companiesData.find(c => c.id === emp.companyId)?.name || `#${emp.companyId}` : '-'}
+                      </TableCell>
+                      <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 160 }}>{emp.workshopId ? `#${emp.workshopId} ${getWorkshopName(emp.workshopId)}` : '-'}</TableCell>
+                      <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right' }}>{emp.managerCashPercent != null ? `${emp.managerCashPercent.toFixed(2)}%` : '-'}</TableCell>
+                      <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                        <IconButton size="small" onClick={() => openEmployeeDialog(emp)}><Edit /></IconButton>
+                        <IconButton size="small" color="error" onClick={() => { setSelectedEmployee(emp); setEmployeeDeleteDialogOpen(true); }}><Delete /></IconButton>
+                      </TableCell>
+                    </TableRow>
+                    );
+                  })}
+               </TableBody>
           </Table></TableContainer>
         </Box>
       )}
