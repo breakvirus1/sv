@@ -11,8 +11,9 @@ import com.example.employeeservice.repository.EmployeeRepository;
 import com.example.employeeservice.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -47,10 +48,12 @@ public class EmployeeService {
     @Value("${keycloak.admin.client-secret:order-service-secret}")
     private String keycloakClientSecret;
 
+    @Cacheable(value = "employees", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all') + '_' + (#companyId ?: 'all')")
     public Page<EmployeeResponse> getAllEmployees(Specification<Employee> spec, Pageable pageable) {
         return getAllEmployees(spec, pageable, null);
     }
 
+    @Cacheable(value = "employees", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all') + '_' + (#companyId ?: 'all')")
     public Page<EmployeeResponse> getAllEmployees(Specification<Employee> spec, Pageable pageable, Long companyId) {
         Specification<Employee> finalSpec = spec;
         if (companyId != null) {
@@ -80,88 +83,37 @@ public class EmployeeService {
         return employees;
     }
 
-    /**
-     * Fetch Keycloak realm roles for given usernames.
-     * Returns map of username -> list of role names.
-     */
-    private Map<String, List<String>> fetchKeycloakRolesForUsernames(List<String> usernames) {
-        Map<String, List<String>> result = new HashMap<>();
-        if (usernames == null || usernames.isEmpty()) return result;
-
-        try {
-            RestTemplate restTemplate = new RestTemplate();
-            String adminToken = obtainAdminToken(restTemplate);
-
-            for (String username : usernames) {
-                try {
-                    List<String> roles = fetchUserRoles(restTemplate, adminToken, username);
-                    result.put(username, roles);
-                } catch (Exception e) {
-                    result.put(username, List.of());
-                }
-            }
-        } catch (Exception e) {
-            // Return empty map on failure
-        }
-        return result;
-    }
-
-    private List<String> fetchUserRoles(RestTemplate restTemplate, String adminToken, String username) {
-        String usersUrl = keycloakServerUrl + "/admin/realms/" + keycloakRealm + "/users?username=" + username + "&exact=true";
-        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-        headers.setBearerAuth(adminToken);
-        var userRequest = new org.springframework.http.HttpEntity<>(headers);
-        var response = restTemplate.exchange(usersUrl, org.springframework.http.HttpMethod.GET, userRequest, Object[].class);
-
-        if (response.getBody() == null || response.getBody().length == 0) {
-            return List.of();
-        }
-
-        Map<String, Object> kcUser = (Map<String, Object>) response.getBody()[0];
-        String userId = (String) kcUser.get("id");
-        if (userId == null) return List.of();
-
-        // Fetch role mappings for this user
-        String rolesUrl = keycloakServerUrl + "/admin/realms/" + keycloakRealm + "/users/" + userId + "/role-mappings/realm";
-        var rolesRequest = new org.springframework.http.HttpEntity<>(headers);
-        var rolesResponse = restTemplate.exchange(rolesUrl, org.springframework.http.HttpMethod.GET, rolesRequest, Object[].class);
-
-        if (rolesResponse.getBody() == null) return List.of();
-
-        List<String> roles = new java.util.ArrayList<>();
-        for (Object item : rolesResponse.getBody()) {
-            Map<String, Object> role = (Map<String, Object>) item;
-            String roleName = (String) role.get("name");
-            if (roleName != null) {
-                roles.add(roleName);
-            }
-        }
-        return roles;
-    }
-
-    @Transactional(readOnly = true)
+    @Cacheable(value = "employees", key = "'id_' + #id")
     public EmployeeResponse getEmployeeById(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
-        EmployeeResponse dto = employeeMapper.toDto(employee);
-        if (employee.getUsername() != null) {
-            Map<String, List<String>> rolesMap = fetchKeycloakRolesForUsernames(List.of(employee.getUsername()));
-            dto.setRoles(rolesMap.getOrDefault(employee.getUsername(), List.of()));
+        EmployeeResponse response = employeeMapper.toDto(employee);
+        if (employee.getRoles() != null) {
+            response.setRoles(employee.getRoles().stream()
+                    .map(r -> r.getRoleName())
+                    .filter(java.util.Objects::nonNull)
+                    .map(ERole::name)
+                    .toList());
         }
-        return dto;
+        return response;
     }
 
+    @Cacheable(value = "employees", key = "'username_' + #username")
     public EmployeeResponse getEmployeeByUsername(String username) {
         Employee employee = employeeRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
-        EmployeeResponse dto = employeeMapper.toDto(employee);
-        if (employee.getUsername() != null) {
-            Map<String, List<String>> rolesMap = fetchKeycloakRolesForUsernames(List.of(employee.getUsername()));
-            dto.setRoles(rolesMap.getOrDefault(employee.getUsername(), List.of()));
+        EmployeeResponse response = employeeMapper.toDto(employee);
+        if (employee.getRoles() != null) {
+            response.setRoles(employee.getRoles().stream()
+                    .map(r -> r.getRoleName())
+                    .filter(java.util.Objects::nonNull)
+                    .map(ERole::name)
+                    .toList());
         }
-        return dto;
+        return response;
     }
 
+    @CacheEvict(value = "employees", allEntries = true)
     public EmployeeResponse createEmployee(EmployeeCreateRequest request) {
         if (employeeRepository.findByUsername(request.getUsername()).isPresent()) {
             throw new RuntimeException("Сотрудник с таким логином уже существует");
@@ -171,6 +123,7 @@ public class EmployeeService {
         return employeeMapper.toDto(saved);
     }
 
+    @CacheEvict(value = "employees", allEntries = true)
     public EmployeeResponse updateEmployee(Long id, EmployeeUpdateRequest request) {
         Employee employee = getEmployeeEntity(id);
         employeeMapper.updateEntityFromRequest(request, employee);
@@ -178,11 +131,14 @@ public class EmployeeService {
         return employeeMapper.toDto(saved);
     }
 
+    @CacheEvict(value = "employees", allEntries = true)
     public void deleteEmployee(Long id) {
         Employee employee = getEmployeeEntity(id);
         employeeRepository.delete(employee);
     }
 
+    @CacheEvict(value = "employees", allEntries = true)
+    @Transactional
     public EmployeeResponse syncOrCreateFromKeycloak(Jwt jwt) {
         try {
             String username = jwt.getClaimAsString("preferred_username");
@@ -234,6 +190,7 @@ public class EmployeeService {
         }
     }
 
+    @CacheEvict(value = "employees", allEntries = true)
     @Transactional
     public String syncAllFromKeycloak() {
         RestTemplate restTemplate = new RestTemplate();
@@ -316,22 +273,78 @@ public class EmployeeService {
         return "created=" + created + ", updated=" + updated;
     }
 
-    private ERole mapKeycloakRoleName(String kcRoleName) {
-        if (kcRoleName == null) return null;
-        switch (kcRoleName) {
-            case "ADMIN":       return ERole.ROLE_ADMIN;
-            case "GOD":         return ERole.ROLE_GOD;
-            case "MANAGER":     return ERole.ROLE_MANAGER;
-            case "PRODUCTION":  return ERole.ROLE_PRODUCTION;
-            case "ACCOUNTANT":  return ERole.ROLE_ACCOUNTANT;
-            case "USER":        return ERole.ROLE_USER;
-            default:
+    @Transactional(readOnly = true)
+    private Employee getEmployeeEntity(Long id) {
+        return employeeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
+    }
+
+    /**
+     * Fetch Keycloak realm roles for a specific user by username.
+     */
+    public List<String> getKeycloakRolesForUser(String username) {
+        if (username == null || username.isEmpty()) return List.of();
+        Map<String, List<String>> rolesMap = fetchKeycloakRolesForUsernames(List.of(username));
+        return rolesMap.getOrDefault(username, List.of());
+    }
+
+    /**
+     * Fetch Keycloak realm roles for given usernames.
+     * Returns map of username -> list of role names.
+     */
+    private Map<String, List<String>> fetchKeycloakRolesForUsernames(List<String> usernames) {
+        Map<String, List<String>> result = new HashMap<>();
+        if (usernames == null || usernames.isEmpty()) return result;
+
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            String adminToken = obtainAdminToken(restTemplate);
+
+            for (String username : usernames) {
                 try {
-                    return ERole.valueOf(kcRoleName);
-                } catch (IllegalArgumentException e) {
-                    return null;
+                    List<String> roles = fetchUserRoles(restTemplate, adminToken, username);
+                    result.put(username, roles);
+                } catch (Exception e) {
+                    result.put(username, List.of());
                 }
+            }
+        } catch (Exception e) {
+            // Return empty map on failure
         }
+        return result;
+    }
+
+    private List<String> fetchUserRoles(RestTemplate restTemplate, String adminToken, String username) {
+        String usersUrl = keycloakServerUrl + "/admin/realms/" + keycloakRealm + "/users?username=" + username + "&exact=true";
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setBearerAuth(adminToken);
+        var userRequest = new org.springframework.http.HttpEntity<>(headers);
+        var response = restTemplate.exchange(usersUrl, org.springframework.http.HttpMethod.GET, userRequest, Object[].class);
+
+        if (response.getBody() == null || response.getBody().length == 0) {
+            return List.of();
+        }
+
+        Map<String, Object> kcUser = (Map<String, Object>) response.getBody()[0];
+        String userId = (String) kcUser.get("id");
+        if (userId == null) return List.of();
+
+        // Fetch role mappings for this user
+        String rolesUrl = keycloakServerUrl + "/admin/realms/" + keycloakRealm + "/users/" + userId + "/role-mappings/realm";
+        var rolesRequest = new org.springframework.http.HttpEntity<>(headers);
+        var rolesResponse = restTemplate.exchange(rolesUrl, org.springframework.http.HttpMethod.GET, rolesRequest, Object[].class);
+
+        if (rolesResponse.getBody() == null) return List.of();
+
+        List<String> roles = new java.util.ArrayList<>();
+        for (Object item : rolesResponse.getBody()) {
+            Map<String, Object> role = (Map<String, Object>) item;
+            String roleName = (String) role.get("name");
+            if (roleName != null) {
+                roles.add(roleName);
+            }
+        }
+        return roles;
     }
 
     private String obtainAdminToken(RestTemplate restTemplate) {
@@ -358,18 +371,21 @@ public class EmployeeService {
         return (String) tokenResponse.getBody().get("access_token");
     }
 
-    @Transactional(readOnly = true)
-    private Employee getEmployeeEntity(Long id) {
-        return employeeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
-    }
-
-    /**
-     * Get Keycloak roles for a specific user by username.
-     */
-    public List<String> getKeycloakRolesForUser(String username) {
-        if (username == null || username.isEmpty()) return List.of();
-        Map<String, List<String>> rolesMap = fetchKeycloakRolesForUsernames(List.of(username));
-        return rolesMap.getOrDefault(username, List.of());
+    private ERole mapKeycloakRoleName(String kcRoleName) {
+        if (kcRoleName == null) return null;
+        switch (kcRoleName) {
+            case "ADMIN":       return ERole.ROLE_ADMIN;
+            case "GOD":         return ERole.ROLE_GOD;
+            case "MANAGER":     return ERole.ROLE_MANAGER;
+            case "PRODUCTION":  return ERole.ROLE_PRODUCTION;
+            case "ACCOUNTANT":  return ERole.ROLE_ACCOUNTANT;
+            case "USER":        return ERole.ROLE_USER;
+            default:
+                try {
+                    return ERole.valueOf(kcRoleName);
+                } catch (IllegalArgumentException e) {
+                    return null;
+                }
+        }
     }
 }

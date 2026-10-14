@@ -83,6 +83,7 @@ services:
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
       - CALCULATOR_SERVICE_URL=http://calculator-service:8086
       - STATISTIC_SERVICE_URL=http://statistic-service:8089/api/v1/admin/statistics
+      - SPRING_FLYWAY_ENABLED=false
 
   client-service:
     build:
@@ -124,6 +125,7 @@ services:
       - DB_HOST=postgres
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
       - KEYCLOAK_ADMIN_SERVER_URL=http://keycloak:8080
+      - SPRING_FLYWAY_ENABLED=false
 
   material-service:
     build:
