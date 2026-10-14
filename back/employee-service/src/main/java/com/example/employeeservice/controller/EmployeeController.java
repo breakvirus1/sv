@@ -37,6 +37,7 @@ public class EmployeeController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     public ResponseEntity<Page<EmployeeResponse>> getAllEmployees(
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) Long companyId,
             Pageable pageable,
             @AuthenticationPrincipal Jwt jwt) {
 
@@ -49,8 +50,9 @@ public class EmployeeController {
                     ));
         }
 
-        Long companyId = extractCompanyId(jwt);
-        return ResponseEntity.ok(employeeService.getAllEmployees(spec, pageable, companyId));
+        // If companyId is explicitly provided, use it. Otherwise extract from JWT.
+        Long effectiveCompanyId = companyId != null ? companyId : extractCompanyId(jwt);
+        return ResponseEntity.ok(employeeService.getAllEmployees(spec, pageable, effectiveCompanyId));
     }
 
     @Operation(summary = "Получить сотрудника по username")
@@ -97,6 +99,14 @@ public class EmployeeController {
     public ResponseEntity<String> syncAllFromKeycloak() {
         String result = employeeService.syncAllFromKeycloak();
         return ResponseEntity.ok("Синхронизация завершена. " + result);
+    }
+
+    @Operation(summary = "Синхронизировать пользователей из Keycloak по компании (ADMIN компании)")
+    @PostMapping("/sync-by-company")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
+    public ResponseEntity<String> syncByCompany(@RequestParam Long companyId) {
+        String result = employeeService.syncFromKeycloakByCompany(companyId);
+        return ResponseEntity.ok("Синхронизация по компании завершена. " + result);
     }
 
     @Operation(summary = "Удалить сотрудника")

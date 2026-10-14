@@ -16,10 +16,12 @@ export const useCompanies = (options = {}) => {
 export const useEmployees = (params = {}) => {
   const size = params.size || 100;
   const q = params.q || '';
+  const companyId = params.companyId;
   return useQuery({
-    queryKey: queryKeys.employees(q ? { q, size } : { size }),
+    queryKey: queryKeys.employees(q ? { q, size, companyId } : { size, companyId }),
     queryFn: async () => {
-      const r = await api.get(`/api/v1/employees?size=${size}${q ? `&q=${q}` : ''}`);
+      const companyParam = companyId ? `&companyId=${companyId}` : '';
+      const r = await api.get(`/api/v1/employees?size=${size}${q ? `&q=${q}` : ''}${companyParam}`);
       return r.data.content || [];
     },
     enabled: !!params.enabled,

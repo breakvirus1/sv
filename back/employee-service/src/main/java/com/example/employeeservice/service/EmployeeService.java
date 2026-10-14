@@ -193,6 +193,12 @@ public class EmployeeService {
     @CacheEvict(value = "employees", allEntries = true)
     @Transactional
     public String syncAllFromKeycloak() {
+        return syncFromKeycloakByCompany(null);
+    }
+
+    @CacheEvict(value = "employees", allEntries = true)
+    @Transactional
+    public String syncFromKeycloakByCompany(Long companyId) {
         RestTemplate restTemplate = new RestTemplate();
 
         String adminToken = obtainAdminToken(restTemplate);
@@ -207,6 +213,25 @@ public class EmployeeService {
             for (Object item : response.getBody()) {
                 kcUsers.add((Map<String, Object>) item);
             }
+        }
+
+        // Filter users by company_id attribute if companyId is provided
+        if (companyId != null) {
+            kcUsers = kcUsers.stream()
+                .filter(u -> {
+                    Map<String, Object> attrs = (Map<String, Object>) u.get("attributes");
+                    if (attrs == null) return false;
+                    Object companyAttr = attrs.get("company_id");
+                    if (companyAttr instanceof List) {
+                        List<?> list = (List<?>) companyAttr;
+                        return !list.isEmpty() && companyId.toString().equals(list.get(0).toString());
+                    }
+                    if (companyAttr instanceof String) {
+                        return companyId.toString().equals(companyAttr);
+                    }
+                    return false;
+                })
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         }
 
         Set<String> existingUsernames = employeeRepository.findAllUsernames();
@@ -248,6 +273,10 @@ public class EmployeeService {
                     if (kcUser.get("email") != null) {
                         existing.setEmail((String) kcUser.get("email"));
                     }
+                    // Set companyId if provided
+                    if (companyId != null) {
+                        existing.setCompanyId(companyId);
+                    }
                     employeeRepository.save(existing);
                     updated++;
                 }
@@ -264,6 +293,10 @@ public class EmployeeService {
             employee.setEmail((String) kcUser.get("email"));
             employee.setRoles(roles);
             employee.setRoleId(firstRoleId);
+            // Set companyId if provided
+            if (companyId != null) {
+                employee.setCompanyId(companyId);
+            }
 
             employeeRepository.save(employee);
             existingUsernames.add(username);
