@@ -12,9 +12,7 @@ spring:
       connection-timeout: 20000
       leak-detection-threshold: 60000
   flyway:
-    schemas: svschema
-    table: flyway_calculator_schema_history
-    validate-on-migrate: false
+    enabled: false
   jpa:
     properties:
       hibernate:

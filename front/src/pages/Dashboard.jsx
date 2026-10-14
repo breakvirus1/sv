@@ -7,7 +7,8 @@ import {
   Button,
   Card,
   CardContent,
-  Chip
+  Chip,
+  CircularProgress
 } from '@mui/material';
 import {
   Inventory,
@@ -22,13 +23,21 @@ import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 const Dashboard = () => {
   const navigate = useNavigate();
 
-  const { data: orders = [] } = useQuery({
+  const { data: orders = [], isLoading } = useQuery({
     queryKey: queryKeys.orders('dashboard'),
     queryFn: async () => {
       const response = await api.get('/api/v1/orders?size=50');
       return response.data.content || [];
     },
   });
+
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
 
   const handleCreateOrder = () => {
     navigate('/orders/new');

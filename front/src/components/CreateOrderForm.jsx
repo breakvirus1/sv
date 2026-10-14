@@ -102,7 +102,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   });
 
   // Загрузка данных
-  const { data: clientsData = [], error: clientsError } = useQuery({
+  const { data: clientsData = [], isLoading: isLoadingClients, error: clientsError } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
       const response = await api.get('/api/v1/clients?size=100');
@@ -110,7 +110,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
-  const { data: materialsData = [], error: materialsError } = useQuery({
+  const { data: materialsData = [], isLoading: isLoadingMaterials, error: materialsError } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
       const response = await api.get('/api/v1/materials?size=100');
@@ -118,7 +118,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
-  const { data: currentEmployee } = useQuery({
+  const { data: currentEmployee, isLoading: isLoadingEmployee } = useQuery({
     queryKey: ['currentEmployee', username],
     queryFn: async () => {
       if (!username) return null;
@@ -129,11 +129,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     enabled: !!username,
   });
 
-  const workshopName = currentEmployee?.workshopId
-    ? (workshopsData.find(w => w.id === currentEmployee.workshopId)?.name || '#' + currentEmployee.workshopId)
-    : null;
-
-  const { data: operationsData = [], error: operationsError } = useQuery({
+  const { data: operationsData = [], isLoading: isLoadingOperations, error: operationsError } = useQuery({
     queryKey: ['operations'],
     queryFn: async () => {
       const response = await api.get('/api/v1/calculations/operations');
@@ -141,7 +137,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
-  const { data: groupedOperationsData = { groups: {}, ungroupedOperations: [] } } = useQuery({
+  const { data: groupedOperationsData = { groups: {}, ungroupedOperations: [] }, isLoading: isLoadingGroupedOps } = useQuery({
     queryKey: ['grouped-operations'],
     queryFn: async () => {
       const response = await api.get('/api/v1/calculations/operations/grouped');
@@ -155,7 +151,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     ? formData.items[groupSelectionDialog.itemIndex]?.materialId
     : null;
 
-  const { data: materialGroupedOperations = { groups: {}, ungroupedOperations: [] } } = useQuery({
+  const { data: materialGroupedOperations = { groups: {}, ungroupedOperations: [] }, isLoading: isLoadingMaterialGrouped } = useQuery({
     queryKey: ['material-grouped-operations', dialogMaterialId],
     queryFn: async () => {
       if (!dialogMaterialId) return { groups: {}, ungroupedOperations: [] };
@@ -167,20 +163,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     enabled: groupSelectionDialog.open && dialogMaterialId != null,
   });
 
-  const dialogGroupedData = dialogMaterialId != null ? materialGroupedOperations.groups : groupedOperationsData.groups;
-  const dialogUngroupedOps = dialogMaterialId != null ? materialGroupedOperations.ungroupedOperations : (groupedOperationsData.ungroupedOperations || []);
-
-  const allGroupedOpsFlat = useMemo(
-    () => Object.values(dialogGroupedData || {}).flatMap(g => (g.operations || [])),
-    [dialogGroupedData]
-  );
-
-  const eyeletMaterials = useMemo(
-    () => (materialsData || []).filter(m => (m.name || '').toLowerCase().includes('люверс')),
-    [materialsData]
-  );
-
-  const { data: eyeletsData = [], error: eyeletsError } = useQuery({
+  const { data: eyeletsData = [], isLoading: isLoadingEyelets, error: eyeletsError } = useQuery({
     queryKey: ['eyelets'],
     queryFn: async () => {
       const response = await api.get('/api/v1/calculations/eyelets');
@@ -190,7 +173,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   });
 
   // Получение данных выбранного клиента для получения priceplus
-  const { data: selectedClient } = useQuery({
+  const { data: selectedClient, isLoading: isLoadingSelectedClient } = useQuery({
     queryKey: ['client', formData.clientId],
     queryFn: async () => {
       if (!formData.clientId) return null;
@@ -765,6 +748,19 @@ const handleSubmit = async (e) => {
       setIsSubmitting(false);
     }
   };
+
+  const isLoading = isLoadingClients || isLoadingMaterials || isLoadingEmployee || isLoadingOperations || isLoadingGroupedOps || isLoadingEyelets;
+
+  if (isLoading) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
+        <CircularProgress size={40} />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Загрузка данных...
+        </Typography>
+      </Box>
+    );
+  }
 
   if (clientsError || materialsError || operationsError || eyeletsError) {
     return (

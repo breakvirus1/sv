@@ -30,6 +30,7 @@ const Navbar = () => {
       return r.data.content || [];
     },
     staleTime: 300000,
+    enabled: isAuthenticated,
   });
 
   const companyName = companiesData.length > 0 ? companiesData[0].name : 'ПАЗЛ МОРЕ SV';
