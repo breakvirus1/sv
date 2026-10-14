@@ -6,9 +6,6 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../hooks/queryKeys';
 import api from '../services/api';
-import { useQuery } from '@tanstack/react-query';
-import api from '../services/api';
-import { queryKeys } from '../hooks/queryKeys';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import { Dashboard } from '@mui/icons-material';
 

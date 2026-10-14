@@ -9,6 +9,8 @@ import com.example.materialservice.exception.ResourceNotFoundException;
 import com.example.materialservice.mapper.MaterialMapper;
 import com.example.materialservice.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -26,15 +28,18 @@ public class MaterialService {
     private final MaterialRepository materialRepository;
     private final MaterialMapper materialMapper;
 
+    @Cacheable(value = "materials", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all')")
     public Page<MaterialResponse> getAllMaterials(Specification<Material> spec, Pageable pageable) {
         return materialRepository.findAll(spec, pageable)
                 .map(materialMapper::toDto);
     }
 
+    @Cacheable(value = "materials", key = "'type_' + #type")
     public List<Material> getMaterialsByType(MaterialType type) {
         return materialRepository.findByType(type);
     }
 
+    @Cacheable(value = "materials", key = "'id_' + #id")
     @Transactional(readOnly = true)
     public MaterialResponse getMaterialById(Long id) {
         Material material = materialRepository.findById(id)
@@ -42,6 +47,7 @@ public class MaterialService {
         return materialMapper.toDto(material);
     }
 
+    @CacheEvict(value = "materials", allEntries = true)
     public MaterialResponse createMaterial(MaterialCreateRequest request) {
         validateUnit(request.getUnit());
         Material material = materialMapper.toEntity(request);
@@ -50,6 +56,7 @@ public class MaterialService {
         return materialMapper.toDto(saved);
     }
 
+    @CacheEvict(value = "materials", allEntries = true)
     public MaterialResponse updateMaterial(Long id, MaterialUpdateRequest request) {
         Material material = getMaterialEntity(id);
         if (request.getName() != null) {
@@ -69,6 +76,7 @@ public class MaterialService {
         return materialMapper.toDto(saved);
     }
 
+    @CacheEvict(value = "materials", allEntries = true)
     public void deleteMaterial(Long id) {
         Material material = getMaterialEntity(id);
         materialRepository.delete(material);

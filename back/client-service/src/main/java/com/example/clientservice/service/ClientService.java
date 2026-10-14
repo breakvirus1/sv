@@ -7,6 +7,8 @@ import com.example.clientservice.entity.Client;
 import com.example.clientservice.mapper.ClientMapper;
 import com.example.clientservice.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -25,10 +27,12 @@ public class ClientService {
     private final JdbcTemplate jdbcTemplate;
     private final ClientMapper clientMapper;
 
+    @Cacheable(value = "clients", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all') + '_' + (#companyId ?: 'all')")
     public Page<ClientResponse> getAllClients(Specification<Client> spec, Pageable pageable) {
         return getAllClients(spec, pageable, null);
     }
 
+    @Cacheable(value = "clients", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all') + '_' + (#companyId ?: 'all')")
     public Page<ClientResponse> getAllClients(Specification<Client> spec, Pageable pageable, Long companyId) {
         Specification<Client> finalSpec = spec;
         if (companyId != null) {
@@ -39,6 +43,7 @@ public class ClientService {
                 .map(clientMapper::toDto);
     }
 
+    @Cacheable(value = "clients", key = "'id_' + #id")
     @Transactional(readOnly = true)
     public ClientResponse getClientById(Long id) {
         Client client = clientRepository.findById(id)
@@ -46,6 +51,7 @@ public class ClientService {
         return clientMapper.toDto(client);
     }
 
+    @CacheEvict(value = "clients", allEntries = true)
     public ClientResponse createClient(ClientCreateRequest request) {
         if (clientRepository.findByName(request.getName()).isPresent()) {
             throw new RuntimeException("Клиент с таким названием уже существует");
@@ -59,6 +65,7 @@ public class ClientService {
         return clientMapper.toDto(saved);
     }
 
+    @CacheEvict(value = "clients", allEntries = true)
     public ClientResponse updateClient(Long id, ClientUpdateRequest request) {
         Client client = getClientEntity(id);
         clientMapper.updateFromRequest(request, client);
@@ -70,12 +77,13 @@ public class ClientService {
         return clientMapper.toDto(saved);
     }
 
+    @CacheEvict(value = "clients", allEntries = true)
     public void deleteClient(Long id) {
         Client client = getClientEntity(id);
         Integer orderCount = jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM orders WHERE client_id = ? AND deleted = false",
-            Integer.class,
-            id
+                "SELECT COUNT(*) FROM orders WHERE client_id = ? AND deleted = false",
+                Integer.class,
+                id
         );
         if (orderCount != null && orderCount > 0) {
             throw new RuntimeException("Нельзя удалить клиента с существующими заказами");

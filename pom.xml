@@ -24,7 +24,7 @@
     <maven.compiler.target>17</maven.compiler.target>
     <maven.compiler.release>17</maven.compiler.release>
     <mapstruct.version>1.5.5.Final</mapstruct.version>
-    <flyway.version>11.2.0</flyway.version>
+    <flyway.version>11.11.1</flyway.version>
     <jjwt.version>0.11.5</jjwt.version>
     <lombok.version>1.18.34</lombok.version>
     <springdoc.version>2.6.0</springdoc.version>
@@ -56,14 +56,33 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- Spring Cloud OpenFeign -->
-            <dependency>
-                <groupId>org.springframework.cloud</groupId>
-                <artifactId>spring-cloud-starter-openfeign</artifactId>
-                <version>4.1.2</version>
-            </dependency>
+<!-- Spring Cloud OpenFeign -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+            <version>4.1.2</version>
+        </dependency>
 
-            <!-- Flyway BOM -->
+        <!-- Spring Cache -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+            <version>3.2.5</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>3.1.8</version>
+        </dependency>
+
+        <!-- Apache Commons JEXL -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-jexl3</artifactId>
+            <version>3.3</version>
+        </dependency>
+
+        <!-- Flyway BOM -->
             <dependency>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-maven-plugin</artifactId>
