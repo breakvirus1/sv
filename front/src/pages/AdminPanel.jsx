@@ -632,9 +632,22 @@ const AdminPanel = () => {
   );
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, position: 'relative' }}>
       {isLoading && (
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            bgcolor: 'background.paper',
+            zIndex: 10,
+          }}
+        >
           <CircularProgress size={40} />
         </Box>
       )}

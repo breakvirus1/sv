@@ -186,57 +186,52 @@ const ManagerOrderList = () => {
     setSelectedOrderForClose(null);
   };
 
-  const getTitle = () => {
+const getTitle = () => {
     if (myOrders) return 'Мои заказы';
     if (statusFilter) return `Заказы: ${getStatusLabel(statusFilter)}`;
     return 'Заказы';
   };
 
-  if (isLoading) {
-     return (
-       <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
-         <CircularProgress />
-       </Box>
-     );
-   }
+return (
+    <Box>
+      <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2, position: 'relative' }}>
+        {isLoading && (
+          <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: 'background.paper', zIndex: 10 }}>
+            <CircularProgress size={40} />
+          </Box>
+        )}
+        {error && !isLoading && (
+          <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: 'background.paper', zIndex: 10 }}>
+            <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
+          </Box>
+        )}
+        <Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
+              <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+                <Box>
+                  <Typography variant="h4">{getTitle()}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Заказов: {totalCount}
+                  </Typography>
+                </Box>
+<Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <InputLabel>Клиент</InputLabel>
+                    <Select
+                      value={selectedClientId}
+                      onChange={(e) => setSelectedClientId(e.target.value)}
+                      label="Клиент"
+                    >
+                      <MenuItem value="">Все</MenuItem>
+                      {clients.map((client) => (
+                        <MenuItem key={client.id} value={client.id}>
+                          {client.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-   if (error) {
-     return (
-       <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2 }}>
-         <Alert severity="error">Ошибка загрузки заказов: {error.message}</Alert>
-       </Box>
-     );
-   }
-
-   return (
-     <>
-       <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2 }}>
-         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexShrink={0}>
-           <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
-             <Box>
-               <Typography variant="h4">{getTitle()}</Typography>
-               <Typography variant="body2" color="text.secondary">
-                 Заказов: {totalCount}
-               </Typography>
-             </Box>
-             <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-               <FormControl size="small" sx={{ minWidth: 140 }}>
-                 <InputLabel>Клиент</InputLabel>
-                 <Select
-                   value={selectedClientId}
-                   onChange={(e) => setSelectedClientId(e.target.value)}
-                   label="Клиент"
-                 >
-                   <MenuItem value="">Все</MenuItem>
-                   {clients.map((client) => (
-                     <MenuItem key={client.id} value={client.id}>
-                       {client.name}
-                     </MenuItem>
-                   ))}
-                 </Select>
-               </FormControl>
-
-               <FormControl size="small" sx={{ minWidth: 130 }}>
+                  <FormControl size="small" sx={{ minWidth: 130 }}>
                  <InputLabel>Статус</InputLabel>
                  <Select
                    value={statusFilter || ''}
@@ -289,23 +284,24 @@ const ManagerOrderList = () => {
                  }}
                />
              </Box>
-           </Box>
-           <Box>
-             <Button
-               variant="contained"
-               startIcon={<Add />}
-               onClick={() => navigate('/orders/new')}
-             >
-               Новый заказ
-             </Button>
-           </Box>
-         </Box>
+</Box>
+            <Box>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => navigate('/orders/new')}
+              >
+                Новый заказ
+              </Button>
+            </Box>
+          </Box>
 
-         {!allOrders.length ? (
-           <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-             <Typography color="text.secondary">Нет заказов</Typography>
-           </Box>
-         ) : (
+          <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', mt: 1 }}>
+            {!allOrders.length ? (
+              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                <Typography color="text.secondary">Нет заказов</Typography>
+              </Box>
+            ) : (
            <InfiniteScroll
              dataLength={allOrders.length}
              next={fetchNext}
@@ -409,40 +405,12 @@ const ManagerOrderList = () => {
                </Box>
              </Box>
            </InfiniteScroll>
-         )}
-       </Box>
-       <Dialog
-         open={showNotificationDialog}
-         onClose={() => setShowNotificationDialog(false)}
-         aria-labelledby="notification-dialog-title"
-         aria-describedby="notification-dialog-description"
-         PaperProps={{
-           sx: {
-             position: 'fixed',
-             bottom: 24,
-             right: 24,
-             m: 0,
-             width: 320,
-           }
-         }}
-       >
-         <DialogTitle id="notification-dialog-title">
-           <Box display="flex" alignItems="center" gap={1}>
-             <Notifications color="primary" />
-             Уведомление
-           </Box>
-         </DialogTitle>
-         <DialogContent>
-           <Typography>Проверь уведомления</Typography>
-         </DialogContent>
-         <DialogActions>
-           <Button onClick={() => setShowNotificationDialog(false)} autoFocus>
-             Закрыть
-           </Button>
-         </DialogActions>
-       </Dialog>
-     </>
-   );
+)}
+    </Box>
+  </Box>
+  </Box>
+  </Box>
+  );
  };
 
 export default ManagerOrderList;
