@@ -57,7 +57,6 @@ const LoginPage = () => {
         </Button>
       </Box>
 
-
       <Typography variant="caption" color="text.secondary" textAlign="center">
         Тестовые пользователи: 
         admin manager production

@@ -10,6 +10,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCompanies, useClients, useEmployees, useMaterials, useOperations, useWorkshops, useProducts, useOperationGroups } from '../hooks/useSharedQueries';
 import { queryKeys } from '../hooks/queryKeys';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import GenerateTab from '../components/AdminPanel/GenerateTab';
 import MaterialsTab from '../components/AdminPanel/MaterialsTab';
 import StatisticsTab from '../components/AdminPanel/StatisticsTab';
@@ -43,8 +44,8 @@ const AdminPanel = () => {
     setNotification({ open: true, message, severity });
   };
 
-  // ---- Company filter for employees ----
-  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+  const { user } = useAuth();
+  const userCompanyId = user?.companyId;
 
   // ---- Clients state ----
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
@@ -104,10 +105,9 @@ const AdminPanel = () => {
 
   // ---- Fetch data ----
   const { data: clientsData = [], isLoading: isLoadingClients, refetch: refetchClients } = useClients({ enabled: tab === 0 });
-  const { data: companiesData = [], isLoading: isLoadingCompanies, refetch: refetchCompanies } = useCompanies({ enabled: tab === 5 });
   const { data: employeesData = [], isLoading: isLoadingEmployees, refetch: refetchEmployees } = useEmployees({ 
-    enabled: tab === 5, 
-    companyId: selectedCompanyId 
+    enabled: tab === 5,
+    companyId: userCompanyId
   });
   const { data: materialsData = [], isLoading: isLoadingMaterials, refetch: refetchMaterials } = useMaterials({ enabled: tab === 1 || tab === 4 });
   const { data: operationsData = [], isLoading: isLoadingOperations, refetch: refetchOperations } = useOperations({ enabled: tab === 2 || tab === 4 });
@@ -222,8 +222,7 @@ const AdminPanel = () => {
   const syncKeycloakMutation = useMutation({
     mutationFn: async () => {
       setSyncing(true);
-      const url = selectedCompanyId ? `/api/v1/employees/sync-by-company?companyId=${selectedCompanyId}` : '/api/v1/employees/sync-all';
-      const r = await api.post(url);
+      const r = await api.post('/api/v1/employees/sync-all');
       return r.data;
     },
     onSuccess: (data) => { showNotification(data); queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); },
@@ -556,22 +555,6 @@ const renderEmployeesTab = () => (
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexDirection={{ xs: 'column', sm: 'row' }} gap={1}>
         <Typography variant="h6">Управление сотрудниками</Typography>
         <Box display="flex" gap={2} width={{ xs: '100%', sm: 'auto' }} flexDirection={{ xs: 'column', sm: 'row' }}>
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Компания</InputLabel>
-            <Select
-              value={selectedCompanyId ? String(selectedCompanyId) : ''}
-              onChange={(e) => setSelectedCompanyId(e.target.value ? Number(e.target.value) : null)}
-              label="Компания"
-              displayEmpty
-            >
-              <MenuItem value="">Все компании</MenuItem>
-              {companiesData.map((company) => (
-                <MenuItem key={company.id} value={String(company.id)}>
-                  {company.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
           <Button variant="contained" startIcon={<Add />} onClick={() => setNewEmployeeDialogOpen(true)} fullWidth={isMobile}>Добавить сотрудника</Button>
           <Button variant="outlined" startIcon={syncing ? <CircularProgress size={16} /> : <Sync />} onClick={() => syncKeycloakMutation.mutate()} disabled={syncing} fullWidth={isMobile}>
             {syncing ? 'Синхронизация...' : 'Синхронизировать из Keycloak'}
@@ -590,7 +573,6 @@ const renderEmployeesTab = () => (
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Должность</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Телефон</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 200 }}>Email</TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Компания</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Цех</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'right', minWidth: 120 }}>% заработка</TableCell>
                 <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 100 }}>Действия</TableCell>
@@ -608,9 +590,6 @@ const renderEmployeesTab = () => (
                       <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.position || '-'}</TableCell>
                       <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.phone || '-'}</TableCell>
                       <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{emp.email || '-'}</TableCell>
-                      <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 160 }}>
-                        {emp.companyId ? companiesData.find(c => c.id === emp.companyId)?.name || `#${emp.companyId}` : '-'}
-                      </TableCell>
                       <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 160 }}>{emp.workshopId ? `#${emp.workshopId} ${getWorkshopName(emp.workshopId)}` : '-'}</TableCell>
                       <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right' }}>{emp.managerCashPercent != null ? `${emp.managerCashPercent.toFixed(2)}%` : '-'}</TableCell>
                       <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
@@ -863,6 +842,9 @@ const renderEmployeesTab = () => (
             if (!newEmployeeForm.username || !newEmployeeForm.password || !newEmployeeForm.fullName) {
               showNotification('Заполните все поля', 'error'); return;
             }
+            if (!userCompanyId) {
+              showNotification('Не определена компания пользователя', 'error'); return;
+            }
             setCreatingEmployee(true);
             try {
                const tokenRes = await fetch('/realms/master/protocol/openid-connect/token', {
@@ -884,14 +866,17 @@ const renderEmployeesTab = () => (
                   email: newEmployeeForm.email,
                   enabled: true,
                   credentials: [{ type: 'password', value: newEmployeeForm.password, temporary: false }],
-                  realmRoles: [newEmployeeForm.role.replace('ROLE_', '')]
+                  realmRoles: [newEmployeeForm.role.replace('ROLE_', '')],
+                  attributes: {
+                    company_id: [String(userCompanyId)]
+                  }
                 })
               });
               if (!createRes.ok) {
                 const errText = await createRes.text();
                 throw new Error(errText || 'Ошибка создания пользователя');
               }
-              await api.post('/api/v1/employees/sync');
+              await api.post(`/api/v1/employees/sync-by-company?companyId=${userCompanyId}`);
               showNotification('Сотрудник создан');
               setNewEmployeeDialogOpen(false);
               setNewEmployeeForm({ username: '', password: '', fullName: '', email: '', role: 'ROLE_MANAGER' });
