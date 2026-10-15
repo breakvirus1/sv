@@ -60,6 +60,9 @@ public class EmployeeService {
             finalSpec = spec == null ? Specification.where(null) : spec;
             finalSpec = finalSpec.and((root, query, cb) -> cb.equal(root.get("companyId"), companyId));
         }
+        // Exclude employees without companyId
+        finalSpec = finalSpec == null ? Specification.where(null) : finalSpec;
+        finalSpec = finalSpec.and((root, query, cb) -> cb.isNotNull(root.get("companyId")));
         Page<EmployeeResponse> employees = employeeRepository.findAll(finalSpec, pageable)
                 .map(employeeMapper::toDto);
 
@@ -148,6 +151,15 @@ public class EmployeeService {
             String fullName = jwt.getClaimAsString("name");
             String email = jwt.getClaimAsString("email");
 
+            // Extract company_id from JWT
+            Long companyId = null;
+            Object companyClaim = jwt.getClaim("company_id");
+            if (companyClaim instanceof Number) {
+                companyId = ((Number) companyClaim).longValue();
+            } else if (companyClaim instanceof String) {
+                companyId = Long.parseLong((String) companyClaim);
+            }
+
             if (username == null || username.isEmpty()) {
                 throw new IllegalArgumentException("Username is required for employee sync");
             }
@@ -158,6 +170,7 @@ public class EmployeeService {
             employee.setUsername(username);
             if (fullName != null) employee.setFullName(fullName);
             if (email != null) employee.setEmail(email);
+            if (companyId != null) employee.setCompanyId(companyId);
 
             // Sync roles from Keycloak
             List<String> kcRoles = fetchKeycloakRolesForUsernames(List.of(username)).getOrDefault(username, List.of());

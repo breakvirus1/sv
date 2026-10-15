@@ -41,6 +41,17 @@ function extractRolesFromToken(accessToken) {
   return decoded.realm_access.roles.map((role) => (role.startsWith('ROLE_') ? role : `ROLE_${role}`));
 }
 
+function extractCompanyIdFromToken(accessToken) {
+  const decoded = decodeJwt(accessToken);
+  if (!decoded) return null;
+  const claim = decoded.company_id;
+  if (claim === undefined || claim === null) return null;
+  if (typeof claim === 'number') return claim;
+  if (typeof claim === 'string') return parseInt(claim, 10);
+  if (Array.isArray(claim) && claim.length > 0) return parseInt(claim[0], 10);
+  return null;
+}
+
 function getStoredAuth() {
   try {
     const raw = localStorage.getItem('auth');
@@ -74,13 +85,15 @@ export const AuthProvider = ({ children }) => {
         console.log('Stored auth:', stored ? 'found' : 'none');
         if (stored) {
           const roles = extractRolesFromToken(stored.access_token);
+          const companyId = stored.companyId ?? extractCompanyIdFromToken(stored.access_token);
           console.log('User roles (raw):', stored.realm_access?.roles, '-> transformed:', roles);
           setUser({
             name: stored.name || stored.preferred_username,
             email: stored.email,
             roles,
             accessToken: stored.access_token,
-            username: stored.preferred_username || stored.sub
+            username: stored.preferred_username || stored.sub,
+            companyId
           });
           localStorage.setItem('token', stored.access_token);
           api.post('/api/v1/employees/sync').catch((err) => console.error('Employee sync failed:', err));
@@ -98,10 +111,12 @@ export const AuthProvider = ({ children }) => {
   const applyToken = (accessToken, expiresIn, extra = {}) => {
     const expiresAt = Date.now() + (expiresIn || 3600) * 1000;
     const decoded = decodeJwt(accessToken) || {};
+    const companyId = extractCompanyIdFromToken(accessToken);
     const auth = {
       ...decoded,
       access_token: accessToken,
       expiresAt,
+      companyId,
       ...extra
     };
     storeAuth(auth);
@@ -111,7 +126,8 @@ export const AuthProvider = ({ children }) => {
       email: auth.email,
       roles,
       accessToken,
-      username: auth.preferred_username || auth.sub
+      username: auth.preferred_username || auth.sub,
+      companyId
     });
     localStorage.setItem('token', accessToken);
     setAuthError(null);
@@ -127,8 +143,10 @@ export const AuthProvider = ({ children }) => {
       params.append('username', username);
       params.append('password', password);
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+      // Call Keycloak directly via nginx proxy
+      const response = await fetch(`${API_BASE_URL}/realms/print-sv/protocol/openid-connect/token`, {
         method: 'POST',
+        credentials: 'omit',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
@@ -233,10 +251,12 @@ export const AuthProvider = ({ children }) => {
       }
 
       const decoded = decodeJwt(idToken) || {};
+      const companyId = extractCompanyIdFromToken(accessToken);
       const auth = {
         ...decoded,
         access_token: accessToken,
-        expiresAt: Date.now() + expiresIn * 1000
+        expiresAt: Date.now() + expiresIn * 1000,
+        companyId
       };
 
       storeAuth(auth);
@@ -246,7 +266,8 @@ export const AuthProvider = ({ children }) => {
         email: auth.email,
         roles,
         accessToken,
-        username: auth.preferred_username || auth.sub
+        username: auth.preferred_username || auth.sub,
+        companyId
       });
       localStorage.setItem('token', accessToken);
       api.post('/api/v1/employees/sync').catch((err) => console.error('Employee sync failed:', err));

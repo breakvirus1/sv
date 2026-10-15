@@ -68,6 +68,20 @@ const AdminDashboard = () => {
       const tokenData = await adminTokenRes.json();
       const adminToken = tokenData.access_token;
 
+      // Check if user already exists
+      const checkUserRes = await fetch(`/admin/realms/print-sv/users?username=${encodeURIComponent(adminData.username)}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      let users = [];
+      if (checkUserRes.ok) {
+        users = await checkUserRes.json();
+      }
+
+      if (users.length > 0) {
+        throw new Error('Пользователь с таким логином уже существует в Keycloak');
+      }
+
       const createUserRes = await fetch('/admin/realms/print-sv/users', {
         method: 'POST',
         headers: {
@@ -81,7 +95,10 @@ const AdminDashboard = () => {
           email: adminData.email,
           enabled: true,
           credentials: [{ type: 'password', value: adminData.password, temporary: false }],
-          realmRoles: [adminData.role]
+          realmRoles: [adminData.role.replace('ROLE_', '')],
+          attributes: {
+            company_id: [adminData.companyId]
+          }
         })
       });
 
@@ -90,7 +107,7 @@ const AdminDashboard = () => {
         throw new Error(errText || 'Ошибка создания пользователя в Keycloak');
       }
 
-      await api.post('/api/v1/employees/sync');
+      await api.post(`/api/v1/employees/sync-by-company?companyId=${adminData.companyId}`);
       return true;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setAdminDialogOpen(false); showNotification('Администратор компании создан'); resetAdminForm(); },

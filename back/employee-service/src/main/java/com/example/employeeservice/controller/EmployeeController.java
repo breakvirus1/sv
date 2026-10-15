@@ -96,8 +96,14 @@ public class EmployeeController {
     @Operation(summary = "Синхронизировать всех пользователей из Keycloak (ADMIN)")
     @PostMapping("/sync-all")
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
-    public ResponseEntity<String> syncAllFromKeycloak() {
-        String result = employeeService.syncAllFromKeycloak();
+    public ResponseEntity<String> syncAllFromKeycloak(@AuthenticationPrincipal Jwt jwt) {
+        Long companyId = extractCompanyId(jwt);
+        // GOD role can sync all, ADMIN role syncs only their company
+        List<String> roles = jwt.getClaimAsStringList("realm_access.roles");
+        if (roles != null && roles.contains("GOD")) {
+            companyId = null;
+        }
+        String result = employeeService.syncFromKeycloakByCompany(companyId);
         return ResponseEntity.ok("Синхронизация завершена. " + result);
     }
 
