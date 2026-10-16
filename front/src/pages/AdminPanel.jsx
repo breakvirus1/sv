@@ -828,11 +828,9 @@ const renderEmployeesTab = () => (
           <FormControl fullWidth margin="dense">
             <InputLabel>Роль</InputLabel>
             <Select value={newEmployeeForm.role} label="Роль" onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, role: e.target.value })}>
+              <MenuItem value="ROLE_ADMIN">Администратор</MenuItem>
               <MenuItem value="ROLE_MANAGER">Менеджер</MenuItem>
               <MenuItem value="ROLE_PRODUCTION">Производство</MenuItem>
-              <MenuItem value="ROLE_ACCOUNTANT">Бухгалтер</MenuItem>
-              <MenuItem value="ROLE_USER">Пользователь</MenuItem>
-              <MenuItem value="ROLE_ADMIN">Администратор</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>
