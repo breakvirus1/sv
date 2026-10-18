@@ -1,0 +1,7 @@
+spring:
+  flyway:
+    enabled: true
+    table: flyway_comment_schema_history
+    baseline-on-migrate: true
+    baseline-version: 0
+    ignore-migration-patterns: "*:missing"

@@ -7,6 +7,8 @@ import com.example.materialservice.dto.MaterialResponse;
 import com.example.materialservice.entity.Material;
 import com.example.orderservice.dto.*;
 import com.example.orderservice.entity.FileAttachment;
+import com.example.orderservice.exception.BadRequestException;
+import com.example.orderservice.exception.NotFoundException;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderComment;
 import com.example.orderservice.entity.OrderItem;
@@ -46,14 +48,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import com.example.orderservice.exception.NotFoundException;
  import java.math.BigDecimal;
  import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -171,6 +170,24 @@ public class OrderService {
                 .orElse(null);
     }
 
+    private Long extractCompanyId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return null;
+        Object principal = auth.getPrincipal();
+        if (!(principal instanceof Jwt jwt)) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number number) {
+                return number.longValue();
+            }
+            if (claim instanceof String str) {
+                return Long.parseLong(str);
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
     private boolean isProductionUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return false;
@@ -187,7 +204,7 @@ public class OrderService {
 
     private void checkOrderNotRejected(Order order) {
         if (order.getStatus() == ProductionStage.REJECTED) {
-            throw new RuntimeException("Заказ отклонен и не может быть изменен или удален");
+            throw new BadRequestException("Заказ отклонен и не может быть изменен или удален");
         }
     }
 
@@ -348,15 +365,23 @@ public OrderResponse getOrderById(Long id) {
         // Клиент
         Client client = entityManager.find(Client.class, request.getClientId());
         if (client == null) {
-            throw new RuntimeException("Клиент не найден");
+            throw new NotFoundException("Клиент не найден");
         }
         order.setClient(client);
+
+        // Принадлежность заказа к компании: из токена текущего пользователя,
+        // иначе из компании клиента (например, при создании от имени GOD)
+        Long companyId = extractCompanyId();
+        if (companyId == null && client.getCompanyId() != null) {
+            companyId = client.getCompanyId();
+        }
+        order.setCompanyId(companyId);
 
         // Менеджер
         if (request.getManagerId() != null) {
             Employee manager = entityManager.find(Employee.class, request.getManagerId());
             if (manager == null) {
-                throw new RuntimeException("Менеджер не найден");
+                throw new NotFoundException("Менеджер не найден");
             }
             order.setManager(manager);
         }
@@ -378,7 +403,7 @@ public OrderResponse getOrderById(Long id) {
             Product product = productRepository.findById(request.getProductId())
                     .orElseThrow(() -> new RuntimeException("Изделие не найдено: " + request.getProductId()));
             if (product.getMaterials() == null || product.getMaterials().isEmpty()) {
-                throw new RuntimeException("В изделии нет материалов");
+                throw new BadRequestException("В изделии нет материалов");
             }
 
             BigDecimal total = BigDecimal.ZERO;
@@ -447,7 +472,7 @@ public OrderResponse getOrderById(Long id) {
             for (OrderMaterialCreateRequest itemReq : request.getItems()) {
                 Material material = entityManager.find(Material.class, itemReq.getMaterialId());
                 if (material == null) {
-                    throw new RuntimeException("Материал не найден: " + itemReq.getMaterialId());
+                    throw new NotFoundException("Материал не найден: " + itemReq.getMaterialId());
                 }
 
                 OrderItem orderItem = new OrderItem();
@@ -551,11 +576,11 @@ public OrderResponse getOrderById(Long id) {
                     );
                     calcResponse = response.getBody();
                 } catch (RestClientException e) {
-                    throw new RuntimeException("Ошибка при расчете стоимости позиции: " + e.getMessage(), e);
+                    throw new BadRequestException("Ошибка при расчете стоимости позиции: " + e.getMessage(), e);
                 }
 
                 if (calcResponse == null) {
-                    throw new RuntimeException("Пустой ответ от службы расчета");
+                    throw new BadRequestException("Пустой ответ от службы расчета");
                 }
 
                 // Parse total price
@@ -692,7 +717,7 @@ public OrderResponse getOrderById(Long id) {
                 BigDecimal diff = totalWithPriceplus.subtract(clientCalc).abs();
                 BigDecimal tolerance = new BigDecimal("0.01");
                 if (diff.compareTo(tolerance) > 0) {
-                    throw new RuntimeException("Валидация расчетов не пройдена: расхождение фронтенда с calculation service = " + diff + " (допуск " + tolerance + "). Обновите форму.");
+                    throw new BadRequestException("Валидация расчетов не пройдена: расхождение фронтенда с calculation service = " + diff + " (допуск " + tolerance + "). Обновите форму.");
                 }
                 // Лог успешной валидации
                 System.out.println("=== ORDER VALIDATION PASSED ===");
@@ -837,7 +862,7 @@ public OrderResponse getOrderById(Long id) {
                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
 
         if (!isProductionUser()) {
-            throw new RuntimeException("Только пользователь с ролью production может отклонить заказ");
+            throw new BadRequestException("Только пользователь с ролью production может отклонить заказ");
         }
 
         order.setStatus(ProductionStage.REJECTED);
@@ -864,10 +889,10 @@ public OrderResponse getOrderById(Long id) {
 
     private void checkStatusTransitionAllowed(Order order, String newStatus) {
         if (order.getStatus() == ProductionStage.REJECTED) {
-            throw new RuntimeException("Заказ отклонен и не может быть изменен");
+            throw new BadRequestException("Заказ отклонен и не может быть изменен");
         }
         if (ProductionStage.CLOSED.name().equals(newStatus) && !isAdminUser()) {
-            throw new RuntimeException("Только администратор может закрыть заказ");
+            throw new BadRequestException("Только администратор может закрыть заказ");
         }
     }
 
@@ -952,7 +977,7 @@ public OrderResponse getOrderById(Long id) {
         if (request.getManagerId() != null) {
             Employee manager = entityManager.find(Employee.class, request.getManagerId());
             if (manager == null) {
-                throw new RuntimeException("Менеджер не найден");
+                throw new NotFoundException("Менеджер не найден");
             }
             order.setManager(manager);
         }
@@ -985,7 +1010,7 @@ public OrderResponse getOrderById(Long id) {
             for (OrderMaterialCreateRequest itemReq : itemRequests) {
                 Material material = entityManager.find(Material.class, itemReq.getMaterialId());
                 if (material == null) {
-                    throw new RuntimeException("Материал не найден: " + itemReq.getMaterialId());
+                    throw new NotFoundException("Материал не найден: " + itemReq.getMaterialId());
                 }
 
                 BigDecimal widthM = itemReq.getWidthM();
@@ -1038,11 +1063,11 @@ public OrderResponse getOrderById(Long id) {
                     );
                     calcResponse = response.getBody();
                 } catch (RestClientException e) {
-                    throw new RuntimeException("Ошибка при расчете стоимости позиции: " + e.getMessage(), e);
+                    throw new BadRequestException("Ошибка при расчете стоимости позиции: " + e.getMessage(), e);
                 }
 
                 if (calcResponse == null) {
-                    throw new RuntimeException("Пустой ответ от службы расчета");
+                    throw new BadRequestException("Пустой ответ от службы расчета");
                 }
 
                 Number totalPriceNum = (Number) calcResponse.get("totalPrice");
@@ -1220,7 +1245,7 @@ public OrderResponse getOrderById(Long id) {
                   BigDecimal diff = totalWithPriceplus.subtract(clientCalc).abs();
                   BigDecimal tolerance = new BigDecimal("0.01");
                   if (diff.compareTo(tolerance) > 0) {
-                      throw new RuntimeException("Валидация расчетов не пройдена: расхождение фронтенда с calculation service = " + diff + " (допуск " + tolerance + ").");
+                      throw new BadRequestException("Валидация расчетов не пройдена: расхождение фронтенда с calculation service = " + diff + " (допуск " + tolerance + ").");
                   }
                   // Лог успешной валидации
                   System.out.println("=== ORDER UPDATE VALIDATION PASSED ===");

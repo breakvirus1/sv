@@ -28,6 +28,22 @@ public class DataAccessRepository {
         );
     }
 
+    public List<Long> fetchClientIdsByCompany(Long companyId) {
+        return jdbcTemplate.query(
+            "SELECT id FROM svschema.clients WHERE deleted = false AND company_id = ?",
+            (rs, rowNum) -> rs.getLong("id"),
+            companyId
+        );
+    }
+
+    public List<Long> fetchEmployeeIdsByCompany(Long companyId) {
+        return jdbcTemplate.query(
+            "SELECT id FROM svschema.employees WHERE deleted = false AND company_id = ?",
+            (rs, rowNum) -> rs.getLong("id"),
+            companyId
+        );
+    }
+
     public List<MaterialInfo> fetchMaterials() {
         return jdbcTemplate.query(
             "SELECT id, name, unit, price FROM svschema.materials WHERE deleted = false",

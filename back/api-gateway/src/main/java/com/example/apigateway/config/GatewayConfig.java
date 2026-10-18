@@ -22,7 +22,7 @@ public class GatewayConfig {
             )
             .route("workshop-service", r -> r
                 .path("/api/v1/workshops/**")
-                .uri("lb://workshop-service")
+                .uri("lb://order-service")
             )
             .route("client-service", r -> r
                 .path("/api/v1/clients/**", "/api/v1/companies/**")
@@ -38,7 +38,7 @@ public class GatewayConfig {
             )
             .route("product-service", r -> r
                 .path("/api/v1/products/**")
-                .uri("lb://product-service")
+                .uri("lb://order-service")
             )
             .route("calculator-service", r -> r
                 .path("/api/v1/calculations/**")
@@ -75,7 +75,7 @@ public class GatewayConfig {
             )
             .route("admin-product-service", r -> r
                 .path("/api/v1/admin/products/**")
-                .uri("lb://product-service")
+                .uri("lb://order-service")
             )
             .route("admin-generate-data-service", r -> r
                   .path("/api/v1/admin/generate/**")

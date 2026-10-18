@@ -15,7 +15,10 @@ spring:
       connection-timeout: 20000
       leak-detection-threshold: 60000
   flyway:
-    enabled: false
+    enabled: true
+    baseline-on-migrate: true
+    ignore-migration-patterns: "*:missing"
+    validate-on-migrate: false
   jpa:
     properties:
       hibernate:

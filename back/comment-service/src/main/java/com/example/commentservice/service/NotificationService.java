@@ -6,8 +6,6 @@ import com.example.commentservice.exception.ResourceNotFoundException;
 import com.example.commentservice.mapper.NotificationMapper;
 import com.example.commentservice.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;

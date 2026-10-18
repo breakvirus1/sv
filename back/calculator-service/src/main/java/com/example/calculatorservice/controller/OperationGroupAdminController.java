@@ -7,6 +7,7 @@ import com.example.calculatorservice.entity.OperationGroup;
 import com.example.calculatorservice.exception.BadRequestException;
 import com.example.calculatorservice.repository.OperationGroupRepository;
 import com.example.calculatorservice.service.OperationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -52,7 +53,7 @@ public class OperationGroupAdminController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<OperationGroupDto> createOperationGroup(@RequestBody OperationGroupCreateRequest request) {
+    public ResponseEntity<OperationGroupDto> createOperationGroup(@Valid @RequestBody OperationGroupCreateRequest request) {
         if (operationGroupRepository.findByName(request.getName()).isPresent()) {
             throw new BadRequestException("Группировка с таким названием уже существует");
         }
@@ -74,7 +75,7 @@ public class OperationGroupAdminController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<OperationGroupDto> updateOperationGroup(@PathVariable Long id, @RequestBody OperationGroupUpdateRequest request) {
+    public ResponseEntity<OperationGroupDto> updateOperationGroup(@PathVariable Long id, @Valid @RequestBody OperationGroupUpdateRequest request) {
         operationGroupRepository.findByNameExcludingId(request.getName(), id).ifPresent(existing -> {
             throw new BadRequestException("Группировка с таким названием уже существует");
         });

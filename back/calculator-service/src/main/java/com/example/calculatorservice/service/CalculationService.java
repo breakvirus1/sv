@@ -16,9 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,6 +24,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @Transactional
 public class CalculationService {
+
+    private static final int DEFAULT_EYELET_STEP_CM = 40;
 
     private final MaterialRepository materialRepository;
     private final EyeletRepository eyeletRepository;
@@ -350,7 +350,7 @@ public class CalculationService {
         BigDecimal perimeterM = perimeter(c);
         BigDecimal perimeterCm = perimeterM.multiply(BigDecimal.valueOf(100));
         Integer stepCm = c.getEyeletStepCm();
-        if (stepCm == null || stepCm <= 0) stepCm = 40;
+        if (stepCm == null || stepCm <= 0) stepCm = DEFAULT_EYELET_STEP_CM;
         return perimeterCm.divide(BigDecimal.valueOf(stepCm), 0, RoundingMode.UP).intValue();
     }
 
@@ -366,8 +366,8 @@ public class CalculationService {
             calc.setPodvorotCountPerSide(2);
         }
         if (calc.getEyeletStepCm() != null && calc.getEyeletStepCm() <= 0) {
-            log.warn("Invalid eyeletStepCm={}, using default 30", calc.getEyeletStepCm());
-            calc.setEyeletStepCm(30);
+            log.warn("Invalid eyeletStepCm={}, using default {}", calc.getEyeletStepCm(), DEFAULT_EYELET_STEP_CM);
+            calc.setEyeletStepCm(DEFAULT_EYELET_STEP_CM);
         }
     }
 

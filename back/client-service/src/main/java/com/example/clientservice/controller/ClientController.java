@@ -8,6 +8,7 @@ import com.example.clientservice.service.ClientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -68,7 +69,12 @@ public class ClientController {
     @Operation(summary = "Создать нового клиента")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
-    public ResponseEntity<ClientResponse> createClient(@RequestBody ClientCreateRequest request) {
+    public ResponseEntity<ClientResponse> createClient(
+            @Valid @RequestBody ClientCreateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        if (request.getCompanyId() == null) {
+            request.setCompanyId(extractCompanyId(jwt));
+        }
         return new ResponseEntity<>(clientService.createClient(request), HttpStatus.CREATED);
     }
 
@@ -77,7 +83,7 @@ public class ClientController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<ClientResponse> updateClient(
             @Parameter(description = "ID клиента") @PathVariable Long id,
-            @RequestBody ClientUpdateRequest request) {
+            @Valid @RequestBody ClientUpdateRequest request) {
         return ResponseEntity.ok(clientService.updateClient(id, request));
     }
 

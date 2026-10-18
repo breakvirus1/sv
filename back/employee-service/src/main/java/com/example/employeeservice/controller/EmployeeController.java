@@ -8,6 +8,7 @@ import com.example.employeeservice.service.EmployeeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -72,7 +73,7 @@ public class EmployeeController {
     @Operation(summary = "Создать нового сотрудника")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
-    public ResponseEntity<EmployeeResponse> createEmployee(@RequestBody EmployeeCreateRequest request) {
+    public ResponseEntity<EmployeeResponse> createEmployee(@Valid @RequestBody EmployeeCreateRequest request) {
         return new ResponseEntity<>(employeeService.createEmployee(request), HttpStatus.CREATED);
     }
 
@@ -81,7 +82,7 @@ public class EmployeeController {
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<EmployeeResponse> updateEmployee(
             @Parameter(description = "ID сотрудника") @PathVariable Long id,
-            @RequestBody EmployeeUpdateRequest request) {
+            @Valid @RequestBody EmployeeUpdateRequest request) {
         return ResponseEntity.ok(employeeService.updateEmployee(id, request));
     }
 

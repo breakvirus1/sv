@@ -6,6 +6,7 @@ import com.example.calculatorservice.dto.OperationUpdateRequest;
 import com.example.calculatorservice.entity.Operation;
 import com.example.calculatorservice.mapper.OperationMapper;
 import com.example.calculatorservice.service.OperationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,7 +24,7 @@ public class OperationAdminController {
 
      @PreAuthorize("hasRole('ADMIN')")
      @PostMapping
-     public ResponseEntity<OperationDto> createOperation(@RequestBody OperationCreateRequest request) {
+     public ResponseEntity<OperationDto> createOperation(@Valid @RequestBody OperationCreateRequest request) {
          Operation operation = operationMapper.toEntity(request);
          Operation saved = operationService.save(operation);
          return ResponseEntity.ok(operationMapper.toDto(saved));
@@ -31,7 +32,7 @@ public class OperationAdminController {
 
      @PreAuthorize("hasRole('ADMIN')")
      @PutMapping("/{id}")
-     public ResponseEntity<OperationDto> updateOperation(@PathVariable Long id, @RequestBody OperationUpdateRequest request) {
+     public ResponseEntity<OperationDto> updateOperation(@PathVariable Long id, @Valid @RequestBody OperationUpdateRequest request) {
          Operation operation = operationService.getOperationById(id);
          operationMapper.updateEntityFromRequest(request, operation);
          Operation updated = operationService.save(operation);

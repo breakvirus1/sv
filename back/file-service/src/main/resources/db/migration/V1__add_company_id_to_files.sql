@@ -1,1 +1,1 @@
-ALTER TABLE public.files ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.files ADD COLUMN IF NOT EXISTS company_id BIGINT;

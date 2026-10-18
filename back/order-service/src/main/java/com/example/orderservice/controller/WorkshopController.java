@@ -1,11 +1,10 @@
 package com.example.orderservice.controller;
 
 import com.example.orderservice.dto.*;
-import com.example.orderservice.entity.Workshop;
 import com.example.orderservice.service.WorkshopService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,7 +40,7 @@ public class WorkshopController {
     @Operation(summary = "Создать новый цех")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<WorkshopResponse> createWorkshop(@RequestBody WorkshopCreateRequest request) {
+    public ResponseEntity<WorkshopResponse> createWorkshop(@Valid @RequestBody WorkshopCreateRequest request) {
         return new ResponseEntity<>(workshopService.createWorkshop(request), HttpStatus.CREATED);
     }
 
@@ -50,7 +49,7 @@ public class WorkshopController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<WorkshopResponse> updateWorkshop(
             @PathVariable Long id,
-            @RequestBody WorkshopUpdateRequest request) {
+            @Valid @RequestBody WorkshopUpdateRequest request) {
         return ResponseEntity.ok(workshopService.updateWorkshop(id, request));
     }
 

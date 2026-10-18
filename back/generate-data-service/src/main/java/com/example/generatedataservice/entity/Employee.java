@@ -28,4 +28,7 @@ public class Employee extends BaseEntity {
 
     @Column(name = "workshop_id")
     private Long workshopId;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

@@ -12,14 +12,13 @@ import com.example.orderservice.config.SecurityConfig;
 import com.example.orderservice.controller.OrderController;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -70,7 +69,7 @@ class OrderControllerTest {
 
             Page<OrderResponse> page = new PageImpl<>(List.of(orderResponse), PageRequest.of(0, 20), 1);
 
-            when(orderService.getAllOrders(any(), any())).thenReturn(page);
+            when(orderService.getAllOrders(any(), any(), any())).thenReturn(page);
 
             mockMvc.perform(get("/api/v1/orders")
                             .param("page", "0")
@@ -86,7 +85,7 @@ class OrderControllerTest {
         @WithMockUser(roles = "MANAGER")
         void filtersByStatus() throws Exception {
             Page<OrderResponse> emptyPage = new PageImpl<>(List.of());
-            when(orderService.getAllOrders(any(), any())).thenReturn(emptyPage);
+            when(orderService.getAllOrders(any(), any(), any())).thenReturn(emptyPage);
 
             mockMvc.perform(get("/api/v1/orders")
                             .param("status", "CONFIRMED"))
@@ -98,7 +97,7 @@ class OrderControllerTest {
         @WithMockUser(roles = "ACCOUNTANT")
         void accountantCanListOrders() throws Exception {
             Page<OrderResponse> emptyPage = new PageImpl<>(List.of());
-            when(orderService.getAllOrders(any(), any())).thenReturn(emptyPage);
+            when(orderService.getAllOrders(any(), any(), any())).thenReturn(emptyPage);
 
             mockMvc.perform(get("/api/v1/orders"))
                     .andExpect(status().isOk());
@@ -467,6 +466,7 @@ class OrderControllerTest {
 
         @Test
         @DisplayName("Unauthenticated users get 401")
+        @WithAnonymousUser
         void unauthenticatedUsersGet401() throws Exception {
             mockMvc.perform(get("/api/v1/orders"))
                     .andExpect(status().isUnauthorized());

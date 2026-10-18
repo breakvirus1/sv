@@ -6,6 +6,7 @@ import com.example.commentservice.service.CommentReplyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,7 +43,7 @@ public class CommentReplyController {
     @Operation(summary = "Создать ответ")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
-    public ResponseEntity<CommentReplyResponse> createReply(@RequestBody CommentReplyRequest request) {
+    public ResponseEntity<CommentReplyResponse> createReply(@Valid @RequestBody CommentReplyRequest request) {
         CommentReplyResponse response = commentReplyService.createReply(request.getParentCommentId(), request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
@@ -59,7 +60,7 @@ public class CommentReplyController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<CommentReplyResponse> updateReply(
             @Parameter(description = "ID ответа") @PathVariable Long id,
-            @RequestBody CommentReplyRequest request) {
+            @Valid @RequestBody CommentReplyRequest request) {
         return ResponseEntity.ok(commentReplyService.updateReply(id, request));
     }
 

@@ -93,6 +93,12 @@
             <version>${flyway.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
+
         <!-- Internal Service Dependencies -->
         <dependency>
             <groupId>com.example.printsv</groupId>

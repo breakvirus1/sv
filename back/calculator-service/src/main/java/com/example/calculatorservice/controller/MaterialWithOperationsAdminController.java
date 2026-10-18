@@ -3,6 +3,7 @@ package com.example.calculatorservice.controller;
 import com.example.calculatorservice.dto.MaterialWithOperationsCreateRequest;
 import com.example.calculatorservice.dto.MaterialWithOperationsResponse;
 import com.example.calculatorservice.service.MaterialOperationGroupService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +20,7 @@ public class MaterialWithOperationsAdminController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<MaterialWithOperationsResponse> createMaterialWithOperations(@RequestBody MaterialWithOperationsCreateRequest request) {
+    public ResponseEntity<MaterialWithOperationsResponse> createMaterialWithOperations(@Valid @RequestBody MaterialWithOperationsCreateRequest request) {
         MaterialWithOperationsResponse response = materialOperationGroupService.createMaterialWithOperations(request);
         return ResponseEntity.ok(response);
     }

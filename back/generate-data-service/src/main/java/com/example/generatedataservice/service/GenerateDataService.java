@@ -65,7 +65,7 @@ public class GenerateDataService {
     };
 
     @Transactional
-    public List<Client> generateClients(int count) {
+    public List<Client> generateClients(int count, Long companyId) {
         List<Client> clients = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             Client client = new Client();
@@ -82,13 +82,14 @@ public class GenerateDataService {
             client.setEmail("gen_client_" + System.currentTimeMillis() + "_" + i + "@example.com");
             client.setInn("" + (7700000000L + random.nextInt(999999999)));
             client.setAddress("г. Москва, ул. Тестовая, д. " + (i + 1));
+            client.setCompanyId(companyId);
             clients.add(clientRepository.save(client));
         }
         return clients;
     }
 
     @Transactional
-    public List<Employee> generateEmployees(int count) {
+    public List<Employee> generateEmployees(int count, Long companyId) {
         List<Employee> employees = new ArrayList<>();
         List<Long> workshopIds = dataAccessRepository.fetchWorkshopIds();
         for (int i = 0; i < count; i++) {
@@ -101,6 +102,7 @@ public class GenerateDataService {
             if (!workshopIds.isEmpty()) {
                 employee.setWorkshopId(workshopIds.get(random.nextInt(workshopIds.size())));
             }
+            employee.setCompanyId(companyId);
             employees.add(employeeRepository.save(employee));
         }
         return employees;
@@ -165,9 +167,13 @@ public class GenerateDataService {
     }
 
     @Transactional
-    public List<Order> generateOrders(int count) {
-        List<Long> clientIds = dataAccessRepository.fetchClientIds();
-        List<Long> employeeIds = dataAccessRepository.fetchEmployeeIds();
+    public List<Order> generateOrders(int count, Long companyId) {
+        List<Long> clientIds = companyId != null
+                ? dataAccessRepository.fetchClientIdsByCompany(companyId)
+                : dataAccessRepository.fetchClientIds();
+        List<Long> employeeIds = companyId != null
+                ? dataAccessRepository.fetchEmployeeIdsByCompany(companyId)
+                : dataAccessRepository.fetchEmployeeIds();
         List<DataAccessRepository.MaterialInfo> materials = dataAccessRepository.fetchMaterials();
 
         if (clientIds.isEmpty() || employeeIds.isEmpty()) {
@@ -182,6 +188,7 @@ public class GenerateDataService {
             order.setOrderNumber("GEN-" + String.format("%05d", existingCount + i + 1));
             order.setClientId(clientIds.get(random.nextInt(clientIds.size())));
             order.setManagerId(employeeIds.get(random.nextInt(employeeIds.size())));
+            order.setCompanyId(companyId);
             order.setOrderDate(LocalDate.now().minusDays(random.nextInt(30)));
             order.setDueDate(LocalDate.now().plusDays(random.nextInt(60) + 7));
             order.setStatus(ProductionStage.values()[random.nextInt(ProductionStage.values().length)]);

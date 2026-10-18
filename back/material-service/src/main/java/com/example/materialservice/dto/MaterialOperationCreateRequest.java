@@ -1,5 +1,6 @@
 package com.example.materialservice.dto;
 
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -25,6 +26,7 @@ public class MaterialOperationCreateRequest {
     private String operationType;
 
     @NotNull(message = "Базовая цена обязательна")
+    @DecimalMin(value = "0", message = "Базовая цена не может быть отрицательной")
     private BigDecimal basePrice;
 
     private String unit = "шт";

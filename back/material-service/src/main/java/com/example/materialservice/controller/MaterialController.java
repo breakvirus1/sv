@@ -8,6 +8,7 @@ import com.example.materialservice.service.MaterialService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -51,7 +52,7 @@ public class MaterialController {
     @Operation(summary = "Создать новый материал")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
-    public ResponseEntity<MaterialResponse> createMaterial(@RequestBody MaterialCreateRequest request) {
+    public ResponseEntity<MaterialResponse> createMaterial(@Valid @RequestBody MaterialCreateRequest request) {
         return new ResponseEntity<>(materialService.createMaterial(request), HttpStatus.CREATED);
     }
 
@@ -60,7 +61,7 @@ public class MaterialController {
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<MaterialResponse> updateMaterial(
             @Parameter(description = "ID материала") @PathVariable Long id,
-            @RequestBody MaterialUpdateRequest request) {
+            @Valid @RequestBody MaterialUpdateRequest request) {
         return ResponseEntity.ok(materialService.updateMaterial(id, request));
     }
 

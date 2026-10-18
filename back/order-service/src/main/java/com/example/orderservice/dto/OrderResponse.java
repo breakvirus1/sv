@@ -2,7 +2,6 @@ package com.example.orderservice.dto;
 
 import com.example.clientservice.dto.ClientResponse;
 import com.example.employeeservice.dto.EmployeeResponse;
-import com.example.materialservice.dto.MaterialResponse;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

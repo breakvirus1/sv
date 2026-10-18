@@ -8,7 +8,6 @@ import com.example.calculatorservice.dto.request.ItemCostRequest;
 import com.example.calculatorservice.dto.response.CalculationResponseDto;
 import com.example.calculatorservice.dto.GroupedOperationsResponse;
 import com.example.calculatorservice.entity.Eyelet;
-import com.example.calculatorservice.entity.Material;
 import com.example.calculatorservice.entity.MaterialType;
 import com.example.calculatorservice.mapper.OperationMapper;
 import com.example.calculatorservice.service.CalculationService;

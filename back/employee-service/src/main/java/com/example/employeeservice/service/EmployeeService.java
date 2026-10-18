@@ -6,6 +6,8 @@ import com.example.employeeservice.dto.EmployeeUpdateRequest;
 import com.example.employeeservice.entity.Employee;
 import com.example.employeeservice.entity.ERole;
 import com.example.employeeservice.entity.Role;
+import com.example.employeeservice.exception.ConflictException;
+import com.example.employeeservice.exception.NotFoundException;
 import com.example.employeeservice.mapper.EmployeeMapper;
 import com.example.employeeservice.repository.EmployeeRepository;
 import com.example.employeeservice.repository.RoleRepository;
@@ -89,7 +91,7 @@ public class EmployeeService {
     @Cacheable(value = "employees", key = "'id_' + #id")
     public EmployeeResponse getEmployeeById(Long id) {
         Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
+                .orElseThrow(() -> new NotFoundException("Сотрудник не найден"));
         EmployeeResponse response = employeeMapper.toDto(employee);
         if (employee.getRoles() != null) {
             response.setRoles(employee.getRoles().stream()
@@ -104,7 +106,7 @@ public class EmployeeService {
     @Cacheable(value = "employees", key = "'username_' + #username")
     public EmployeeResponse getEmployeeByUsername(String username) {
         Employee employee = employeeRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
+                .orElseThrow(() -> new NotFoundException("Сотрудник не найден"));
         EmployeeResponse response = employeeMapper.toDto(employee);
         if (employee.getRoles() != null) {
             response.setRoles(employee.getRoles().stream()
@@ -119,7 +121,7 @@ public class EmployeeService {
     @CacheEvict(value = "employees", allEntries = true)
     public EmployeeResponse createEmployee(EmployeeCreateRequest request) {
         if (employeeRepository.findByUsername(request.getUsername()).isPresent()) {
-            throw new RuntimeException("Сотрудник с таким логином уже существует");
+            throw new ConflictException("Сотрудник с таким логином уже существует");
         }
         Employee employee = employeeMapper.toEntity(request);
         Employee saved = employeeRepository.save(employee);
@@ -322,7 +324,7 @@ public class EmployeeService {
     @Transactional(readOnly = true)
     private Employee getEmployeeEntity(Long id) {
         return employeeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
+                .orElseThrow(() -> new NotFoundException("Сотрудник не найден"));
     }
 
     /**

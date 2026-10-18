@@ -1,0 +1,6 @@
+spring:
+  flyway:
+    enabled: true
+    table: flyway_statistic_schema_history
+    baseline-on-migrate: true
+    ignore-migration-patterns: "*:missing"

@@ -14,6 +14,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   flyway:
     enabled: true
+    table: flyway_calculator_schema_history
     baseline-on-migrate: true
     schemas: svschema
   jpa:

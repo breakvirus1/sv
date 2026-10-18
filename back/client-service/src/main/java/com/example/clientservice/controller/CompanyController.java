@@ -6,6 +6,7 @@ import com.example.clientservice.service.CompanyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -51,7 +52,7 @@ public class CompanyController {
     @Operation(summary = "Создать новую компанию")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
-    public ResponseEntity<CompanyResponse> createCompany(@RequestBody CompanyCreateRequest request) {
+    public ResponseEntity<CompanyResponse> createCompany(@Valid @RequestBody CompanyCreateRequest request) {
         return new ResponseEntity<>(companyService.createCompany(request), HttpStatus.CREATED);
     }
 
@@ -60,7 +61,7 @@ public class CompanyController {
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<CompanyResponse> updateCompany(
             @Parameter(description = "ID компании") @PathVariable Long id,
-            @RequestBody CompanyCreateRequest request) {
+            @Valid @RequestBody CompanyCreateRequest request) {
         return ResponseEntity.ok(companyService.updateCompany(id, request));
     }
 

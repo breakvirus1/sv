@@ -7,6 +7,7 @@ import com.example.orderservice.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -119,7 +120,7 @@ public class OrderController {
     @Operation(summary = "Создать новый заказ")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
-    public ResponseEntity<OrderResponse> createOrder(@RequestBody OrderCreateRequest request) {
+    public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderCreateRequest request) {
         return new ResponseEntity<>(orderService.createOrder(request), HttpStatus.CREATED);
     }
 
@@ -132,7 +133,7 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<OrderResponse> updateOrder(
             @Parameter(description = "ID заказа") @PathVariable Long id,
-            @RequestBody OrderUpdateRequest request) {
+            @Valid @RequestBody OrderUpdateRequest request) {
         return ResponseEntity.ok(orderService.updateOrder(id, request));
     }
 

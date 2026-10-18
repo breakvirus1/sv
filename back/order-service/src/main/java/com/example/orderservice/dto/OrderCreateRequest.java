@@ -1,5 +1,7 @@
 package com.example.orderservice.dto;
 
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -17,8 +19,10 @@ import java.util.List;
 @NoArgsConstructor
 public class OrderCreateRequest {
     /** ID клиента */
+    @NotNull(message = "Клиент обязателен")
     private Long clientId;
     /** Описание заказа */
+    @Size(max = 2000, message = "Описание не может быть длиннее 2000 символов")
     private String description;
     /** Дата заказа */
     private LocalDate orderDate;

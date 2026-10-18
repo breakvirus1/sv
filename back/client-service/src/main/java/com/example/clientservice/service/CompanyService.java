@@ -3,6 +3,8 @@ package com.example.clientservice.service;
 import com.example.clientservice.dto.CompanyCreateRequest;
 import com.example.clientservice.dto.CompanyResponse;
 import com.example.clientservice.entity.Company;
+import com.example.clientservice.exception.ConflictException;
+import com.example.clientservice.exception.NotFoundException;
 import com.example.clientservice.mapper.CompanyMapper;
 import com.example.clientservice.repository.CompanyRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +16,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -34,14 +35,14 @@ public class CompanyService {
     @Transactional(readOnly = true)
     public CompanyResponse getCompanyById(Long id) {
         Company company = companyRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Компания не найдена"));
+                .orElseThrow(() -> new NotFoundException("Компания не найдена"));
         return companyMapper.toDto(company);
     }
 
     @CacheEvict(value = "companies", allEntries = true)
     public CompanyResponse createCompany(CompanyCreateRequest request) {
         if (companyRepository.findByName(request.getName()).isPresent()) {
-            throw new RuntimeException("Компания с таким названием уже существует");
+            throw new ConflictException("Компания с таким названием уже существует");
         }
         Company company = companyMapper.createFromRequest(request);
         Company saved = companyRepository.save(company);
@@ -65,6 +66,6 @@ public class CompanyService {
     @Transactional(readOnly = true)
     private Company getCompanyEntity(Long id) {
         return companyRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Компания не найдена"));
+                .orElseThrow(() -> new NotFoundException("Компания не найдена"));
     }
 }
