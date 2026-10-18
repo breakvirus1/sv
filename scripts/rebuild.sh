@@ -7,11 +7,14 @@ source "$SCRIPT_DIR/lib.sh"
 require_docker
 kill_java
 
-echo "=== Stopping all containers and removing volumes ==="
+echo "=== Stopping all containers ==="
 docker compose down
 
 echo "=== Building microservices with Maven ==="
 mvn clean install -DskipTests
+
+echo "=== Building frontend ==="
+build_frontend
 
 echo "=== Rebuilding Docker containers (no cache) ==="
 docker compose build --no-cache

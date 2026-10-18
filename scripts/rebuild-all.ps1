@@ -1,7 +1,8 @@
-﻿Set-ExecutionPolicy Bypass -Scope Process -Force
-param(
+﻿param(
     [string]$Service = "all"
 )
+
+Set-ExecutionPolicy Bypass -Scope Process -Force
 
 $projectRoot = Resolve-Path "$PSScriptRoot\.."
 Set-Location $projectRoot
@@ -50,6 +51,14 @@ if ($Service -eq "all") {
     Write-Host "=== Building all services with Maven ==="
     mvn clean install -DskipTests
 
+    Write-Host "=== Building frontend (npm run build) ==="
+    Push-Location "$projectRoot\front"
+    npm install
+    if ($LASTEXITCODE -ne 0) { Pop-Location; exit 1 }
+    npm run build
+    if ($LASTEXITCODE -ne 0) { Pop-Location; exit 1 }
+    Pop-Location
+
     Write-Host "=== Rebuilding all Docker containers (no cache) ==="
     docker compose build --no-cache
 
@@ -60,8 +69,24 @@ if ($Service -eq "all") {
     docker compose ps
 }
 else {
-    Write-Host "=== Building $Service with Maven ==="
-    mvn clean install -pl "back/$Service" -am -DskipTests
+    if ($Service -ne "frontend" -and -not (Test-Path "back/$Service/pom.xml")) {
+        Write-Host "Error: unknown service '$Service' (no back/$Service/pom.xml)"
+        exit 1
+    }
+
+    if ($Service -eq "frontend") {
+        Write-Host "=== Building frontend (npm run build) ==="
+        Push-Location "$projectRoot\front"
+        npm install
+        if ($LASTEXITCODE -ne 0) { Pop-Location; exit 1 }
+        npm run build
+        if ($LASTEXITCODE -ne 0) { Pop-Location; exit 1 }
+        Pop-Location
+    }
+    else {
+        Write-Host "=== Building $Service with Maven ==="
+        mvn clean install -pl "back/$Service" -am -DskipTests
+    }
 
     Write-Host "=== Rebuilding $Service Docker container (no cache) ==="
     docker compose build --no-cache $Service

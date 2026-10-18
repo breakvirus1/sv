@@ -18,8 +18,16 @@ if [ -z "$SERVICE" ]; then
     exit 1
 fi
 
+if [ "$SERVICE" != "frontend" ] && [ ! -f "back/$SERVICE/pom.xml" ]; then
+    echo "Error: unknown service '$SERVICE' (no back/$SERVICE/pom.xml)"
+    echo "Available: frontend, $(ls -d back/*/ | xargs -n1 basename | tr '\n' ' ')"
+    exit 1
+fi
+
 case "$SERVICE" in
     frontend)
+        build_frontend
+
         echo "=== Rebuilding frontend Docker container (no cache) ==="
         docker compose build --no-cache frontend
 

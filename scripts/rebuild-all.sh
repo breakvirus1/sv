@@ -13,6 +13,9 @@ if [ "$SERVICE" = "all" ]; then
     echo "=== Building all services with Maven ==="
     mvn clean install -DskipTests
 
+    echo "=== Building frontend ==="
+    build_frontend
+
     echo "=== Rebuilding all Docker containers (no cache) ==="
     docker compose build --no-cache
 
@@ -22,8 +25,18 @@ if [ "$SERVICE" = "all" ]; then
     echo "=== Done. Checking status ==="
     docker compose ps
 else
-    echo "=== Building $SERVICE with Maven ==="
-    mvn clean install -pl "back/$SERVICE" -am -DskipTests
+    if [ "$SERVICE" != "frontend" ] && [ ! -f "back/$SERVICE/pom.xml" ]; then
+        echo "Error: unknown service '$SERVICE' (no back/$SERVICE/pom.xml)"
+        echo "Available: all, frontend, $(ls -d back/*/ | xargs -n1 basename | tr '\n' ' ')"
+        exit 1
+    fi
+
+    if [ "$SERVICE" = "frontend" ]; then
+        build_frontend
+    else
+        echo "=== Building $SERVICE with Maven ==="
+        mvn clean install -pl "back/$SERVICE" -am -DskipTests
+    fi
 
     echo "=== Rebuilding $SERVICE Docker container (no cache) ==="
     docker compose build --no-cache "$SERVICE"

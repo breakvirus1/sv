@@ -42,6 +42,14 @@ if (-not (Test-DockerRunning)) {
     Start-DockerDesktop
 }
 
+Write-Host "=== Building frontend (npm run build) ==="
+Push-Location "$projectRoot\front"
+npm install
+if ($LASTEXITCODE -ne 0) { Pop-Location; exit 1 }
+npm run build
+if ($LASTEXITCODE -ne 0) { Pop-Location; exit 1 }
+Pop-Location
+
 Write-Host "=== Rebuilding frontend Docker container (no cache) ==="
 docker compose build --no-cache frontend
 

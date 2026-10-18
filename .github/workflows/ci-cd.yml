@@ -2,12 +2,16 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop, company ]
+    branches: [ main, develop, fixcompany, company ]
   pull_request:
     branches: [ main, develop ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  backend-test:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -34,11 +38,115 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Run tests
+      - name: Run backend tests
         run: mvn test -B
 
+      - name: Upload surefire reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: '**/target/surefire-reports/'
+          retention-days: 7
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./front
+        run: npm ci
+
+      - name: Run unit tests (vitest)
+        working-directory: ./front
+        run: npm test
+
+      - name: Build frontend
+        working-directory: ./front
+        run: npm run build
+
+      - name: Upload frontend artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: front/dist/
+          retention-days: 7
+
+  e2e-test:
+    runs-on: ubuntu-latest
+    env:
+      SERVER_IP: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: front/package-lock.json
+
+      - name: Build backend jars
+        run: mvn clean package -DskipTests -B
+
+      - name: Install frontend dependencies
+        working-directory: ./front
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./front
+        run: npm run build
+
+      - name: Build Docker images
+        run: docker compose build
+
+      - name: Start stack
+        run: docker compose up -d
+
+      - name: Wait for stack readiness
+        run: ./scripts/wait-for-stack.sh http://localhost:5174 http://localhost:8080 60
+
+      - name: Install Playwright browsers
+        working-directory: ./front
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests (Playwright)
+        working-directory: ./front
+        env:
+          E2E_BASE_URL: http://localhost:5174
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            front/playwright-report/
+            front/test-results/
+          retention-days: 7
+
+      - name: Dump stack logs on failure
+        if: failure()
+        run: docker compose logs --tail=300
+
   build-backend:
-    needs: test
+    needs: backend-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,57 +168,34 @@ jobs:
           path: '**/target/*.jar'
           retention-days: 7
 
-  build-frontend:
-    needs: test
+  # Validates that all Docker images build from the released artifacts.
+  # Actual images are built on the target server by scripts/deploy.sh
+  # (compose services use local image names, so there is no registry push).
+  docker-build:
+    needs: [build-backend, frontend-test]
     runs-on: ubuntu-latest
+    env:
+      SERVER_IP: 127.0.0.1
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Download backend jars
+        uses: actions/download-artifact@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: front/package-lock.json
+          name: backend-jars
+          path: .
 
-      - name: Install dependencies
-        working-directory: ./front
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: ./front
-        run: npm run build
-
-      - name: Upload frontend artifacts
-        uses: actions/upload-artifact@v4
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: front/dist/
-          retention-days: 7
 
-  build-and-push-docker:
-    needs: [build-backend, build-frontend]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push Docker images
-        run: |
-          docker compose build
-          docker compose push
+      - name: Build Docker images
+        run: docker compose build
 
   deploy:
-    needs: build-and-push-docker
+    needs: [docker-build, e2e-test]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment: production
@@ -127,4 +212,4 @@ jobs:
             cd /opt/printsv
             git pull origin main
             export SERVER_IP=${{ secrets.SERVER_IP }}
-            ./scripts/deploy.sh ${{ secrets.SERVER_IP }} production
+            ./scripts/deploy.sh

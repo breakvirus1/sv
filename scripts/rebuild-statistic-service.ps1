@@ -1,11 +1,12 @@
-﻿Set-ExecutionPolicy Bypass -Scope Process -Force
+﻿param(
+    [string]$Service = "statistic-service"
+)
+
+Set-ExecutionPolicy Bypass -Scope Process -Force
 
 Write-Host "=== Stopping running Java processes to release file locks ==="
 Get-Process -Name java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 3
-param(
-    [string]$Service = "statistic-service"
-)
 
 $projectRoot = Resolve-Path "$PSScriptRoot\.."
 Set-Location $projectRoot
