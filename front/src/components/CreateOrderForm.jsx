@@ -34,10 +34,11 @@ import {
 import { Add, Delete, Save, AttachFile } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
+import { getApiErrorMessage, getApiFieldErrors } from '../utils/apiError';
 import { useNavigate } from 'react-router-dom';
 import { computeWorkshopTags } from '../utils/workshopTags';
-import { isM2, isLinearMeter } from '../utils/orderUtils';
-import { recalculateOrderLocally, applyPriceplus } from '../services/calculationService';
+import { isM2 } from '../utils/orderUtils';
+import { recalculateOrderLocally } from '../services/calculationService';
 import { useAuth } from '../context/AuthContext';
 
 const CreateOrderForm = ({ windowId, closeWindow }) => {
@@ -89,6 +90,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   });
   const [opsBeforeDialog, setOpsBeforeDialog] = useState([]);
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [clientFormErrors, setClientFormErrors] = useState({});
   const [orderAmountDialog, setOrderAmountDialog] = useState({ open: false, sumorder: 0 });
 
   // ── State: New Client Form ──
@@ -128,6 +130,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
     enabled: !!username,
   });
+
+  const workshopName = currentEmployee?.workshopId
+    ? (workshopsData.find(w => w.id === currentEmployee.workshopId)?.name || '#' + currentEmployee.workshopId)
+    : null;
 
   const { data: operationsData = [], isLoading: isLoadingOperations, error: operationsError } = useQuery({
     queryKey: ['operations'],
@@ -201,7 +207,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '', priceplus: null });
       setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
     },
-    onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
+    onError: (err) => {
+      setClientFormErrors(getApiFieldErrors(err));
+      setNotification({ open: true, message: 'Ошибка создания клиента: ' + getApiErrorMessage(err), severity: 'error' });
+    }
   });
 
   const handleUnitChange = (index, newUnit) => {
@@ -550,6 +559,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const handleClientChange = (e) => {
     const value = e.target.value;
     if (value === 'create_new') {
+      setClientFormErrors({});
       setClientDialogOpen(true);
     } else {
       setFormData(prev => ({ ...prev, clientId: value }));
@@ -557,6 +567,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   };
 
   const handleNewClientChange = (field) => (e) => {
+    setClientFormErrors(prev => (prev[field] ? { ...prev, [field]: undefined } : prev));
     setNewClientForm(prev => ({ ...prev, [field]: e.target.value }));
   };
 
@@ -741,7 +752,7 @@ const handleSubmit = async (e) => {
     } catch (err) {
       setNotification({
         open: true,
-        message: `Ошибка: ${err.response?.data?.message || err.message}`,
+        message: `Ошибка: ${getApiErrorMessage(err)}`,
         severity: 'error'
       });
     } finally {
@@ -1133,8 +1144,11 @@ const handleSubmit = async (e) => {
             fullWidth
             margin="dense"
             label="Название"
+            required
             value={newClientForm.name}
             onChange={handleNewClientChange('name')}
+            error={!!clientFormErrors.name}
+            helperText={clientFormErrors.name}
           />
           <FormControl fullWidth margin="dense">
             <InputLabel>Тип</InputLabel>
@@ -1160,6 +1174,8 @@ const handleSubmit = async (e) => {
             label="Телефон"
             value={newClientForm.phone}
             onChange={handleNewClientChange('phone')}
+            error={!!clientFormErrors.phone}
+            helperText={clientFormErrors.phone}
           />
           <TextField
             fullWidth
@@ -1167,6 +1183,8 @@ const handleSubmit = async (e) => {
             label="Email"
             value={newClientForm.email}
             onChange={handleNewClientChange('email')}
+            error={!!clientFormErrors.email}
+            helperText={clientFormErrors.email}
           />
           <TextField
             fullWidth
@@ -1176,6 +1194,8 @@ const handleSubmit = async (e) => {
             value={newClientForm.priceplus || ''}
             onChange={handleNewClientChange('priceplus')}
             inputProps={{ min: 0, step: 0.01 }}
+            error={!!clientFormErrors.priceplus}
+            helperText={clientFormErrors.priceplus}
           />
         </DialogContent>
         <DialogActions>

@@ -32,5 +32,9 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     publicDir: 'public'
+  },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.{js,jsx}']
   }
 })

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Tabs, Tab, Button, CircularProgress, Alert, Snackbar, Divider, Chip
@@ -6,6 +6,7 @@ import {
 import { ArrowBack } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
+import { getApiErrorMessage } from '../utils/apiError';
 import EstimateCalculator from '../features/orders/components/EstimateCalculator';
 
 const OrderItemDetail = () => {
@@ -44,7 +45,7 @@ const OrderItemDetail = () => {
       setNotification({ open: true, message: 'Смета сохранена', severity: 'success' });
       refetchEstimate();
     } catch (err) {
-      setNotification({ open: true, message: `Ошибка: ${err.response?.data?.message || err.message}`, severity: 'error' });
+      setNotification({ open: true, message: `Ошибка: ${getApiErrorMessage(err)}`, severity: 'error' });
     }
   };
 

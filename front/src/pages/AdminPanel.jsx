@@ -7,10 +7,12 @@ import {
 } from '@mui/material';
 import { Add, Edit, Delete, Refresh, Save, Cancel, Sync } from '@mui/icons-material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCompanies, useClients, useEmployees, useMaterials, useOperations, useWorkshops, useProducts, useOperationGroups } from '../hooks/useSharedQueries';
+import { useClients, useEmployees, useMaterials, useOperations, useWorkshops, useProducts, useOperationGroups } from '../hooks/useSharedQueries';
 import { queryKeys } from '../hooks/queryKeys';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
+import { getApiErrorMessage, getApiFieldErrors } from '../utils/apiError';
 import GenerateTab from '../components/AdminPanel/GenerateTab';
 import MaterialsTab from '../components/AdminPanel/MaterialsTab';
 import StatisticsTab from '../components/AdminPanel/StatisticsTab';
@@ -40,9 +42,15 @@ const AdminPanel = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [fieldErrors, setFieldErrors] = useState({});
   const showNotification = (message, severity = 'success') => {
     setNotification({ open: true, message, severity });
   };
+  const handleFormError = (err) => {
+    setFieldErrors(getApiFieldErrors(err));
+    showNotification('Ошибка: ' + getApiErrorMessage(err), 'error');
+  };
+  const clearFieldError = (field) => setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
 
   const { user } = useAuth();
   const userCompanyId = user?.companyId;
@@ -121,102 +129,102 @@ const AdminPanel = () => {
   const createClientMutation = useMutation({
     mutationFn: (c) => api.post('/api/v1/clients', c),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.clients('list') }); setClientDialogOpen(false); showNotification('Клиент создан'); resetClientForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const updateClientMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/clients/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.clients('list') }); setClientDialogOpen(false); showNotification('Клиент обновлен'); resetClientForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const deleteClientMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/clients/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.clients('list') }); setClientDeleteDialogOpen(false); showNotification('Клиент удален'); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
 
   // ---- Material CRUD ----
   const createMaterialMutation = useMutation({
     mutationFn: (m) => api.post('/api/v1/materials', m),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.materials('list') }); setMaterialDialogOpen(false); showNotification('Материал создан'); resetMaterialForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const updateMaterialMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/materials/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.materials('list') }); showNotification('Материал обновлен'); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const deleteMaterialMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/materials/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.materials('list') }); setMaterialDeleteDialogOpen(false); showNotification('Материал удален'); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
 
   // ---- Operation CRUD ----
   const createOperationMutation = useMutation({
     mutationFn: (op) => api.post('/api/v1/admin/operations', op),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operations }); setOperationDialogOpen(false); showNotification('Операция создана'); resetOperationForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const updateOperationMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/admin/operations/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operations }); showNotification('Операция обновлена'); setEditingOperationId(null); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const deleteOperationMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/admin/operations/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operations }); setOperationDeleteDialogOpen(false); showNotification('Операция удалена'); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
 
   // ---- Operation Group CRUD ----
   const createGroupMutation = useMutation({
     mutationFn: (g) => api.post('/api/v1/admin/operation-groups', g),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operationGroups }); setGroupDialogOpen(false); showNotification('Группировка создана'); resetGroupForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const updateGroupMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/admin/operation-groups/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operationGroups }); setGroupDialogOpen(false); showNotification('Группировка обновлена'); setSelectedGroup(null); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const deleteGroupMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/admin/operation-groups/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.operationGroups }); setGroupDeleteDialogOpen(false); showNotification('Группировка удалена'); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
 
   // ---- Workshop CRUD ----
   const createWorkshopMutation = useMutation({
     mutationFn: (w) => api.post('/api/v1/workshops', w),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.workshops }); setWorkshopDialogOpen(false); showNotification('Цех создан'); resetWorkshopForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const updateWorkshopMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/workshops/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.workshops }); setWorkshopDialogOpen(false); showNotification('Цех обновлен'); resetWorkshopForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const deleteWorkshopMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/workshops/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.workshops }); setWorkshopDeleteDialogOpen(false); showNotification('Цех удален'); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
 
   // ---- Employee CRUD ----
   const createEmployeeMutation = useMutation({
     mutationFn: (e) => api.post('/api/v1/employees', e),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setEmployeeDialogOpen(false); showNotification('Сотрудник создан'); resetEmployeeForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const updateEmployeeMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/employees/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setEmployeeDialogOpen(false); showNotification('Сотрудник обновлен'); resetEmployeeForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const deleteEmployeeMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/employees/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setEmployeeDeleteDialogOpen(false); showNotification('Сотрудник удален'); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
 
   const syncKeycloakMutation = useMutation({
@@ -227,7 +235,7 @@ const AdminPanel = () => {
     },
     onSuccess: (data) => { showNotification(data); queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); },
     onError: (err) => {
-      const msg = err.response?.data?.message || err.response?.data || err.message;
+      const msg = getApiErrorMessage(err);
       showNotification('Ошибка синхронизации: ' + msg, 'error');
     },
     onSettled: () => setSyncing(false)
@@ -237,17 +245,17 @@ const AdminPanel = () => {
   const createProductMutation = useMutation({
     mutationFn: (p) => api.post('/api/v1/products', p),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.products }); setProductDialogOpen(false); showNotification('Изделие создано'); resetProductForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const updateProductMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/products/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.products }); setProductDialogOpen(false); showNotification('Изделие обновлено'); resetProductForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
   const deleteProductMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/products/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.products }); setProductDeleteDialogOpen(false); showNotification('Изделие удалено'); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: handleFormError
   });
 
   // ---- Generate mutation ----
@@ -270,7 +278,7 @@ const AdminPanel = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) });
     },
     onError: (err) => {
-      const msg = err.response?.data?.message || err.response?.data || err.message;
+      const msg = getApiErrorMessage(err);
       showNotification('Ошибка: ' + msg, 'error');
     },
   });
@@ -299,7 +307,7 @@ const AdminPanel = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) });
     },
     onError: (err) => {
-      const msg = err.response?.data?.message || err.response?.data || err.message;
+      const msg = getApiErrorMessage(err);
       showNotification('Ошибка: ' + msg, 'error');
     },
   });
@@ -311,9 +319,6 @@ const AdminPanel = () => {
   // ---- Handlers ----
   const handleTabChange = (_event, newValue) => { 
     setTab(newValue); 
-    if (newValue !== 5) {
-      setSelectedCompanyId(null);
-    }
   };
 
   const resetClientForm = () => { setClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '', priceplus: '' }); setSelectedClient(null); };
@@ -325,14 +330,17 @@ const AdminPanel = () => {
   const resetProductForm = () => { setProductForm({ name: '', article: '', description: '', width: '', height: '', unit: 'шт', basePrice: '', category: '' }); setSelectedProduct(null); };
 
   const openClientDialog = (client = null) => {
+    setFieldErrors({});
     if (client) { setSelectedClient(client); setClientForm({ name: client.name || '', type: client.type || 'PRIVATE', contactPerson: client.contactPerson || '', phone: client.phone || '', email: client.email || '', priceplus: client.priceplus != null ? String(client.priceplus) : '' }); } else { resetClientForm(); }
     setClientDialogOpen(true);
   };
   const openMaterialDialog = (mat = null) => {
+    setFieldErrors({});
     if (mat) { setSelectedMaterial(mat); setMaterialForm({ name: mat.name || '', unit: mat.unit || '', price: mat.price ? mat.price.toString() : '', wasteCoefficient: mat.wasteCoefficient ? mat.wasteCoefficient.toString() : '1' }); } else { resetMaterialForm(); }
     setMaterialDialogOpen(true);
   };
   const openOperationDialog = (op = null) => {
+    setFieldErrors({});
     if (op) {
       setSelectedOperation(op);
       setOperationForm({ name: op.name || '', unit: UNIT_DISPLAY_TO_ENUM[op.unit] || op.unit || 'SQUARE_METER', price: op.price ? op.price.toString() : '' });
@@ -340,6 +348,7 @@ const AdminPanel = () => {
     setOperationDialogOpen(true);
   };
   const openGroupDialog = (gr = null) => {
+    setFieldErrors({});
     if (gr) {
       setSelectedGroup(gr);
       setGroupForm({ name: gr.name || '' });
@@ -347,6 +356,7 @@ const AdminPanel = () => {
     setGroupDialogOpen(true);
   };
   const openWorkshopDialog = (ws = null) => {
+    setFieldErrors({});
     if (ws) {
       setSelectedWorkshop(ws);
       const toArr = (v) => Array.isArray(v) ? v.map(Number) : [];
@@ -355,6 +365,7 @@ const AdminPanel = () => {
     setWorkshopDialogOpen(true);
   };
   const openEmployeeDialog = (emp = null) => {
+    setFieldErrors({});
     if (emp) {
       setSelectedEmployee(emp);
       setEmployeeForm({ fullName: emp.fullName || '', username: emp.username || '', position: emp.position || '', phone: emp.phone || '', email: emp.email || '', workshopId: emp.workshopId || '', managerCashPercent: emp.managerCashPercent != null ? emp.managerCashPercent.toString() : '' });
@@ -366,6 +377,7 @@ const AdminPanel = () => {
     setEmployeeDialogOpen(true);
   };
   const openProductDialog = (prod = null) => {
+    setFieldErrors({});
     if (prod) {
       setSelectedProduct(prod);
       setProductForm({ name: prod.name || '', article: prod.article || '', description: prod.description || '', width: prod.width ? prod.width.toString() : '', height: prod.height ? prod.height.toString() : '', unit: prod.unit || 'шт', basePrice: prod.basePrice ? prod.basePrice.toString() : '', category: prod.category || '' });
@@ -694,14 +706,14 @@ const renderEmployeesTab = () => (
       <Dialog open={clientDialogOpen} onClose={() => setClientDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedClient ? 'Редактировать клиента' : 'Новый клиент'}</DialogTitle>
         <DialogContent>
-          <TextField autoFocus fullWidth margin="dense" label="Название" value={clientForm.name} onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })} />
+          <TextField autoFocus fullWidth margin="dense" label="Название" required value={clientForm.name} onChange={(e) => { clearFieldError('name'); setClientForm({ ...clientForm, name: e.target.value }); }} error={!!fieldErrors.name} helperText={fieldErrors.name} />
           <FormControl fullWidth margin="dense"><InputLabel>Тип</InputLabel>
             <Select value={clientForm.type} label="Тип" onChange={(e) => setClientForm({ ...clientForm, type: e.target.value })}><MenuItem value="PRIVATE">Частник</MenuItem><MenuItem value="COMPANY">Компания</MenuItem></Select>
           </FormControl>
           <TextField fullWidth margin="dense" label="Контактное лицо" value={clientForm.contactPerson} onChange={(e) => setClientForm({ ...clientForm, contactPerson: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Телефон" value={clientForm.phone} onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Email" value={clientForm.email} onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Процент добавки (priceplus)" type="number" value={clientForm.priceplus} onChange={(e) => setClientForm({ ...clientForm, priceplus: e.target.value })} inputProps={{ min: 0, max: 100, step: 0.01 }} />
+          <TextField fullWidth margin="dense" label="Телефон" value={clientForm.phone} onChange={(e) => { clearFieldError('phone'); setClientForm({ ...clientForm, phone: e.target.value }); }} error={!!fieldErrors.phone} helperText={fieldErrors.phone} />
+          <TextField fullWidth margin="dense" label="Email" value={clientForm.email} onChange={(e) => { clearFieldError('email'); setClientForm({ ...clientForm, email: e.target.value }); }} error={!!fieldErrors.email} helperText={fieldErrors.email} />
+          <TextField fullWidth margin="dense" label="Процент добавки (priceplus)" type="number" value={clientForm.priceplus} onChange={(e) => { clearFieldError('priceplus'); setClientForm({ ...clientForm, priceplus: e.target.value }); }} inputProps={{ min: 0, max: 100, step: 0.01 }} error={!!fieldErrors.priceplus} helperText={fieldErrors.priceplus} />
         </DialogContent>
         <DialogActions><Button onClick={() => setClientDialogOpen(false)}>Отмена</Button><Button onClick={handleClientSubmit} variant="contained">Сохранить</Button></DialogActions>
       </Dialog>
@@ -714,12 +726,12 @@ const renderEmployeesTab = () => (
       <Dialog open={materialDialogOpen} onClose={() => setMaterialDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedMaterial ? 'Редактировать материал' : 'Новый материал'}</DialogTitle>
         <DialogContent>
-          <TextField autoFocus fullWidth margin="dense" label="Название" value={materialForm.name} onChange={(e) => setMaterialForm({ ...materialForm, name: e.target.value })} />
-          <FormControl fullWidth margin="dense"><InputLabel>Ед. изм.</InputLabel>
-            <Select value={materialForm.unit} label="Ед. изм." onChange={(e) => setMaterialForm({ ...materialForm, unit: e.target.value })}><MenuItem value="м2">м²</MenuItem><MenuItem value="м.п.">м.п.</MenuItem><MenuItem value="шт">шт</MenuItem></Select>
+          <TextField autoFocus fullWidth margin="dense" label="Название" required value={materialForm.name} onChange={(e) => { clearFieldError('name'); setMaterialForm({ ...materialForm, name: e.target.value }); }} error={!!fieldErrors.name} helperText={fieldErrors.name} />
+          <FormControl fullWidth margin="dense" error={!!fieldErrors.unit}><InputLabel>Ед. изм.</InputLabel>
+            <Select value={materialForm.unit} label="Ед. изм." onChange={(e) => { clearFieldError('unit'); setMaterialForm({ ...materialForm, unit: e.target.value }); }}><MenuItem value="м2">м²</MenuItem><MenuItem value="м.п.">м.п.</MenuItem><MenuItem value="шт">шт</MenuItem></Select>
           </FormControl>
-          <TextField fullWidth margin="dense" label="Цена" type="number" value={materialForm.price} onChange={(e) => setMaterialForm({ ...materialForm, price: e.target.value })} inputProps={{ step: 0.01 }} />
-          <TextField fullWidth margin="dense" label="Коэффициент отхода" type="number" value={materialForm.wasteCoefficient} onChange={(e) => setMaterialForm({ ...materialForm, wasteCoefficient: e.target.value })} inputProps={{ step: 0.1 }} />
+          <TextField fullWidth margin="dense" label="Цена" type="number" value={materialForm.price} onChange={(e) => { clearFieldError('price'); setMaterialForm({ ...materialForm, price: e.target.value }); }} inputProps={{ step: 0.01 }} error={!!fieldErrors.price} helperText={fieldErrors.price} />
+          <TextField fullWidth margin="dense" label="Коэффициент отхода" type="number" value={materialForm.wasteCoefficient} onChange={(e) => { clearFieldError('wasteCoefficient'); setMaterialForm({ ...materialForm, wasteCoefficient: e.target.value }); }} inputProps={{ step: 0.1 }} error={!!fieldErrors.wasteCoefficient} helperText={fieldErrors.wasteCoefficient} />
         </DialogContent>
         <DialogActions><Button onClick={() => setMaterialDialogOpen(false)}>Отмена</Button><Button onClick={handleMaterialSubmit} variant="contained">Сохранить</Button></DialogActions>
       </Dialog>
@@ -732,11 +744,11 @@ const renderEmployeesTab = () => (
       <Dialog open={operationDialogOpen} onClose={() => setOperationDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedOperation ? 'Редактировать операцию' : 'Новая операция'}</DialogTitle>
         <DialogContent>
-          <TextField autoFocus fullWidth margin="dense" label="Название" value={operationForm.name} onChange={(e) => setOperationForm({ ...operationForm, name: e.target.value })} />
+          <TextField autoFocus fullWidth margin="dense" label="Название" required value={operationForm.name} onChange={(e) => { clearFieldError('name'); setOperationForm({ ...operationForm, name: e.target.value }); }} error={!!fieldErrors.name} helperText={fieldErrors.name} />
           <FormControl fullWidth margin="dense"><InputLabel>Ед. изм.</InputLabel>
             <Select value={operationForm.unit} label="Ед. изм." onChange={(e) => setOperationForm({ ...operationForm, unit: e.target.value })}><MenuItem value="SQUARE_METER">м²</MenuItem><MenuItem value="LINEAR_METER">п.м.</MenuItem><MenuItem value="PIECE">шт</MenuItem></Select>
           </FormControl>
-          <TextField fullWidth margin="dense" label="Цена" type="number" value={operationForm.price} onChange={(e) => setOperationForm({ ...operationForm, price: e.target.value })} inputProps={{ step: 0.01 }} />
+          <TextField fullWidth margin="dense" label="Цена" type="number" value={operationForm.price} onChange={(e) => { clearFieldError('price'); setOperationForm({ ...operationForm, price: e.target.value }); }} inputProps={{ step: 0.01 }} error={!!fieldErrors.price} helperText={fieldErrors.price} />
         </DialogContent>
         <DialogActions><Button onClick={() => setOperationDialogOpen(false)}>Отмена</Button><Button onClick={handleOperationSubmit} variant="contained">Сохранить</Button></DialogActions>
       </Dialog>
@@ -749,7 +761,7 @@ const renderEmployeesTab = () => (
       <Dialog open={groupDialogOpen} onClose={() => setGroupDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedGroup ? 'Редактировать группировку' : 'Новая группировка'}</DialogTitle>
         <DialogContent>
-          <TextField autoFocus fullWidth margin="dense" label="Слово группировки" value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} helperText="Слово, по которому группируются операции (например, печать)" />
+          <TextField autoFocus fullWidth margin="dense" label="Слово группировки" required value={groupForm.name} onChange={(e) => { clearFieldError('name'); setGroupForm({ ...groupForm, name: e.target.value }); }} error={!!fieldErrors.name} helperText={fieldErrors.name || 'Слово, по которому группируются операции (например, печать)'} />
         </DialogContent>
         <DialogActions><Button onClick={() => setGroupDialogOpen(false)}>Отмена</Button><Button onClick={handleGroupSubmit} variant="contained">Сохранить</Button></DialogActions>
       </Dialog>
@@ -762,7 +774,7 @@ const renderEmployeesTab = () => (
       <Dialog open={workshopDialogOpen} onClose={() => setWorkshopDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedWorkshop ? 'Редактировать цех' : 'Новый цех'}</DialogTitle>
         <DialogContent>
-          <TextField autoFocus fullWidth margin="dense" label="Название" value={workshopForm.name} onChange={(e) => setWorkshopForm({ ...workshopForm, name: e.target.value })} />
+          <TextField autoFocus fullWidth margin="dense" label="Название" required value={workshopForm.name} onChange={(e) => { clearFieldError('name'); setWorkshopForm({ ...workshopForm, name: e.target.value }); }} error={!!fieldErrors.name} helperText={fieldErrors.name} />
           <Box sx={{ mt: 1 }}>
             <Typography variant="subtitle2" gutterBottom>Операции</Typography>
             <Box display="flex" flexWrap="wrap" gap={1} mb={1}>
@@ -793,11 +805,11 @@ const renderEmployeesTab = () => (
       <Dialog open={employeeDialogOpen} onClose={() => setEmployeeDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedEmployee ? 'Редактировать сотрудника' : 'Новый сотрудник'}</DialogTitle>
         <DialogContent>
-          <TextField autoFocus fullWidth margin="dense" label="ФИО" value={employeeForm.fullName} onChange={(e) => setEmployeeForm({ ...employeeForm, fullName: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Логин (username)" value={employeeForm.username} onChange={(e) => setEmployeeForm({ ...employeeForm, username: e.target.value })} />
+          <TextField autoFocus fullWidth margin="dense" label="ФИО" required value={employeeForm.fullName} onChange={(e) => { clearFieldError('fullName'); setEmployeeForm({ ...employeeForm, fullName: e.target.value }); }} error={!!fieldErrors.fullName} helperText={fieldErrors.fullName} />
+          <TextField fullWidth margin="dense" label="Логин (username)" required value={employeeForm.username} onChange={(e) => { clearFieldError('username'); setEmployeeForm({ ...employeeForm, username: e.target.value }); }} error={!!fieldErrors.username} helperText={fieldErrors.username} />
           <TextField fullWidth margin="dense" label="Должность" value={employeeForm.position} onChange={(e) => setEmployeeForm({ ...employeeForm, position: e.target.value })} />
           <TextField fullWidth margin="dense" label="Телефон" value={employeeForm.phone} onChange={(e) => setEmployeeForm({ ...employeeForm, phone: e.target.value })} />
-          <TextField fullWidth margin="dense" label="Email" value={employeeForm.email} onChange={(e) => setEmployeeForm({ ...employeeForm, email: e.target.value })} />
+          <TextField fullWidth margin="dense" label="Email" value={employeeForm.email} onChange={(e) => { clearFieldError('email'); setEmployeeForm({ ...employeeForm, email: e.target.value }); }} error={!!fieldErrors.email} helperText={fieldErrors.email} />
           {(employeeRoles.includes('ROLE_MANAGER') || employeeRoles.includes('manager')) && (
             <TextField fullWidth margin="dense" label="Процент заработка менеджера (managerCashPercent)" type="number" value={employeeForm.managerCashPercent} onChange={(e) => setEmployeeForm({ ...employeeForm, managerCashPercent: e.target.value })} inputProps={{ min: 0, max: 100, step: 0.01 }} />
           )}
@@ -854,13 +866,14 @@ const renderEmployeesTab = () => (
               const tokenData = await tokenRes.json();
               const adminToken = tokenData.access_token;
 
-              const createRes = await fetch('/admin/realms/print-sv/users', {
+               const nameParts = newEmployeeForm.fullName.trim().split(/\s+/);
+               const createRes = await fetch('/admin/realms/print-sv/users', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
                 body: JSON.stringify({
                   username: newEmployeeForm.username,
-                  firstName: newEmployeeForm.fullName,
-                  lastName: '',
+                  firstName: nameParts[0] || newEmployeeForm.fullName,
+                  lastName: nameParts.slice(1).join(' ') || nameParts[0] || 'User',
                   email: newEmployeeForm.email,
                   enabled: true,
                   credentials: [{ type: 'password', value: newEmployeeForm.password, temporary: false }],
@@ -873,6 +886,25 @@ const renderEmployeesTab = () => (
               if (!createRes.ok) {
                 const errText = await createRes.text();
                 throw new Error(errText || 'Ошибка создания пользователя');
+              }
+              // Keycloak игнорирует realmRoles при POST /users — назначаем роль явно
+              const roleName = newEmployeeForm.role.replace('ROLE_', '');
+              const roleRes = await fetch(`/admin/realms/print-sv/roles/${encodeURIComponent(roleName)}`, {
+                headers: { 'Authorization': `Bearer ${adminToken}` }
+              });
+              if (roleRes.ok) {
+                const role = await roleRes.json();
+                const createdUserRes = await fetch(`/admin/realms/print-sv/users?username=${encodeURIComponent(newEmployeeForm.username)}`, {
+                  headers: { 'Authorization': `Bearer ${adminToken}` }
+                });
+                const createdUsers = createdUserRes.ok ? await createdUserRes.json() : [];
+                if (createdUsers.length > 0) {
+                  await fetch(`/admin/realms/print-sv/users/${createdUsers[0].id}/role-mappings/realm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+                    body: JSON.stringify([role])
+                  });
+                }
               }
               await api.post(`/api/v1/employees/sync-by-company?companyId=${userCompanyId}`);
               showNotification('Сотрудник создан');
@@ -894,7 +926,7 @@ const renderEmployeesTab = () => (
       <Dialog open={productDialogOpen} onClose={() => setProductDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>{selectedProduct ? 'Редактировать изделие' : 'Новое изделие'}</DialogTitle>
         <DialogContent>
-          <TextField autoFocus fullWidth margin="dense" label="Название изделия" value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} />
+          <TextField autoFocus fullWidth margin="dense" label="Название изделия" required value={productForm.name} onChange={(e) => { clearFieldError('name'); setProductForm({ ...productForm, name: e.target.value }); }} error={!!fieldErrors.name} helperText={fieldErrors.name} />
           <TextField fullWidth margin="dense" label="Артикул" value={productForm.article} onChange={(e) => setProductForm({ ...productForm, article: e.target.value })} />
           <TextField fullWidth margin="dense" label="Описание" multiline rows={2} value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} />
           <Grid container spacing={2}>

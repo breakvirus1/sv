@@ -31,10 +31,11 @@ import {
   Link,
   Tooltip
 } from '@mui/material';
-import { ArrowBack, Add, Delete, Save, Info, Download, Close, Upload } from '@mui/icons-material';
+import { ArrowBack, Add, Delete, Save, Info, Download, Upload } from '@mui/icons-material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { getApiErrorMessage } from '../utils/apiError';
 import ClientInfo from '../components/ClientInfo';
 import { isM2 } from '../utils/orderUtils';
 import { recalculateOrderLocally } from '../services/calculationService';
@@ -812,7 +813,7 @@ const oldUnit = item.unit || 'м';
       queryClient.invalidateQueries({ queryKey: ['order-calculated', String(orderData?.id)] });
       setNotification({ open: true, message: `Файл "${saved.fileName}" загружен`, severity: 'success' });
     } catch (err) {
-      setNotification({ open: true, message: `Ошибка загрузки: ${err.response?.data?.message || err.message}`, severity: 'error' });
+      setNotification({ open: true, message: `Ошибка загрузки: ${getApiErrorMessage(err)}`, severity: 'error' });
     } finally {
       setUploadingIndex(null);
       e.target.value = '';
@@ -833,7 +834,7 @@ const oldUnit = item.unit || 'м';
       queryClient.invalidateQueries({ queryKey: ['order-calculated', String(orderData?.id)] });
       setNotification({ open: true, message: 'Файл удалён', severity: 'success' });
     } catch (err) {
-      setNotification({ open: true, message: `Ошибка удаления: ${err.response?.data?.message || err.message}`, severity: 'error' });
+      setNotification({ open: true, message: `Ошибка удаления: ${getApiErrorMessage(err)}`, severity: 'error' });
     }
   };
 
@@ -919,7 +920,7 @@ const oldUnit = item.unit || 'м';
     } catch (err) {
       setNotification({
         open: true,
-        message: `Ошибка: ${err.response?.data?.message || err.message}`,
+        message: `Ошибка: ${getApiErrorMessage(err)}`,
         severity: 'error'
       });
     } finally {

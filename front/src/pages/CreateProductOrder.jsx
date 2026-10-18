@@ -6,8 +6,9 @@ import {
 import { Add, Delete, Save, ArrowBack } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
+import { getApiErrorMessage } from '../utils/apiError';
 import { useAuth } from '../context/AuthContext';
 
 const CreateProductOrder = () => {
@@ -189,7 +190,7 @@ const CreateProductOrder = () => {
       setTimeout(() => navigate(getOrdersRedirect()), 1000);
     } catch (err) {
       console.error('Failed to save order', err);
-      setNotification({ open: true, message: 'Ошибка создания заказа: ' + (err.response?.data?.message || err.message), severity: 'error' });
+      setNotification({ open: true, message: 'Ошибка создания заказа: ' + (getApiErrorMessage(err)), severity: 'error' });
     }
   };
 

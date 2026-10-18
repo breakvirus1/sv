@@ -1,4 +1,4 @@
-import { Box, Paper, Typography, Chip, Link, Table, TableBody, TableCell, TableHead, TableRow, Checkbox } from '@mui/material';
+import { Box, Paper, Typography, Link, Table, TableBody, TableCell, TableHead, TableRow, Checkbox } from '@mui/material';
 import { Download } from '@mui/icons-material';
 import api from '../services/api';
 

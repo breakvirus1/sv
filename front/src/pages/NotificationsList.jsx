@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Box, Paper, Typography, Button, IconButton, Collapse, Chip, CircularProgress } from '@mui/material';
-import { Notifications, Close, CheckCircle, OpenInNew } from '@mui/icons-material';
+import { useState } from 'react';
+import { Box, Paper, Typography, Button, IconButton, Chip, CircularProgress } from '@mui/material';
+import { Notifications, CheckCircle, OpenInNew } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';

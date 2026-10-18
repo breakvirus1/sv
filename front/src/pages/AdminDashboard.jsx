@@ -4,9 +4,10 @@ import {
   Table, TableHead, TableRow, TableCell, TableBody, IconButton, MenuItem, Select, FormControl, InputLabel,
   Snackbar, Alert, CircularProgress, Divider, Chip, Tabs, Tab, TableContainer
 } from '@mui/material';
-import { Add, Edit, Delete, Refresh } from '@mui/icons-material';
+import { Add, Edit, Delete } from '@mui/icons-material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
+import { getApiErrorMessage } from '../utils/apiError';
 import { useCompanies, useEmployees } from '../hooks/useSharedQueries';
 import { queryKeys } from '../hooks/queryKeys';
 
@@ -38,17 +39,17 @@ const AdminDashboard = () => {
   const createCompanyMutation = useMutation({
     mutationFn: (c) => api.post('/api/v1/companies', c),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.companies('list') }); setCompanyDialogOpen(false); showNotification('Компания создана'); resetCompanyForm(); },
-    onError: (err) => showNotification('Ошибка: ' + (err.response?.data?.message || err.message), 'error')
+    onError: (err) => showNotification('Ошибка: ' + getApiErrorMessage(err), 'error')
   });
   const updateCompanyMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/api/v1/companies/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.companies('list') }); setCompanyDialogOpen(false); showNotification('Компания обновлена'); resetCompanyForm(); },
-    onError: (err) => showNotification('Ошибка: ' + (err.response?.data?.message || err.message), 'error')
+    onError: (err) => showNotification('Ошибка: ' + getApiErrorMessage(err), 'error')
   });
   const deleteCompanyMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/companies/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.companies('list') }); setCompanyDeleteDialogOpen(false); showNotification('Компания удалена'); },
-    onError: (err) => showNotification('Ошибка: ' + (err.response?.data?.message || err.message), 'error')
+    onError: (err) => showNotification('Ошибка: ' + getApiErrorMessage(err), 'error')
   });
 
   // ---- Company Admin creation via Keycloak API ----
@@ -82,6 +83,8 @@ const AdminDashboard = () => {
         throw new Error('Пользователь с таким логином уже существует в Keycloak');
       }
 
+      const adminNameParts = (adminData.fullName || '').trim().split(/\s+/);
+
       const createUserRes = await fetch('/admin/realms/print-sv/users', {
         method: 'POST',
         headers: {
@@ -90,8 +93,8 @@ const AdminDashboard = () => {
         },
         body: JSON.stringify({
           username: adminData.username,
-          firstName: adminData.fullName,
-          lastName: '',
+          firstName: adminNameParts[0] || adminData.fullName,
+          lastName: adminNameParts.slice(1).join(' ') || adminNameParts[0] || 'User',
           email: adminData.email,
           enabled: true,
           credentials: [{ type: 'password', value: adminData.password, temporary: false }],
@@ -107,17 +110,37 @@ const AdminDashboard = () => {
         throw new Error(errText || 'Ошибка создания пользователя в Keycloak');
       }
 
+      // Keycloak игнорирует realmRoles при POST /users — назначаем роль явно
+      const roleName = adminData.role.replace('ROLE_', '');
+      const roleRes = await fetch(`/admin/realms/print-sv/roles/${encodeURIComponent(roleName)}`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (roleRes.ok) {
+        const role = await roleRes.json();
+        const createdUserRes = await fetch(`/admin/realms/print-sv/users?username=${encodeURIComponent(adminData.username)}`, {
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+        const createdUsers = createdUserRes.ok ? await createdUserRes.json() : [];
+        if (createdUsers.length > 0) {
+          await fetch(`/admin/realms/print-sv/users/${createdUsers[0].id}/role-mappings/realm`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+            body: JSON.stringify([role])
+          });
+        }
+      }
+
       await api.post(`/api/v1/employees/sync-by-company?companyId=${adminData.companyId}`);
       return true;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setAdminDialogOpen(false); showNotification('Администратор компании создан'); resetAdminForm(); },
-    onError: (err) => showNotification('Ошибка: ' + err.message, 'error')
+    onError: (err) => showNotification('Ошибка: ' + getApiErrorMessage(err), 'error')
   });
 
   const deleteEmployeeMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/employees/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setAdminDeleteDialogOpen(false); showNotification('Администратор удален'); },
-    onError: (err) => showNotification('Ошибка: ' + (err.response?.data?.message || err.message), 'error')
+    onError: (err) => showNotification('Ошибка: ' + getApiErrorMessage(err), 'error')
   });
 
   // ---- Handlers ----

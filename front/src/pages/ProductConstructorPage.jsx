@@ -7,6 +7,7 @@ import { Add, Delete, Save, ArrowBack } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import api from '../services/api';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const ProductConstructorPage = () => {
   const navigate = useNavigate();
@@ -157,7 +158,7 @@ const ProductConstructorPage = () => {
       setOperations([]);
     } catch (err) {
       console.error('Failed to save product', err);
-      setNotification({ open: true, message: 'Ошибка сохранения: ' + (err.response?.data?.message || err.message), severity: 'error' });
+      setNotification({ open: true, message: 'Ошибка сохранения: ' + (getApiErrorMessage(err)), severity: 'error' });
     } finally {
       setSaving(false);
     }

@@ -1,4 +1,4 @@
-import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery, ListItemIcon, ListItemText, Chip, Divider, Badge } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, ListItemIcon, ListItemText, Divider, Badge } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 import { Person, Logout, Add, AdminPanelSettings, ShoppingBag, ArrowDropDown, Assignment, Visibility, Category, Notifications, Security } from '@mui/icons-material';
@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../hooks/queryKeys';
 import api from '../services/api';
-import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
+import { getStatusColor } from '../utils/orderUtils';
 import { Dashboard } from '@mui/icons-material';
 
 const statusGroups = [

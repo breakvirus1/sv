@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { Box, Paper, Typography, TextField, Button, IconButton, Collapse, Input, Chip, Dialog } from '@mui/material';
+import { Box, Paper, Typography, TextField, Button, IconButton, Collapse, Dialog } from '@mui/material';
 import { Send, Image as ImageIcon, Close } from '@mui/icons-material';
-import api, { API_BASE_URL } from '../services/api';
+
 
 const CommentsTab = ({ orderId, highlightCommentId, highlightReplyId }) => {
   const getImageUrl = (url) => {

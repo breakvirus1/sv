@@ -12,8 +12,8 @@ import {
 } from '@mui/material';
 import { Person, ExpandMore, ExpandLess, AttachFile, Category, ArrowDropUp, ArrowDropDown } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 

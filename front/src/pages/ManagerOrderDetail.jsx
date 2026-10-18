@@ -30,10 +30,11 @@ import {
   TableHead,
   TableRow
 } from '@mui/material';
-import { ArrowBack, Edit, Payment, Delete, Add, Info } from '@mui/icons-material';
+import { ArrowBack, Edit, Payment, Delete, Add } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getStatusColor, getStatusLabel, isM2, isLinearMeter } from '../utils/orderUtils';
+import { getStatusColor, getStatusLabel, isM2 } from '../utils/orderUtils';
 import api from '../services/api';
+import { getApiErrorMessage, getApiFieldErrors } from '../utils/apiError';
 import { useAuth } from '../context/AuthContext';
 
 import OrderInfoCard from '../components/OrderInfoCard';
@@ -128,6 +129,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [clientFormErrors, setClientFormErrors] = useState({});
   const [newClientForm, setNewClientForm] = useState({
     name: '',
     type: 'PRIVATE',
@@ -145,7 +147,10 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
       setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '', priceplus: '' });
       setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
     },
-    onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
+    onError: (err) => {
+      setClientFormErrors(getApiFieldErrors(err));
+      setNotification({ open: true, message: 'Ошибка создания клиента: ' + getApiErrorMessage(err), severity: 'error' });
+    }
   });
 
   const createOrderMutation = useMutation({
@@ -207,7 +212,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
       setTimeout(() => navigate(getOrdersRedirect()), 1500);
     },
     onError: (err) => {
-      setNotification({ open: true, message: `Ошибка: ${err.response?.data?.message || err.message}`, severity: 'error' });
+      setNotification({ open: true, message: `Ошибка: ${getApiErrorMessage(err)}`, severity: 'error' });
     }
   });
 
@@ -266,6 +271,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   const handleClientChange = (e) => {
     const value = e.target.value;
     if (value === 'create_new') {
+      setClientFormErrors({});
       setClientDialogOpen(true);
     } else {
       setFormData(prev => ({ ...prev, clientId: value }));
@@ -273,6 +279,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
   };
 
   const handleNewClientChange = (field) => (e) => {
+    setClientFormErrors(prev => (prev[field] ? { ...prev, [field]: undefined } : prev));
     setNewClientForm(prev => ({ ...prev, [field]: e.target.value }));
   };
 
@@ -426,6 +433,7 @@ const ManagerOrderDetail = ({ mode = 'view' }) => {
           onClose={() => setClientDialogOpen(false)}
           onSubmit={handleClientSubmit}
           isLoading={createClientMutation.isLoading}
+          fieldErrors={clientFormErrors}
         />
 
         <Snackbar open={notification.open} autoHideDuration={6000} onClose={() => setNotification({ ...notification, open: false })}>

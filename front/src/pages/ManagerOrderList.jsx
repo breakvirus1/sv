@@ -17,7 +17,7 @@ import {
   TextField,
   InputAdornment
 } from '@mui/material';
-import { Add, Person, Close, Notifications, Search } from '@mui/icons-material';
+import { Add, Person, Search } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback, useEffect } from 'react';

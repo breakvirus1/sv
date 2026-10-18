@@ -31,9 +31,10 @@ import {
   Snackbar,
   Link
 } from '@mui/material';
-import { ArrowBack, Add, Delete, Edit, Download } from '@mui/icons-material';
+import { ArrowBack, Add, Delete, Edit } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
+import { getApiErrorMessage, getApiFieldErrors } from '../utils/apiError';
 import { useAuth } from '../context/AuthContext';
 import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
 import PositionsTab from '../components/PositionsTab';
@@ -98,6 +99,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
     items: []
   });
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [clientFormErrors, setClientFormErrors] = useState({});
   const [newClientForm, setNewClientForm] = useState({
     name: '',
     type: 'PRIVATE',
@@ -183,7 +185,10 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
       setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '' });
       setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
     },
-    onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
+    onError: (err) => {
+      setClientFormErrors(getApiFieldErrors(err));
+      setNotification({ open: true, message: 'Ошибка создания клиента: ' + getApiErrorMessage(err), severity: 'error' });
+    }
   });
 
   // Used in view mode (historical). Not used in create mode but defined.
@@ -195,7 +200,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
       setTimeout(() => navigate('/orders'), 1500);
     },
     onError: (err) => {
-      setNotification({ open: true, message: `Ошибка: ${err.response?.data?.message || err.message}`, severity: 'error' });
+      setNotification({ open: true, message: `Ошибка: ${getApiErrorMessage(err)}`, severity: 'error' });
     }
   });
 
@@ -218,7 +223,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
         setTimeout(() => navigate(`/orders/${id}`), 1500);
       },
       onError: (err) => {
-        setNotification({ open: true, message: `Ошибка: ${err.response?.data?.message || err.message}`, severity: 'error' });
+        setNotification({ open: true, message: `Ошибка: ${getApiErrorMessage(err)}`, severity: 'error' });
       }
     });
 
@@ -291,6 +296,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
   const handleClientChange = (e) => {
     const value = e.target.value;
     if (value === 'create_new') {
+      setClientFormErrors({});
       setClientDialogOpen(true);
     } else {
       setFormData(prev => ({ ...prev, clientId: value }));
@@ -298,6 +304,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
   };
 
   const handleNewClientChange = (field) => (e) => {
+    setClientFormErrors(prev => (prev[field] ? { ...prev, [field]: undefined } : prev));
     setNewClientForm(prev => ({ ...prev, [field]: e.target.value }));
   };
 
@@ -391,7 +398,7 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
      } catch (err) {
        setNotification({
          open: true,
-         message: `Ошибка: ${err.response?.data?.message || err.message}`,
+         message: `Ошибка: ${getApiErrorMessage(err)}`,
          severity: 'error'
        });
      } finally {
@@ -611,8 +618,11 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
               fullWidth
               margin="dense"
               label="Название"
+              required
               value={newClientForm.name}
               onChange={handleNewClientChange('name')}
+              error={!!clientFormErrors.name}
+              helperText={clientFormErrors.name}
             />
             <FormControl fullWidth margin="dense">
               <InputLabel>Тип</InputLabel>
@@ -638,6 +648,8 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
               label="Телефон"
               value={newClientForm.phone}
               onChange={handleNewClientChange('phone')}
+              error={!!clientFormErrors.phone}
+              helperText={clientFormErrors.phone}
             />
             <TextField
               fullWidth
@@ -645,6 +657,8 @@ const ProductionOrderDetail = ({ mode = 'view' }) => {
               label="Email"
               value={newClientForm.email}
               onChange={handleNewClientChange('email')}
+              error={!!clientFormErrors.email}
+              helperText={clientFormErrors.email}
             />
           </DialogContent>
           <DialogActions>

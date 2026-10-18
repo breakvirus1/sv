@@ -68,3 +68,7 @@ BOOT-INF/
 META-INF/
 
 images/
+
+### Playwright ###
+front/test-results/
+front/playwright-report/
