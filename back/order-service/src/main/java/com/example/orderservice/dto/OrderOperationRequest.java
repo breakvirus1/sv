@@ -17,6 +17,8 @@ public class OrderOperationRequest {
     private BigDecimal pricePerUnit;
     /** Количество */
     private BigDecimal quantity;
+    /** Коэффициент количества операции */
+    private BigDecimal coefficient;
     /** Ширина в метрах (опционально) */
     private BigDecimal widthM;
     /** Высота в метрах (опционально) */

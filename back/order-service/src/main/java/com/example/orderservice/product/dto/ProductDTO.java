@@ -23,4 +23,8 @@ public class ProductDTO {
     private String formulaJson;
     private List<ProductMaterialDTO> materials;
     private List<ProductOperationDTO> operations;
+    /** Позиции изделия: материал + список операций. */
+    private List<ProductPositionDTO> positions;
+    /** Общая стоимость изделия как сумма всех позиций. */
+    private BigDecimal totalPrice;
 }

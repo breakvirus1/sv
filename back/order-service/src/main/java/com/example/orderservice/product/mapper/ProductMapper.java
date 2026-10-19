@@ -16,6 +16,8 @@ import java.time.Duration;
 public interface ProductMapper {
     ProductMapper INSTANCE = Mappers.getMapper(ProductMapper.class);
 
+    @Mapping(target = "positions", ignore = true)
+    @Mapping(target = "totalPrice", ignore = true)
     ProductDTO toDto(Product product);
 
     @Mapping(target = "id", ignore = true)
@@ -33,6 +35,7 @@ public interface ProductMapper {
     ProductMaterialDTO toMaterialDto(ProductMaterial entity);
 
     @Mapping(target = "normTime", expression = "java(mapDuration(entity.getNormTime()))")
+    @Mapping(target = "productMaterialId", source = "materialPosition.id")
     ProductOperationDTO toOperationDto(ProductOperation entity);
 
     default String mapDuration(Duration duration) {

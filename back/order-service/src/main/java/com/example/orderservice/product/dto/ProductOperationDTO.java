@@ -17,4 +17,6 @@ public class ProductOperationDTO {
     private String quantityFormula;
     private BigDecimal quantity;
     private BigDecimal coefficient;
+    /** ID позиции материала, к которой относится операция */
+    private Long productMaterialId;
 }

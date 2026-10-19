@@ -22,6 +22,11 @@ public class ProductOperation extends BaseEntity {
     @JoinColumn(name = "product_id")
     private Product product;
 
+    /** Позиция материала, к которой применяется операция */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_material_id")
+    private ProductMaterial materialPosition;
+
     private String name;
     private BigDecimal pricePerUnit;
     @Convert(converter = com.example.orderservice.config.DurationConverter.class)

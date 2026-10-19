@@ -413,7 +413,12 @@ public OrderResponse getOrderById(Long id) {
                 throw new BadRequestException("В изделии нет материалов");
             }
 
+            // Старые изделия: операции без привязки к позиции применялись ко всем материалам.
+            boolean hasLinkedOperations = product.getOperations() != null
+                    && product.getOperations().stream().anyMatch(po -> po.getMaterialPosition() != null);
+
             BigDecimal total = BigDecimal.ZERO;
+            boolean firstPosition = true;
             for (ProductMaterial pm : product.getMaterials()) {
                 Material material = pm.getMaterial();
                 if (material == null) continue;
@@ -421,10 +426,10 @@ public OrderResponse getOrderById(Long id) {
                 OrderItem orderItem = new OrderItem();
                 orderItem.setOrder(saved);
                 orderItem.setName(material.getName());
-                orderItem.setQuantity(pm.getQuantity() != null ? pm.getQuantity().intValue() : 1);
+                BigDecimal qty = pm.getQuantity() != null ? pm.getQuantity() : BigDecimal.ONE;
+                orderItem.setQuantity(qty.intValue());
 
                 BigDecimal materialPrice = material.getPrice() != null ? material.getPrice() : BigDecimal.ZERO;
-                BigDecimal qty = new BigDecimal(orderItem.getQuantity());
                 BigDecimal waste = pm.getWasteCoefficient() != null ? pm.getWasteCoefficient() : BigDecimal.ONE;
                 BigDecimal itemTotal = materialPrice.multiply(qty).multiply(waste).setScale(2, RoundingMode.HALF_UP);
                 orderItem.setPrice(itemTotal);
@@ -442,24 +447,36 @@ public OrderResponse getOrderById(Long id) {
                 saved.getMaterials().add(orderMaterial);
                 orderItem.getMaterials().add(orderMaterial);
 
-                // Add product operations to order item
+                // К позиции применяются только её собственные операции.
                 if (product.getOperations() != null) {
                     for (ProductOperation po : product.getOperations()) {
+                        boolean appliesToPosition = po.getMaterialPosition() != null
+                                ? pm.getId() != null && pm.getId().equals(po.getMaterialPosition().getId())
+                                : !hasLinkedOperations && firstPosition;
+                        if (!appliesToPosition) {
+                            continue;
+                        }
+                        BigDecimal opQty = po.getQuantity() != null ? po.getQuantity() : BigDecimal.ONE;
+                        BigDecimal opCoeff = po.getCoefficient() != null ? po.getCoefficient() : BigDecimal.ONE;
+                        BigDecimal opPrice = po.getPricePerUnit() != null ? po.getPricePerUnit() : BigDecimal.ZERO;
+                        BigDecimal subtotal = opPrice.multiply(opQty).multiply(opCoeff).setScale(2, RoundingMode.HALF_UP);
+
                         OrderOperation orderOp = new OrderOperation();
                         orderOp.setOrderItem(orderItem);
                         orderOp.setOperationId(po.getId());
                         orderOp.setOperationName(po.getName());
-                        orderOp.setPricePerUnit(po.getPricePerUnit());
-                        orderOp.setCalculatedQuantity(po.getQuantity() != null ? po.getQuantity() : BigDecimal.ONE);
-                        orderOp.setSubtotal(po.getPricePerUnit().multiply(po.getQuantity() != null ? po.getQuantity() : BigDecimal.ONE).setScale(2, RoundingMode.HALF_UP));
+                        orderOp.setPricePerUnit(opPrice);
+                        orderOp.setCalculatedQuantity(opQty);
+                        orderOp.setSubtotal(subtotal);
                         orderItem.getOperations().add(orderOp);
-                        total = total.add(orderOp.getSubtotal());
+                        total = total.add(subtotal);
                     }
                 }
 
                 total = total.add(itemTotal);
                 saved.getItems().add(orderItem);
                 orderItemRepository.save(orderItem);
+                firstPosition = false;
             }
 
             saved.setTotalAmount(total);
@@ -510,16 +527,22 @@ public OrderResponse getOrderById(Long id) {
 
                     if (itemReq.getOperations() != null) {
                         for (OrderOperationRequest reqOp : itemReq.getOperations()) {
+                            BigDecimal opQty = reqOp.getQuantity() != null ? reqOp.getQuantity() : BigDecimal.ONE;
+                            BigDecimal opCoeff = reqOp.getCoefficient() != null ? reqOp.getCoefficient() : BigDecimal.ONE;
+                            BigDecimal opPrice = reqOp.getPricePerUnit() != null ? reqOp.getPricePerUnit() : BigDecimal.ZERO;
+                            BigDecimal subtotal = opPrice.multiply(opQty).multiply(opCoeff).setScale(2, RoundingMode.HALF_UP);
+
                             OrderOperation orderOp = new OrderOperation();
                             orderOp.setOrderItem(orderItem);
                             orderOp.setOperationId(reqOp.getOperationId());
                             orderOp.setOperationName(reqOp.getOperationName());
-                            orderOp.setPricePerUnit(reqOp.getPricePerUnit());
-                            orderOp.setCalculatedQuantity(reqOp.getQuantity() != null ? reqOp.getQuantity() : BigDecimal.ONE);
-                            orderOp.setSubtotal(reqOp.getPricePerUnit().multiply(reqOp.getQuantity() != null ? reqOp.getQuantity() : BigDecimal.ONE).setScale(2, RoundingMode.HALF_UP));
+                            orderOp.setPricePerUnit(opPrice);
+                            orderOp.setCalculatedQuantity(opQty);
+                            orderOp.setSubtotal(subtotal);
                             orderOp.setWidthM(reqOp.getWidthM());
                             orderOp.setHeightM(reqOp.getHeightM());
                             orderItem.getOperations().add(orderOp);
+                            total = total.add(subtotal);
                         }
                     }
 
