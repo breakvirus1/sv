@@ -60,6 +60,11 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 
+### Session/secrets dumps ###
+cookies.txt
+*.bak
+*credentials*.txt
+
 ### Compiled Archives ###
 *.jar
 *.war

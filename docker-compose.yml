@@ -3,16 +3,16 @@ services:
     image: postgres:15-alpine
     command: ["postgres", "-c", "max_connections=300"]
     environment:
-      POSTGRES_DB: svdb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 12345
+      POSTGRES_DB: ${POSTGRES_DB:-svdb}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-12345}
     ports:
       - "0.0.0.0:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,16 +25,16 @@ services:
     ports:
       - "0.0.0.0:8080:8080"
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/svdb
-      KC_DB_USERNAME: postgres
-      KC_DB_PASSWORD: 12345
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-svdb}
+      KC_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-12345}
       KC_HOSTNAME: ${SERVER_IP}
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
-      KC_HTTP_CORS_ALLOWED_ORIGINS: "http://localhost:5174,http://127.0.0.1:5174,http://192.168.247.131:5174,http://192.168.1.40:5174,http://192.168.88.40:5174,http://192.168.1.131:5174"
+      KC_HTTP_CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5174,http://127.0.0.1:5174}
       KC_HTTP_CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
       KC_HTTP_CORS_ALLOWED_HEADERS: "*"
       KC_HTTP_CORS_EXPOSED_HEADERS: "*"
@@ -86,6 +86,8 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-12345}
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
       - CALCULATOR_SERVICE_URL=http://calculator-service:8086
       - STATISTIC_SERVICE_URL=http://statistic-service:8089/api/v1/admin/statistics
@@ -111,6 +113,8 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-12345}
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
 
   employee-service:
@@ -132,14 +136,15 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-12345}
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
       - KEYCLOAK_ADMIN_URL=http://keycloak:8080
 
   material-service:
     build:
       context: .
-      dockerfile: back/material-service/Dockerfile.fixed
-    image: sv-material-service-fixed
+      dockerfile: back/material-service/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
@@ -153,10 +158,9 @@ services:
       - sv-network
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/svdb
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=12345
-      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
+      - DB_HOST=postgres
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-12345}
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
       - KEYCLOAK_ADMIN_SERVER_URL=http://keycloak:8080
@@ -181,6 +185,8 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-12345}
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
       - MATERIAL_SERVICE_URL=http://material-service:8084/api/v1/materials
 
@@ -229,6 +235,8 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-12345}
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
     volumes:
       - ./uploads:/app/uploads
@@ -238,6 +246,10 @@ services:
     build:
       context: .
       dockerfile: back/generate-data-service/Dockerfile
+    # Запуск только для разработки/наполнения тестовыми данными:
+    # docker compose --profile dev up -d generate-data-service
+    profiles:
+      - dev
     ports:
       - "0.0.0.0:8090:8090"
     depends_on:
@@ -255,6 +267,8 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-12345}
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
 
   statistic-service:
@@ -278,6 +292,8 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_HOST=postgres
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-12345}
       - KEYCLOAK_ISSUER_URI=http://${SERVER_IP}:8080/realms/print-sv
 
   api-gateway:

@@ -1,74 +1,87 @@
 # Print SV — Система управления производством
 
-Микросервисная архитектура на базе React + Spring Boot + Keycloak + PostgreSQL + Eureka.
+Микросервисная система автоматизации рекламно-печатного производства (широкоформатная печать): заказы, этапы производства по цехам, калькуляция операций, материалы, клиенты, оплаты, сотрудники, статистика. Использует docker-compose для оркестрации: React frontend + Spring Boot microservices + Keycloak + PostgreSQL + Eureka.
 
 ## Технологический стек
 
-- **Frontend**: React 18, TypeScript, Material-UI, TanStack Query, TanStack Table, React Hook Form, Zod
-- **Backend**: Spring Boot 3.3, Spring Security 6 (OAuth2 Resource Server), JPA/Hibernate, PostgreSQL, Eureka
-- **Аутентификация**: Keycloak 26 (OAuth2 + OpenID Connect)
-- **База данных**: PostgreSQL с Liquibase миграциями
+- **Frontend**: React 18 + Vite (JavaScript/JSX), Material-UI, TanStack Query, TanStack Table, React Hook Form, Zod, zustand, oidc-client-ts; тесты — Vitest (unit) + Playwright (e2e)
+- **Backend**: Java 17, Spring Boot 3.2.5, Spring Cloud 2023.0.3 (Eureka, Gateway), Spring Security OAuth2 Resource Server, Spring Data JPA + Specification, MapStruct, Lombok, springdoc-openapi (Swagger UI)
+- **Миграции БД**: Flyway
+- **Аутентификация**: Keycloak 26 (OAuth2 + OpenID Connect), мультитенантность через атрибут пользователя `company_id` (передается в токене)
+- **База данных**: PostgreSQL 15, общая БД `svdb`, схема `svschema`
 
 ## Структура проекта
 
 ```
 back/
-├── common/              # Общие сущности и DTO
-├── discovery-server/    # Eureka Server
-├── order-service/       # Сервис заказов
-├── client-service/      # Сервис клиентов
-└── api-gateway/         # API Gateway
+├── common/                 # Общие сущности и DTO
+├── discovery-server/       # Eureka Server
+├── api-gateway/            # Spring Cloud Gateway (маршрутизация, обмен code -> token)
+├── order-service/          # Заказы, позиции, этапы, оплаты, сметы
+├── client-service/         # Клиенты и компании (tenant-корень, сиды дефолтов)
+├── employee-service/       # Сотрудники (синхронизация с Keycloak Admin API)
+├── material-service/       # Справочник материалов, material-operations
+├── calculator-service/     # Калькуляция операций (раскрой, печать, ламинация, люверсы...)
+├── file-service/           # Файлы
+├── comment-service/        # Комментарии, ответы, уведомления
+├── statistic-service/      # Статистика (sync из order-service)
+└── generate-data-service/  # Генератор тестовых данных (dev-профиль)
 
-front/                   # React frontend
+front/                      # React frontend
+scripts/                    # deploy.sh, wait-for-stack.sh, rebuild-*.ps1
 keycloak/
-└── realm-export.json    # Конфигурация Keycloak
-docker-compose.yml       # Оркестрация контейнеров
-init.sql               # Инициализация PostgreSQL
+└── realm-export.json       # Realm print-sv (импортируется автоматически)
+docs/
+└── openapi-order-service.yaml
+docker-compose.yml          # Оркестрация всех сервисов
+.env.example                # Шаблон переменных окружения (скопируйте в .env)
 ```
 
 ## Быстрый старт
 
-### Requirements
+### Требования
 - Docker и Docker Compose
-- Node.js 18+ (для локальной разработки фронтенда)
+- Node.js 20+ (для локальной разработки фронтенда) / JDK 17 + Maven (для бэкенда)
 
 ### Запуск через Docker Compose
 
-1. **Запустите все сервисы:**
+1. **Создайте `.env`** (см. `.env.example`):
 
 ```bash
-docker-compose up -d
+cp .env.example .env
+# укажите SERVER_IP и пароли
 ```
+
+2. **Запустите все сервисы:**
+
+```bash
+docker compose up -d
+# генератор тестовых данных (только для разработки):
+docker compose --profile dev up -d generate-data-service
+```
+
+Realm `print-sv` импортируется автоматически (`--import-realm`).
 
 Сервисы будут доступны:
 - Keycloak: http://localhost:8080
-- PostgreSQL: localhost:5433 (базы: `svdb`, `keycloak_db`)
-- Eureka: http://localhost:8762
+- PostgreSQL: localhost:5433 (база `svdb`)
+- Eureka: http://localhost:8761
+- API Gateway: http://localhost:8085
 - Order Service: http://localhost:8081
 - Client Service: http://localhost:8082
-- API Gateway: http://localhost:8085
 - Frontend: http://localhost:5174
-
-2. **Импортируйте Realm в Keycloak:**
-
-Откройте http://localhost:8080 и войдите:
-- Username: `admin`
-- Password: `admin`
-
-Перейдите в Realm Settings → Import. Выберите `keycloak/realm-export.json`.
-
-3. **Откройте приложение:**
-
-Frontend: http://localhost:5174
 
 ### Тестовые пользователи
 
-| Логин  | Пароль  | Роли                           |
-|--------|---------|--------------------------------|
-| admin  | admin   | ADMIN                          |
-| manager| manager | MANAGER                        |
-| production | production | PRODUCTION                  |
-| accountant | accountant | ACCOUNTANT                  |
+| Логин  | Пароль  | Роли                                   |
+|--------|---------|----------------------------------------|
+| admin  | admin   | ADMIN                                  |
+| manager| manager | MANAGER                                |
+| production | production | PRODUCTION                       |
+| accountant | accountant | ACCOUNTANT                       |
+
+Атрибут `company_id` у пользователя определяет компанию-tenant (изоляция данных).
+При создании новой компании автоматически добавляются дефолтные материалы и операции (CompanyDefaultsSeeder).
 
 ## API Endpoints
 
@@ -91,7 +104,7 @@ Frontend: http://localhost:5174
 ## База данных
 
 ### Схема
-Основные таблицы (Liquibase миграции):
+Основные таблицы (Flyway-миграции, схема `svschema`):
 - `orders` — заказы
 - `order_items` — позиции заказа
 - `order_stages` — этапы производства
@@ -100,16 +113,12 @@ Frontend: http://localhost:5174
 - `order_comments` — комментарии
 - `files` — файлы
 - `clients` — клиенты
+- `companies` — компании (tenants)
 - `employees` — сотрудники
 - `workshops` — цеха
 - `materials` — номенклатура материалов
 
-### Подключение
-- Host: localhost
-- Port: 5433
-- Database: svdb
-- Username: postgres
-- Password: 12345
+Подключение (локальная БД из docker-compose) настраивается переменными окружения в `.env` (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`).
 
 ## Конфигурация Keycloak
 
@@ -120,12 +129,14 @@ Frontend: http://localhost:5174
 - `frontend` — SPA приложение (public client)
 - `order-service` — backend service (confidential, service account)
 
-### Roles
+### Роли
 - `ADMIN` — полный доступ
 - `MANAGER` — управление заказами и клиентами
 - `PRODUCTION` — управление этапами производства
 - `ACCOUNTANT` — управление оплатами и аналитика
 - `USER` — базовый доступ
+
+Все сервисы фильтруют данные по `company_id` из JWT (мультитенантность).
 
 ## Локальная разработка
 
@@ -148,30 +159,33 @@ npm run dev
 
 Frontend запустится на http://localhost:5174
 
+Тесты и сборка описаны в CI (.github/workflows/ci-cd.yml): backend `mvn test`, frontend `npm test` (Vitest), e2e — Playwright.
+
 ## Дополнительные возможности
 
-- **Eureka Dashboard:** http://localhost:8762
-- **Swagger UI (Order Service):** http://localhost:8081/swagger-ui.html
-- **Swagger UI (Client Service):** http://localhost:8082/swagger-ui.html
+- **Eureka Dashboard:** http://localhost:8761
+- **Swagger UI:** http://localhost:8081/swagger-ui.html (и в остальных сервисах)
 - **Actuator (Order Service):** http://localhost:8081/actuator
 
 ## Безопасность
 
 Все микросервисы (кроме gateway) работают как Resource Server и проверяют JWT токены от Keycloak.
-- `issuer-uri`: http://localhost:8080/realms/print-sv
+- `issuer-uri`: http://${SERVER_IP}:8080/realms/print-sv
 - Роли извлекаются из `realm_access.roles` и `resource_access.print-sv-client.roles`
+
+Не храните секреты в репозитории — используйте `.env` (в `.gitignore`). Сессии/токены не сохраняйте в файлах вроде `cookies.txt`.
 
 ## TODO / Дальнейшие шаги
 
-- Реализовать остальные микросервисы (production-service, material-service, employee-service, finance-service, file-service)
-- Интеграция с MinIO/S3 для хранения файлов
-- Реалтайм уведомления через WebSocket
-- Генерация PDF документов
-- Планировщик задач для напоминаний о сроках
-- Административная панель для управления шаблонами этапов
+- [ ] Интеграция с MinIO/S3 для хранения файлов (сейчас локальный volume `./uploads`)
+- [ ] Реалтайм уведомления через WebSocket
+- [ ] Генерация PDF документов
+- [ ] Планировщик задач для напоминаний о сроках
+- [ ] Административная панель для управления шаблонами этапов
 
 
-Справочник по заполнению операций для производства изделий из баннеров
+## Справочник: заполнение операций для производства изделий из баннеров
+
 1. Раскрой баннера (пошив)
 Шаблон: "Раскрой баннера" с requiresDimensions: true, unit: 'м²'
 
@@ -231,7 +245,7 @@ edgeDistance (отступ от края: 30-50 мм)
 Ширина (мм)
 Высота (мм)
 Припуск — не требуется (работа с готовыми профилями)
-Калькуляция: Периметр = 2 × (Ш + В), Hansen формула
+Калькуляция: Периметр = 2 × (Ш + В)
 6. Монтаж конструкции
 Шаблон: "Монтаж баннера" с requiresDimensions: false, unit: 'шт.'
 
@@ -260,4 +274,3 @@ height (высота установки — влияет на сложность
 
 Припуск учитывается в общей стоимости материала
 В operations параметры добавляйте процент отходов (например, wasteCoefficient: 1.1 для 10% отходов)
-Нужно адаптировать эти рекомендации под ваши конкретные шаблоны операций в базе данных?
