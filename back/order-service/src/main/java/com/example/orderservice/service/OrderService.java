@@ -507,7 +507,7 @@ public OrderResponse getOrderById(Long id) {
 
                 if (Boolean.TRUE.equals(itemReq.getFromProduct())) {
                     BigDecimal unitPrice = material.getPrice() != null ? material.getPrice() : BigDecimal.ZERO;
-                    BigDecimal qty = new BigDecimal(orderItem.getQuantity());
+                    BigDecimal qty = itemReq.getQuantity() != null ? itemReq.getQuantity() : new BigDecimal(orderItem.getQuantity());
                     BigDecimal waste = itemReq.getWasteCoefficient() != null ? itemReq.getWasteCoefficient() : BigDecimal.ONE;
                     BigDecimal itemTotal = unitPrice.multiply(qty).multiply(waste).setScale(2, RoundingMode.HALF_UP);
                     orderItem.setPrice(itemTotal);
@@ -518,8 +518,8 @@ public OrderResponse getOrderById(Long id) {
                     orderMaterial.setOrderItem(orderItem);
                     orderMaterial.setMaterial(material);
                     orderMaterial.setQuantity(qty);
-                    orderMaterial.setWidthM(BigDecimal.ZERO);
-                    orderMaterial.setHeightM(BigDecimal.ZERO);
+                    orderMaterial.setWidthM(itemReq.getWidthM() != null ? itemReq.getWidthM() : BigDecimal.ZERO);
+                    orderMaterial.setHeightM(itemReq.getHeightM() != null ? itemReq.getHeightM() : BigDecimal.ZERO);
                     orderMaterial.setWasteCoefficient(waste);
                     orderMaterial.setCost(itemTotal);
                     saved.getMaterials().add(orderMaterial);

@@ -116,9 +116,25 @@ const CreateProductOrder = () => {
         steps.push({ kind: 'operation', positionIndex, operationIndex });
       });
     });
+    if (steps.length > 0) {
+      steps.push({ kind: 'dimensions' });
+    }
     setProductPickerOpen(false);
-    setWizard({ product, positions, steps, step: 0 });
+    setWizard({
+      product,
+      positions,
+      steps,
+      step: 0,
+      width: product.width != null ? String(product.width) : '',
+      height: product.height != null ? String(product.height) : ''
+    });
   };
+
+  const updateWizardDimensions = (field, value) => {
+    setWizard(prev => (prev ? { ...prev, [field]: value } : prev));
+  };
+
+  const wizardArea = (width, height) => Number(((Number(width) || 0) * (Number(height) || 0)).toFixed(4));
 
   const updateWizardMaterial = (positionIndex, field, value) => {
     setWizard(prev => {
@@ -148,13 +164,22 @@ const CreateProductOrder = () => {
 
   const commitWizard = () => {
     if (!wizard) return;
+    const width = Number(wizard.width) || 0;
+    const height = Number(wizard.height) || 0;
+    const area = wizardArea(width, height);
     const newPositions = wizard.positions
       .filter(position => position.materialId)
       .map((position, index) => ({
         id: `${Date.now()}-${index}-${Math.random()}`,
         productId: wizard.product.id,
         productName: wizard.product.name,
-        material: { ...position },
+        width,
+        height,
+        area,
+        material: {
+          ...position,
+          quantity: area > 0 ? area : position.quantity
+        },
         operations: position.operations.map(operation => ({ ...operation }))
       }));
     setSelectedPositions(prev => [...prev, ...newPositions]);
@@ -239,8 +264,8 @@ const CreateProductOrder = () => {
           widthM: null,
           heightM: null,
         })),
-        widthM: null,
-        heightM: null,
+        widthM: position.width || null,
+        heightM: position.height || null,
         readyDate: null,
         eyeletId: null,
         eyeletStepCm: null,
@@ -275,23 +300,51 @@ const CreateProductOrder = () => {
     if (!wizard) return null;
     const step = wizard.steps[wizard.step];
     if (!step) return null;
-    const position = wizard.positions[step.positionIndex];
+    const position = step.positionIndex != null ? wizard.positions[step.positionIndex] : null;
     const operation = step.kind === 'operation' ? position.operations[step.operationIndex] : null;
     const isLast = wizard.step >= wizard.steps.length - 1;
+    const area = wizardArea(wizard.width, wizard.height);
 
     return (
       <Dialog open onClose={() => setWizard(null)} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle>
-          {step.kind === 'material' ? 'Параметры материала' : 'Параметры операции'}
+          {step.kind === 'dimensions'
+            ? 'Размеры изделия'
+            : step.kind === 'material' ? 'Параметры материала' : 'Параметры операции'}
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             {wizard.product.name} · шаг {wizard.step + 1} из {wizard.steps.length}
           </Typography>
-          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-            {step.kind === 'material' ? position.materialName : operation.name}
-          </Typography>
-          {step.kind === 'material' ? (
+          {step.kind !== 'dimensions' && (
+            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
+              {step.kind === 'material' ? position.materialName : operation.name}
+            </Typography>
+          )}
+          {step.kind === 'dimensions' ? (
+            <Box display="flex" flexDirection="column" gap={2} sx={{ mt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Укажите размеры изделия — количество м² рассчитается автоматически и пересчитает сумму позиции.
+              </Typography>
+              <TextField
+                label="Ширина, м"
+                type="number"
+                value={wizard.width}
+                onChange={(e) => updateWizardDimensions('width', e.target.value)}
+                inputProps={{ step: 0.01, min: 0 }}
+              />
+              <TextField
+                label="Высота, м"
+                type="number"
+                value={wizard.height}
+                onChange={(e) => updateWizardDimensions('height', e.target.value)}
+                inputProps={{ step: 0.01, min: 0 }}
+              />
+              <Typography variant="subtitle1" data-testid="wizard-area">
+                Площадь: <strong>{area.toFixed(2)} м²</strong>
+              </Typography>
+            </Box>
+          ) : step.kind === 'material' ? (
             <Box display="flex" flexDirection="column" gap={2} sx={{ mt: 1 }}>
               <TextField
                 label="Количество"
@@ -393,6 +446,11 @@ const CreateProductOrder = () => {
               <Box>
                 <Typography variant="subtitle1">{position.productName}</Typography>
                 <Typography variant="body2" color="text.secondary">{position.material.materialName}</Typography>
+                {position.area > 0 && (
+                  <Typography variant="caption" color="text.secondary">
+                    Размеры: {position.width} × {position.height} м · {position.area} м²
+                  </Typography>
+                )}
               </Box>
               <Box display="flex" alignItems="center" gap={2}>
                 <Typography variant="subtitle1" data-testid="position-total">
