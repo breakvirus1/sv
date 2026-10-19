@@ -24,10 +24,16 @@ public class CompanyService {
 
     private final CompanyRepository companyRepository;
     private final CompanyMapper companyMapper;
+    private final CompanyDefaultsSeeder companyDefaultsSeeder;
 
-    @Cacheable(value = "companies", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all')")
-    public Page<CompanyResponse> getAllCompanies(Specification<Company> spec, Pageable pageable) {
-        return companyRepository.findAll(spec, pageable)
+    @Cacheable(value = "companies", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all') + '_' + (#companyId ?: 'all')")
+    public Page<CompanyResponse> getAllCompanies(Specification<Company> spec, Pageable pageable, Long companyId) {
+        Specification<Company> finalSpec = spec;
+        if (companyId != null) {
+            finalSpec = finalSpec == null ? Specification.where(null) : finalSpec;
+            finalSpec = finalSpec.and((root, query, cb) -> cb.equal(root.get("id"), companyId));
+        }
+        return companyRepository.findAll(finalSpec, pageable)
                 .map(companyMapper::toDto);
     }
 
@@ -46,6 +52,7 @@ public class CompanyService {
         }
         Company company = companyMapper.createFromRequest(request);
         Company saved = companyRepository.save(company);
+        companyDefaultsSeeder.seedDefaultsForCompany(saved.getId());
         return companyMapper.toDto(saved);
     }
 

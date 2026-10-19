@@ -34,4 +34,7 @@ public class Material extends BaseEntity {
 
     @Column(name = "default_height_m", precision = 10, scale = 4)
     private BigDecimal defaultHeightM = BigDecimal.ZERO;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

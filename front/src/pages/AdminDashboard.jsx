@@ -96,6 +96,7 @@ const AdminDashboard = () => {
           firstName: adminNameParts[0] || adminData.fullName,
           lastName: adminNameParts.slice(1).join(' ') || adminNameParts[0] || 'User',
           email: adminData.email,
+          emailVerified: true,
           enabled: true,
           credentials: [{ type: 'password', value: adminData.password, temporary: false }],
           realmRoles: [adminData.role.replace('ROLE_', '')],

@@ -208,8 +208,9 @@ public class OrderController {
      @GetMapping("/{id}/payments")
      @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT', 'GOD')")
      public ResponseEntity<List<PaymentResponse>> getPayments(
-             @Parameter(description = "ID заказа") @PathVariable Long id) {
-         List<PaymentResponse> response = orderService.getPayments(id);
+             @Parameter(description = "ID заказа") @PathVariable Long id,
+             @AuthenticationPrincipal Jwt jwt) {
+         List<PaymentResponse> response = orderService.getPayments(id, extractCompanyId(jwt));
          return ResponseEntity.ok(response);
      }
 

@@ -25,6 +25,7 @@ import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -78,7 +79,7 @@ class StatisticControllerTest {
         @DisplayName("ADMIN gets 200 with material expense statistics")
         @WithMockUser(roles = "ADMIN")
         void adminGetsStatistics() throws Exception {
-            when(statisticsService.getMaterialExpenseStatistics(any(), any()))
+            when(statisticsService.getMaterialExpenseStatistics(any(), any(), isNull()))
                     .thenReturn(List.of(materialExpenseRow()));
 
             mockMvc.perform(get("/api/v1/admin/statistics/material-expense")

@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,8 +37,10 @@ public class MaterialOperationGroupAdminController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping
-    public ResponseEntity<List<GroupedOperationsResponse>> getGroupedOperations(@PathVariable Long materialId) {
-        return ResponseEntity.ok(List.of(operationService.getGroupedOperationsByMaterialId(materialId)));
+    public ResponseEntity<List<GroupedOperationsResponse>> getGroupedOperations(
+            @PathVariable Long materialId,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(List.of(operationService.getGroupedOperationsByMaterialId(materialId, extractCompanyId(jwt))));
     }
 
     /**
@@ -47,9 +51,11 @@ public class MaterialOperationGroupAdminController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/all")
-    public ResponseEntity<List<MaterialOperationGroupDto>> getAllMappings(@PathVariable Long materialId) {
+    public ResponseEntity<List<MaterialOperationGroupDto>> getAllMappings(
+            @PathVariable Long materialId,
+            @AuthenticationPrincipal Jwt jwt) {
         try {
-            List<MaterialOperationGroupDto> result = service.getMaterialOperationGroups(materialId).stream()
+            List<MaterialOperationGroupDto> result = service.getMaterialOperationGroups(materialId, extractCompanyId(jwt)).stream()
                     .map(service::toDto)
                     .toList();
             return ResponseEntity.ok(result);
@@ -70,9 +76,10 @@ public class MaterialOperationGroupAdminController {
     @PostMapping
     public ResponseEntity<MaterialOperationGroupDto> addMapping(
             @PathVariable Long materialId,
-            @RequestBody MaterialOperationGroupCreateRequest request) {
+            @RequestBody MaterialOperationGroupCreateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
         request.setMaterialId(materialId);
-        return ResponseEntity.ok(service.toDto(service.createMaterialOperationGroup(request)));
+        return ResponseEntity.ok(service.toDto(service.createMaterialOperationGroup(request, extractCompanyId(jwt))));
     }
 
     /**
@@ -90,10 +97,11 @@ public class MaterialOperationGroupAdminController {
     @PutMapping("/replace")
     public ResponseEntity<List<MaterialOperationGroupDto>> replaceMappings(
             @PathVariable Long materialId,
-            @RequestBody MaterialOperationGroupUpdateRequest request) {
+            @RequestBody MaterialOperationGroupUpdateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
         request.setMaterialId(materialId);
         return ResponseEntity.ok(
-                service.updateMaterialOperations(materialId, request).stream()
+                service.updateMaterialOperations(materialId, request, extractCompanyId(jwt)).stream()
                         .map(service::toDto)
                         .toList()
         );
@@ -111,5 +119,19 @@ public class MaterialOperationGroupAdminController {
     public ResponseEntity<Void> deleteMapping(@PathVariable Long materialId, @PathVariable Long id) {
         service.deleteMaterialOperationGroup(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

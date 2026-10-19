@@ -41,4 +41,7 @@ public class OperationAdditionalMaterial extends BaseEntity {
     /** Цена за единицу на момент создания шаблона (для истории) */
     @Column(name = "price_per_unit", precision = 12, scale = 2)
     private BigDecimal pricePerUnit;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

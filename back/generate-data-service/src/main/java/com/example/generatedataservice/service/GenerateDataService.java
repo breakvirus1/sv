@@ -109,7 +109,7 @@ public class GenerateDataService {
     }
 
     @Transactional
-    public List<Material> generateMaterials(int count) {
+    public List<Material> generateMaterials(int count, Long companyId) {
         List<Material> materials = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             String unit = MATERIAL_UNITS[random.nextInt(MATERIAL_UNITS.length)];
@@ -119,13 +119,14 @@ public class GenerateDataService {
             material.setPrice(BigDecimal.valueOf(100 + random.nextInt(9900)));
             material.setWasteCoefficient(BigDecimal.ONE.add(BigDecimal.valueOf(random.nextInt(50) / 100.0)));
             material.setType(MATERIAL_TYPES[random.nextInt(MATERIAL_TYPES.length)]);
+            material.setCompanyId(companyId);
             materials.add(materialRepository.save(material));
         }
         return materials;
     }
 
     @Transactional
-    public List<Operation> generateOperations(int count) {
+    public List<Operation> generateOperations(int count, Long companyId) {
         List<Operation> operations = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             Operation operation = new Operation();
@@ -137,19 +138,21 @@ public class GenerateDataService {
                 operation.setHemWidthMm(10 + random.nextInt(90));
                 operation.setHemCount(1 + random.nextInt(4));
             }
+            operation.setCompanyId(companyId);
             operations.add(operationRepository.save(operation));
         }
         return operations;
     }
 
     @Transactional
-    public List<Workshop> generateWorkshops(int count) {
+    public List<Workshop> generateWorkshops(int count, Long companyId) {
         List<Workshop> workshops = new ArrayList<>();
         List<Long> operationIds = dataAccessRepository.fetchOperationIds();
         for (int i = 0; i < count; i++) {
             Workshop workshop = new Workshop();
             workshop.setName(WORKSHOP_NAMES[random.nextInt(WORKSHOP_NAMES.length)] + " " + (i + 1));
             workshop.setSortOrder(i);
+            workshop.setCompanyId(companyId);
             List<Long> assignedOps = new ArrayList<>();
             if (!operationIds.isEmpty()) {
                 int opsCount = 1 + random.nextInt(Math.min(5, operationIds.size()));
@@ -255,11 +258,12 @@ public class GenerateDataService {
             }
 
             jdbcTemplate.update(
-                "INSERT INTO svschema.order_materials (order_id, material_id, quantity, width_m, height_m, ready_date, deleted) VALUES (?, ?, ?, ?, ?, ?, false)",
+                "INSERT INTO svschema.order_materials (order_id, material_id, quantity, width_m, height_m, ready_date, company_id, deleted) VALUES (?, ?, ?, ?, ?, ?, (SELECT company_id FROM svschema.orders WHERE id = ?), false)",
                 orderId, mat.getId(), quantity,
                 BigDecimal.valueOf(1 + random.nextInt(5)),
                 BigDecimal.valueOf(1 + random.nextInt(5)),
-                LocalDate.now().plusDays(random.nextInt(30) + 7)
+                LocalDate.now().plusDays(random.nextInt(30) + 7),
+                orderId
             );
         }
     }

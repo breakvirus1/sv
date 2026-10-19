@@ -14,6 +14,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -29,7 +31,8 @@ public class CompanyController {
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<Page<CompanyResponse>> getAllCompanies(
             @Parameter(description = "Поисковый запрос") @RequestParam(required = false) String q,
-            Pageable pageable) {
+            Pageable pageable,
+            @AuthenticationPrincipal Jwt jwt) {
 
         Specification<com.example.clientservice.entity.Company> spec = Specification.where(null);
         if (q != null && !q.trim().isEmpty()) {
@@ -38,7 +41,7 @@ public class CompanyController {
             );
         }
 
-        return ResponseEntity.ok(companyService.getAllCompanies(spec, pageable));
+        return ResponseEntity.ok(companyService.getAllCompanies(spec, pageable, extractCompanyId(jwt)));
     }
 
     @Operation(summary = "Получить компанию по ID")
@@ -72,5 +75,19 @@ public class CompanyController {
             @Parameter(description = "ID компании") @PathVariable Long id) {
         companyService.deleteCompany(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

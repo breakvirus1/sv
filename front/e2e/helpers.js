@@ -20,7 +20,7 @@ export async function login(page, username, password) {
 }
 
 export async function logout(page) {
-  await page.getByRole('button').filter({ has: page.locator('svg') }).last().click()
+  await page.locator('header').getByRole('button').last().click()
   await page.getByRole('menuitem', { name: 'Выход' }).click()
 }
 

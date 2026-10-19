@@ -81,7 +81,8 @@ public interface OrderMapper {
                 entity.getWorkshop().getId(),
                 entity.getWorkshop().getName(),
                 entity.getWorkshop().getSortOrder(),
-                entity.getWorkshop().getOperationIds()));
+                entity.getWorkshop().getOperationIds(),
+                entity.getWorkshop().getCompanyId()));
         }
     }
 

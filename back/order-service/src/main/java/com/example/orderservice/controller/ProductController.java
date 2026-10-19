@@ -6,6 +6,8 @@ import com.example.orderservice.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -20,13 +22,13 @@ public class ProductController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ProductDTO> create(@RequestBody ProductDTO dto) {
-        return ResponseEntity.ok(productService.create(dto));
+    public ResponseEntity<ProductDTO> create(@RequestBody ProductDTO dto, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(productService.create(dto, extractCompanyId(jwt)));
     }
 
     @GetMapping
-    public ResponseEntity<List<ProductDTO>> getAll() {
-        return ResponseEntity.ok(productService.getAll());
+    public ResponseEntity<List<ProductDTO>> getAll(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(productService.getAll(extractCompanyId(jwt)));
     }
 
     @GetMapping("/{id}")
@@ -70,5 +72,19 @@ public class ProductController {
         }
         BigDecimal grandTotal = totalMaterials.add(totalOperations);
         return ResponseEntity.ok(new ProductEstimateDTO(id, product.getMaterials(), product.getOperations(), totalMaterials, totalOperations, grandTotal));
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

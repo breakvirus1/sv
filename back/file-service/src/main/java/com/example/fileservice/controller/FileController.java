@@ -48,6 +48,7 @@ public class FileController {
             @RequestParam(value = "operationParams", required = false) String operationParams) {
 
         FileAttachment attachment = fileService.storeFile(file, orderId, orderItemId, uploadedBy, orderNumber, managerName, clientName, materialName, operationNames, operationParams);
+        attachment.setCompanyId(extractCompanyId());
         FileAttachment saved = fileAttachmentRepository.save(attachment);
 
         if (orderItemId != null) {
@@ -109,7 +110,10 @@ public class FileController {
 
     @GetMapping("/order-item/{orderItemId}")
     public ResponseEntity<FileAttachment> getByOrderItem(@PathVariable Long orderItemId) {
+        Long companyId = extractCompanyId();
         return fileAttachmentRepository.findByOrderItemId(orderItemId)
+                .filter(f -> companyId == null || f.getCompanyId() == null
+                        || companyId.equals(f.getCompanyId()))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -126,5 +130,25 @@ public class FileController {
         fileService.deleteFile(file);
         fileAttachmentRepository.delete(file);
         return ResponseEntity.ok().build();
+    }
+
+    private Long extractCompanyId() {
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return null;
+        Object principal = auth.getPrincipal();
+        if (principal instanceof org.springframework.security.oauth2.jwt.Jwt jwt) {
+            try {
+                Object claim = jwt.getClaim("company_id");
+                if (claim instanceof Number number) {
+                    return number.longValue();
+                }
+                if (claim instanceof String str) {
+                    return Long.parseLong(str);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
     }
 }

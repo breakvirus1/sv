@@ -47,22 +47,22 @@ public class GenerateDataController {
     @io.swagger.v3.oas.annotations.Operation(summary = "Сгенерировать тестовые материалы")
     @PostMapping("/materials/{count}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Material>> generateMaterials(@PathVariable int count) {
-        return ResponseEntity.ok(generateDataService.generateMaterials(count));
+    public ResponseEntity<List<Material>> generateMaterials(@PathVariable int count, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(generateDataService.generateMaterials(count, extractCompanyId(jwt)));
     }
 
     @io.swagger.v3.oas.annotations.Operation(summary = "Сгенерировать тестовые операции")
     @PostMapping("/operations/{count}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<com.example.generatedataservice.entity.Operation>> generateOperations(@PathVariable int count) {
-        return ResponseEntity.ok(generateDataService.generateOperations(count));
+    public ResponseEntity<List<com.example.generatedataservice.entity.Operation>> generateOperations(@PathVariable int count, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(generateDataService.generateOperations(count, extractCompanyId(jwt)));
     }
 
     @io.swagger.v3.oas.annotations.Operation(summary = "Сгенерировать тестовые цеха")
     @PostMapping("/workshops/{count}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Workshop>> generateWorkshops(@PathVariable int count) {
-        return ResponseEntity.ok(generateDataService.generateWorkshops(count));
+    public ResponseEntity<List<Workshop>> generateWorkshops(@PathVariable int count, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(generateDataService.generateWorkshops(count, extractCompanyId(jwt)));
     }
 
     @io.swagger.v3.oas.annotations.Operation(summary = "Сгенерировать тестовые заказы")
@@ -86,9 +86,9 @@ public class GenerateDataController {
 
         Map<String, Object> result = new java.util.LinkedHashMap<>();
         if (clients > 0) result.put("clients", generateDataService.generateClients(clients, companyId));
-        if (materials > 0) result.put("materials", generateDataService.generateMaterials(materials));
-        if (operations > 0) result.put("operations", generateDataService.generateOperations(operations));
-        if (workshops > 0) result.put("workshops", generateDataService.generateWorkshops(workshops));
+        if (materials > 0) result.put("materials", generateDataService.generateMaterials(materials, companyId));
+        if (operations > 0) result.put("operations", generateDataService.generateOperations(operations, companyId));
+        if (workshops > 0) result.put("workshops", generateDataService.generateWorkshops(workshops, companyId));
         if (employees > 0) result.put("employees", generateDataService.generateEmployees(employees, companyId));
         if (orders > 0) result.put("orders", generateDataService.generateOrders(orders, companyId));
 

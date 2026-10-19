@@ -30,4 +30,7 @@ public class Workshop extends BaseEntity {
 
     @OneToMany(mappedBy = "workshop", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderStage> orderStages = new ArrayList<>();
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

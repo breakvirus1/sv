@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -30,7 +33,7 @@ public class StatisticController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
         System.out.println("STATISTIC CONTROLLER CALLED fromDate=" + fromDate + " toDate=" + toDate);
-        return ResponseEntity.ok(statisticsService.getMaterialExpenseStatistics(fromDate, toDate));
+        return ResponseEntity.ok(statisticsService.getMaterialExpenseStatistics(fromDate, toDate, extractCompanyId()));
     }
 
     @Operation(summary = "Синхронизировать заказ для статистики")
@@ -47,5 +50,22 @@ public class StatisticController {
     public ResponseEntity<Void> deleteOrderFromStatistics(@PathVariable Long orderId) {
         orderSyncService.deleteByOrderId(orderId);
         return ResponseEntity.ok().build();
+    }
+
+    private Long extractCompanyId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            try {
+                Object claim = jwtAuth.getToken().getClaim("company_id");
+                if (claim instanceof Number number) {
+                    return number.longValue();
+                }
+                if (claim instanceof String str && !str.isBlank()) {
+                    return Long.parseLong(str);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
     }
 }

@@ -26,21 +26,29 @@ public class MaterialOperationService {
     private final MaterialOperationRepository operationRepository;
     private final MaterialRepository materialRepository;
 
-    public List<MaterialOperationResponse> getOperationsByMaterialId(Long materialId) {
-        if (!materialRepository.existsById(materialId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден");
+    public List<MaterialOperationResponse> getOperationsByMaterialId(Long materialId, Long companyId) {
+        Material material = materialRepository.findById(materialId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден"));
+        if (companyId != null && material.getCompanyId() != null
+                && !material.getCompanyId().equals(companyId)) {
+            return List.of();
         }
-        return operationRepository.findByMaterialIdAndActiveTrueOrderBySortOrderAsc(materialId).stream()
+        List<MaterialOperationResponse> result = operationRepository
+                .findByMaterialIdAndActiveTrueOrderBySortOrderAsc(materialId).stream()
+                .filter(op -> companyId == null || op.getCompanyId() == null
+                        || companyId.equals(op.getCompanyId()))
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+        return result;
     }
 
-    public MaterialOperationResponse createOperation(Long materialId, MaterialOperationCreateRequest request) {
+    public MaterialOperationResponse createOperation(Long materialId, MaterialOperationCreateRequest request, Long companyId) {
         Material material = materialRepository.findById(materialId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Материал не найден"));
 
         MaterialOperation operation = new MaterialOperation();
         operation.setMaterial(material);
+        operation.setCompanyId(material.getCompanyId() != null ? material.getCompanyId() : companyId);
         applyFromCreateDto(operation, request);
 
         MaterialOperation saved = operationRepository.save(operation);

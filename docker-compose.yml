@@ -74,6 +74,12 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8081"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
     networks:
       - sv-network
     environment:
@@ -97,6 +103,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+      order-service:
+        condition: service_healthy
     networks:
       - sv-network
     environment:
@@ -116,6 +124,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+      order-service:
+        condition: service_healthy
     networks:
       - sv-network
     environment:
@@ -137,6 +147,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+      order-service:
+        condition: service_healthy
     networks:
       - sv-network
     environment:
@@ -161,6 +173,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+      order-service:
+        condition: service_healthy
     networks:
       - sv-network
     environment:
@@ -183,6 +197,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+      order-service:
+        condition: service_healthy
     networks:
       - sv-network
     volumes:
@@ -205,6 +221,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+      order-service:
+        condition: service_healthy
     networks:
       - sv-network
     environment:
@@ -229,6 +247,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+      order-service:
+        condition: service_healthy
     networks:
       - sv-network
     environment:
@@ -250,6 +270,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+      order-service:
+        condition: service_healthy
     networks:
       - sv-network
     environment:
@@ -272,7 +294,7 @@ services:
       keycloak:
         condition: service_started
       order-service:
-        condition: service_started
+        condition: service_healthy
       client-service:
         condition: service_started
       employee-service:

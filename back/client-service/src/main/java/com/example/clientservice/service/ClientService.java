@@ -95,12 +95,18 @@ public class ClientService {
     }
 
     @Transactional(readOnly = true)
-    public List<Client> searchClients(String query) {
-        return clientRepository.findAll((root, queryBuilder, cb) ->
+    public List<Client> searchClients(String query, Long companyId) {
+        Specification<Client> spec = (root, criteriaQuery, cb) ->
                 cb.or(
                         cb.like(cb.lower(root.get("name")), "%" + query.toLowerCase() + "%"),
                         cb.like(cb.lower(root.get("contactPerson")), "%" + query.toLowerCase() + "%")
-                ));
+                );
+        if (companyId != null) {
+            spec = spec.and((root, criteriaQuery, cb) -> cb.or(
+                    cb.isNull(root.get("companyId")),
+                    cb.equal(root.get("companyId"), companyId)));
+        }
+        return clientRepository.findAll(spec);
     }
 
     @Transactional(readOnly = true)

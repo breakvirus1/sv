@@ -5,6 +5,9 @@ import com.example.commentservice.exception.FileStorageException;
 import com.example.commentservice.exception.ResourceNotFoundException;
 import com.example.commentservice.repository.ImageRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -54,6 +57,7 @@ public class ImageService {
             image.setContentType(contentType);
             image.setSize(size);
             image.setPath(targetPath.toString());
+            image.setCompanyId(getCurrentCompanyId());
 
             return imageRepository.save(image);
         } catch (IOException e) {
@@ -103,5 +107,22 @@ public class ImageService {
             return filename.substring(dotIndex + 1).toLowerCase();
         }
         return "";
+    }
+
+    private Long getCurrentCompanyId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            try {
+                Object claim = jwtAuth.getToken().getClaim("company_id");
+                if (claim instanceof Number number) {
+                    return number.longValue();
+                }
+                if (claim instanceof String str && !str.isBlank()) {
+                    return Long.parseLong(str);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
     }
 }

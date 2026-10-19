@@ -21,8 +21,14 @@ public class WorkshopService {
     private final WorkshopMapper workshopMapper;
 
     @Transactional(readOnly = true)
-    public Page<WorkshopResponse> getAllWorkshops(Specification<Workshop> spec, Pageable pageable) {
-        return workshopRepository.findAll(spec, pageable)
+    public Page<WorkshopResponse> getAllWorkshops(Specification<Workshop> spec, Pageable pageable, Long companyId) {
+        Specification<Workshop> finalSpec = spec == null ? Specification.where(null) : spec;
+        if (companyId != null) {
+            finalSpec = finalSpec.and((root, query, cb) -> cb.or(
+                    cb.isNull(root.get("companyId")),
+                    cb.equal(root.get("companyId"), companyId)));
+        }
+        return workshopRepository.findAll(finalSpec, pageable)
                 .map(workshopMapper::toDto);
     }
 
@@ -33,8 +39,9 @@ public class WorkshopService {
         return workshopMapper.toDto(workshop);
     }
 
-    public WorkshopResponse createWorkshop(WorkshopCreateRequest request) {
+    public WorkshopResponse createWorkshop(WorkshopCreateRequest request, Long companyId) {
         Workshop workshop = workshopMapper.toEntity(request);
+        workshop.setCompanyId(companyId);
         Workshop saved = workshopRepository.save(workshop);
         return workshopMapper.toDto(saved);
     }

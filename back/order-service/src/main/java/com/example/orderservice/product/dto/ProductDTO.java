@@ -10,6 +10,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ProductDTO {
     private Long id;
+    private Long companyId;
     private String name;
     private String article;
     private String description;

@@ -14,6 +14,7 @@ import com.example.commentservice.repository.ImageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -43,6 +44,23 @@ public class CommentReplyService {
             return jwtAuth.getToken().getTokenValue();
         }
         throw new IllegalStateException("Unsupported authentication type");
+    }
+
+    private Long getCurrentCompanyId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            try {
+                Object claim = jwtAuth.getToken().getClaim("company_id");
+                if (claim instanceof Number number) {
+                    return number.longValue();
+                }
+                if (claim instanceof String str && !str.isBlank()) {
+                    return Long.parseLong(str);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
     }
 
     private Long getCurrentEmployeeId() {
@@ -145,6 +163,7 @@ public class CommentReplyService {
         reply.setEmployeeId(getCurrentEmployeeId());
         reply.setEmployeeName(getCurrentEmployeeNameFromToken());
         reply.setReaded(false);
+        reply.setCompanyId(getCurrentCompanyId());
 
         if (request.getImageIds() != null && !request.getImageIds().isEmpty()) {
             List<Image> images = imageRepository.findAllById(request.getImageIds());
@@ -234,8 +253,11 @@ public class CommentReplyService {
 
     @Transactional(readOnly = true)
     public List<CommentReplyResponse> getRepliesByParentId(Long parentCommentId) {
+        Long companyId = getCurrentCompanyId();
         return commentReplyRepository.findByParentCommentIdAndDeletedFalse(parentCommentId)
                 .stream()
+                .filter(reply -> companyId == null || reply.getCompanyId() == null
+                        || companyId.equals(reply.getCompanyId()))
                 .filter(reply -> reply.getParentReplyId() == null)
                 .map(this::buildReplyDto)
                 .toList();
@@ -243,7 +265,12 @@ public class CommentReplyService {
 
     @Transactional(readOnly = true)
     public Page<CommentReplyResponse> getAllReplies(Pageable pageable) {
-        return commentReplyRepository.findAll(pageable)
+        Long companyId = getCurrentCompanyId();
+        Specification<CommentReply> spec = Specification.where(null);
+        if (companyId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("companyId"), companyId));
+        }
+        return commentReplyRepository.findAll(spec, pageable)
                 .map(commentReplyMapper::toDto);
     }
 

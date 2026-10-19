@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,8 +26,10 @@ public class OperationAdminController {
 
      @PreAuthorize("hasRole('ADMIN')")
      @PostMapping
-     public ResponseEntity<OperationDto> createOperation(@Valid @RequestBody OperationCreateRequest request) {
+     public ResponseEntity<OperationDto> createOperation(@Valid @RequestBody OperationCreateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
          Operation operation = operationMapper.toEntity(request);
+         operation.setCompanyId(extractCompanyId(jwt));
          Operation saved = operationService.save(operation);
          return ResponseEntity.ok(operationMapper.toDto(saved));
      }
@@ -48,11 +52,25 @@ public class OperationAdminController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
-    public ResponseEntity<List<OperationDto>> getAllOperations() {
+    public ResponseEntity<List<OperationDto>> getAllOperations(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(
-                operationService.getAllOperations().stream()
+                operationService.getAllOperations(extractCompanyId(jwt)).stream()
                         .map(operationMapper::toDto)
                         .toList()
         );
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

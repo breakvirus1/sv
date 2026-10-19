@@ -14,8 +14,15 @@ public class EyeletService {
 
     private final EyeletRepository eyeletRepository;
 
+    public List<Eyelet> getAllEyelets(Long companyId) {
+        return eyeletRepository.findAll().stream()
+                .filter(e -> companyId == null || e.getCompanyId() == null
+                        || companyId.equals(e.getCompanyId()))
+                .toList();
+    }
+
     public List<Eyelet> getAllEyelets() {
-        return eyeletRepository.findAll();
+        return getAllEyelets(null);
     }
 
     public Eyelet getEyeletById(Long id) {

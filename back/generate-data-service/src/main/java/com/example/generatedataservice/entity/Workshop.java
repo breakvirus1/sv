@@ -24,4 +24,7 @@ public class Workshop extends BaseEntity {
     @CollectionTable(name = "workshop_operations", joinColumns = @JoinColumn(name = "workshop_id", referencedColumnName = "id"))
     @Column(name = "operation_id")
     private List<Long> operationIds = new ArrayList<>();
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

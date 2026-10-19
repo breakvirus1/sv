@@ -343,6 +343,7 @@ class EmployeeControllerTest {
         @WithMockUser(roles = "MANAGER")
         void managerCannotCreateEmployee() throws Exception {
             EmployeeCreateRequest request = new EmployeeCreateRequest();
+            request.setFullName("Иван Иванов");
             request.setUsername("ivanov");
 
             mockMvc.perform(post("/api/v1/employees")
@@ -356,6 +357,7 @@ class EmployeeControllerTest {
         @WithMockUser(roles = "PRODUCTION")
         void productionCannotCreateEmployee() throws Exception {
             EmployeeCreateRequest request = new EmployeeCreateRequest();
+            request.setFullName("Иван Иванов");
             request.setUsername("ivanov");
 
             mockMvc.perform(post("/api/v1/employees")
@@ -377,6 +379,7 @@ class EmployeeControllerTest {
         void adminCanUpdateEmployee() throws Exception {
             EmployeeUpdateRequest request = new EmployeeUpdateRequest();
             request.setFullName("Updated Name");
+            request.setUsername("ivanov");
 
             when(employeeService.updateEmployee(eq(1L), any())).thenReturn(sampleEmployee());
 
@@ -393,6 +396,7 @@ class EmployeeControllerTest {
         void managerCannotUpdateEmployee() throws Exception {
             EmployeeUpdateRequest request = new EmployeeUpdateRequest();
             request.setFullName("Updated Name");
+            request.setUsername("ivanov");
 
             mockMvc.perform(put("/api/v1/employees/1")
                             .contentType(MediaType.APPLICATION_JSON)

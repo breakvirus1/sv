@@ -123,8 +123,11 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public java.util.Map<String, java.util.List<java.util.Map<String, Object>>> getFilterOptions() {
+        Long companyId = extractCompanyId();
         java.util.List<java.util.Map<String, Object>> clients = clientRepository.findAll().stream()
                 .filter(c -> !c.getDeleted())
+                .filter(c -> companyId == null || c.getCompanyId() == null
+                        || companyId.equals(c.getCompanyId()))
                 .map(c -> {
                     java.util.Map<String, Object> map = new java.util.HashMap<>();
                     map.put("id", c.getId());
@@ -135,6 +138,8 @@ public class OrderService {
 
         java.util.List<java.util.Map<String, Object>> managers = employeeRepository.findAll().stream()
                 .filter(e -> !e.getDeleted())
+                .filter(e -> companyId == null || e.getCompanyId() == null
+                        || companyId.equals(e.getCompanyId()))
                 .map(e -> {
                     java.util.Map<String, Object> map = new java.util.HashMap<>();
                     map.put("id", e.getId());
@@ -145,6 +150,8 @@ public class OrderService {
 
         java.util.List<java.util.Map<String, Object>> workshops = workshopRepository.findAll().stream()
                 .filter(w -> !w.getDeleted())
+                .filter(w -> companyId == null || w.getCompanyId() == null
+                        || companyId.equals(w.getCompanyId()))
                 .map(w -> {
                     java.util.Map<String, Object> map = new java.util.HashMap<>();
                     map.put("id", w.getId());
@@ -1313,11 +1320,17 @@ public OrderResponse getOrderById(Long id) {
         return orderMapper.paymentToDto(saved);
     }
 
-    public List<PaymentResponse> getPayments(Long orderId) {
+    public List<PaymentResponse> getPayments(Long orderId, Long companyId) {
         return paymentRepository.findByOrderIdOrderByPaymentDateDesc(orderId)
                 .stream()
+                .filter(p -> companyId == null || p.getCompanyId() == null
+                        || companyId.equals(p.getCompanyId()))
                 .map(this::mapPayment)
                 .toList();
+    }
+
+    public List<PaymentResponse> getPayments(Long orderId) {
+        return getPayments(orderId, null);
     }
 
     /**

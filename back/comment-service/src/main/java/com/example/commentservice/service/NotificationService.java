@@ -78,8 +78,26 @@ public class NotificationService {
         notification.setReferenceType(referenceType);
         notification.setReferenceSubId(referenceSubId);
         notification.setReaded(false);
+        notification.setCompanyId(getCurrentCompanyId());
         notificationRepository.save(notification);
         return notificationMapper.toDto(notification);
+    }
+
+    private Long getCurrentCompanyId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            try {
+                Object claim = jwtAuth.getToken().getClaim("company_id");
+                if (claim instanceof Number number) {
+                    return number.longValue();
+                }
+                if (claim instanceof String str && !str.isBlank()) {
+                    return Long.parseLong(str);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
     }
 
     @Transactional(readOnly = true)

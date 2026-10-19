@@ -27,6 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
@@ -79,7 +80,7 @@ class CompanyControllerTest {
             Page<CompanyResponse> page = new PageImpl<>(
                     List.of(companyResponse()), PageRequest.of(0, 20), 1);
 
-            when(companyService.getAllCompanies(any(), any())).thenReturn(page);
+            when(companyService.getAllCompanies(any(), any(), isNull())).thenReturn(page);
 
             mockMvc.perform(get("/api/v1/companies")
                             .param("page", "0")
@@ -94,7 +95,7 @@ class CompanyControllerTest {
         @DisplayName("Filters by search query q")
         @WithMockUser(roles = "GOD")
         void filtersBySearchQuery() throws Exception {
-            when(companyService.getAllCompanies(any(), any()))
+            when(companyService.getAllCompanies(any(), any(), isNull()))
                     .thenReturn(new PageImpl<>(List.of()));
 
             mockMvc.perform(get("/api/v1/companies")

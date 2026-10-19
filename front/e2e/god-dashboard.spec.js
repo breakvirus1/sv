@@ -30,7 +30,7 @@ test.describe('Admin Dashboard (роль GOD)', () => {
     await expect(table).toBeVisible({ timeout: 20_000 })
     await expect(table.getByRole('row')).not.toHaveCount(1) // есть строки помимо шапки
     await expect(page.getByRole('cell', { name: 'admin', exact: true })).toBeVisible()
-    await expect(page.getByRole('cell', { name: 'adminsv', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'adminsv1', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Добавить администратора' })).toBeVisible()
 
     expect(serverErrors).toEqual([])

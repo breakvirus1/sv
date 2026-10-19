@@ -31,6 +31,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
@@ -156,7 +157,7 @@ class ClientControllerTest {
             client.setContactPerson("Иванов Иван");
             client.setPriceplus(BigDecimal.TEN);
 
-            when(clientService.searchClients("Иван")).thenReturn(List.of(client));
+            when(clientService.searchClients(eq("Иван"), isNull())).thenReturn(List.of(client));
 
             mockMvc.perform(get("/api/v1/clients/search")
                             .param("q", "Иван"))
@@ -170,7 +171,7 @@ class ClientControllerTest {
         @DisplayName("ACCOUNTANT can search clients")
         @WithMockUser(roles = "ACCOUNTANT")
         void accountantCanSearchClients() throws Exception {
-            when(clientService.searchClients("нет")).thenReturn(List.of());
+            when(clientService.searchClients(eq("нет"), isNull())).thenReturn(List.of());
 
             mockMvc.perform(get("/api/v1/clients/search")
                             .param("q", "нет"))

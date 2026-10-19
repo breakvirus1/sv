@@ -36,6 +36,7 @@ public class StatisticSyncService {
 
             Map<String, Object> orderData = new HashMap<>();
             orderData.put("id", order.getId());
+            orderData.put("companyId", order.getCompanyId());
             orderData.put("orderNumber", order.getOrderNumber());
             orderData.put("orderDate", order.getOrderDate() != null ? order.getOrderDate().toString() : null);
             orderData.put("totalAmount", order.getTotalAmount());

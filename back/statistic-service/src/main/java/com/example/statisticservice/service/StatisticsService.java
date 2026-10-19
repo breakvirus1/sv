@@ -21,7 +21,7 @@ public class StatisticsService {
     private EntityManager entityManager;
 
     @Transactional(readOnly = true)
-    public List<MaterialExpenseRow> getMaterialExpenseStatistics(LocalDate fromDate, LocalDate toDate) {
+    public List<MaterialExpenseRow> getMaterialExpenseStatistics(LocalDate fromDate, LocalDate toDate, Long companyId) {
         String materialSql = """
             SELECT
                 'material' as row_type,
@@ -135,6 +135,11 @@ public class StatisticsService {
             operationSql += " AND o.order_date <= ?";
             eyeletSql += " AND o.order_date <= ?";
         }
+        if (companyId != null) {
+            materialSql += " AND o.company_id = ?";
+            operationSql += " AND o.company_id = ?";
+            eyeletSql += " AND o.company_id = ?";
+        }
 
         materialSql += " GROUP BY m.name, m.unit";
         operationSql += " GROUP BY oo.operation_name, m.name, m.unit";
@@ -144,21 +149,18 @@ public class StatisticsService {
         System.out.println("STATISTIC SQL: " + unionSql);
         Query query = entityManager.createNativeQuery(unionSql);
         int paramIndex = 1;
-        if (fromDate != null && toDate != null) {
-            query.setParameter(paramIndex++, fromDate);
-            query.setParameter(paramIndex++, toDate);
-            query.setParameter(paramIndex++, fromDate);
-            query.setParameter(paramIndex++, toDate);
-            query.setParameter(paramIndex++, fromDate);
-            query.setParameter(paramIndex++, toDate);
-        } else if (fromDate != null) {
-            query.setParameter(paramIndex++, fromDate);
-            query.setParameter(paramIndex++, fromDate);
-            query.setParameter(paramIndex++, fromDate);
-        } else if (toDate != null) {
-            query.setParameter(paramIndex++, toDate);
-            query.setParameter(paramIndex++, toDate);
-            query.setParameter(paramIndex++, toDate);
+        boolean hasFrom = fromDate != null;
+        boolean hasTo = toDate != null;
+        for (int q = 0; q < 3; q++) {
+            if (hasFrom) {
+                query.setParameter(paramIndex++, fromDate);
+            }
+            if (hasTo) {
+                query.setParameter(paramIndex++, toDate);
+            }
+            if (companyId != null) {
+                query.setParameter(paramIndex++, companyId);
+            }
         }
 
         @SuppressWarnings("unchecked")

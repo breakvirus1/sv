@@ -55,8 +55,9 @@ public class ClientController {
     @GetMapping("/search")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT', 'GOD')")
     public ResponseEntity<List<Client>> searchClients(
-            @RequestParam String q) {
-        return ResponseEntity.ok(clientService.searchClients(q));
+            @RequestParam String q,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(clientService.searchClients(q, extractCompanyId(jwt)));
     }
 
     @Operation(summary = "Получить клиента по ID")

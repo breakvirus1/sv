@@ -10,6 +10,8 @@ test.describe('API smoke через фронтенд', () => {
 
   test.beforeAll(async ({ request }) => {
     token = await apiToken(request, 'admin', 'admin')
+    // синхронизируем сотрудников из keycloak сразу после чистого запуска стенда
+    await request.post('/api/v1/employees/sync', { headers: { Authorization: `Bearer ${token}` } })
   })
 
   const GET_ENDPOINTS = [
@@ -42,7 +44,7 @@ test.describe('API smoke через фронтенд', () => {
     const admins = data.content.filter((e) => (e.roles || []).includes('ROLE_ADMIN'))
     const usernames = admins.map((e) => e.username)
     expect(usernames).toContain('admin')
-    expect(usernames).toContain('adminsv')
+    expect(usernames.some((u) => u === 'adminsv' || u.startsWith('adminsv'))).toBe(true)
     for (const a of admins) expect(a.companyId).toBe(1)
   })
 

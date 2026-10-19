@@ -16,6 +16,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -31,7 +33,8 @@ public class MaterialController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     public ResponseEntity<Page<MaterialResponse>> getAllMaterials(
             @RequestParam(required = false) String q,
-            Pageable pageable) {
+            Pageable pageable,
+            @AuthenticationPrincipal Jwt jwt) {
 
         Specification<Material> spec = Specification.where(null);
         if (q != null && !q.trim().isEmpty()) {
@@ -39,7 +42,7 @@ public class MaterialController {
                     cb.like(cb.lower(root.get("name")), "%" + q.toLowerCase() + "%"));
         }
 
-        return ResponseEntity.ok(materialService.getAllMaterials(spec, pageable));
+        return ResponseEntity.ok(materialService.getAllMaterials(spec, pageable, extractCompanyId(jwt)));
     }
 
     @Operation(summary = "Получить материал по ID")
@@ -52,8 +55,10 @@ public class MaterialController {
     @Operation(summary = "Создать новый материал")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
-    public ResponseEntity<MaterialResponse> createMaterial(@Valid @RequestBody MaterialCreateRequest request) {
-        return new ResponseEntity<>(materialService.createMaterial(request), HttpStatus.CREATED);
+    public ResponseEntity<MaterialResponse> createMaterial(
+            @Valid @RequestBody MaterialCreateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return new ResponseEntity<>(materialService.createMaterial(request, extractCompanyId(jwt)), HttpStatus.CREATED);
     }
 
     @Operation(summary = "Обновить материал")
@@ -71,5 +76,19 @@ public class MaterialController {
     public ResponseEntity<Void> deleteMaterial(@Parameter(description = "ID материала") @PathVariable Long id) {
         materialService.deleteMaterial(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

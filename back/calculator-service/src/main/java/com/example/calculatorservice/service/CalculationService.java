@@ -34,6 +34,10 @@ public class CalculationService {
     private final CalculationMapper calculationMapper;
 
     public CalculationResponseDto createAndCalculate(CalculationRequestDto request) {
+        return createAndCalculate(request, null);
+    }
+
+    public CalculationResponseDto createAndCalculate(CalculationRequestDto request, Long companyId) {
         log.info("createAndCalculate: materialId={}, widthM={}, heightM={}, operationIds={}, eyeletId={}",
                 request.getMaterialId(), request.getWidthM(), request.getHeightM(), request.getOperationIds(), request.getEyeletId());
         if (request.getMaterialId() == null) {
@@ -42,7 +46,7 @@ public class CalculationService {
         Material material = materialRepository.findByIdAndDeletedFalse(request.getMaterialId())
                 .orElseThrow(() -> new BadRequestException("Материал не найден"));
 
-        Calculation calc = buildCalculationFromRequest(request, material);
+        Calculation calc = buildCalculationFromRequest(request, material, companyId);
         validateCalculation(calc);
         calculateTotalPrice(calc);
 
@@ -57,6 +61,10 @@ public class CalculationService {
      * Используется order-service для расчёта итогов по материалам и операциям.
      */
     public CalculationResponseDto calculateWithoutSaving(CalculationRequestDto request) {
+        return calculateWithoutSaving(request, null);
+    }
+
+    public CalculationResponseDto calculateWithoutSaving(CalculationRequestDto request, Long companyId) {
         log.info("calculateWithoutSaving: materialId={}, widthM={}, heightM={}, operationIds={}, eyeletId={}",
                 request.getMaterialId(), request.getWidthM(), request.getHeightM(), request.getOperationIds(), request.getEyeletId());
         if (request.getMaterialId() == null) {
@@ -65,7 +73,7 @@ public class CalculationService {
         Material material = materialRepository.findByIdAndDeletedFalse(request.getMaterialId())
                 .orElseThrow(() -> new BadRequestException("Материал не найден"));
 
-        Calculation calc = buildCalculationFromRequest(request, material);
+        Calculation calc = buildCalculationFromRequest(request, material, companyId);
         calc.setCreatedAt(LocalDateTime.now());
         validateCalculation(calc);
         calculateTotalPrice(calc);
@@ -75,9 +83,10 @@ public class CalculationService {
         return dto;
     }
 
-    private Calculation buildCalculationFromRequest(CalculationRequestDto request, Material material) {
+    private Calculation buildCalculationFromRequest(CalculationRequestDto request, Material material, Long companyId) {
         Calculation calc = new Calculation();
         calc.setMaterial(material);
+        calc.setCompanyId(companyId != null ? companyId : material.getCompanyId());
         calc.setWidthM(request.getWidthM());
         calc.setHeightM(request.getHeightM() != null ? request.getHeightM() : BigDecimal.ONE);
         calc.setDpi(request.getDpi());
@@ -109,6 +118,7 @@ public class CalculationService {
                 CalculationOperation calcOp = new CalculationOperation();
                 calcOp.setOperation(op);
                 calcOp.setPricePerUnit(op.getPrice());
+                calcOp.setCompanyId(companyId != null ? companyId : op.getCompanyId());
                 calc.addOperation(calcOp);
             }
         }

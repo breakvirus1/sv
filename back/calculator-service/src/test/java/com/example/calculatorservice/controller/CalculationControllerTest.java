@@ -39,6 +39,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -132,7 +133,7 @@ class CalculationControllerTest {
             dto.setName("Баннер 440 г/м2");
             dto.setPricePerSquareMeter(new BigDecimal("150.00"));
 
-            when(materialService.getAllMaterials()).thenReturn(List.of(material));
+            when(materialService.getAllMaterials(null)).thenReturn(List.of(material));
             when(operationMapper.toMaterialDto(any(Material.class))).thenReturn(dto);
 
             mockMvc.perform(get("/api/v1/calculations/materials"))
@@ -146,7 +147,7 @@ class CalculationControllerTest {
         @DisplayName("MANAGER gets list of materials")
         @WithMockUser(roles = "MANAGER")
         void managerGetsMaterials() throws Exception {
-            when(materialService.getAllMaterials()).thenReturn(List.of());
+            when(materialService.getAllMaterials(null)).thenReturn(List.of());
 
             mockMvc.perform(get("/api/v1/calculations/materials"))
                     .andExpect(status().isOk())
@@ -185,7 +186,7 @@ class CalculationControllerTest {
             dto.setName("Плёнка 80 мкм");
             dto.setType("PLENKA");
 
-            when(materialService.getMaterialsByType(MaterialType.PLENKA))
+            when(materialService.getMaterialsByType(MaterialType.PLENKA, null))
                     .thenReturn(List.of(new Material()));
             when(operationMapper.toMaterialDto(any(Material.class))).thenReturn(dto);
 
@@ -202,7 +203,7 @@ class CalculationControllerTest {
             mockMvc.perform(get("/api/v1/calculations/materials/UNKNOWN_TYPE"))
                     .andExpect(status().isBadRequest());
 
-            verify(materialService, never()).getMaterialsByType(any());
+            verify(materialService, never()).getMaterialsByType(any(), any());
         }
 
         @Test
@@ -230,7 +231,7 @@ class CalculationControllerTest {
             eyelet.setPricePerPiece(new BigDecimal("3.50"));
             eyelet.setDiameterMm(12);
 
-            when(eyeletService.getAllEyelets()).thenReturn(List.of(eyelet));
+            when(eyeletService.getAllEyelets(null)).thenReturn(List.of(eyelet));
 
             mockMvc.perform(get("/api/v1/calculations/eyelets"))
                     .andExpect(status().isOk())
@@ -263,7 +264,7 @@ class CalculationControllerTest {
             dto.setName("Ламинация");
             dto.setPrice(new BigDecimal("40.00"));
 
-            when(operationService.getAllOperations()).thenReturn(List.of(new Operation()));
+            when(operationService.getAllOperations(null)).thenReturn(List.of(new Operation()));
             when(operationMapper.toDto(any(Operation.class))).thenReturn(dto);
 
             mockMvc.perform(get("/api/v1/calculations/operations"))
@@ -292,7 +293,7 @@ class CalculationControllerTest {
         @DisplayName("ADMIN creates calculation")
         @WithMockUser(roles = "ADMIN")
         void adminCreatesCalculation() throws Exception {
-            when(calculationService.createAndCalculate(any(CalculationRequestDto.class)))
+            when(calculationService.createAndCalculate(any(CalculationRequestDto.class), any()))
                     .thenReturn(calculationResponse());
 
             mockMvc.perform(post("/api/v1/calculations")
@@ -313,7 +314,7 @@ class CalculationControllerTest {
                             .content("{}"))
                     .andExpect(status().isBadRequest());
 
-            verify(calculationService, never()).createAndCalculate(any());
+            verify(calculationService, never()).createAndCalculate(any(), any());
         }
 
         @Test
@@ -481,7 +482,7 @@ class CalculationControllerTest {
             response.setId(null);
             response.setTotalPrice(new BigDecimal("500.00"));
 
-            when(calculationService.calculateWithoutSaving(any(CalculationRequestDto.class)))
+            when(calculationService.calculateWithoutSaving(any(CalculationRequestDto.class), any()))
                     .thenReturn(response);
 
             mockMvc.perform(post("/api/v1/calculations/preview")
@@ -496,7 +497,7 @@ class CalculationControllerTest {
         @DisplayName("GOD previews calculation without saving")
         @WithMockUser(roles = "GOD")
         void godPreviewsCalculation() throws Exception {
-            when(calculationService.calculateWithoutSaving(any(CalculationRequestDto.class)))
+            when(calculationService.calculateWithoutSaving(any(CalculationRequestDto.class), any()))
                     .thenReturn(calculationResponse());
 
             mockMvc.perform(post("/api/v1/calculations/preview")
@@ -515,7 +516,7 @@ class CalculationControllerTest {
                             .content("{}"))
                     .andExpect(status().isBadRequest());
 
-            verify(calculationService, never()).calculateWithoutSaving(any());
+            verify(calculationService, never()).calculateWithoutSaving(any(), any());
         }
 
         @Test
@@ -557,7 +558,7 @@ class CalculationControllerTest {
                     List.of(new GroupedOperationsResponse.GroupDto(1L, "Подвороты", List.of(opDto))),
                     List.of()
             );
-            when(operationService.getGroupedOperationsByMaterialId(1L)).thenReturn(response);
+            when(operationService.getGroupedOperationsByMaterialId(1L, null)).thenReturn(response);
 
             mockMvc.perform(get("/api/v1/calculations/materials/1/grouped-operations"))
                     .andExpect(status().isOk())
@@ -586,7 +587,7 @@ class CalculationControllerTest {
         @WithMockUser(roles = "MANAGER")
         void managerGetsAllGroupedOperations() throws Exception {
             GroupedOperationsResponse response = new GroupedOperationsResponse(List.of(), List.of());
-            when(operationService.getGroupedOperationsByMaterialId(null)).thenReturn(response);
+            when(operationService.getGroupedOperationsByMaterialId(isNull(), isNull())).thenReturn(response);
 
             mockMvc.perform(get("/api/v1/calculations/operations/grouped"))
                     .andExpect(status().isOk())
@@ -599,13 +600,13 @@ class CalculationControllerTest {
         @WithMockUser(roles = "PRODUCTION")
         void productionGetsFilteredGroupedOperations() throws Exception {
             GroupedOperationsResponse response = new GroupedOperationsResponse(List.of(), List.of());
-            when(operationService.getGroupedOperationsByMaterialId(5L)).thenReturn(response);
+            when(operationService.getGroupedOperationsByMaterialId(5L, null)).thenReturn(response);
 
             mockMvc.perform(get("/api/v1/calculations/operations/grouped")
                             .param("materialId", "5"))
                     .andExpect(status().isOk());
 
-            verify(operationService).getGroupedOperationsByMaterialId(5L);
+            verify(operationService).getGroupedOperationsByMaterialId(5L, null);
         }
 
         @Test

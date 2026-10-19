@@ -164,7 +164,7 @@
       ],
       "attributes": {
         "fullName": [
-          "\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0422\u0435\u0441\u0442\u043e\u0432\u044b\u0439"
+          "Менеджер Тестовый"
         ]
       }
     },
@@ -187,7 +187,7 @@
       ],
       "attributes": {
         "fullName": [
-          "\u041f\u0440\u043e\u0438\u0437\u0432\u043e\u0434\u0441\u0442\u0432\u043e \u0418\u0441\u043f\u043e\u043b\u043d\u0438\u0442\u0435\u043b\u044c"
+          "Производство Исполнитель"
         ]
       }
     },
@@ -210,7 +210,7 @@
       ],
       "attributes": {
         "fullName": [
-          "\u0411\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440 \u0413\u043b\u0430\u0432\u043d\u044b\u0439"
+          "Бухгалтер Главный"
         ]
       }
     },
@@ -268,6 +268,32 @@
         ],
         "fullName": [
           "alx mozhaykin"
+        ]
+      }
+    },
+    {
+      "username": "adminsv1",
+      "enabled": true,
+      "email": "adminsv1@example.com",
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "SV e2e",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "111111",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ],
+      "attributes": {
+        "company_id": [
+          "1"
+        ],
+        "fullName": [
+          "Admin SV e2e"
         ]
       }
     }

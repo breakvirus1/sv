@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,15 +27,27 @@ public class MaterialService {
     private final MaterialRepository materialRepository;
     private final MaterialMapper materialMapper;
 
-    @Cacheable(value = "materials", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all')")
-    public Page<MaterialResponse> getAllMaterials(Specification<Material> spec, Pageable pageable) {
-        return materialRepository.findAll(spec, pageable)
+    @Cacheable(value = "materials", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all') + '_' + (#companyId ?: 'all')")
+    public Page<MaterialResponse> getAllMaterials(Specification<Material> spec, Pageable pageable, Long companyId) {
+        Specification<Material> finalSpec = spec == null ? Specification.where(null) : spec;
+        if (companyId != null) {
+            finalSpec = finalSpec.and((root, query, cb) -> cb.or(
+                    cb.isNull(root.get("companyId")),
+                    cb.equal(root.get("companyId"), companyId)));
+        }
+        return materialRepository.findAll(finalSpec, pageable)
                 .map(materialMapper::toDto);
     }
 
-    @Cacheable(value = "materials", key = "'type_' + #type")
-    public List<Material> getMaterialsByType(MaterialType type) {
-        return materialRepository.findByType(type);
+    @Cacheable(value = "materials", key = "'type_' + #type + '_' + (#companyId ?: 'all')")
+    public List<Material> getMaterialsByType(MaterialType type, Long companyId) {
+        List<Material> result = materialRepository.findByType(type);
+        if (companyId != null) {
+            result = result.stream()
+                    .filter(m -> m.getCompanyId() == null || companyId.equals(m.getCompanyId()))
+                    .collect(Collectors.toList());
+        }
+        return result;
     }
 
     @Cacheable(value = "materials", key = "'id_' + #id")
@@ -46,10 +59,11 @@ public class MaterialService {
     }
 
     @CacheEvict(value = "materials", allEntries = true)
-    public MaterialResponse createMaterial(MaterialCreateRequest request) {
+    public MaterialResponse createMaterial(MaterialCreateRequest request, Long companyId) {
         validateUnit(request.getUnit());
         Material material = materialMapper.toEntity(request);
         material.setType(MaterialType.MATERIAL);
+        material.setCompanyId(companyId);
         Material saved = materialRepository.save(material);
         return materialMapper.toDto(saved);
     }

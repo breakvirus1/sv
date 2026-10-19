@@ -32,9 +32,10 @@ public class ProductService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public ProductDTO create(ProductDTO dto) {
+    public ProductDTO create(ProductDTO dto, Long companyId) {
         Product product = new Product();
         applyDtoToProduct(product, dto);
+        product.setCompanyId(companyId);
         product = productRepository.save(product);
         return productMapper.toDto(product);
     }
@@ -59,9 +60,11 @@ public class ProductService {
         return productMapper.toDto(product);
     }
 
-    public List<ProductDTO> getAll() {
+    public List<ProductDTO> getAll(Long companyId) {
         return productRepository.findAll().stream()
                 .peek(p -> { if (p.getMaterials() != null) p.getMaterials().size(); if (p.getOperations() != null) p.getOperations().size(); })
+                .filter(p -> companyId == null || p.getCompanyId() == null
+                        || companyId.equals(p.getCompanyId()))
                 .map(productMapper::toDto)
                 .collect(java.util.stream.Collectors.toList());
     }

@@ -11,6 +11,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,10 +32,10 @@ public class OperationGroupAdminController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping
-    public ResponseEntity<List<OperationGroupDto>> getAllOperationGroups() {
+    public ResponseEntity<List<OperationGroupDto>> getAllOperationGroups(@AuthenticationPrincipal Jwt jwt) {
         try {
             return ResponseEntity.ok(
-                    operationService.getAllOperationGroups().stream()
+                    operationService.getAllOperationGroups(extractCompanyId(jwt)).stream()
                             .map(this::toDto)
                             .toList()
             );
@@ -53,12 +55,14 @@ public class OperationGroupAdminController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<OperationGroupDto> createOperationGroup(@Valid @RequestBody OperationGroupCreateRequest request) {
+    public ResponseEntity<OperationGroupDto> createOperationGroup(@Valid @RequestBody OperationGroupCreateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
         if (operationGroupRepository.findByName(request.getName()).isPresent()) {
             throw new BadRequestException("Группировка с таким названием уже существует");
         }
         OperationGroup group = new OperationGroup();
         group.setName(request.getName());
+        group.setCompanyId(extractCompanyId(jwt));
         OperationGroup saved = operationService.save(group);
         return ResponseEntity.ok(toDto(saved));
     }
@@ -109,5 +113,19 @@ public class OperationGroupAdminController {
         dto.setId(group.getId());
         dto.setName(group.getName());
         return dto;
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

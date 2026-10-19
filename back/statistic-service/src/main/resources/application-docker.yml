@@ -3,4 +3,5 @@ spring:
     enabled: true
     table: flyway_statistic_schema_history
     baseline-on-migrate: true
+    baseline-version: 0
     ignore-migration-patterns: "*:missing"

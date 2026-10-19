@@ -23,6 +23,8 @@ public class OrderResponse {
     private Long id;
     /** Номер заказа */
     private String orderNumber;
+    /** ID компании (мультитенантность) */
+    private Long companyId;
     /** Клиент */
     private ClientResponse client;
     /** Описание */

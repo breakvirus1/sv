@@ -113,7 +113,7 @@ class MaterialOperationControllerTest {
         @DisplayName("Authenticated USER gets operations of material")
         @WithMockUser(roles = "USER")
         void userGetsOperations() throws Exception {
-            when(operationService.getOperationsByMaterialId(1L)).thenReturn(List.of(operationResponse()));
+            when(operationService.getOperationsByMaterialId(1L, null)).thenReturn(List.of(operationResponse()));
 
             mockMvc.perform(get("/api/v1/materials/1/operations"))
                     .andExpect(status().isOk())
@@ -126,7 +126,7 @@ class MaterialOperationControllerTest {
         @DisplayName("ADMIN gets operations of material")
         @WithMockUser(roles = "ADMIN")
         void adminGetsOperations() throws Exception {
-            when(operationService.getOperationsByMaterialId(1L)).thenReturn(List.of());
+            when(operationService.getOperationsByMaterialId(1L, null)).thenReturn(List.of());
 
             mockMvc.perform(get("/api/v1/materials/1/operations"))
                     .andExpect(status().isOk())
@@ -137,7 +137,7 @@ class MaterialOperationControllerTest {
         @DisplayName("Returns 404 for non-existent material")
         @WithMockUser(roles = "MANAGER")
         void returns404ForNonExistent() throws Exception {
-            when(operationService.getOperationsByMaterialId(999L))
+            when(operationService.getOperationsByMaterialId(999L, null))
                     .thenThrow(new NotFoundException("Материал не найден"));
 
             mockMvc.perform(get("/api/v1/materials/999/operations"))
@@ -155,7 +155,7 @@ class MaterialOperationControllerTest {
         @DisplayName("Authenticated USER creates operation")
         @WithMockUser(roles = "USER")
         void userCreatesOperation() throws Exception {
-            when(operationService.createOperation(any(), any(MaterialOperationCreateRequest.class)))
+            when(operationService.createOperation(any(), any(MaterialOperationCreateRequest.class), any()))
                     .thenReturn(operationResponse());
 
             mockMvc.perform(post("/api/v1/materials/1/operations")
@@ -170,7 +170,7 @@ class MaterialOperationControllerTest {
         @DisplayName("Returns 400 when service rejects invalid input")
         @WithMockUser(roles = "MANAGER")
         void returns400ForInvalidInput() throws Exception {
-            when(operationService.createOperation(any(), any(MaterialOperationCreateRequest.class)))
+            when(operationService.createOperation(any(), any(MaterialOperationCreateRequest.class), any()))
                     .thenThrow(new IllegalArgumentException("Неизвестный тип операции"));
 
             mockMvc.perform(post("/api/v1/materials/1/operations")
@@ -183,7 +183,7 @@ class MaterialOperationControllerTest {
         @DisplayName("Returns 404 when material does not exist")
         @WithMockUser(roles = "ADMIN")
         void returns404ForNonExistentMaterial() throws Exception {
-            when(operationService.createOperation(any(), any(MaterialOperationCreateRequest.class)))
+            when(operationService.createOperation(any(), any(MaterialOperationCreateRequest.class), any()))
                     .thenThrow(new NotFoundException("Материал не найден"));
 
             mockMvc.perform(post("/api/v1/materials/999/operations")

@@ -11,6 +11,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -27,16 +29,20 @@ public class MaterialOperationController {
 
     @GetMapping
     @Operation(summary = "Получить все операции материала")
-    public ResponseEntity<List<MaterialOperationResponse>> getOperations(@PathVariable Long materialId) {
-        return ResponseEntity.ok(operationService.getOperationsByMaterialId(materialId));
+    public ResponseEntity<List<MaterialOperationResponse>> getOperations(
+            @PathVariable Long materialId,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(operationService.getOperationsByMaterialId(materialId, extractCompanyId(jwt)));
     }
 
     @PostMapping
     @Operation(summary = "Добавить операцию к материалу")
     public ResponseEntity<MaterialOperationResponse> createOperation(
             @PathVariable Long materialId,
-            @Valid @RequestBody MaterialOperationCreateRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(operationService.createOperation(materialId, request));
+            @Valid @RequestBody MaterialOperationCreateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(operationService.createOperation(materialId, request, extractCompanyId(jwt)));
     }
 
     @PutMapping("/{operationId}")
@@ -68,5 +74,19 @@ public class MaterialOperationController {
         }
         BigDecimal quantity = operationService.calculateQuantity(operationId, request);
         return ResponseEntity.ok(quantity);
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

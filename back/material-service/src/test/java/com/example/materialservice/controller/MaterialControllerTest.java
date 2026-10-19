@@ -34,6 +34,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -97,7 +98,7 @@ class MaterialControllerTest {
         @WithMockUser(roles = "ADMIN")
         void adminGetsMaterials() throws Exception {
             Page<MaterialResponse> page = new PageImpl<>(List.of(materialResponse()), PageRequest.of(0, 20), 1);
-            when(materialService.getAllMaterials(any(), any())).thenReturn(page);
+            when(materialService.getAllMaterials(any(), any(), isNull())).thenReturn(page);
 
             mockMvc.perform(get("/api/v1/materials"))
                     .andExpect(status().isOk())
@@ -112,13 +113,13 @@ class MaterialControllerTest {
         @WithMockUser(roles = "MANAGER")
         void managerGetsMaterialsWithQuery() throws Exception {
             Page<MaterialResponse> page = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
-            when(materialService.getAllMaterials(any(), any())).thenReturn(page);
+            when(materialService.getAllMaterials(any(), any(), isNull())).thenReturn(page);
 
             mockMvc.perform(get("/api/v1/materials").param("q", "баннер"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content.length()").value(0));
 
-            verify(materialService).getAllMaterials(any(), any());
+            verify(materialService).getAllMaterials(any(), any(), isNull());
         }
 
         @Test
@@ -187,7 +188,7 @@ class MaterialControllerTest {
         @DisplayName("ADMIN creates material")
         @WithMockUser(roles = "ADMIN")
         void adminCreatesMaterial() throws Exception {
-            when(materialService.createMaterial(any(MaterialCreateRequest.class)))
+            when(materialService.createMaterial(any(MaterialCreateRequest.class), any()))
                     .thenReturn(materialResponse());
 
             mockMvc.perform(post("/api/v1/materials")
@@ -202,7 +203,7 @@ class MaterialControllerTest {
         @DisplayName("GOD creates material")
         @WithMockUser(roles = "GOD")
         void godCreatesMaterial() throws Exception {
-            when(materialService.createMaterial(any(MaterialCreateRequest.class)))
+            when(materialService.createMaterial(any(MaterialCreateRequest.class), any()))
                     .thenReturn(materialResponse());
 
             mockMvc.perform(post("/api/v1/materials")
@@ -220,7 +221,7 @@ class MaterialControllerTest {
                             .content(objectMapper.writeValueAsString(createRequest())))
                     .andExpect(status().isForbidden());
 
-            verify(materialService, never()).createMaterial(any());
+            verify(materialService, never()).createMaterial(any(), any());
         }
 
         @Test

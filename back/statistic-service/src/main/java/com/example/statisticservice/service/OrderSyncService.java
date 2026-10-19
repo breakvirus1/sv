@@ -57,6 +57,7 @@ public class OrderSyncService {
         statisticOrder.setProductionStage(productionStage);
         statisticOrder.setManagerId(managerId);
         statisticOrder.setManagerName(managerName);
+        statisticOrder.setCompanyId(extractCompanyIdFromOrderData(orderData));
         statisticOrder.setSyncedAt(LocalDateTime.now());
 
         StatisticOrder savedOrder = statisticOrderRepository.save(statisticOrder);
@@ -76,6 +77,7 @@ public class OrderSyncService {
                 orderItem.setPrice(itemData.get("price") != null ? new BigDecimal(itemData.get("price").toString()) : BigDecimal.ZERO);
                 orderItem.setQuantity(itemData.get("quantity") != null ? ((Number) itemData.get("quantity")).intValue() : 1);
                 orderItem.setCost(itemData.get("cost") != null ? new BigDecimal(itemData.get("cost").toString()) : BigDecimal.ZERO);
+                orderItem.setCompanyId(savedOrder.getCompanyId());
                 String readyDateStr = (String) itemData.get("readyDate");
                 orderItem.setReadyDate(readyDateStr != null ? java.time.LocalDate.parse(readyDateStr) : null);
 
@@ -122,6 +124,7 @@ public class OrderSyncService {
                         consumption.setOrderClientPriceplus(orderPriceplus);
                         BigDecimal consumptionWithPriceplus = cost.multiply(BigDecimal.ONE.add(orderPriceplus.divide(BigDecimal.valueOf(100), 4, BigDecimal.ROUND_HALF_UP)));
                         consumption.setConsumptionWithPriceplus(consumptionWithPriceplus);
+                        consumption.setCompanyId(savedOrder.getCompanyId());
                         consumption.setSyncedAt(LocalDateTime.now());
 
                         statisticMaterialConsumptionRepository.save(consumption);
@@ -168,5 +171,19 @@ public class OrderSyncService {
         statisticOrderItemRepository.deleteAll(items);
 
         statisticOrderRepository.findByOrderId(orderId).ifPresent(statisticOrderRepository::delete);
+    }
+
+    private Long extractCompanyIdFromOrderData(Map<String, Object> orderData) {
+        Object companyId = orderData.get("companyId");
+        if (companyId instanceof Number number) {
+            return number.longValue();
+        }
+        if (companyId instanceof String str && !str.isBlank()) {
+            try {
+                return Long.parseLong(str);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return null;
     }
 }
