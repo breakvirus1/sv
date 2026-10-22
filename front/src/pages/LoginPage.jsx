@@ -1,38 +1,10 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Box, Button, Typography, TextField, Alert } from '@mui/material'
+import { Box, Button, Typography, Alert } from '@mui/material'
 
 const LoginPage = () => {
   const navigate = useNavigate()
-  const { loginWithPassword, login, isAuthenticated, authError, setAuthError, user } = useAuth()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  const handlePasswordLogin = async (e) => {
-    e.preventDefault()
-    setSubmitting(true)
-    setAuthError(null)
-    const result = await loginWithPassword(username, password)
-    setSubmitting(false)
-    if (result.success) {
-      setTimeout(() => {
-        const roles = result.roles || user?.roles || []
-        if (roles.includes('ROLE_GOD')) {
-          navigate('/admin-dashboard')
-        } else if (roles.includes('ROLE_PRODUCTION')) {
-          navigate('/orders?my=1')
-        } else {
-          navigate('/orders?my=1')
-        }
-      }, 50)
-    }
-  }
-
-  const handleKeycloakLogin = () => {
-    login()
-  }
+  const { login, isAuthenticated, authError, user } = useAuth()
 
   if (isAuthenticated) {
     return (
@@ -47,20 +19,14 @@ const LoginPage = () => {
 
   return (
     <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={3} px={2}>
-
-      <Box component="form" onSubmit={handlePasswordLogin} display="flex" flexDirection="column" gap={2} width="100%" maxWidth={400}>
-        <TextField label="Логин" value={username} onChange={(e) => setUsername(e.target.value)} required fullWidth autoFocus />
-        <TextField label="Пароль" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required fullWidth />
-        {authError && <Alert severity="error">{authError}</Alert>}
-        <Button type="submit" variant="contained" color="primary" size="large" fullWidth disabled={submitting}>
-          {submitting ? 'Вход...' : 'Войти'}
-        </Button>
-      </Box>
-
-      <Typography variant="caption" color="text.secondary" textAlign="center">
-        Тестовые пользователи: 
-        admin manager production
+      <Typography variant="h4">Print SV</Typography>
+      <Typography variant="body1" color="text.secondary" textAlign="center">
+        Вход выполняется через корпоративный Keycloak (OAuth2 Authorization Code + PKCE)
       </Typography>
+      {authError && <Alert severity="error">{authError}</Alert>}
+      <Button variant="contained" color="primary" size="large" onClick={login}>
+        Войти
+      </Button>
     </Box>
   )
 }

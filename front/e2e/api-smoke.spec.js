@@ -8,8 +8,10 @@ import { apiToken, apiGet } from './helpers'
 test.describe('API smoke через фронтенд', () => {
   let token
 
-  test.beforeAll(async ({ request }) => {
-    token = await apiToken(request, 'admin', 'admin')
+  test.beforeAll(async ({ browser, request }) => {
+    const page = await browser.newPage()
+    token = await apiToken(page, 'admin', 'admin')
+    await page.close()
     // синхронизируем сотрудников из keycloak сразу после чистого запуска стенда
     await request.post('/api/v1/employees/sync', { headers: { Authorization: `Bearer ${token}` } })
   })

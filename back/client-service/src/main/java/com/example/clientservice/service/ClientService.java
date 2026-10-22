@@ -46,17 +46,18 @@ public class ClientService {
                 .map(clientMapper::toDto);
     }
 
-    @Cacheable(value = "clients", key = "'id_' + #id")
+    @Cacheable(value = "clients", key = "'id_' + #id + '_' + (#companyId ?: 'all')")
     @Transactional(readOnly = true)
-    public ClientResponse getClientById(Long id) {
-        Client client = clientRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Клиент не найден"));
-        return clientMapper.toDto(client);
+    public ClientResponse getClientById(Long id, Long companyId) {
+        return clientMapper.toDto(getClientEntity(id, companyId));
     }
 
     @CacheEvict(value = "clients", allEntries = true)
     public ClientResponse createClient(ClientCreateRequest request) {
-        if (clientRepository.findByName(request.getName()).isPresent()) {
+        boolean duplicate = request.getCompanyId() == null
+                ? clientRepository.findByName(request.getName()).isPresent()
+                : clientRepository.findByNameAndCompanyId(request.getName(), request.getCompanyId()).isPresent();
+        if (duplicate) {
             throw new ConflictException("Клиент с таким названием уже существует");
         }
         Client client = clientMapper.createFromRequest(request);
@@ -69,8 +70,8 @@ public class ClientService {
     }
 
     @CacheEvict(value = "clients", allEntries = true)
-    public ClientResponse updateClient(Long id, ClientUpdateRequest request) {
-        Client client = getClientEntity(id);
+    public ClientResponse updateClient(Long id, ClientUpdateRequest request, Long companyId) {
+        Client client = getClientEntity(id, companyId);
         clientMapper.updateFromRequest(request, client);
         // Explicitly set priceplus as MapStruct may not map it correctly
         if (request.getPriceplus() != null) {
@@ -81,8 +82,8 @@ public class ClientService {
     }
 
     @CacheEvict(value = "clients", allEntries = true)
-    public void deleteClient(Long id) {
-        Client client = getClientEntity(id);
+    public void deleteClient(Long id, Long companyId) {
+        Client client = getClientEntity(id, companyId);
         Integer orderCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM svschema.orders WHERE client_id = ? AND deleted = false",
                 Integer.class,
@@ -102,16 +103,18 @@ public class ClientService {
                         cb.like(cb.lower(root.get("contactPerson")), "%" + query.toLowerCase() + "%")
                 );
         if (companyId != null) {
-            spec = spec.and((root, criteriaQuery, cb) -> cb.or(
-                    cb.isNull(root.get("companyId")),
-                    cb.equal(root.get("companyId"), companyId)));
+            spec = spec.and((root, criteriaQuery, cb) -> cb.equal(root.get("companyId"), companyId));
         }
         return clientRepository.findAll(spec);
     }
 
     @Transactional(readOnly = true)
-    private Client getClientEntity(Long id) {
-        return clientRepository.findById(id)
+    private Client getClientEntity(Long id, Long companyId) {
+        Client client = clientRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Клиент не найден"));
+        if (companyId != null && !companyId.equals(client.getCompanyId())) {
+            throw new NotFoundException("Клиент не найден");
+        }
+        return client;
     }
 }

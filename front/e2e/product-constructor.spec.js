@@ -11,7 +11,7 @@ test.describe.serial('Конструктор изделий: позиции ма
     await login(page, 'admin', 'admin')
 
     // Заказ создаётся только при наличии клиента
-    const token = await apiToken(request, 'admin', 'admin')
+    const token = await apiToken(page, 'admin', 'admin')
     const clientsResponse = await apiGet(request, '/api/v1/clients', token)
     const clientsData = await clientsResponse.json()
     if (!clientsData.content || clientsData.content.length === 0) {

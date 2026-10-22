@@ -88,10 +88,9 @@ public class EmployeeService {
         return employees;
     }
 
-    @Cacheable(value = "employees", key = "'id_' + #id")
-    public EmployeeResponse getEmployeeById(Long id) {
-        Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Сотрудник не найден"));
+    @Cacheable(value = "employees", key = "'id_' + #id + '_' + (#companyId ?: 'all')")
+    public EmployeeResponse getEmployeeById(Long id, Long companyId) {
+        Employee employee = getEmployeeEntity(id, companyId);
         EmployeeResponse response = employeeMapper.toDto(employee);
         if (employee.getRoles() != null) {
             response.setRoles(employee.getRoles().stream()
@@ -103,10 +102,13 @@ public class EmployeeService {
         return response;
     }
 
-    @Cacheable(value = "employees", key = "'username_' + #username")
-    public EmployeeResponse getEmployeeByUsername(String username) {
+    @Cacheable(value = "employees", key = "'username_' + #username + '_' + (#companyId ?: 'all')")
+    public EmployeeResponse getEmployeeByUsername(String username, Long companyId) {
         Employee employee = employeeRepository.findByUsername(username)
                 .orElseThrow(() -> new NotFoundException("Сотрудник не найден"));
+        if (companyId != null && !companyId.equals(employee.getCompanyId())) {
+            throw new NotFoundException("Сотрудник не найден");
+        }
         EmployeeResponse response = employeeMapper.toDto(employee);
         if (employee.getRoles() != null) {
             response.setRoles(employee.getRoles().stream()
@@ -129,16 +131,16 @@ public class EmployeeService {
     }
 
     @CacheEvict(value = "employees", allEntries = true)
-    public EmployeeResponse updateEmployee(Long id, EmployeeUpdateRequest request) {
-        Employee employee = getEmployeeEntity(id);
+    public EmployeeResponse updateEmployee(Long id, EmployeeUpdateRequest request, Long companyId) {
+        Employee employee = getEmployeeEntity(id, companyId);
         employeeMapper.updateEntityFromRequest(request, employee);
         Employee saved = employeeRepository.save(employee);
         return employeeMapper.toDto(saved);
     }
 
     @CacheEvict(value = "employees", allEntries = true)
-    public void deleteEmployee(Long id) {
-        Employee employee = getEmployeeEntity(id);
+    public void deleteEmployee(Long id, Long companyId) {
+        Employee employee = getEmployeeEntity(id, companyId);
         employeeRepository.delete(employee);
     }
 
@@ -322,9 +324,13 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
-    private Employee getEmployeeEntity(Long id) {
-        return employeeRepository.findById(id)
+    private Employee getEmployeeEntity(Long id, Long companyId) {
+        Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Сотрудник не найден"));
+        if (companyId != null && !companyId.equals(employee.getCompanyId())) {
+            throw new NotFoundException("Сотрудник не найден");
+        }
+        return employee;
     }
 
     /**

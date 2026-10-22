@@ -84,6 +84,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SERVER_IP: 127.0.0.1
+      KEYCLOAK_PUBLIC_URL: http://localhost:5174
+      KEYCLOAK_REALM_IMPORT: ./keycloak/realm-export.dev.json
+      KEYCLOAK_ADMIN_CLIENT_ID: order-service
+      KEYCLOAK_ADMIN_CLIENT_SECRET: order-service-secret
+      POSTGRES_PASSWORD: ci-postgres-password
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ci-keycloak-admin-password
     steps:
       - uses: actions/checkout@v4
 
@@ -108,10 +114,6 @@ jobs:
         working-directory: ./front
         run: npm ci
 
-      - name: Build frontend
-        working-directory: ./front
-        run: npm run build
-
       - name: Build Docker images
         run: docker compose build
 
@@ -119,7 +121,7 @@ jobs:
         run: docker compose up -d
 
       - name: Wait for stack readiness
-        run: ./scripts/wait-for-stack.sh http://localhost:5174 http://localhost:8080 60
+        run: ./scripts/wait-for-stack.sh http://localhost:5174 http://localhost:8085 120
 
       - name: Install Playwright browsers
         working-directory: ./front
@@ -176,6 +178,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SERVER_IP: 127.0.0.1
+      KEYCLOAK_PUBLIC_URL: http://localhost:5174
+      KEYCLOAK_REALM_IMPORT: ./keycloak/realm-export.json
+      KEYCLOAK_ADMIN_CLIENT_ID: order-service
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ci-client-secret
+      POSTGRES_PASSWORD: ci-postgres-password
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ci-keycloak-admin-password
     steps:
       - uses: actions/checkout@v4
 

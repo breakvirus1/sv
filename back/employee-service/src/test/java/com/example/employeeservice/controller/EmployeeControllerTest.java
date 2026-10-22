@@ -192,8 +192,8 @@ class EmployeeControllerTest {
         }
 
         @Test
-        @DisplayName("Explicit companyId param overrides JWT claim")
-        void explicitParamOverridesJwtClaim() throws Exception {
+        @DisplayName("JWT companyId wins over explicit param for non-GOD")
+        void jwtCompanyOverridesExplicitParam() throws Exception {
             Page<EmployeeResponse> emptyPage = new PageImpl<>(List.of());
             when(employeeService.getAllEmployees(any(), any(), any())).thenReturn(emptyPage);
 
@@ -206,7 +206,7 @@ class EmployeeControllerTest {
 
             ArgumentCaptor<Long> companyCaptor = ArgumentCaptor.forClass(Long.class);
             verify(employeeService).getAllEmployees(any(), any(), companyCaptor.capture());
-            assertEquals(3L, companyCaptor.getValue());
+            assertEquals(1L, companyCaptor.getValue());
         }
 
         @Test
@@ -235,7 +235,7 @@ class EmployeeControllerTest {
         @DisplayName("Returns employee by ID")
         @WithMockUser(roles = "ADMIN")
         void returnsEmployeeById() throws Exception {
-            when(employeeService.getEmployeeById(1L)).thenReturn(sampleEmployee());
+            when(employeeService.getEmployeeById(eq(1L), any())).thenReturn(sampleEmployee());
 
             mockMvc.perform(get("/api/v1/employees/1"))
                     .andExpect(status().isOk())
@@ -249,7 +249,7 @@ class EmployeeControllerTest {
         @DisplayName("Returns 404 for non-existent employee")
         @WithMockUser(roles = "ADMIN")
         void returns404ForNonExistent() throws Exception {
-            when(employeeService.getEmployeeById(999L))
+            when(employeeService.getEmployeeById(eq(999L), any()))
                     .thenThrow(new NotFoundException("Сотрудник не найден"));
 
             mockMvc.perform(get("/api/v1/employees/999"))
@@ -260,7 +260,7 @@ class EmployeeControllerTest {
         @DisplayName("MANAGER can get employee by ID")
         @WithMockUser(roles = "MANAGER")
         void managerCanGetEmployeeById() throws Exception {
-            when(employeeService.getEmployeeById(1L)).thenReturn(sampleEmployee());
+            when(employeeService.getEmployeeById(eq(1L), any())).thenReturn(sampleEmployee());
 
             mockMvc.perform(get("/api/v1/employees/1"))
                     .andExpect(status().isOk());
@@ -285,7 +285,7 @@ class EmployeeControllerTest {
         @DisplayName("Returns employee by username")
         @WithMockUser(roles = "ADMIN")
         void returnsEmployeeByUsername() throws Exception {
-            when(employeeService.getEmployeeByUsername("ivanov")).thenReturn(sampleEmployee());
+            when(employeeService.getEmployeeByUsername(eq("ivanov"), any())).thenReturn(sampleEmployee());
 
             mockMvc.perform(get("/api/v1/employees/username/ivanov"))
                     .andExpect(status().isOk())
@@ -381,7 +381,7 @@ class EmployeeControllerTest {
             request.setFullName("Updated Name");
             request.setUsername("ivanov");
 
-            when(employeeService.updateEmployee(eq(1L), any())).thenReturn(sampleEmployee());
+            when(employeeService.updateEmployee(eq(1L), any(), any())).thenReturn(sampleEmployee());
 
             mockMvc.perform(put("/api/v1/employees/1")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -415,7 +415,7 @@ class EmployeeControllerTest {
         @DisplayName("ADMIN can delete employee")
         @WithMockUser(roles = "ADMIN")
         void adminCanDeleteEmployee() throws Exception {
-            doNothing().when(employeeService).deleteEmployee(1L);
+            doNothing().when(employeeService).deleteEmployee(eq(1L), any());
 
             mockMvc.perform(delete("/api/v1/employees/1"))
                     .andExpect(status().isNoContent());
@@ -425,7 +425,7 @@ class EmployeeControllerTest {
         @DisplayName("GOD can delete employee")
         @WithMockUser(roles = "GOD")
         void godCanDeleteEmployee() throws Exception {
-            doNothing().when(employeeService).deleteEmployee(1L);
+            doNothing().when(employeeService).deleteEmployee(eq(1L), any());
 
             mockMvc.perform(delete("/api/v1/employees/1"))
                     .andExpect(status().isNoContent());

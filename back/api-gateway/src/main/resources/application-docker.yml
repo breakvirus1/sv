@@ -3,12 +3,11 @@ server:
 
 app:
   keycloak:
-    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://192.168.1.40:8080/realms/print-sv}
+    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:5174/realms/print-sv}
     token-base-url: ${KEYCLOAK_TOKEN_BASE_URL:http://keycloak:8080/realms/print-sv}
     client-id: ${KEYCLOAK_CLIENT_ID:frontend}
-    client-secret: ${KEYCLOAK_CLIENT_SECRET:}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5174,http://127.0.0.1:5174}
 
 spring:
   servlet:
@@ -20,96 +19,11 @@ spring:
       discovery:
         locator:
           enabled: false
-      routes:
-        - id: employee-service
-          uri: lb://employee-service
-          predicates:
-            - Path=/api/v1/employees/**
-        - id: client-service
-          uri: lb://client-service
-          predicates:
-            - Path=/api/v1/companies/**
-        - id: client-service-clients
-          uri: lb://client-service
-          predicates:
-            - Path=/api/v1/clients/**
-        - id: client-service-admin
-          uri: lb://client-service
-          predicates:
-            - Path=/api/v1/admin/clients/**
-        - id: material-service
-          uri: lb://material-service
-          predicates:
-            - Path=/api/v1/materials/**
-        - id: material-service-admin
-          uri: lb://material-service
-          predicates:
-            - Path=/api/v1/admin/materials/**
-        - id: calculator-service
-          uri: lb://calculator-service
-          predicates:
-            - Path=/api/v1/calculations/**
-        - id: calculator-service-admin-operations
-          uri: lb://calculator-service
-          predicates:
-            - Path=/api/v1/admin/operations/**
-        - id: calculator-service-admin-operation-groups
-          uri: lb://calculator-service
-          predicates:
-            - Path=/api/v1/admin/operation-groups/**
-        - id: calculator-service-admin-material-ops
-          uri: lb://calculator-service
-          predicates:
-            - Path=/api/v1/admin/materials-with-operations/**
-        - id: order-service
-          uri: lb://order-service
-          predicates:
-            - Path=/api/v1/orders/**
-        - id: order-service-products
-          uri: lb://order-service
-          predicates:
-            - Path=/api/v1/products/**
-        - id: order-service-workshops
-          uri: lb://order-service
-          predicates:
-            - Path=/api/v1/workshops/**
-        - id: order-service-calculation
-          uri: lb://order-service
-          predicates:
-            - Path=/api/calculation/**
-        - id: order-service-admin-orders
-          uri: lb://order-service
-          predicates:
-            - Path=/api/v1/admin/orders/**
-        - id: comment-service
-          uri: lb://comment-service
-          predicates:
-            - Path=/api/v1/comments/**
-        - id: comment-service-replies
-          uri: lb://comment-service
-          predicates:
-            - Path=/api/v1/comment-replies/**
-        - id: comment-service-images
-          uri: lb://comment-service
-          predicates:
-            - Path=/api/v1/images/**
-        - id: comment-service-notifications
-          uri: lb://comment-service
-          predicates:
-            - Path=/api/v1/notifications/**
-        - id: file-service
-          uri: lb://file-service
-          predicates:
-            - Path=/api/files/**
-        - id: auth-service
-          uri: lb://api-gateway
-          predicates:
-            - Path=/api/v1/auth/**
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://192.168.1.40:8080/realms/print-sv}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:5174/realms/print-sv}
           jwk-set-uri: http://keycloak:8080/realms/print-sv/protocol/openid-connect/certs
 
 eureka:

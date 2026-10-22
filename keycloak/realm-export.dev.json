@@ -1,0 +1,301 @@
+{
+  "realm": "print-sv",
+  "enabled": true,
+  "displayName": "Print SV Production (DEV ONLY)",
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"company_id\",\"displayName\":\"Company ID\",\"validations\":{},\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"multivalued\":true},{\"name\":\"fullName\",\"displayName\":\"Full Name\",\"validations\":{},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"multivalued\":true}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
+          ]
+        }
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "order-service",
+      "name": "Order Service Client",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "order-service-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "implicitFlowEnabled": false
+    },
+    {
+      "clientId": "frontend",
+      "name": "Frontend SPA",
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "redirectUris": [
+        "http://localhost:5174/*",
+        "http://localhost:5174/callback",
+        "http://127.0.0.1:5174/*",
+        "http://127.0.0.1:5174/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:5174",
+        "http://127.0.0.1:5174"
+      ],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "protocolMappers": [
+        {
+          "name": "company_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "company_id",
+            "claim.name": "company_id",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false",
+            "multivalued": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "GOD",
+        "description": "God - super admin with access to admin dashboard",
+        "composite": false
+      },
+      {
+        "name": "ADMIN",
+        "description": "Administrator with full access",
+        "composite": false
+      },
+      {
+        "name": "MANAGER",
+        "description": "Manager - can manage orders and clients",
+        "composite": false
+      },
+      {
+        "name": "PRODUCTION",
+        "description": "Production user - can update production stages",
+        "composite": false
+      },
+      {
+        "name": "ACCOUNTANT",
+        "description": "Accountant - can manage payments and view analytics",
+        "composite": false
+      },
+      {
+        "name": "USER",
+        "description": "Regular user with limited access",
+        "composite": false
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@example.com",
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ],
+      "attributes": {
+        "fullName": [
+          "System Administrator"
+        ],
+        "company_id": [
+          "1"
+        ]
+      }
+    },
+    {
+      "username": "manager",
+      "enabled": true,
+      "email": "manager@example.com",
+      "emailVerified": true,
+      "firstName": "Manager",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "manager",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "MANAGER"
+      ],
+      "attributes": {
+        "fullName": [
+          "Менеджер Тестовый"
+        ],
+        "company_id": [
+          "1"
+        ]
+      }
+    },
+    {
+      "username": "production",
+      "enabled": true,
+      "email": "production@example.com",
+      "emailVerified": true,
+      "firstName": "Production",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "production",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "PRODUCTION"
+      ],
+      "attributes": {
+        "fullName": [
+          "Производство Исполнитель"
+        ],
+        "company_id": [
+          "1"
+        ]
+      }
+    },
+    {
+      "username": "accountant",
+      "enabled": true,
+      "email": "accountant@example.com",
+      "emailVerified": true,
+      "firstName": "Accountant",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "accountant",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ACCOUNTANT"
+      ],
+      "attributes": {
+        "fullName": [
+          "Бухгалтер Главный"
+        ],
+        "company_id": [
+          "1"
+        ]
+      }
+    },
+    {
+      "username": "service-account-order-service",
+      "enabled": true,
+      "serviceAccountClientId": "order-service",
+      "realmRoles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "username": "admingod",
+      "enabled": true,
+      "email": "admingod@example.com",
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "God",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admingod",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "GOD"
+      ],
+      "attributes": {
+        "fullName": [
+          "Admin God"
+        ]
+      }
+    },
+    {
+      "username": "adminsv",
+      "enabled": true,
+      "email": "adminsv@example.com",
+      "emailVerified": true,
+      "firstName": "alx",
+      "lastName": "mozhaykin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ],
+      "attributes": {
+        "company_id": [
+          "1"
+        ],
+        "fullName": [
+          "alx mozhaykin"
+        ]
+      }
+    },
+    {
+      "username": "adminsv1",
+      "enabled": true,
+      "email": "adminsv1@example.com",
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "SV e2e",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "111111",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ],
+      "attributes": {
+        "company_id": [
+          "1"
+        ],
+        "fullName": [
+          "Admin SV e2e"
+        ]
+      }
+    }
+  ],
+  "bruteForceProtected": true,
+  "failureFactor": 10,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "sslRequired": "none"
+}

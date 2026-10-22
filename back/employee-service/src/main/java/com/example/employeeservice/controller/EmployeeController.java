@@ -51,29 +51,43 @@ public class EmployeeController {
                     ));
         }
 
-        // If companyId is explicitly provided, use it. Otherwise extract from JWT.
-        Long effectiveCompanyId = companyId != null ? companyId : extractCompanyId(jwt);
+        Long effectiveCompanyId;
+        if (isGod(jwt)) {
+            effectiveCompanyId = companyId != null ? companyId : extractCompanyId(jwt);
+        } else {
+            effectiveCompanyId = requireCompanyId(jwt);
+        }
         return ResponseEntity.ok(employeeService.getAllEmployees(spec, pageable, effectiveCompanyId));
     }
 
     @Operation(summary = "Получить сотрудника по username")
     @GetMapping("/username/{username}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<EmployeeResponse> getEmployeeByUsername(@PathVariable String username) {
-        return ResponseEntity.ok(employeeService.getEmployeeByUsername(username));
+    public ResponseEntity<EmployeeResponse> getEmployeeByUsername(@PathVariable String username,
+                                                                  @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(employeeService.getEmployeeByUsername(username, scopedCompanyId(jwt)));
     }
 
     @Operation(summary = "Получить сотрудника по ID")
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
-    public ResponseEntity<EmployeeResponse> getEmployee(@Parameter(description = "ID сотрудника") @PathVariable Long id) {
-        return ResponseEntity.ok(employeeService.getEmployeeById(id));
+    public ResponseEntity<EmployeeResponse> getEmployee(@Parameter(description = "ID сотрудника") @PathVariable Long id,
+                                                        @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(employeeService.getEmployeeById(id, scopedCompanyId(jwt)));
     }
 
     @Operation(summary = "Создать нового сотрудника")
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
-    public ResponseEntity<EmployeeResponse> createEmployee(@Valid @RequestBody EmployeeCreateRequest request) {
+    public ResponseEntity<EmployeeResponse> createEmployee(@Valid @RequestBody EmployeeCreateRequest request,
+                                                           @AuthenticationPrincipal Jwt jwt) {
+        if (isGod(jwt)) {
+            if (request.getCompanyId() == null) {
+                request.setCompanyId(extractCompanyId(jwt));
+            }
+        } else {
+            request.setCompanyId(requireCompanyId(jwt));
+        }
         return new ResponseEntity<>(employeeService.createEmployee(request), HttpStatus.CREATED);
     }
 
@@ -82,8 +96,9 @@ public class EmployeeController {
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<EmployeeResponse> updateEmployee(
             @Parameter(description = "ID сотрудника") @PathVariable Long id,
-            @Valid @RequestBody EmployeeUpdateRequest request) {
-        return ResponseEntity.ok(employeeService.updateEmployee(id, request));
+            @Valid @RequestBody EmployeeUpdateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(employeeService.updateEmployee(id, request, scopedCompanyId(jwt)));
     }
 
     @Operation(summary = "Синхронизировать текущего пользователя из Keycloak")
@@ -111,24 +126,61 @@ public class EmployeeController {
     @Operation(summary = "Синхронизировать пользователей из Keycloak по компании (ADMIN компании)")
     @PostMapping("/sync-by-company")
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
-    public ResponseEntity<String> syncByCompany(@RequestParam Long companyId) {
-        String result = employeeService.syncFromKeycloakByCompany(companyId);
+    public ResponseEntity<String> syncByCompany(@RequestParam Long companyId,
+                                                @AuthenticationPrincipal Jwt jwt) {
+        Long effectiveCompanyId = companyId;
+        if (jwt != null && !isGod(jwt)) {
+            effectiveCompanyId = requireCompanyId(jwt);
+            if (!effectiveCompanyId.equals(companyId)) {
+                throw new org.springframework.security.access.AccessDeniedException("Cannot sync another company");
+            }
+        }
+        String result = employeeService.syncFromKeycloakByCompany(effectiveCompanyId);
         return ResponseEntity.ok("Синхронизация по компании завершена. " + result);
     }
 
     @Operation(summary = "Удалить сотрудника")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
-    public ResponseEntity<Void> deleteEmployee(@Parameter(description = "ID сотрудника") @PathVariable Long id) {
-        employeeService.deleteEmployee(id);
+    public ResponseEntity<Void> deleteEmployee(@Parameter(description = "ID сотрудника") @PathVariable Long id,
+                                               @AuthenticationPrincipal Jwt jwt) {
+        employeeService.deleteEmployee(id, scopedCompanyId(jwt));
         return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Получить роли сотрудника из Keycloak по username")
     @GetMapping("/roles/{username}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
-    public ResponseEntity<List<String>> getEmployeeRoles(@PathVariable String username) {
+    public ResponseEntity<List<String>> getEmployeeRoles(@PathVariable String username,
+                                                         @AuthenticationPrincipal Jwt jwt) {
+        employeeService.getEmployeeByUsername(username, scopedCompanyId(jwt));
         return ResponseEntity.ok(employeeService.getKeycloakRolesForUser(username));
+    }
+
+    private Long scopedCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        if (isGod(jwt)) return extractCompanyId(jwt);
+        return requireCompanyId(jwt);
+    }
+
+    private Long requireCompanyId(Jwt jwt) {
+        Long companyId = extractCompanyId(jwt);
+        if (companyId == null && jwt != null) {
+            throw new org.springframework.security.access.AccessDeniedException("company_id claim is required");
+        }
+        return companyId;
+    }
+
+    private boolean isGod(Jwt jwt) {
+        if (jwt == null) return false;
+        Object realmAccess = jwt.getClaim("realm_access");
+        if (realmAccess instanceof java.util.Map<?, ?> access) {
+            Object roles = access.get("roles");
+            if (roles instanceof java.util.List<?> list) {
+                return list.stream().anyMatch(r -> "GOD".equals(String.valueOf(r)) || "ROLE_GOD".equals(String.valueOf(r)));
+            }
+        }
+        return false;
     }
 
     private Long extractCompanyId(Jwt jwt) {

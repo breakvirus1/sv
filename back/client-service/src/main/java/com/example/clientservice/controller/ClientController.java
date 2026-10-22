@@ -47,8 +47,7 @@ public class ClientController {
                     ));
         }
 
-        Long companyId = extractCompanyId(jwt);
-        return ResponseEntity.ok(clientService.getAllClients(spec, pageable, companyId));
+        return ResponseEntity.ok(clientService.getAllClients(spec, pageable, scopedCompanyId(jwt)));
     }
 
     @Operation(summary = "Найти клиентов по запросу")
@@ -57,14 +56,15 @@ public class ClientController {
     public ResponseEntity<List<Client>> searchClients(
             @RequestParam String q,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(clientService.searchClients(q, extractCompanyId(jwt)));
+        return ResponseEntity.ok(clientService.searchClients(q, scopedCompanyId(jwt)));
     }
 
     @Operation(summary = "Получить клиента по ID")
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ACCOUNTANT', 'GOD')")
-    public ResponseEntity<ClientResponse> getClient(@Parameter(description = "ID клиента") @PathVariable Long id) {
-        return ResponseEntity.ok(clientService.getClientById(id));
+    public ResponseEntity<ClientResponse> getClient(@Parameter(description = "ID клиента") @PathVariable Long id,
+                                                    @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(clientService.getClientById(id, scopedCompanyId(jwt)));
     }
 
     @Operation(summary = "Создать нового клиента")
@@ -73,8 +73,12 @@ public class ClientController {
     public ResponseEntity<ClientResponse> createClient(
             @Valid @RequestBody ClientCreateRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        if (request.getCompanyId() == null) {
-            request.setCompanyId(extractCompanyId(jwt));
+        if (isGod(jwt)) {
+            if (request.getCompanyId() == null) {
+                request.setCompanyId(extractCompanyId(jwt));
+            }
+        } else {
+            request.setCompanyId(requireCompanyId(jwt));
         }
         return new ResponseEntity<>(clientService.createClient(request), HttpStatus.CREATED);
     }
@@ -84,16 +88,44 @@ public class ClientController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
     public ResponseEntity<ClientResponse> updateClient(
             @Parameter(description = "ID клиента") @PathVariable Long id,
-            @Valid @RequestBody ClientUpdateRequest request) {
-        return ResponseEntity.ok(clientService.updateClient(id, request));
+            @Valid @RequestBody ClientUpdateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(clientService.updateClient(id, request, scopedCompanyId(jwt)));
     }
 
     @Operation(summary = "Удалить клиента")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'GOD')")
-    public ResponseEntity<Void> deleteClient(@Parameter(description = "ID клиента") @PathVariable Long id) {
-        clientService.deleteClient(id);
+    public ResponseEntity<Void> deleteClient(@Parameter(description = "ID клиента") @PathVariable Long id,
+                                             @AuthenticationPrincipal Jwt jwt) {
+        clientService.deleteClient(id, scopedCompanyId(jwt));
         return ResponseEntity.noContent().build();
+    }
+
+    private Long scopedCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        if (isGod(jwt)) return extractCompanyId(jwt);
+        return requireCompanyId(jwt);
+    }
+
+    private Long requireCompanyId(Jwt jwt) {
+        Long companyId = extractCompanyId(jwt);
+        if (companyId == null && jwt != null) {
+            throw new org.springframework.security.access.AccessDeniedException("company_id claim is required");
+        }
+        return companyId;
+    }
+
+    private boolean isGod(Jwt jwt) {
+        if (jwt == null) return false;
+        Object realmAccess = jwt.getClaim("realm_access");
+        if (realmAccess instanceof java.util.Map<?, ?> access) {
+            Object roles = access.get("roles");
+            if (roles instanceof java.util.List<?> list) {
+                return list.stream().anyMatch(r -> "GOD".equals(String.valueOf(r)) || "ROLE_GOD".equals(String.valueOf(r)));
+            }
+        }
+        return false;
     }
 
     private Long extractCompanyId(Jwt jwt) {

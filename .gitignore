@@ -77,3 +77,5 @@ images/
 ### Playwright ###
 front/test-results/
 front/playwright-report/
+
+front/dist_tmp/

@@ -199,7 +199,7 @@ class ClientControllerTest {
         @DisplayName("Returns client by ID")
         @WithMockUser(roles = "MANAGER")
         void returnsClientById() throws Exception {
-            when(clientService.getClientById(1L)).thenReturn(clientResponse());
+            when(clientService.getClientById(eq(1L), any())).thenReturn(clientResponse());
 
             mockMvc.perform(get("/api/v1/clients/1"))
                     .andExpect(status().isOk())
@@ -214,7 +214,7 @@ class ClientControllerTest {
         @DisplayName("Returns 404 for non-existent client")
         @WithMockUser(roles = "ADMIN")
         void returns404ForNonExistent() throws Exception {
-            when(clientService.getClientById(999L))
+            when(clientService.getClientById(eq(999L), any()))
                     .thenThrow(new NotFoundException("Клиент не найден"));
 
             mockMvc.perform(get("/api/v1/clients/999"))
@@ -315,7 +315,7 @@ class ClientControllerTest {
             ClientResponse updated = clientResponse();
             updated.setName("Обновлённый клиент");
 
-            when(clientService.updateClient(eq(1L), any())).thenReturn(updated);
+            when(clientService.updateClient(eq(1L), any(), any())).thenReturn(updated);
 
             mockMvc.perform(put("/api/v1/clients/1")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -332,7 +332,7 @@ class ClientControllerTest {
             ClientUpdateRequest request = new ClientUpdateRequest();
             request.setName("Обновлённый клиент");
 
-            when(clientService.updateClient(eq(999L), any()))
+            when(clientService.updateClient(eq(999L), any(), any()))
                     .thenThrow(new NotFoundException("Клиент не найден"));
 
             mockMvc.perform(put("/api/v1/clients/999")
@@ -365,7 +365,7 @@ class ClientControllerTest {
         @DisplayName("ADMIN can delete client")
         @WithMockUser(roles = "ADMIN")
         void adminCanDeleteClient() throws Exception {
-            doNothing().when(clientService).deleteClient(1L);
+            doNothing().when(clientService).deleteClient(eq(1L), any());
 
             mockMvc.perform(delete("/api/v1/clients/1"))
                     .andExpect(status().isNoContent());
@@ -375,7 +375,7 @@ class ClientControllerTest {
         @DisplayName("MANAGER can delete client")
         @WithMockUser(roles = "MANAGER")
         void managerCanDeleteClient() throws Exception {
-            doNothing().when(clientService).deleteClient(1L);
+            doNothing().when(clientService).deleteClient(eq(1L), any());
 
             mockMvc.perform(delete("/api/v1/clients/1"))
                     .andExpect(status().isNoContent());
@@ -386,7 +386,7 @@ class ClientControllerTest {
         @WithMockUser(roles = "ADMIN")
         void returns404ForNonExistent() throws Exception {
             org.mockito.Mockito.doThrow(new NotFoundException("Клиент не найден"))
-                    .when(clientService).deleteClient(999L);
+                    .when(clientService).deleteClient(eq(999L), any());
 
             mockMvc.perform(delete("/api/v1/clients/999"))
                     .andExpect(status().isNotFound());

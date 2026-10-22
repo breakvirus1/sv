@@ -11,12 +11,28 @@ export async function trackServerErrors(page) {
   return failures
 }
 
+/**
+ * Вход через форму Keycloak (Authorization Code + PKCE).
+ * Если SSO-сессия Keycloak уже активна, форма может быть пропущена.
+ */
 export async function login(page, username, password) {
   await page.goto('/login')
-  await page.getByLabel('Логин').fill(username)
-  await page.getByLabel('Пароль').fill(password)
   await page.getByRole('button', { name: 'Войти' }).click()
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 })
+
+  if (page.url().includes('/realms/')) {
+    await page.locator('#username').fill(username)
+    await page.locator('#password').fill(password)
+    await page.locator('#kc-login').click()
+  }
+
+  await page.waitForURL(
+    (url) =>
+      !url.pathname.startsWith('/login') &&
+      !url.pathname.startsWith('/callback') &&
+      !url.pathname.includes('/realms/'),
+    { timeout: 30_000 }
+  )
 }
 
 export async function logout(page) {
@@ -25,20 +41,17 @@ export async function logout(page) {
 }
 
 /**
- * Токен через password grant Keycloak (проксируется фронтенд-nginx как /realms).
+ * Возвращает access token из текущей сессии браузера.
+ * Если сессии нет — выполняет вход через UI Keycloak.
  */
-export async function apiToken(request, username, password) {
-  const res = await request.post('/realms/print-sv/protocol/openid-connect/token', {
-    form: {
-      grant_type: 'password',
-      client_id: 'frontend',
-      username,
-      password
-    }
-  })
-  expect(res.ok(), `token request failed: ${res.status()} ${await res.text()}`).toBeTruthy()
-  const data = await res.json()
-  return data.access_token
+export async function apiToken(page, username, password) {
+  const existing = await page.evaluate(() => window.sessionStorage.getItem('token'))
+  if (existing) return existing
+
+  await login(page, username, password)
+  const token = await page.evaluate(() => window.sessionStorage.getItem('token'))
+  expect(token, 'access token должен быть сохранён в sessionStorage').toBeTruthy()
+  return token
 }
 
 export async function apiGet(request, path, token) {

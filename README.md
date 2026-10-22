@@ -49,29 +49,38 @@ docker-compose.yml          # Оркестрация всех сервисов
 
 ```bash
 cp .env.example .env
-# укажите SERVER_IP и пароли
+# укажите SERVER_IP, KEYCLOAK_PUBLIC_URL и надёжные пароли
 ```
 
 2. **Запустите все сервисы:**
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 # генератор тестовых данных (только для разработки):
 docker compose --profile dev up -d generate-data-service
 ```
 
-Realm `print-sv` импортируется автоматически (`--import-realm`).
+Realm `print-sv` импортируется автоматически (`--import-realm`). По умолчанию
+используется `keycloak/realm-export.json` — production-safe realm **без
+пользователей и клиентских секретов**. Первого администратора создайте вручную
+в Keycloak Admin Console, задайте ему `company_id` и создайте confidential-клиент
+`order-service` (секрет пропишите в `KEYCLOAK_ADMIN_CLIENT_SECRET`).
 
-Сервисы будут доступны:
-- Keycloak: http://localhost:8080
-- PostgreSQL: localhost:5433 (база `svdb`)
-- Eureka: http://localhost:8761
-- API Gateway: http://localhost:8085
-- Order Service: http://localhost:8081
-- Client Service: http://localhost:8082
-- Frontend: http://localhost:5174
+Для локальной разработки/e2e можно импортировать dev-realm с демо-пользователями:
 
-### Тестовые пользователи
+```bash
+KEYCLOAK_REALM_IMPORT=./keycloak/realm-export.dev.json docker compose up -d --build
+```
+
+Снаружи доступен только фронтенд (через него проксируются API и Keycloak).
+Отладочные порты привязаны к loopback и недоступны из локальной сети:
+- Frontend: http://localhost:5174 (`/realms/print-sv`, `/api/...`)
+- API Gateway: http://127.0.0.1:8085 (только loopback)
+- Keycloak: http://127.0.0.1:8080 (только loopback, для локальной разработки)
+- Внутренние сервисы (PostgreSQL, Eureka, order/client/file/comment/statistic)
+  наружу не публикуются.
+
+### Тестовые пользователи (только dev-realm)
 
 | Логин  | Пароль  | Роли                                   |
 |--------|---------|----------------------------------------|
@@ -80,26 +89,36 @@ Realm `print-sv` импортируется автоматически (`--impor
 | production | production | PRODUCTION                       |
 | accountant | accountant | ACCOUNTANT                       |
 
-Атрибут `company_id` у пользователя определяет компанию-tenant (изоляция данных).
+Эти учётки находятся только в `keycloak/realm-export.dev.json` и не должны
+использоваться в продакшене. У всех демо-пользователей задан `company_id=1`;
+этот атрибут определяет компанию-tenant (изоляция данных). Пользователь без
+`company_id` получает доступ только при наличии роли `GOD`.
 При создании новой компании автоматически добавляются дефолтные материалы и операции (CompanyDefaultsSeeder).
+
+Вход выполняется по OAuth2 Authorization Code + PKCE; password grant отключён.
 
 ## API Endpoints
 
-### Order Service (http://localhost:8081)
+Все запросы идут через nginx фронтенда (`/api/...`). API Gateway опубликован
+только на loopback (`http://127.0.0.1:8085`) для отладки; внутренние порты
+сервисов наружу не публикуются.
+
+### Order Service (через gateway)
 - `GET /api/v1/orders` — список заказов (с фильтрами, пагинацией)
 - `GET /api/v1/orders/{id}` — детали заказа
 - `POST /api/v1/orders` — создать заказ
 - `PUT /api/v1/orders/{id}/status` — изменить статус
 - `POST /api/v1/orders/{id}/payments` — добавить оплату
 
-### Client Service (http://localhost:8082)
+### Client Service (через gateway)
 - `GET /api/v1/clients` — список клиентов
 - `POST /api/v1/clients` — создать клиента
 - `GET /api/v1/clients/{id}` — детали клиента
 
 ### API Gateway (http://localhost:8085)
 Проксирует запросы к микросервисам с проверкой JWT токенов.
-- `POST /api/auth/token` — обмен authorization code на access token
+- `POST /api/v1/auth/token` — обмен authorization code + PKCE на токены
+- `POST /api/v1/auth/refresh` — обновление токенов
 
 ## База данных
 
@@ -163,14 +182,14 @@ Frontend запустится на http://localhost:5174
 
 ## Дополнительные возможности
 
-- **Eureka Dashboard:** http://localhost:8761
-- **Swagger UI:** http://localhost:8081/swagger-ui.html (и в остальных сервисах)
-- **Actuator (Order Service):** http://localhost:8081/actuator
+- **Eureka Dashboard:** доступен только внутри docker-сети (`http://discovery-server:8761`)
+- **Swagger UI:** через gateway, например `http://localhost:8085/swagger-ui.html`
+- **Actuator:** только внутри docker-сети (`http://order-service:8081/actuator`)
 
 ## Безопасность
 
 Все микросервисы (кроме gateway) работают как Resource Server и проверяют JWT токены от Keycloak.
-- `issuer-uri`: http://${SERVER_IP}:8080/realms/print-sv
+- `issuer-uri`: ${KEYCLOAK_PUBLIC_URL}/realms/print-sv (по умолчанию http://localhost:5174/realms/print-sv)
 - Роли извлекаются из `realm_access.roles` и `resource_access.print-sv-client.roles`
 
 Не храните секреты в репозитории — используйте `.env` (в `.gitignore`). Сессии/токены не сохраняйте в файлах вроде `cookies.txt`.

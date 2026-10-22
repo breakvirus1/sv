@@ -20,21 +20,13 @@
       "name": "Order Service Client",
       "protocol": "openid-connect",
       "publicClient": false,
-      "secret": "order-service-secret",
-      "redirectUris": [
-        "http://localhost:8081/*",
-        "http://192.168.88.40:8081/*",
-        "http://192.168.1.131:8081/*"
-      ],
-      "webOrigins": [
-        "http://localhost:8081",
-        "http://192.168.88.40:8081",
-        "http://192.168.1.131:8081"
-      ],
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
+      "redirectUris": [],
+      "webOrigins": [],
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "authorizationServicesEnabled": false
+      "authorizationServicesEnabled": false,
+      "implicitFlowEnabled": false
     },
     {
       "clientId": "frontend",
@@ -44,25 +36,16 @@
       "redirectUris": [
         "http://localhost:5174/*",
         "http://localhost:5174/callback",
-        "http://192.168.88.40:5174/*",
-        "http://192.168.1.131:5174/*",
-        "http://192.168.*:5174/*",
-        "http://10.*:5174/*",
-        "http://172.*:5174/*",
-        "http://host.docker.internal:5174/*"
+        "http://127.0.0.1:5174/*",
+        "http://127.0.0.1:5174/callback"
       ],
       "webOrigins": [
         "http://localhost:5174",
-        "http://192.168.88.40:5174",
-        "http://192.168.1.131:5174",
-        "http://192.168.*",
-        "http://10.*",
-        "http://172.*",
-        "http://host.docker.internal"
+        "http://127.0.0.1:5174"
       ],
       "standardFlowEnabled": true,
-      "implicitFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "authorizationServicesEnabled": false,
       "protocolMappers": [
@@ -118,184 +101,12 @@
       }
     ]
   },
-  "users": [
-    {
-      "username": "admin",
-      "enabled": true,
-      "email": "admin@example.com",
-      "emailVerified": true,
-      "firstName": "Admin",
-      "lastName": "User",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "admin",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "ADMIN"
-      ],
-      "attributes": {
-        "fullName": [
-          "System Administrator"
-        ],
-        "company_id": [
-          "1"
-        ]
-      }
-    },
-    {
-      "username": "manager",
-      "enabled": true,
-      "email": "manager@example.com",
-      "emailVerified": true,
-      "firstName": "Manager",
-      "lastName": "User",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "manager",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "MANAGER"
-      ],
-      "attributes": {
-        "fullName": [
-          "Менеджер Тестовый"
-        ]
-      }
-    },
-    {
-      "username": "production",
-      "enabled": true,
-      "email": "production@example.com",
-      "emailVerified": true,
-      "firstName": "Production",
-      "lastName": "User",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "production",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "PRODUCTION"
-      ],
-      "attributes": {
-        "fullName": [
-          "Производство Исполнитель"
-        ]
-      }
-    },
-    {
-      "username": "accountant",
-      "enabled": true,
-      "email": "accountant@example.com",
-      "emailVerified": true,
-      "firstName": "Accountant",
-      "lastName": "User",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "accountant",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "ACCOUNTANT"
-      ],
-      "attributes": {
-        "fullName": [
-          "Бухгалтер Главный"
-        ]
-      }
-    },
-    {
-      "username": "service-account-order-service",
-      "enabled": true,
-      "serviceAccountClientId": "order-service",
-      "realmRoles": [
-        "ADMIN"
-      ]
-    },
-    {
-      "username": "admingod",
-      "enabled": true,
-      "email": "admingod@example.com",
-      "emailVerified": true,
-      "firstName": "Admin",
-      "lastName": "God",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "admingod",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "GOD"
-      ],
-      "attributes": {
-        "fullName": [
-          "Admin God"
-        ]
-      }
-    },
-    {
-      "username": "adminsv",
-      "enabled": true,
-      "email": "adminsv@example.com",
-      "emailVerified": true,
-      "firstName": "alx",
-      "lastName": "mozhaykin",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "admin",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "ADMIN"
-      ],
-      "attributes": {
-        "company_id": [
-          "1"
-        ],
-        "fullName": [
-          "alx mozhaykin"
-        ]
-      }
-    },
-    {
-      "username": "adminsv1",
-      "enabled": true,
-      "email": "adminsv1@example.com",
-      "emailVerified": true,
-      "firstName": "Admin",
-      "lastName": "SV e2e",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "111111",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "ADMIN"
-      ],
-      "attributes": {
-        "company_id": [
-          "1"
-        ],
-        "fullName": [
-          "Admin SV e2e"
-        ]
-      }
-    }
-  ]
+  "bruteForceProtected": true,
+  "failureFactor": 10,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "sslRequired": "external",
+  "passwordPolicy": "length(10) and digits(1) and notUsername(1)"
 }

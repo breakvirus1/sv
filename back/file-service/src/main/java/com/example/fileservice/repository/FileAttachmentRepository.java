@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface FileAttachmentRepository extends JpaRepository<FileAttachment, Long> {
     Optional<FileAttachment> findByOrderItemId(Long orderItemId);
     List<FileAttachment> findByOrderId(Long orderId);
+    List<FileAttachment> findAllByFileNameOrderByIdDesc(String fileName);
 }

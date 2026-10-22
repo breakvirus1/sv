@@ -1,4 +1,8 @@
 spring:
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: none
   flyway:
     enabled: true
     table: flyway_comment_schema_history

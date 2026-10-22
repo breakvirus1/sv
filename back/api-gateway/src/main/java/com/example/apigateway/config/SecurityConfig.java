@@ -21,7 +21,7 @@ public class SecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri:http://keycloak:8080/realms/print-sv/protocol/openid-connect/certs}")
     private String jwkSetUri;
 
-    @Value("${app.cors.allowed-origins:*}")
+    @Value("${app.cors.allowed-origins:http://localhost:5174,http://127.0.0.1:5174}")
     private String allowedOrigins;
 
     @Bean

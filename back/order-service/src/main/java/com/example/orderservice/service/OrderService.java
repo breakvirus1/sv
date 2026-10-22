@@ -123,11 +123,13 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public java.util.Map<String, java.util.List<java.util.Map<String, Object>>> getFilterOptions() {
-        Long companyId = extractCompanyId();
+        return getFilterOptions(extractCompanyId());
+    }
+
+    public java.util.Map<String, java.util.List<java.util.Map<String, Object>>> getFilterOptions(Long companyId) {
         java.util.List<java.util.Map<String, Object>> clients = clientRepository.findAll().stream()
                 .filter(c -> !c.getDeleted())
-                .filter(c -> companyId == null || c.getCompanyId() == null
-                        || companyId.equals(c.getCompanyId()))
+                .filter(c -> companyId == null || companyId.equals(c.getCompanyId()))
                 .map(c -> {
                     java.util.Map<String, Object> map = new java.util.HashMap<>();
                     map.put("id", c.getId());
@@ -138,8 +140,7 @@ public class OrderService {
 
         java.util.List<java.util.Map<String, Object>> managers = employeeRepository.findAll().stream()
                 .filter(e -> !e.getDeleted())
-                .filter(e -> companyId == null || e.getCompanyId() == null
-                        || companyId.equals(e.getCompanyId()))
+                .filter(e -> companyId == null || companyId.equals(e.getCompanyId()))
                 .map(e -> {
                     java.util.Map<String, Object> map = new java.util.HashMap<>();
                     map.put("id", e.getId());
@@ -150,8 +151,7 @@ public class OrderService {
 
         java.util.List<java.util.Map<String, Object>> workshops = workshopRepository.findAll().stream()
                 .filter(w -> !w.getDeleted())
-                .filter(w -> companyId == null || w.getCompanyId() == null
-                        || companyId.equals(w.getCompanyId()))
+                .filter(w -> companyId == null || companyId.equals(w.getCompanyId()))
                 .map(w -> {
                     java.util.Map<String, Object> map = new java.util.HashMap<>();
                     map.put("id", w.getId());
@@ -264,12 +264,25 @@ public class OrderService {
       * Получить детальную информацию о заказе со всеми связанными сущностями.
       */
     @Transactional(readOnly = true)
-public OrderResponse getOrderById(Long id) {
-         Order order = orderRepository.findById(id)
-                 .orElseThrow(() -> new NotFoundException("Заказ не найден"));
-         checkWorkshopAccess(order);
-         return mapOrderResponse(order);
-     }
+    public OrderResponse getOrderById(Long id) {
+        return getOrderById(id, null);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderResponse getOrderById(Long id, Long companyId) {
+        Order order = findOrder(id, companyId);
+        checkWorkshopAccess(order);
+        return mapOrderResponse(order);
+    }
+
+    private Order findOrder(Long id, Long companyId) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        if (companyId != null && !companyId.equals(order.getCompanyId())) {
+            throw new NotFoundException("Заказ не найден");
+        }
+        return order;
+    }
 
     private void checkWorkshopAccess(Order order) {
         if (!isProductionUser()) return;
@@ -296,8 +309,13 @@ public OrderResponse getOrderById(Long id) {
      */
     @Transactional(readOnly = true)
     public OrderResponse getOrderByOrderNumber(String orderNumber) {
+        return getOrderByOrderNumber(orderNumber, null);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderResponse getOrderByOrderNumber(String orderNumber, Long companyId) {
         Order order = orderRepository.findByOrderNumber(orderNumber);
-        if (order == null) {
+        if (order == null || (companyId != null && !companyId.equals(order.getCompanyId()))) {
             throw new NotFoundException("Заказ не найден");
         }
         checkWorkshopAccess(order);
@@ -361,6 +379,10 @@ public OrderResponse getOrderById(Long id) {
      * Общая сумма рассчитывается на основе стоимости материалов с учетом коэффициента отхода.
      */
     public OrderResponse createOrder(OrderCreateRequest request) {
+        return createOrder(request, extractCompanyId());
+    }
+
+    public OrderResponse createOrder(OrderCreateRequest request, Long tokenCompanyId) {
         // Генерация номера заказа
         String generatedOrderNumber = generateOrderNumber();
 
@@ -378,16 +400,21 @@ public OrderResponse getOrderById(Long id) {
 
         // Принадлежность заказа к компании: из токена текущего пользователя,
         // иначе из компании клиента (например, при создании от имени GOD)
-        Long companyId = extractCompanyId();
+        Long companyId = tokenCompanyId;
         if (companyId == null && client.getCompanyId() != null) {
             companyId = client.getCompanyId();
+        }
+        if (tokenCompanyId != null && client.getCompanyId() != null
+                && !tokenCompanyId.equals(client.getCompanyId())) {
+            throw new NotFoundException("Клиент не найден");
         }
         order.setCompanyId(companyId);
 
         // Менеджер
         if (request.getManagerId() != null) {
             Employee manager = entityManager.find(Employee.class, request.getManagerId());
-            if (manager == null) {
+            if (manager == null || (companyId != null && manager.getCompanyId() != null
+                    && !companyId.equals(manager.getCompanyId()))) {
                 throw new NotFoundException("Менеджер не найден");
             }
             order.setManager(manager);
@@ -811,8 +838,11 @@ public OrderResponse getOrderById(Long id) {
      * При смене статуса могут выполняться дополнительные действия (уведомления, триггеры).
      */
     public OrderResponse updateStatus(Long id, String status) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        return updateStatus(id, status, null);
+    }
+
+    public OrderResponse updateStatus(Long id, String status, Long companyId) {
+        Order order = findOrder(id, companyId);
 
         checkOrderNotRejected(order);
         checkStatusTransitionAllowed(order, status);
@@ -888,8 +918,11 @@ public OrderResponse getOrderById(Long id) {
      * Отклонить заказ. Доступно только для пользователей с ролью PRODUCTION.
      */
     public OrderResponse rejectOrder(Long id, String rejectionReason) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        return rejectOrder(id, rejectionReason, null);
+    }
+
+    public OrderResponse rejectOrder(Long id, String rejectionReason, Long companyId) {
+        Order order = findOrder(id, companyId);
 
         if (!isProductionUser()) {
             throw new BadRequestException("Только пользователь с ролью production может отклонить заказ");
@@ -913,6 +946,11 @@ public OrderResponse getOrderById(Long id) {
      * Мягкое удаление заказа с проверкой, что заказ не отклонен.
      */
     public void deleteOrder(Long id) {
+        deleteOrder(id, null);
+    }
+
+    public void deleteOrder(Long id, Long companyId) {
+        findOrder(id, companyId);
         checkOrderNotRejected(id);
         orderRepository.deleteById(id);
     }
@@ -954,8 +992,11 @@ public OrderResponse getOrderById(Long id) {
      * Используется для отслеживания прогресса в цехах.
      */
     public OrderResponse updateProductionStage(Long id, String stage) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        return updateProductionStage(id, stage, null);
+    }
+
+    public OrderResponse updateProductionStage(Long id, String stage, Long companyId) {
+        Order order = findOrder(id, companyId);
 
         ProductionStage oldStage = order.getProductionStage();
         order.setProductionStage(ProductionStage.valueOf(stage));
@@ -976,8 +1017,12 @@ public OrderResponse getOrderById(Long id) {
      */
     @Transactional
     public OrderResponse updateOrder(Long id, OrderUpdateRequest request) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        return updateOrder(id, request, null);
+    }
+
+    @Transactional
+    public OrderResponse updateOrder(Long id, OrderUpdateRequest request, Long companyId) {
+        Order order = findOrder(id, companyId);
 
         checkOrderNotRejected(order);
 
@@ -1324,8 +1369,11 @@ public OrderResponse getOrderById(Long id) {
      * Автоматически пересчитывает paidAmount и debtAmount.
      */
     public PaymentResponse addPayment(Long orderId, PaymentRequest paymentRequest) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        return addPayment(orderId, paymentRequest, null);
+    }
+
+    public PaymentResponse addPayment(Long orderId, PaymentRequest paymentRequest, Long companyId) {
+        Order order = findOrder(orderId, companyId);
 
         com.example.orderservice.entity.Payment payment = orderMapper.toPaymentEntity(paymentRequest);
         payment.setOrder(order);
@@ -1344,10 +1392,10 @@ public OrderResponse getOrderById(Long id) {
     }
 
     public List<PaymentResponse> getPayments(Long orderId, Long companyId) {
+        findOrder(orderId, companyId);
         return paymentRepository.findByOrderIdOrderByPaymentDateDesc(orderId)
                 .stream()
-                .filter(p -> companyId == null || p.getCompanyId() == null
-                        || companyId.equals(p.getCompanyId()))
+                .filter(p -> companyId == null || companyId.equals(p.getCompanyId()))
                 .map(this::mapPayment)
                 .toList();
     }
@@ -1360,8 +1408,11 @@ public OrderResponse getOrderById(Long id) {
      * Добавить комментарий к заказу.
      */
     public CommentResponse addComment(Long orderId, CommentRequest commentRequest, EmployeeResponse author) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        return addComment(orderId, commentRequest, author, null);
+    }
+
+    public CommentResponse addComment(Long orderId, CommentRequest commentRequest, EmployeeResponse author, Long companyId) {
+        Order order = findOrder(orderId, companyId);
 
         OrderComment comment = orderMapper.commentToEntity(commentRequest);
         comment.setOrder(order);
@@ -1517,8 +1568,11 @@ private void recalculatePaidAmount(Long orderId) {
      */
     @Transactional(readOnly = true)
     public ItemPositionInfo getItemPositionInfo(Long orderId, Long orderMaterialId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        return getItemPositionInfo(orderId, orderMaterialId, null);
+    }
+
+    public ItemPositionInfo getItemPositionInfo(Long orderId, Long orderMaterialId, Long companyId) {
+        Order order = findOrder(orderId, companyId);
 
         OrderMaterial om = order.getMaterials().stream()
                 .filter(m -> m.getId().equals(orderMaterialId))
@@ -1551,8 +1605,11 @@ private void recalculatePaidAmount(Long orderId) {
      */
     @Transactional(readOnly = true)
     public BigDecimal calculateOpenOrderTotal(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        return calculateOpenOrderTotal(orderId, null);
+    }
+
+    public BigDecimal calculateOpenOrderTotal(Long orderId, Long companyId) {
+        Order order = findOrder(orderId, companyId);
         return order.getMaterials().stream()
                 .map(om -> {
                     Material mat = om.getMaterial();
@@ -1583,8 +1640,11 @@ private void recalculatePaidAmount(Long orderId) {
       */
 @Transactional(readOnly = true)
       public CalculatedOrderResponse getCalculatedOrder(Long orderId) {
-          Order order = orderRepository.findById(orderId)
-                  .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+          return getCalculatedOrder(orderId, null);
+      }
+
+      public CalculatedOrderResponse getCalculatedOrder(Long orderId, Long companyId) {
+          Order order = findOrder(orderId, companyId);
 
           // Use order's priceplus, or fallback to client's default priceplus
           BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : 
@@ -1711,8 +1771,11 @@ return new CalculatedOrderResponse(
     }
 
     public OrderItemResponse updateOrderItemReady(Long orderId, Long itemId, Boolean ready) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+        return updateOrderItemReady(orderId, itemId, ready, null);
+    }
+
+    public OrderItemResponse updateOrderItemReady(Long orderId, Long itemId, Boolean ready, Long companyId) {
+        Order order = findOrder(orderId, companyId);
 
         OrderItem item = order.getItems().stream()
                 .filter(i -> i.getId().equals(itemId))
@@ -1733,8 +1796,15 @@ return new CalculatedOrderResponse(
      * Заказы со статусом CLOSED исключаются.
      */
     public ManagerEarningsResponse getManagerEarnings(Long managerId) {
+        return getManagerEarnings(managerId, null);
+    }
+
+    public ManagerEarningsResponse getManagerEarnings(Long managerId, Long companyId) {
         Employee employee = employeeRepository.findById(managerId)
                 .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
+        if (companyId != null && !companyId.equals(employee.getCompanyId())) {
+            throw new RuntimeException("Сотрудник не найден");
+        }
 
         BigDecimal managerCashPercent = employee.getManagerCashPercent();
         if (managerCashPercent == null || managerCashPercent.compareTo(BigDecimal.ZERO) <= 0) {
@@ -1745,17 +1815,20 @@ return new CalculatedOrderResponse(
         }
 
         // READY orders - already calculated cashFromPriceplus
-        List<Order> readyOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, ProductionStage.READY);
+        List<Order> readyOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, ProductionStage.READY)
+                .stream().filter(o -> companyId == null || companyId.equals(o.getCompanyId())).toList();
         BigDecimal readyEarnings = readyOrders.stream()
                 .map(o -> o.getCashFromPriceplus() != null ? o.getCashFromPriceplus() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<Order> inProgressOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, ProductionStage.IN_PROGRESS);
+        List<Order> inProgressOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, ProductionStage.IN_PROGRESS)
+                .stream().filter(o -> companyId == null || companyId.equals(o.getCompanyId())).toList();
         BigDecimal inProgressEarnings = inProgressOrders.stream()
                 .map(o -> calculatePotentialCash(o, managerCashPercent))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<Order> draftOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, ProductionStage.DRAFT);
+        List<Order> draftOrders = orderRepository.findByManagerIdAndStatusAndDeletedFalse(managerId, ProductionStage.DRAFT)
+                .stream().filter(o -> companyId == null || companyId.equals(o.getCompanyId())).toList();
         BigDecimal approvalEarnings = draftOrders.stream()
                 .map(o -> calculatePotentialCash(o, managerCashPercent))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

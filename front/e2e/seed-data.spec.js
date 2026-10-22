@@ -86,7 +86,7 @@ test.describe('Seed: клиенты, сотрудники, 100 заказов', 
     await page.screenshot({ path: `${SHOTS}/04-generate-orders.png`, fullPage: true })
 
     // ---- 5. Проверка через API ----
-    const token = await page.evaluate(() => localStorage.getItem('token'))
+    const token = await page.evaluate(() => sessionStorage.getItem('token'))
     const ordersRes = await page.evaluate(async (t) => {
       const r = await fetch('/api/v1/orders?page=0&size=1', { headers: { Authorization: `Bearer ${t}` } })
       return { status: r.status, body: await r.json() }

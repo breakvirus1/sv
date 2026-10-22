@@ -1,26 +1,27 @@
 import { test, expect } from '@playwright/test'
-import { login, logout, trackServerErrors } from './helpers'
+import { login, trackServerErrors } from './helpers'
 
 test.describe('Авторизация', () => {
-  test('страница логина отображает форму', async ({ page }) => {
+  test('страница логина предлагает вход через Keycloak', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.getByLabel('Логин')).toBeVisible()
-    await expect(page.getByLabel('Пароль')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Войти' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Print SV' })).toBeVisible()
   })
 
-  test('неверный пароль показывает ошибку', async ({ page }) => {
+  test('неверный пароль показывает ошибку Keycloak', async ({ page }) => {
     await page.goto('/login')
-    await page.getByLabel('Логин').fill('admin')
-    await page.getByLabel('Пароль').fill('wrong-password')
     await page.getByRole('button', { name: 'Войти' }).click()
-    await expect(page.getByRole('alert')).toBeVisible({ timeout: 20_000 })
-    await expect(page).toHaveURL(/\/login/)
+    await page.waitForURL(/\/realms\/print-sv\/protocol\/openid-connect\/auth/, { timeout: 30_000 })
+    await page.locator('#username').fill('admin')
+    await page.locator('#password').fill('wrong-password')
+    await page.locator('#kc-login').click()
+    await expect(page.locator('#input-error')).toBeVisible({ timeout: 20_000 })
+    await expect(page).toHaveURL(/\/realms\/print-sv\/protocol\/openid-connect\/auth/)
   })
 
-  test('admin входит и попадает на /orders', async ({ page }) => {
+  test('admin входит и попадает в приложение', async ({ page }) => {
     await login(page, 'admin', 'admin')
-    await expect(page).toHaveURL(/\/orders/)
+    await expect(page).toHaveURL(/\/(manager|orders)/)
     await expect(page.locator('header')).toBeVisible()
   })
 

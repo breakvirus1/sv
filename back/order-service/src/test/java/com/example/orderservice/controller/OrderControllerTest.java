@@ -121,7 +121,7 @@ class OrderControllerTest {
             response.setPaidAmount(new BigDecimal("500.00"));
             response.setDebtAmount(new BigDecimal("500.00"));
 
-            when(orderService.getOrderById(1L)).thenReturn(response);
+            when(orderService.getOrderById(eq(1L), any())).thenReturn(response);
 
             mockMvc.perform(get("/api/v1/orders/1"))
                     .andExpect(status().isOk())
@@ -136,7 +136,7 @@ class OrderControllerTest {
         @DisplayName("Returns 404 for non-existent order")
         @WithMockUser(roles = "ADMIN")
         void returns404ForNonExistent() throws Exception {
-            when(orderService.getOrderById(999L))
+            when(orderService.getOrderById(eq(999L), any()))
                     .thenThrow(new NotFoundException("Заказ не найден"));
 
             mockMvc.perform(get("/api/v1/orders/999"))
@@ -159,7 +159,7 @@ class OrderControllerTest {
             response.setOrderNumber("20260526102500001");
             response.setTotalAmount(new BigDecimal("1000.00"));
 
-            when(orderService.getOrderByOrderNumber("20260526102500001")).thenReturn(response);
+            when(orderService.getOrderByOrderNumber(eq("20260526102500001"), any())).thenReturn(response);
 
             mockMvc.perform(get("/api/v1/orders/number/20260526102500001"))
                     .andExpect(status().isOk())
@@ -170,7 +170,7 @@ class OrderControllerTest {
         @DisplayName("Returns 404 for non-existent orderNumber")
         @WithMockUser(roles = "MANAGER")
         void returns404ForNonExistent() throws Exception {
-            when(orderService.getOrderByOrderNumber("NONEXISTENT"))
+            when(orderService.getOrderByOrderNumber(eq("NONEXISTENT"), any()))
                     .thenThrow(new NotFoundException("Заказ не найден"));
 
             mockMvc.perform(get("/api/v1/orders/number/NONEXISTENT"))
@@ -265,7 +265,7 @@ class OrderControllerTest {
             matCalc.setCostPriceplus(new BigDecimal("880.00"));
             response.setMaterials(List.of(matCalc));
 
-            when(orderService.getCalculatedOrder(1L)).thenReturn(response);
+            when(orderService.getCalculatedOrder(eq(1L), any())).thenReturn(response);
 
             mockMvc.perform(get("/api/v1/orders/1/calculated"))
                     .andExpect(status().isOk())
@@ -281,7 +281,7 @@ class OrderControllerTest {
         @DisplayName("Returns 404 for non-existent order")
         @WithMockUser(roles = "MANAGER")
         void returns404ForNonExistent() throws Exception {
-            when(orderService.getCalculatedOrder(999L))
+            when(orderService.getCalculatedOrder(eq(999L), any()))
                     .thenThrow(new NotFoundException("Заказ не найден"));
 
             mockMvc.perform(get("/api/v1/orders/999/calculated"))
@@ -298,7 +298,7 @@ class OrderControllerTest {
             response.setTotalWithPriceplus(BigDecimal.ZERO);
             response.setMaterials(List.of());
 
-            when(orderService.getCalculatedOrder(1L)).thenReturn(response);
+            when(orderService.getCalculatedOrder(eq(1L), any())).thenReturn(response);
 
             mockMvc.perform(get("/api/v1/orders/1/calculated"))
                     .andExpect(status().isOk());
@@ -340,7 +340,7 @@ class OrderControllerTest {
             response.setStatus("REJECTED");
             response.setRejectionReason("Не соответствует");
 
-            when(orderService.rejectOrder(eq(1L), anyString())).thenReturn(response);
+            when(orderService.rejectOrder(eq(1L), anyString(), any())).thenReturn(response);
 
             mockMvc.perform(put("/api/v1/orders/1/reject")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -428,7 +428,7 @@ class OrderControllerTest {
             itemResponse.setId(1L);
             itemResponse.setReady(true);
 
-            when(orderService.updateOrderItemReady(eq(1L), eq(1L), eq(true))).thenReturn(itemResponse);
+            when(orderService.updateOrderItemReady(eq(1L), eq(1L), eq(true), any())).thenReturn(itemResponse);
 
             mockMvc.perform(put("/api/v1/orders/1/items/1/ready")
                             .contentType(MediaType.APPLICATION_JSON)

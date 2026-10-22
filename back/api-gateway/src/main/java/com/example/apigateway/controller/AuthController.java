@@ -22,6 +22,10 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Обменивает authorization code / refresh token на токены Keycloak.
+ * Password grant намеренно не поддерживается: SPA использует Authorization Code + PKCE.
+ */
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -29,52 +33,47 @@ public class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final WebClient webClient;
-    private final String tokenBaseUrl;
     private final String clientId;
-    private final String clientSecret;
 
     public AuthController(WebClient.Builder webClientBuilder,
                           @Value("${app.keycloak.token-base-url:http://keycloak:8080/realms/print-sv}") String tokenBaseUrl,
-                          @Value("${app.keycloak.client-id:frontend}") String clientId,
-                          @Value("${app.keycloak.client-secret:}") String clientSecret) {
+                          @Value("${app.keycloak.client-id:frontend}") String clientId) {
         this.webClient = webClientBuilder
                 .baseUrl(tokenBaseUrl)
                 .defaultHeader("Accept", MediaType.APPLICATION_JSON_VALUE)
                 .build();
-        this.tokenBaseUrl = tokenBaseUrl;
         this.clientId = clientId;
-        this.clientSecret = clientSecret;
         log.info("AuthController initialized with token-base-url: {}, client-id: {}", tokenBaseUrl, clientId);
     }
 
-    @RequestMapping(method = RequestMethod.OPTIONS, value = {"/login", "/refresh"})
+    @RequestMapping(method = RequestMethod.OPTIONS, value = {"/token", "/refresh"})
     public Mono<ResponseEntity<Void>> options() {
         return Mono.just(ResponseEntity.ok().build());
     }
 
-    @PostMapping(value = "/login", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public Mono<ResponseEntity<Map<String, Object>>> login(ServerWebExchange exchange) {
+    @PostMapping(value = "/token", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public Mono<ResponseEntity<Map<String, Object>>> token(ServerWebExchange exchange) {
         return exchange.getFormData()
                 .flatMap(formData -> {
-                    String username = formData.getFirst("username");
-                    String password = formData.getFirst("password");
+                    String code = formData.getFirst("code");
+                    String redirectUri = formData.getFirst("redirect_uri");
+                    String codeVerifier = formData.getFirst("code_verifier");
 
-                    if (username == null || username.isBlank() || password == null || password.isBlank()) {
-                        Map<String, Object> error = new HashMap<>();
-                        error.put("error", "username and password are required");
-                        return Mono.just(ResponseEntity.badRequest().body(error));
+                    if (isBlank(code) || isBlank(redirectUri) || isBlank(codeVerifier)) {
+                        return badRequest("code, redirect_uri and code_verifier are required");
                     }
 
-                    log.debug("Login attempt for user: {}", username);
+                    log.debug("Authorization code exchange attempt");
                     return callKeycloakTokenEndpoint(Map.of(
-                            "grant_type", "password",
+                            "grant_type", "authorization_code",
                             "client_id", clientId,
-                            "username", username,
-                            "password", password
+                            "code", code,
+                            "redirect_uri", redirectUri,
+                            "code_verifier", codeVerifier
                     ));
                 })
                 .timeout(Duration.ofSeconds(10))
-                .onErrorResume(e -> handleTimeout(e, "login"));
+                .onErrorResume(e -> handleTimeout(e, "token exchange"));
     }
 
     @PostMapping(value = "/refresh", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
@@ -83,10 +82,8 @@ public class AuthController {
                 .flatMap(formData -> {
                     String refreshToken = formData.getFirst("refresh_token");
 
-                    if (refreshToken == null || refreshToken.isBlank()) {
-                        Map<String, Object> error = new HashMap<>();
-                        error.put("error", "refresh_token is required");
-                        return Mono.just(ResponseEntity.badRequest().body(error));
+                    if (isBlank(refreshToken)) {
+                        return badRequest("refresh_token is required");
                     }
 
                     log.debug("Token refresh attempt");
@@ -104,17 +101,17 @@ public class AuthController {
         var body = BodyInserters.fromFormData("grant_type", params.get("grant_type"))
                 .with("client_id", params.get("client_id"));
 
-        if (params.containsKey("username")) {
-            body = body.with("username", params.get("username"));
+        if (params.containsKey("code")) {
+            body = body.with("code", params.get("code"));
         }
-        if (params.containsKey("password")) {
-            body = body.with("password", params.get("password"));
+        if (params.containsKey("redirect_uri")) {
+            body = body.with("redirect_uri", params.get("redirect_uri"));
+        }
+        if (params.containsKey("code_verifier")) {
+            body = body.with("code_verifier", params.get("code_verifier"));
         }
         if (params.containsKey("refresh_token")) {
             body = body.with("refresh_token", params.get("refresh_token"));
-        }
-        if (clientSecret != null && !clientSecret.isBlank()) {
-            body = body.with("client_secret", clientSecret);
         }
 
         return webClient.post()
@@ -140,7 +137,7 @@ public class AuthController {
                     if (e instanceof KeycloakAuthException kae) {
                         Map<String, Object> error = new HashMap<>();
                         if (kae.getStatusCode() == 400 || kae.getStatusCode() == 401) {
-                            error.put("error", "Invalid credentials or refresh token");
+                            error.put("error", "Invalid authorization code or refresh token");
                             return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error));
                         }
                         error.put("error", "Authentication service error: " + kae.getMessage());
@@ -170,6 +167,16 @@ public class AuthController {
             return error + ": " + errorDescription;
         }
         return error != null ? error.toString() : "Unknown error";
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private Mono<ResponseEntity<Map<String, Object>>> badRequest(String message) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", message);
+        return Mono.just(ResponseEntity.badRequest().body(error));
     }
 
     private Mono<ResponseEntity<Map<String, Object>>> handleTimeout(Throwable e, String operation) {

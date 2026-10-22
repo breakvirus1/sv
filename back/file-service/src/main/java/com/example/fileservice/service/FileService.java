@@ -70,7 +70,10 @@ public class FileService {
         String mimeType = file.getContentType();
         long fileSize = file.getSize();
 
-        Path targetLocation = this.fileStorageLocation.resolve(fileName);
+        Path targetLocation = this.fileStorageLocation.resolve(fileName).normalize();
+        if (!targetLocation.startsWith(this.fileStorageLocation)) {
+            throw new IllegalArgumentException("Invalid file name: " + fileName);
+        }
 
         try {
             Files.copy(file.getInputStream(), targetLocation);
@@ -146,7 +149,11 @@ public class FileService {
     }
 
     public Path getFilePath(String fileName) {
-        return this.fileStorageLocation.resolve(fileName).normalize();
+        Path resolved = this.fileStorageLocation.resolve(fileName).normalize();
+        if (!resolved.startsWith(this.fileStorageLocation)) {
+            throw new IllegalArgumentException("Invalid file name: " + fileName);
+        }
+        return resolved;
     }
 
     public void deleteFile(FileAttachment file) {
