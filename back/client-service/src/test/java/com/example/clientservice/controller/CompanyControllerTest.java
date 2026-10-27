@@ -131,7 +131,7 @@ class CompanyControllerTest {
         @DisplayName("Returns company by ID")
         @WithMockUser(roles = "ADMIN")
         void returnsCompanyById() throws Exception {
-            when(companyService.getCompanyById(1L)).thenReturn(companyResponse());
+            when(companyService.getCompanyById(eq(1L), isNull())).thenReturn(companyResponse());
 
             mockMvc.perform(get("/api/v1/companies/1"))
                     .andExpect(status().isOk())
@@ -143,7 +143,7 @@ class CompanyControllerTest {
         @DisplayName("GOD can get company")
         @WithMockUser(roles = "GOD")
         void godCanGetCompany() throws Exception {
-            when(companyService.getCompanyById(1L)).thenReturn(companyResponse());
+            when(companyService.getCompanyById(eq(1L), isNull())).thenReturn(companyResponse());
 
             mockMvc.perform(get("/api/v1/companies/1"))
                     .andExpect(status().isOk())
@@ -154,7 +154,7 @@ class CompanyControllerTest {
         @DisplayName("Returns 404 for non-existent company")
         @WithMockUser(roles = "ADMIN")
         void returns404ForNonExistent() throws Exception {
-            when(companyService.getCompanyById(999L))
+            when(companyService.getCompanyById(eq(999L), isNull()))
                     .thenThrow(new NotFoundException("Компания не найдена"));
 
             mockMvc.perform(get("/api/v1/companies/999"))
@@ -177,9 +177,9 @@ class CompanyControllerTest {
     class CreateCompany {
 
         @Test
-        @DisplayName("ADMIN can create company")
-        @WithMockUser(roles = "ADMIN")
-        void adminCanCreateCompany() throws Exception {
+        @DisplayName("GOD can create company")
+        @WithMockUser(roles = "GOD")
+        void godCanCreateCompany() throws Exception {
             CompanyCreateRequest request = new CompanyCreateRequest("ООО Вектор");
 
             when(companyService.createCompany(any())).thenReturn(companyResponse());
@@ -193,8 +193,18 @@ class CompanyControllerTest {
         }
 
         @Test
-        @DisplayName("Returns 400 for malformed JSON body")
+        @DisplayName("ADMIN cannot create company")
         @WithMockUser(roles = "ADMIN")
+        void adminCannotCreateCompany() throws Exception {
+            mockMvc.perform(post("/api/v1/companies")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(new CompanyCreateRequest("ООО Вектор"))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("Returns 400 for malformed JSON body")
+        @WithMockUser(roles = "GOD")
         void returns400ForMalformedJson() throws Exception {
             mockMvc.perform(post("/api/v1/companies")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -227,7 +237,7 @@ class CompanyControllerTest {
             CompanyResponse updated = companyResponse();
             updated.setName("ООО Вектор 2");
 
-            when(companyService.updateCompany(eq(1L), any())).thenReturn(updated);
+            when(companyService.updateCompany(eq(1L), any(), isNull())).thenReturn(updated);
 
             mockMvc.perform(put("/api/v1/companies/1")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -243,7 +253,7 @@ class CompanyControllerTest {
         void returns404ForNonExistent() throws Exception {
             CompanyCreateRequest request = new CompanyCreateRequest("ООО Вектор 2");
 
-            when(companyService.updateCompany(eq(999L), any()))
+            when(companyService.updateCompany(eq(999L), any(), isNull()))
                     .thenThrow(new NotFoundException("Компания не найдена"));
 
             mockMvc.perform(put("/api/v1/companies/999")
@@ -273,7 +283,7 @@ class CompanyControllerTest {
         @DisplayName("ADMIN can delete company")
         @WithMockUser(roles = "ADMIN")
         void adminCanDeleteCompany() throws Exception {
-            doNothing().when(companyService).deleteCompany(1L);
+            doNothing().when(companyService).deleteCompany(eq(1L), isNull());
 
             mockMvc.perform(delete("/api/v1/companies/1"))
                     .andExpect(status().isNoContent());
@@ -284,7 +294,7 @@ class CompanyControllerTest {
         @WithMockUser(roles = "ADMIN")
         void returns404ForNonExistent() throws Exception {
             org.mockito.Mockito.doThrow(new NotFoundException("Компания не найдена"))
-                    .when(companyService).deleteCompany(999L);
+                    .when(companyService).deleteCompany(eq(999L), isNull());
 
             mockMvc.perform(delete("/api/v1/companies/999"))
                     .andExpect(status().isNotFound());

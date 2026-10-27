@@ -15,8 +15,10 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    table: flyway_client_schema_history
     baseline-on-migrate: true
-    baseline-version: 0
+    baseline-version: 999999
+    validate-on-migrate: true
     schemas: svschema
   jpa:
     hibernate:

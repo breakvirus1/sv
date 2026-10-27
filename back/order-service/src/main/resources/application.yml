@@ -28,8 +28,11 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    table: flyway_order_schema_history
     baseline-on-migrate: true
-    schemas: public, svschema
+    baseline-version: 20261022
+    validate-on-migrate: true
+    schemas: svschema
 
   security:
     oauth2:

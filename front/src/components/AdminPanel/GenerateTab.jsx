@@ -106,8 +106,8 @@ const GenerateTab = ({ onGenerate, onDelete }) => {
         <DialogTitle>Подтверждение удаления</DialogTitle>
         <DialogContent>
           <Typography>
-            Вы уверены, что хотите удалить все записи из таблицы «{deleteDialog.label}»?
-            Это действие необратимо.
+            Вы уверены, что хотите удалить все записи таблицы «{deleteDialog.label}»,
+            принадлежащие вашей компании? Это действие необратимо.
           </Typography>
         </DialogContent>
         <DialogActions>

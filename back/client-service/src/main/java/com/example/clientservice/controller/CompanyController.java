@@ -48,13 +48,14 @@ public class CompanyController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<CompanyResponse> getCompany(
-            @Parameter(description = "ID компании") @PathVariable Long id) {
-        return ResponseEntity.ok(companyService.getCompanyById(id));
+            @Parameter(description = "ID компании") @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(companyService.getCompanyById(id, extractCompanyId(jwt)));
     }
 
     @Operation(summary = "Создать новую компанию")
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
+    @PreAuthorize("hasRole('GOD')")
     public ResponseEntity<CompanyResponse> createCompany(@Valid @RequestBody CompanyCreateRequest request) {
         return new ResponseEntity<>(companyService.createCompany(request), HttpStatus.CREATED);
     }
@@ -64,16 +65,18 @@ public class CompanyController {
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<CompanyResponse> updateCompany(
             @Parameter(description = "ID компании") @PathVariable Long id,
-            @Valid @RequestBody CompanyCreateRequest request) {
-        return ResponseEntity.ok(companyService.updateCompany(id, request));
+            @Valid @RequestBody CompanyCreateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(companyService.updateCompany(id, request, extractCompanyId(jwt)));
     }
 
     @Operation(summary = "Удалить компанию")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<Void> deleteCompany(
-            @Parameter(description = "ID компании") @PathVariable Long id) {
-        companyService.deleteCompany(id);
+            @Parameter(description = "ID компании") @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt) {
+        companyService.deleteCompany(id, extractCompanyId(jwt));
         return ResponseEntity.noContent().build();
     }
 

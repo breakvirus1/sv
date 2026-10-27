@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,8 +24,22 @@ public class EmployeeAdminController {
     @Operation(summary = "Сгенерировать 20 тестовых сотрудников")
     @PostMapping("/generate")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Employee>> generateTestEmployees() {
-        List<Employee> employees = employeeAdminService.generateTestEmployees(20);
+    public ResponseEntity<List<Employee>> generateTestEmployees(@AuthenticationPrincipal Jwt jwt) {
+        List<Employee> employees = employeeAdminService.generateTestEmployees(20, extractCompanyId(jwt));
         return ResponseEntity.ok(employees);
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

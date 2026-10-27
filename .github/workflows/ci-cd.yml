@@ -115,10 +115,10 @@ jobs:
         run: npm ci
 
       - name: Build Docker images
-        run: docker compose build
+        run: docker compose --profile dev build
 
       - name: Start stack
-        run: docker compose up -d
+        run: docker compose --profile dev up -d
 
       - name: Wait for stack readiness
         run: ./scripts/wait-for-stack.sh http://localhost:5174 http://localhost:8085 120

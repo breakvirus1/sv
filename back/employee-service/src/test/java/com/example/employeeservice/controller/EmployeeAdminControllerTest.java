@@ -17,6 +17,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -51,14 +53,14 @@ class EmployeeAdminControllerTest {
             employee.setFullName("Иванов Иван");
             employee.setPosition("Менеджер");
 
-            when(employeeAdminService.generateTestEmployees(20)).thenReturn(List.of(employee));
+            when(employeeAdminService.generateTestEmployees(eq(20), isNull())).thenReturn(List.of(employee));
 
             mockMvc.perform(post("/api/v1/admin/employees/generate"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$[0].username").value("user1"))
                     .andExpect(jsonPath("$[0].fullName").value("Иванов Иван"));
 
-            verify(employeeAdminService).generateTestEmployees(20);
+            verify(employeeAdminService).generateTestEmployees(eq(20), isNull());
         }
 
         @Test

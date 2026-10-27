@@ -21,6 +21,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -70,7 +72,7 @@ class ClientAdminControllerTest {
         @DisplayName("ADMIN can generate test clients")
         @WithMockUser(roles = "ADMIN")
         void adminCanGenerateTestClients() throws Exception {
-            when(clientAdminService.generateTestClients(20))
+            when(clientAdminService.generateTestClients(eq(20), isNull()))
                     .thenReturn(List.of(client(), client()));
 
             mockMvc.perform(post("/api/v1/admin/clients/generate"))

@@ -16,9 +16,11 @@ spring:
       leak-detection-threshold: 60000
   flyway:
     enabled: true
+    table: flyway_material_schema_history
     baseline-on-migrate: true
-    ignore-migration-patterns: "*:missing"
-    validate-on-migrate: false
+    baseline-version: 20261020
+    validate-on-migrate: true
+    schemas: svschema
   jpa:
     show-sql: false
     hibernate:

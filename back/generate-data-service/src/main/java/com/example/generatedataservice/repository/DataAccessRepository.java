@@ -14,20 +14,6 @@ public class DataAccessRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public List<Long> fetchClientIds() {
-        return jdbcTemplate.query(
-            "SELECT id FROM svschema.clients WHERE deleted = false",
-            (rs, rowNum) -> rs.getLong("id")
-        );
-    }
-
-    public List<Long> fetchEmployeeIds() {
-        return jdbcTemplate.query(
-            "SELECT id FROM svschema.employees WHERE deleted = false",
-            (rs, rowNum) -> rs.getLong("id")
-        );
-    }
-
     public List<Long> fetchClientIdsByCompany(Long companyId) {
         return jdbcTemplate.query(
             "SELECT id FROM svschema.clients WHERE deleted = false AND company_id = ?",
@@ -44,60 +30,61 @@ public class DataAccessRepository {
         );
     }
 
-    public List<MaterialInfo> fetchMaterials() {
+    public List<MaterialInfo> fetchMaterialsByCompany(Long companyId) {
         return jdbcTemplate.query(
-            "SELECT id, name, unit, price FROM svschema.materials WHERE deleted = false",
+            "SELECT id, name, unit, price FROM svschema.materials WHERE deleted = false AND company_id = ?",
             (rs, rowNum) -> new MaterialInfo(
                 rs.getLong("id"),
                 rs.getString("name"),
                 rs.getString("unit"),
                 rs.getBigDecimal("price")
-            )
+            ),
+            companyId
         );
     }
 
-    public List<Long> fetchWorkshopIds() {
+    public List<Long> fetchWorkshopIdsByCompany(Long companyId) {
         return jdbcTemplate.query(
-            "SELECT id FROM svschema.workshops WHERE deleted = false",
-            (rs, rowNum) -> rs.getLong("id")
+            "SELECT id FROM svschema.workshops WHERE deleted = false AND company_id = ?",
+            (rs, rowNum) -> rs.getLong("id"),
+            companyId
         );
     }
 
-    public List<Long> fetchOperationIds() {
+    public List<Long> fetchOperationIdsByCompany(Long companyId) {
         return jdbcTemplate.query(
-            "SELECT id FROM svschema.calculator_operations WHERE deleted = false",
-            (rs, rowNum) -> rs.getLong("id")
+            "SELECT id FROM svschema.calculator_operations WHERE deleted = false AND company_id = ?",
+            (rs, rowNum) -> rs.getLong("id"),
+            companyId
         );
     }
 
-    public Long countOrders() {
-        Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM svschema.orders WHERE deleted = false", Long.class);
-        return count != null ? count : 0L;
+    public int deleteAllClients(Long companyId) {
+        return jdbcTemplate.update("DELETE FROM svschema.clients WHERE company_id = ?", companyId);
     }
 
-    public int deleteAllClients() {
-        return jdbcTemplate.update("DELETE FROM svschema.clients");
+    public int deleteAllEmployees(Long companyId) {
+        return jdbcTemplate.update("DELETE FROM svschema.employees WHERE company_id = ?", companyId);
     }
 
-    public int deleteAllEmployees() {
-        return jdbcTemplate.update("DELETE FROM svschema.employees");
+    public int deleteAllMaterials(Long companyId) {
+        return jdbcTemplate.update("DELETE FROM svschema.materials WHERE company_id = ?", companyId);
     }
 
-    public int deleteAllMaterials() {
-        return jdbcTemplate.update("DELETE FROM svschema.materials");
+    public int deleteAllWorkshops(Long companyId) {
+        return jdbcTemplate.update("DELETE FROM svschema.workshops WHERE company_id = ?", companyId);
     }
 
-    public int deleteAllWorkshops() {
-        return jdbcTemplate.update("DELETE FROM svschema.workshops");
+    public int deleteAllOperations(Long companyId) {
+        return jdbcTemplate.update("DELETE FROM svschema.calculator_operations WHERE company_id = ?", companyId);
     }
 
-    public int deleteAllOperations() {
-        return jdbcTemplate.update("DELETE FROM svschema.calculator_operations");
-    }
-
-    public int deleteAllOrders() {
-        jdbcTemplate.update("DELETE FROM svschema.order_materials WHERE order_id IN (SELECT id FROM svschema.orders)");
-        return jdbcTemplate.update("DELETE FROM svschema.orders");
+    public int deleteAllOrders(Long companyId) {
+        jdbcTemplate.update(
+            "DELETE FROM svschema.order_materials WHERE order_id IN (SELECT id FROM svschema.orders WHERE company_id = ?)",
+            companyId
+        );
+        return jdbcTemplate.update("DELETE FROM svschema.orders WHERE company_id = ?", companyId);
     }
 
     public static class MaterialInfo {

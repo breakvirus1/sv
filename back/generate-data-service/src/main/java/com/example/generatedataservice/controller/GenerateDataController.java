@@ -76,23 +76,7 @@ public class GenerateDataController {
     @PostMapping("/all")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> generateAll(@RequestBody Map<String, Integer> counts, @AuthenticationPrincipal Jwt jwt) {
-        int clients = counts.getOrDefault("clients", 0);
-        int materials = counts.getOrDefault("materials", 0);
-        int operations = counts.getOrDefault("operations", 0);
-        int workshops = counts.getOrDefault("workshops", 0);
-        int employees = counts.getOrDefault("employees", 0);
-        int orders = counts.getOrDefault("orders", 0);
-        Long companyId = extractCompanyId(jwt);
-
-        Map<String, Object> result = new java.util.LinkedHashMap<>();
-        if (clients > 0) result.put("clients", generateDataService.generateClients(clients, companyId));
-        if (materials > 0) result.put("materials", generateDataService.generateMaterials(materials, companyId));
-        if (operations > 0) result.put("operations", generateDataService.generateOperations(operations, companyId));
-        if (workshops > 0) result.put("workshops", generateDataService.generateWorkshops(workshops, companyId));
-        if (employees > 0) result.put("employees", generateDataService.generateEmployees(employees, companyId));
-        if (orders > 0) result.put("orders", generateDataService.generateOrders(orders, companyId));
-
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(generateDataService.generateAll(counts, extractCompanyId(jwt)));
     }
 
     private Long extractCompanyId(Jwt jwt) {
@@ -112,48 +96,48 @@ public class GenerateDataController {
     @io.swagger.v3.oas.annotations.Operation(summary = "Удалить всех клиентов")
     @DeleteMapping("/clients")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Integer>> deleteAllClients() {
-        int deleted = generateDataService.deleteAllClients();
+    public ResponseEntity<Map<String, Integer>> deleteAllClients(@AuthenticationPrincipal Jwt jwt) {
+        int deleted = generateDataService.deleteAllClients(extractCompanyId(jwt));
         return ResponseEntity.ok(Map.of("deleted", deleted));
     }
 
     @io.swagger.v3.oas.annotations.Operation(summary = "Удалить всех сотрудников")
     @DeleteMapping("/employees")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Integer>> deleteAllEmployees() {
-        int deleted = generateDataService.deleteAllEmployees();
+    public ResponseEntity<Map<String, Integer>> deleteAllEmployees(@AuthenticationPrincipal Jwt jwt) {
+        int deleted = generateDataService.deleteAllEmployees(extractCompanyId(jwt));
         return ResponseEntity.ok(Map.of("deleted", deleted));
     }
 
     @io.swagger.v3.oas.annotations.Operation(summary = "Удалить все материалы")
     @DeleteMapping("/materials")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Integer>> deleteAllMaterials() {
-        int deleted = generateDataService.deleteAllMaterials();
+    public ResponseEntity<Map<String, Integer>> deleteAllMaterials(@AuthenticationPrincipal Jwt jwt) {
+        int deleted = generateDataService.deleteAllMaterials(extractCompanyId(jwt));
         return ResponseEntity.ok(Map.of("deleted", deleted));
     }
 
     @io.swagger.v3.oas.annotations.Operation(summary = "Удалить все операции")
     @DeleteMapping("/operations")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Integer>> deleteAllOperations() {
-        int deleted = generateDataService.deleteAllOperations();
+    public ResponseEntity<Map<String, Integer>> deleteAllOperations(@AuthenticationPrincipal Jwt jwt) {
+        int deleted = generateDataService.deleteAllOperations(extractCompanyId(jwt));
         return ResponseEntity.ok(Map.of("deleted", deleted));
     }
 
     @io.swagger.v3.oas.annotations.Operation(summary = "Удалить все цеха")
     @DeleteMapping("/workshops")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Integer>> deleteAllWorkshops() {
-        int deleted = generateDataService.deleteAllWorkshops();
+    public ResponseEntity<Map<String, Integer>> deleteAllWorkshops(@AuthenticationPrincipal Jwt jwt) {
+        int deleted = generateDataService.deleteAllWorkshops(extractCompanyId(jwt));
         return ResponseEntity.ok(Map.of("deleted", deleted));
     }
 
     @io.swagger.v3.oas.annotations.Operation(summary = "Удалить все заказы")
     @DeleteMapping("/orders")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Integer>> deleteAllOrders() {
-        int deleted = generateDataService.deleteAllOrders();
+    public ResponseEntity<Map<String, Integer>> deleteAllOrders(@AuthenticationPrincipal Jwt jwt) {
+        int deleted = generateDataService.deleteAllOrders(extractCompanyId(jwt));
         return ResponseEntity.ok(Map.of("deleted", deleted));
     }
 }

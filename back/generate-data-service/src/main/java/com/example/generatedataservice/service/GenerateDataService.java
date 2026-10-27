@@ -3,15 +3,20 @@ package com.example.generatedataservice.service;
 import com.example.generatedataservice.entity.*;
 import com.example.generatedataservice.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -66,6 +71,7 @@ public class GenerateDataService {
 
     @Transactional
     public List<Client> generateClients(int count, Long companyId) {
+        companyId = requireCompanyId(companyId);
         List<Client> clients = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             Client client = new Client();
@@ -90,8 +96,9 @@ public class GenerateDataService {
 
     @Transactional
     public List<Employee> generateEmployees(int count, Long companyId) {
+        companyId = requireCompanyId(companyId);
         List<Employee> employees = new ArrayList<>();
-        List<Long> workshopIds = dataAccessRepository.fetchWorkshopIds();
+        List<Long> workshopIds = dataAccessRepository.fetchWorkshopIdsByCompany(companyId);
         for (int i = 0; i < count; i++) {
             Employee employee = new Employee();
             employee.setFullName(EMPLOYEE_LAST_NAMES[random.nextInt(EMPLOYEE_LAST_NAMES.length)] + " " + EMPLOYEE_FIRST_NAMES[random.nextInt(EMPLOYEE_FIRST_NAMES.length)]);
@@ -110,6 +117,7 @@ public class GenerateDataService {
 
     @Transactional
     public List<Material> generateMaterials(int count, Long companyId) {
+        companyId = requireCompanyId(companyId);
         List<Material> materials = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             String unit = MATERIAL_UNITS[random.nextInt(MATERIAL_UNITS.length)];
@@ -127,6 +135,7 @@ public class GenerateDataService {
 
     @Transactional
     public List<Operation> generateOperations(int count, Long companyId) {
+        companyId = requireCompanyId(companyId);
         List<Operation> operations = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             Operation operation = new Operation();
@@ -146,8 +155,9 @@ public class GenerateDataService {
 
     @Transactional
     public List<Workshop> generateWorkshops(int count, Long companyId) {
+        companyId = requireCompanyId(companyId);
         List<Workshop> workshops = new ArrayList<>();
-        List<Long> operationIds = dataAccessRepository.fetchOperationIds();
+        List<Long> operationIds = dataAccessRepository.fetchOperationIdsByCompany(companyId);
         for (int i = 0; i < count; i++) {
             Workshop workshop = new Workshop();
             workshop.setName(WORKSHOP_NAMES[random.nextInt(WORKSHOP_NAMES.length)] + " " + (i + 1));
@@ -171,24 +181,23 @@ public class GenerateDataService {
 
     @Transactional
     public List<Order> generateOrders(int count, Long companyId) {
-        List<Long> clientIds = companyId != null
-                ? dataAccessRepository.fetchClientIdsByCompany(companyId)
-                : dataAccessRepository.fetchClientIds();
-        List<Long> employeeIds = companyId != null
-                ? dataAccessRepository.fetchEmployeeIdsByCompany(companyId)
-                : dataAccessRepository.fetchEmployeeIds();
-        List<DataAccessRepository.MaterialInfo> materials = dataAccessRepository.fetchMaterials();
+        companyId = requireCompanyId(companyId);
+        List<Long> clientIds = dataAccessRepository.fetchClientIdsByCompany(companyId);
+        List<Long> employeeIds = dataAccessRepository.fetchEmployeeIdsByCompany(companyId);
+        List<DataAccessRepository.MaterialInfo> materials = dataAccessRepository.fetchMaterialsByCompany(companyId);
 
         if (clientIds.isEmpty() || employeeIds.isEmpty()) {
-            throw new RuntimeException("Необходимо сначала сгенерировать клиентов и сотрудников");
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Сначала сгенерируйте клиентов и сотрудников для этой компании"
+            );
         }
 
         List<Order> orders = new ArrayList<>();
-        long existingCount = dataAccessRepository.countOrders();
 
         for (int i = 0; i < count; i++) {
             Order order = new Order();
-            order.setOrderNumber("GEN-" + String.format("%05d", existingCount + i + 1));
+            order.setOrderNumber("GEN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
             order.setClientId(clientIds.get(random.nextInt(clientIds.size())));
             order.setManagerId(employeeIds.get(random.nextInt(employeeIds.size())));
             order.setCompanyId(companyId);
@@ -196,7 +205,7 @@ public class GenerateDataService {
             order.setDueDate(LocalDate.now().plusDays(random.nextInt(60) + 7));
             order.setStatus(ProductionStage.values()[random.nextInt(ProductionStage.values().length)]);
             order.setProductionStage(ProductionStage.values()[random.nextInt(ProductionStage.values().length)]);
-            order.setDescription("Тестовый заказ #" + (existingCount + i + 1));
+            order.setDescription("Тестовый заказ #" + (i + 1));
             order.setTotalAmount(BigDecimal.valueOf(1000 + random.nextInt(50000)));
             order.setPaidAmount(BigDecimal.valueOf(random.nextInt(1000)));
             order.setCostPrice(BigDecimal.valueOf(500 + random.nextInt(20000)));
@@ -211,33 +220,65 @@ public class GenerateDataService {
     }
 
     @Transactional
-    public int deleteAllClients() {
-        return dataAccessRepository.deleteAllClients();
+    public Map<String, Object> generateAll(Map<String, Integer> counts, Long companyId) {
+        Long tenantId = requireCompanyId(companyId);
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        int clients = counts.getOrDefault("clients", 0);
+        int materials = counts.getOrDefault("materials", 0);
+        int operations = counts.getOrDefault("operations", 0);
+        int workshops = counts.getOrDefault("workshops", 0);
+        int employees = counts.getOrDefault("employees", 0);
+        int orders = counts.getOrDefault("orders", 0);
+
+        if (clients > 0) result.put("clients", generateClients(clients, tenantId));
+        if (materials > 0) result.put("materials", generateMaterials(materials, tenantId));
+        if (operations > 0) result.put("operations", generateOperations(operations, tenantId));
+        if (workshops > 0) result.put("workshops", generateWorkshops(workshops, tenantId));
+        if (employees > 0) result.put("employees", generateEmployees(employees, tenantId));
+        if (orders > 0) result.put("orders", generateOrders(orders, tenantId));
+
+        return result;
     }
 
     @Transactional
-    public int deleteAllEmployees() {
-        return dataAccessRepository.deleteAllEmployees();
+    public int deleteAllClients(Long companyId) {
+        return dataAccessRepository.deleteAllClients(requireCompanyId(companyId));
     }
 
     @Transactional
-    public int deleteAllMaterials() {
-        return dataAccessRepository.deleteAllMaterials();
+    public int deleteAllEmployees(Long companyId) {
+        return dataAccessRepository.deleteAllEmployees(requireCompanyId(companyId));
     }
 
     @Transactional
-    public int deleteAllWorkshops() {
-        return dataAccessRepository.deleteAllWorkshops();
+    public int deleteAllMaterials(Long companyId) {
+        return dataAccessRepository.deleteAllMaterials(requireCompanyId(companyId));
     }
 
     @Transactional
-    public int deleteAllOperations() {
-        return dataAccessRepository.deleteAllOperations();
+    public int deleteAllWorkshops(Long companyId) {
+        return dataAccessRepository.deleteAllWorkshops(requireCompanyId(companyId));
     }
 
     @Transactional
-    public int deleteAllOrders() {
-        return dataAccessRepository.deleteAllOrders();
+    public int deleteAllOperations(Long companyId) {
+        return dataAccessRepository.deleteAllOperations(requireCompanyId(companyId));
+    }
+
+    @Transactional
+    public int deleteAllOrders(Long companyId) {
+        return dataAccessRepository.deleteAllOrders(requireCompanyId(companyId));
+    }
+
+    private Long requireCompanyId(Long companyId) {
+        if (companyId == null) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Не удалось определить компанию пользователя"
+            );
+        }
+        return companyId;
     }
 
     private void generateOrderMaterials(Long orderId, List<DataAccessRepository.MaterialInfo> materials) {

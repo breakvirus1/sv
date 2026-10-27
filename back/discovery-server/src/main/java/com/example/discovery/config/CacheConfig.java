@@ -1,4 +1,4 @@
-package com.example.generatedataserviceservice.config;
+package com.example.discovery.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.cache.CacheManager;

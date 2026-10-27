@@ -39,9 +39,9 @@ public class CompanyService {
 
     @Cacheable(value = "companies", key = "'id_' + #id")
     @Transactional(readOnly = true)
-    public CompanyResponse getCompanyById(Long id) {
-        Company company = companyRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Компания не найдена"));
+    public CompanyResponse getCompanyById(Long id, Long requesterCompanyId) {
+        verifyCompanyAccess(id, requesterCompanyId);
+        Company company = getCompanyEntity(id);
         return companyMapper.toDto(company);
     }
 
@@ -57,7 +57,8 @@ public class CompanyService {
     }
 
     @CacheEvict(value = "companies", allEntries = true)
-    public CompanyResponse updateCompany(Long id, CompanyCreateRequest request) {
+    public CompanyResponse updateCompany(Long id, CompanyCreateRequest request, Long requesterCompanyId) {
+        verifyCompanyAccess(id, requesterCompanyId);
         Company company = getCompanyEntity(id);
         companyMapper.updateFromRequest(request, company);
         Company saved = companyRepository.save(company);
@@ -65,9 +66,16 @@ public class CompanyService {
     }
 
     @CacheEvict(value = "companies", allEntries = true)
-    public void deleteCompany(Long id) {
+    public void deleteCompany(Long id, Long requesterCompanyId) {
+        verifyCompanyAccess(id, requesterCompanyId);
         Company company = getCompanyEntity(id);
         companyRepository.delete(company);
+    }
+
+    private void verifyCompanyAccess(Long requestedCompanyId, Long requesterCompanyId) {
+        if (requesterCompanyId != null && !requesterCompanyId.equals(requestedCompanyId)) {
+            throw new NotFoundException("Компания не найдена");
+        }
     }
 
     @Transactional(readOnly = true)
