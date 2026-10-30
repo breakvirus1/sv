@@ -25,6 +25,12 @@ spring:
       pageable:
         default-page-size: 50
         max-page-size: 100
+
+app:
+  tenant:
+    master-url: jdbc:postgresql://localhost:5432/svdb
+    username: postgres
+    password: 12345
   flyway:
     enabled: true
     locations: classpath:db/migration

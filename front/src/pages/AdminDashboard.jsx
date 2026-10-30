@@ -4,7 +4,7 @@ import {
   Table, TableHead, TableRow, TableCell, TableBody, IconButton, MenuItem, Select, FormControl, InputLabel,
   Snackbar, Alert, CircularProgress, Divider, Chip, Tabs, Tab, TableContainer
 } from '@mui/material';
-import { Add, Edit, Delete } from '@mui/icons-material';
+import { Add, Edit, Delete, Backup } from '@mui/icons-material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -144,6 +144,26 @@ const AdminDashboard = () => {
     onError: (err) => showNotification('Ошибка: ' + getApiErrorMessage(err), 'error')
   });
 
+  // ---- Backup mutation ----
+  const backupMutation = useMutation({
+    mutationFn: (companyId) => api.post(`/api/v1/companies/${companyId}/backup`, null, {
+      responseType: 'blob'
+    }),
+    onSuccess: (response, companyId) => {
+      const blob = new Blob([response.data], { type: 'application/sql' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `svdb_company_${companyId}_${Date.now()}.sql`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      showNotification('Бэкап компании успешно скачан');
+    },
+    onError: (err) => showNotification('Ошибка бэкапа: ' + getApiErrorMessage(err), 'error')
+  });
+
   // ---- Handlers ----
   const resetCompanyForm = () => { setCompanyForm({ name: '' }); setSelectedCompany(null); };
   const resetAdminForm = () => { setAdminForm({ username: '', password: '', fullName: '', email: '', companyId: '', role: 'ADMIN' }); setSelectedAdmin(null); };
@@ -212,6 +232,7 @@ const AdminDashboard = () => {
               <TableCell sx={{ fontWeight: 600, minWidth: 80 }}>ID</TableCell>
               <TableCell sx={{ fontWeight: 600, minWidth: 200 }}>Название</TableCell>
               <TableCell sx={{ fontWeight: 600, minWidth: 180 }}>Дата создания</TableCell>
+              <TableCell sx={{ fontWeight: 600, minWidth: 100 }}>Бэкап</TableCell>
               <TableCell sx={{ fontWeight: 600, textAlign: 'center', minWidth: 120 }}>Действия</TableCell>
             </TableRow></TableHead>
             <TableBody>
@@ -220,6 +241,19 @@ const AdminDashboard = () => {
                   <TableCell>{c.id}</TableCell>
                   <TableCell>{c.name}</TableCell>
                   <TableCell>{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '-'}</TableCell>
+                  <TableCell>
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => backupMutation.mutate(c.id)}
+                      disabled={backupMutation.isPending}
+                      title="Скачать бэкап базы данных"
+                    >
+                      {backupMutation.isPending && backupMutation.variables === c.id
+                        ? <CircularProgress size={20} />
+                        : <Backup />}
+                    </IconButton>
+                  </TableCell>
                   <TableCell sx={{ textAlign: 'center' }}>
                     <IconButton size="small" onClick={() => openCompanyDialog(c)}><Edit /></IconButton>
                     <IconButton size="small" color="error" onClick={() => { setSelectedCompany(c); setCompanyDeleteDialogOpen(true); }}><Delete /></IconButton>

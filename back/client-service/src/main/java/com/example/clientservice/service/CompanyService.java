@@ -7,7 +7,10 @@ import com.example.clientservice.exception.ConflictException;
 import com.example.clientservice.exception.NotFoundException;
 import com.example.clientservice.mapper.CompanyMapper;
 import com.example.clientservice.repository.CompanyRepository;
+import com.example.printsv.common.tenant.DatabaseProvisioningService;
+import com.example.printsv.common.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -17,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -25,6 +29,7 @@ public class CompanyService {
     private final CompanyRepository companyRepository;
     private final CompanyMapper companyMapper;
     private final CompanyDefaultsSeeder companyDefaultsSeeder;
+    private final DatabaseProvisioningService databaseProvisioningService;
 
     @Cacheable(value = "companies", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all') + '_' + (#companyId ?: 'all')")
     public Page<CompanyResponse> getAllCompanies(Specification<Company> spec, Pageable pageable, Long companyId) {
@@ -52,7 +57,22 @@ public class CompanyService {
         }
         Company company = companyMapper.createFromRequest(request);
         Company saved = companyRepository.save(company);
-        companyDefaultsSeeder.seedDefaultsForCompany(saved.getId());
+        Long companyId = saved.getId();
+        // Фиксируем запись о компании в мастер-БД до создания базы компании
+        companyRepository.flush();
+
+        // Создаём базу данных для компании
+        String databaseName = "sv_company_" + companyId;
+        try {
+            databaseProvisioningService.createDatabaseForCompany(companyId, databaseName);
+            log.info("Created database {} for company {}", databaseName, companyId);
+        } catch (Exception e) {
+            log.error("Failed to create database for company {}", companyId, e);
+            throw new RuntimeException("Не удалось создать базу данных для компании: " + e.getMessage(), e);
+        }
+
+        // Справочники пишем уже в базу новой компании
+        TenantContext.runAs(companyId, () -> companyDefaultsSeeder.seedDefaultsForCompany(companyId));
         return companyMapper.toDto(saved);
     }
 

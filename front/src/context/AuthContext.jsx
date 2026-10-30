@@ -197,6 +197,29 @@ export const AuthProvider = ({ children }) => {
     window.location.assign(url.toString());
   }, []);
 
+  const loginWithPassword = useCallback(async (username, password) => {
+    setAuthError(null);
+    const params = new URLSearchParams();
+    params.append('username', username);
+    params.append('password', password);
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = data.error === 'Invalid username or password'
+        ? 'Неверный логин или пароль'
+        : data.error_description || data.error || 'Не удалось выполнить вход';
+      throw new Error(message);
+    }
+    const { roles } = applyTokens(data);
+    return { roles };
+  }, [applyTokens]);
+
   const logout = useCallback(() => {
     const stored = getStoredAuth();
     clearAuth();
@@ -319,6 +342,7 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     login,
+    loginWithPassword,
     logout,
     handleCallback,
     refreshToken,

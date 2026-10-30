@@ -32,6 +32,7 @@
 </properties>
 
       <modules>
+          <module>back/common</module>
           <module>back/discovery-server</module>
           <module>back/client-service</module>
           <module>back/employee-service</module>

@@ -29,6 +29,17 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
+app:
+  tenant:
+    enabled: true
+    routing:
+      enabled: false
+    master-url: jdbc:postgresql://localhost:5432/svdb
+    username: postgres
+    password: 12345
+    pg-host: localhost
+    pg-port: 5432
+
   security:
     oauth2:
       resourceserver:

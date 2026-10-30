@@ -59,7 +59,14 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Lombok -->
+                <!-- Common module -->
+        <dependency>
+            <groupId>com.example.printsv</groupId>
+            <artifactId>common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+<!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

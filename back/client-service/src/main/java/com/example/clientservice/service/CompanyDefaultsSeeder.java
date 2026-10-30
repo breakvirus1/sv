@@ -3,6 +3,8 @@ package com.example.clientservice.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -113,7 +115,10 @@ public class CompanyDefaultsSeeder {
     /**
      * Создаёт справочники (материалы + операции) для новой компании.
      * Записи с тем же названием, уже существующие у этой компании, не дублируются.
+     * Выполняется в отдельной транзакции, чтобы получить соединение БД новой компании
+     * (внешняя транзакция уже держит соединение мастер-БД).
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void seedDefaultsForCompany(Long companyId) {
         jdbcTemplate.batchUpdate(
             """

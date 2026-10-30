@@ -36,6 +36,11 @@ spring:
           uri: lb://client-service
           predicates:
             - Path=/api/v1/admin/clients/**
+        - id: client-service-backup
+          uri: lb://client-service
+          predicates:
+            - Path=/api/v1/companies/*/backup
+            - Method=POST
         - id: material-service
           uri: lb://material-service
           predicates:

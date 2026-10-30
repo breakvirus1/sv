@@ -36,6 +36,15 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:5174/realms/print-sv}
           jwk-set-uri: http://keycloak:8080/realms/print-sv/protocol/openid-connect/certs
 
+app:
+  tenant:
+    enabled: true
+    routing:
+      enabled: true
+    master-url: ${APP_TENANT_MASTER_URL:jdbc:postgresql://postgres:5432/svdb}
+    username: ${APP_TENANT_USERNAME:postgres}
+    password: ${APP_TENANT_PASSWORD}
+
 keycloak:
   admin:
     server-url: http://keycloak:8080

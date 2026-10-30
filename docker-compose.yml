@@ -17,6 +17,29 @@ services:
     networks:
       - sv-network
 
+  # Сервис для инициализации tenant-баз данных при первом запуске
+  init-tenant-db:
+    image: postgres:15-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "
+        psql -h postgres -U postgres -d svdb -c
+        'CREATE TABLE IF NOT EXISTS svschema.tenant_databases (
+          id BIGSERIAL PRIMARY KEY,
+          company_id BIGINT NOT NULL UNIQUE,
+          database_name VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );'
+      "
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - sv-network
+    profiles:
+      - init
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.1.4
     command: start-dev --import-realm
@@ -98,6 +121,9 @@ services:
       - KEYCLOAK_ISSUER_URI=${KEYCLOAK_PUBLIC_URL:-http://localhost:5174}/realms/print-sv
       - CALCULATOR_SERVICE_URL=http://calculator-service:8086
       - STATISTIC_SERVICE_URL=http://statistic-service:8089/api/v1/admin/statistics
+      - APP_TENANT_MASTER_URL=jdbc:postgresql://postgres:5432/svdb
+      - APP_TENANT_USERNAME=${POSTGRES_USER:-postgres}
+      - APP_TENANT_PASSWORD=${POSTGRES_PASSWORD}
 
   client-service:
     build:
@@ -121,6 +147,9 @@ services:
       - DB_USERNAME=${POSTGRES_USER:-postgres}
       - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - KEYCLOAK_ISSUER_URI=${KEYCLOAK_PUBLIC_URL:-http://localhost:5174}/realms/print-sv
+      - APP_TENANT_MASTER_URL=jdbc:postgresql://postgres:5432/svdb
+      - APP_TENANT_USERNAME=${POSTGRES_USER:-postgres}
+      - APP_TENANT_PASSWORD=${POSTGRES_PASSWORD}
 
   employee-service:
     build:
@@ -147,6 +176,9 @@ services:
       - KEYCLOAK_ADMIN_URL=http://keycloak:8080
       - KEYCLOAK_ADMIN_CLIENT_ID=${KEYCLOAK_ADMIN_CLIENT_ID:-order-service}
       - KEYCLOAK_ADMIN_CLIENT_SECRET=${KEYCLOAK_ADMIN_CLIENT_SECRET:?KEYCLOAK_ADMIN_CLIENT_SECRET is required}
+      - APP_TENANT_MASTER_URL=jdbc:postgresql://postgres:5432/svdb
+      - APP_TENANT_USERNAME=${POSTGRES_USER:-postgres}
+      - APP_TENANT_PASSWORD=${POSTGRES_PASSWORD}
 
   material-service:
     build:
@@ -171,6 +203,9 @@ services:
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - KEYCLOAK_ISSUER_URI=${KEYCLOAK_PUBLIC_URL:-http://localhost:5174}/realms/print-sv
       - KEYCLOAK_ADMIN_SERVER_URL=http://keycloak:8080
+      - APP_TENANT_MASTER_URL=jdbc:postgresql://postgres:5432/svdb
+      - APP_TENANT_USERNAME=${POSTGRES_USER:-postgres}
+      - APP_TENANT_PASSWORD=${POSTGRES_PASSWORD}
 
 
   calculator-service:
@@ -196,6 +231,9 @@ services:
       - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - KEYCLOAK_ISSUER_URI=${KEYCLOAK_PUBLIC_URL:-http://localhost:5174}/realms/print-sv
       - MATERIAL_SERVICE_URL=http://material-service:8084/api/v1/materials
+      - APP_TENANT_MASTER_URL=jdbc:postgresql://postgres:5432/svdb
+      - APP_TENANT_USERNAME=${POSTGRES_USER:-postgres}
+      - APP_TENANT_PASSWORD=${POSTGRES_PASSWORD}
 
   file-service:
     build:
@@ -216,8 +254,14 @@ services:
       - ./uploads:/app/uploads
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - DB_HOST=postgres
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - KEYCLOAK_ISSUER_URI=${KEYCLOAK_PUBLIC_URL:-http://localhost:5174}/realms/print-sv
+      - APP_TENANT_MASTER_URL=jdbc:postgresql://postgres:5432/svdb
+      - APP_TENANT_USERNAME=${POSTGRES_USER:-postgres}
+      - APP_TENANT_PASSWORD=${POSTGRES_PASSWORD}
 
   comment-service:
     build:
@@ -241,6 +285,9 @@ services:
       - DB_USERNAME=${POSTGRES_USER:-postgres}
       - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - KEYCLOAK_ISSUER_URI=${KEYCLOAK_PUBLIC_URL:-http://localhost:5174}/realms/print-sv
+      - APP_TENANT_MASTER_URL=jdbc:postgresql://postgres:5432/svdb
+      - APP_TENANT_USERNAME=${POSTGRES_USER:-postgres}
+      - APP_TENANT_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - ./uploads:/app/uploads
       - ./images:/app/images
@@ -271,6 +318,9 @@ services:
       - DB_USERNAME=${POSTGRES_USER:-postgres}
       - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - KEYCLOAK_ISSUER_URI=${KEYCLOAK_PUBLIC_URL:-http://localhost:5174}/realms/print-sv
+      - APP_TENANT_MASTER_URL=jdbc:postgresql://postgres:5432/svdb
+      - APP_TENANT_USERNAME=${POSTGRES_USER:-postgres}
+      - APP_TENANT_PASSWORD=${POSTGRES_PASSWORD}
 
   statistic-service:
     build:
@@ -294,6 +344,9 @@ services:
       - DB_USERNAME=${POSTGRES_USER:-postgres}
       - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - KEYCLOAK_ISSUER_URI=${KEYCLOAK_PUBLIC_URL:-http://localhost:5174}/realms/print-sv
+      - APP_TENANT_MASTER_URL=jdbc:postgresql://postgres:5432/svdb
+      - APP_TENANT_USERNAME=${POSTGRES_USER:-postgres}
+      - APP_TENANT_PASSWORD=${POSTGRES_PASSWORD}
 
   api-gateway:
     build:
@@ -335,6 +388,9 @@ services:
       - KEYCLOAK_TOKEN_BASE_URL=http://keycloak:8080/realms/print-sv
       - KEYCLOAK_CLIENT_ID=frontend
       - SERVER_IP=${SERVER_IP:-127.0.0.1}
+      - APP_TENANT_MASTER_URL=jdbc:postgresql://postgres:5432/svdb
+      - APP_TENANT_USERNAME=${POSTGRES_USER:-postgres}
+      - APP_TENANT_PASSWORD=${POSTGRES_PASSWORD}
 
   frontend:
     build:

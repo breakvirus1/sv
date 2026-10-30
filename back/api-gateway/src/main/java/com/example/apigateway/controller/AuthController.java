@@ -23,8 +23,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Обменивает authorization code / refresh token на токены Keycloak.
- * Password grant намеренно не поддерживается: SPA использует Authorization Code + PKCE.
+ * Обменивает authorization code / refresh token на токены Keycloak,
+ * а также выполняет вход по логину/паролю (password grant) для формы на странице Login.
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -46,9 +46,33 @@ public class AuthController {
         log.info("AuthController initialized with token-base-url: {}, client-id: {}", tokenBaseUrl, clientId);
     }
 
-    @RequestMapping(method = RequestMethod.OPTIONS, value = {"/token", "/refresh"})
+    @RequestMapping(method = RequestMethod.OPTIONS, value = {"/token", "/refresh", "/login"})
     public Mono<ResponseEntity<Void>> options() {
         return Mono.just(ResponseEntity.ok().build());
+    }
+
+    @PostMapping(value = "/login", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public Mono<ResponseEntity<Map<String, Object>>> login(ServerWebExchange exchange) {
+        return exchange.getFormData()
+                .flatMap(formData -> {
+                    String username = formData.getFirst("username");
+                    String password = formData.getFirst("password");
+
+                    if (isBlank(username) || isBlank(password)) {
+                        return badRequest("username and password are required");
+                    }
+
+                    log.debug("Password login attempt for user: {}", username);
+                    return callKeycloakTokenEndpoint(Map.of(
+                            "grant_type", "password",
+                            "client_id", clientId,
+                            "username", username,
+                            "password", password,
+                            "scope", "openid profile email"
+                    ));
+                })
+                .timeout(Duration.ofSeconds(10))
+                .onErrorResume(e -> handleTimeout(e, "login"));
     }
 
     @PostMapping(value = "/token", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
@@ -113,6 +137,15 @@ public class AuthController {
         if (params.containsKey("refresh_token")) {
             body = body.with("refresh_token", params.get("refresh_token"));
         }
+        if (params.containsKey("username")) {
+            body = body.with("username", params.get("username"));
+        }
+        if (params.containsKey("password")) {
+            body = body.with("password", params.get("password"));
+        }
+        if (params.containsKey("scope")) {
+            body = body.with("scope", params.get("scope"));
+        }
 
         return webClient.post()
                 .uri("/protocol/openid-connect/token")
@@ -137,7 +170,10 @@ public class AuthController {
                     if (e instanceof KeycloakAuthException kae) {
                         Map<String, Object> error = new HashMap<>();
                         if (kae.getStatusCode() == 400 || kae.getStatusCode() == 401) {
-                            error.put("error", "Invalid authorization code or refresh token");
+                            boolean passwordGrant = "password".equals(params.get("grant_type"));
+                            error.put("error", passwordGrant
+                                    ? "Invalid username or password"
+                                    : "Invalid authorization code or refresh token");
                             return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error));
                         }
                         error.put("error", "Authentication service error: " + kae.getMessage());
