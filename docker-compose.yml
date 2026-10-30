@@ -54,6 +54,8 @@ services:
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
+      # Admin Console остаётся на самом Keycloak, а не уезжает на KC_HOSTNAME (фронтенд)
+      KC_HOSTNAME_ADMIN: ${KEYCLOAK_ADMIN_URL:-http://127.0.0.1:8080}
       KC_HTTP_CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5174,http://127.0.0.1:5174}
       KC_HTTP_CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
       KC_HTTP_CORS_ALLOWED_HEADERS: "*"
