@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
@@ -14,7 +15,9 @@ import org.springframework.core.Ordered;
  * Включается свойством app.tenant.enabled=true.
  * Маршрутизирующий DataSource дополнительно включается app.tenant.routing.enabled=true.
  */
-@AutoConfiguration
+// before=DataSourceAutoConfiguration: маршрутизатор должен регистрироваться раньше,
+// иначе DataSourceAutoConfiguration создаст второй бин DataSource и внедрение станет неоднозначным.
+@AutoConfiguration(before = DataSourceAutoConfiguration.class)
 @ConditionalOnProperty(name = "app.tenant.enabled", havingValue = "true")
 public class TenantAutoConfiguration {
 

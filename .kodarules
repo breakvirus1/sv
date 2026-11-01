@@ -1,0 +1,54 @@
+# PrintSV — правила проекта
+
+Репозиторий `sv` (ветка `fixcompany`): монорепо с бэкендом на Spring Boot (`back/`), SPA на React (`front/`), полным стеком в `docker-compose.yml`, Keycloak (`keycloak/`) и скриптами обслуживания (`scripts/`). Эти правила важнее глобальных: если они расходятся — прав проект.
+
+## Стек (проверено по pom.xml и package.json)
+
+- Java 17, Spring Boot 3.2.5, Spring Cloud 2023.0.3: Eureka (`discovery-server`), Gateway (`api-gateway`), OpenFeign между сервисами.
+- Maven multi-module: корневой `pom.xml`, модули `back/<service>`; общий код — `back/common` (`com.example.printsv.common`), сервисные пакеты — `com.example.<service>`.
+- Lombok 1.18.34, MapStruct 1.5.5, springdoc 2.6.0, jjwt 0.11.5, Flyway 11.13.1.
+- PostgreSQL; миграции — `back/<service>/src/main/resources/db/migration`, свой набор на каждый сервис.
+- Front: React 18 на **JavaScript/JSX** (TypeScript в проекте нет), Vite 5, MUI 5 + Emotion, TanStack Query v5, zustand, react-router 6, react-hook-form + zod, axios, oidc-client-ts.
+- Аутентификация: Keycloak, realm `print-sv`, клиент `frontend`; бэкенд валидирует JWT.
+
+## Мультитенантность — главное правило проекта
+
+- `company_id` берётся только из JWT (`@AuthenticationPrincipal Jwt`, `TenantFilter`), никогда из query-параметра или тела запроса.
+- Работа с БД — только через маршрутизацию `com.example.printsv.common.tenant` (`TenantContext`, `TenantRoutingDataSource`, tenant-aware cache). Не создавай `DataSource`/`JdbcTemplate` в обход этого слоя и не хардкодь имя БД.
+- БД компаний создаёт `DatabaseProvisioningService` и `scripts/provision-company-db.sh`; ручных `CREATE DATABASE`/`ALTER` в рабочей базе не делать.
+- Flyway: только новые `V<n>__*.sql`. Правка уже применённых миграций и `flyway clean` на рабочей базе запрещены.
+
+## API и бэкенд
+
+- Все публичные пути — `/api/v1/...`; маршрут живёт в `back/api-gateway/src/main/resources/application*.yml` (`Path=` → `lb://<service>`). Новый публичный эндпоинт без маршрута в шлюзе недоступен.
+- Контроллер: `@RestController` + `@RequestMapping("/api/v1/...")`, `@RequiredArgsConstructor` с `final`-полями, ответы `ResponseEntity<...>`, `@Valid` на телах, `@PreAuthorize` на методах.
+- Роли: `ADMIN`, `MANAGER`, `PRODUCTION`, `ACCOUNTANT`, `GOD`. Права проверяются на бэкенде — UI-скрытие кнопки защитой не считается.
+- DTO — в `dto/`, сущности наружу не отдавать; маппинг — MapStruct в `mapper/`.
+- Сущности наследуют `BaseEntity` (`id`, `createdAt`, `updatedAt`, `deleted`). Удаление — мягкое: в запросах фильтруй `deleted = false` либо используй `@SQLDelete`/`@SQLRestriction`, как в `calculator-service`. Физическое `DELETE` не предлагать.
+- Ошибки — через свои исключения и `@RestControllerAdvice` сервиса; `System.out` не использовать, логирование через slf4j.
+- Новые эндпоинты документируются `@Operation`/`@Tag` (springdoc); контракт `docs/openapi-order-service.yaml` держать в актуальном виде, если меняется order-service.
+
+## Front
+
+- Проект на JavaScript: не вводить TypeScript, `.ts`/`.tsx` и типы не добавлять.
+- HTTP — через `front/src/services/api.js` (axios), не `fetch` в компонентах; серверное состояние — TanStack Query, локальное — `useState`/zustand.
+- Формы — react-hook-form + zod-схемы через `@hookform/resolvers`, без ручного `useState` на каждое поле.
+- Структура: `pages/` — страницы, `features/` — доменные блоки, `components/` — переиспользуемое, `hooks/`, `context/`, `utils/`, `theme.js` — тема MUI.
+- Стили — MUI: `sx`/тема, без смешивания с CSS-модулями и инлайн-стилями в одном компоненте.
+- Роутинг — react-router 6, авторизация — oidc-client-ts (Keycloak), токен не кладём в `localStorage` без явной необходимости.
+
+## Команды
+
+- Бэкенд: `mvn clean package -DskipTests` (из корня), тесты — `mvn test -B`.
+- Фронтенд: из `front/` — `npm ci`, `npm test` (vitest), `npm run build`; e2e — `npm run test:e2e` (Playwright, `front/e2e`).
+- Стек: `docker compose up -d --build`, логи — `docker compose logs -f <service>`.
+- Генератор тестовых данных — только профиль dev: `docker compose --profile dev up -d generate-data-service`.
+- Порты: сайт `5174`, API `8085` (только loopback).
+- Пересборка одного сервиса — `scripts/rebuild-<service>.sh` (в Windows — соответствующий `.ps1`).
+
+## Дисциплина изменений
+
+- Секреты — только в `.env` (в git не попадает). Новая переменная дублируется в `.env.example` и, если нужна контейнерам, в `docker-compose.yml`.
+- Перед «готово» — сборка и релевантные тесты; CI (`.github/workflows/ci-cd.yml`) прогоняет `mvn test -B`, `npm ci`, `npm test`, `npm run build`, затем Playwright.
+- Правки держим в границах затронутого модуля: не рефакторить соседние сервисы ради локальной задачи.
+- Стиль коммитов — Conventional Commits по-русски, как в истории: `feat(tenant): …`, `fix(keycloak): …`.

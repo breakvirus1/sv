@@ -33,8 +33,11 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -60,6 +63,9 @@ class EmployeeControllerTest {
 
     @MockBean
     private EmployeeService employeeService;
+
+    @MockBean
+    private com.example.employeeservice.service.KeycloakUserService keycloakUserService;
 
     @MockBean
     private JwtDecoder jwtDecoder;
@@ -572,6 +578,250 @@ class EmployeeControllerTest {
             mockMvc.perform(post("/api/v1/employees/sync-by-company")
                             .param("companyId", "10"))
                     .andExpect(status().isForbidden());
+        }
+    }
+
+    // ===================== POST /api/v1/employees/keycloak-user =====================
+
+    @Nested
+    @DisplayName("POST /api/v1/employees/keycloak-user")
+    class CreateKeycloakUser {
+
+        private com.example.employeeservice.dto.KeycloakUserCreateRequest request(
+                String username, String role, Long companyId) {
+            com.example.employeeservice.dto.KeycloakUserCreateRequest request =
+                    new com.example.employeeservice.dto.KeycloakUserCreateRequest();
+            request.setUsername(username);
+            request.setPassword("secret123");
+            request.setFullName("Петр Петров");
+            request.setEmail("petr@example.com");
+            request.setRole(role);
+            request.setCompanyId(companyId);
+            return request;
+        }
+
+        @Test
+        @DisplayName("ADMIN creates user for own company from JWT")
+        void adminCreatesUserForOwnCompany() throws Exception {
+            when(keycloakUserService.createUser(any(), eq(1L))).thenReturn("new-user-id");
+
+            mockMvc.perform(post("/api/v1/employees/keycloak-user")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request("petr", "MANAGER", null)))
+                            .with(jwt()
+                                    .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                                    .jwt(j -> j.subject("admin").claim("company_id", "1"))))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.id").value("new-user-id"));
+
+            verify(keycloakUserService).createUser(any(), eq(1L));
+        }
+
+        @Test
+        @DisplayName("GOD can create user for another company")
+        void godCanCreateUserForAnotherCompany() throws Exception {
+            when(keycloakUserService.createUser(any(), eq(2L))).thenReturn("god-created-id");
+
+            mockMvc.perform(post("/api/v1/employees/keycloak-user")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request("petr", "ADMIN", 2L)))
+                            .with(jwt()
+                                    .authorities(new SimpleGrantedAuthority("ROLE_GOD"))
+                                    .jwt(j -> j.subject("admingod").claim("company_id", "1"))))
+                    .andExpect(status().isCreated());
+
+            verify(keycloakUserService).createUser(any(), eq(2L));
+        }
+
+        @Test
+        @DisplayName("ADMIN cannot create GOD user")
+        void adminCannotCreateGodUser() throws Exception {
+            mockMvc.perform(post("/api/v1/employees/keycloak-user")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request("petr", "GOD", null)))
+                            .with(jwt()
+                                    .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                                    .jwt(j -> j.subject("admin").claim("company_id", "1"))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("ADMIN cannot create user for another company")
+        void adminCannotCreateUserForAnotherCompany() throws Exception {
+            mockMvc.perform(post("/api/v1/employees/keycloak-user")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request("petr", "MANAGER", 7L)))
+                            .with(jwt()
+                                    .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                                    .jwt(j -> j.subject("admin").claim("company_id", "1"))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("ADMIN may pass own company explicitly")
+        void adminCanPassOwnCompanyIdExplicitly() throws Exception {
+            when(keycloakUserService.createUser(any(), eq(1L))).thenReturn("own-company-id");
+
+            mockMvc.perform(post("/api/v1/employees/keycloak-user")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request("petr", "MANAGER", 1L)))
+                            .with(jwt()
+                                    .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                                    .jwt(j -> j.subject("admin").claim("company_id", "1"))))
+                    .andExpect(status().isCreated());
+
+            verify(keycloakUserService).createUser(any(), eq(1L));
+        }
+
+        @Test
+        @DisplayName("MANAGER role is not allowed to create users")
+        @WithMockUser(roles = "MANAGER")
+        void managerCannotCreateKeycloakUser() throws Exception {
+            mockMvc.perform(post("/api/v1/employees/keycloak-user")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request("petr", "PRODUCTION", null))))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("Blank username is rejected with 400")
+        void blankUsernameRejected() throws Exception {
+            mockMvc.perform(post("/api/v1/employees/keycloak-user")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request("", "MANAGER", null)))
+                            .with(jwt()
+                                    .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                                    .jwt(j -> j.subject("admin").claim("company_id", "1"))))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("Unauthenticated users get 401")
+        @WithAnonymousUser
+        void unauthenticatedGets401() throws Exception {
+            mockMvc.perform(post("/api/v1/employees/keycloak-user")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request("petr", "MANAGER", null))))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    // ===================== PUT /api/v1/employees/keycloak-password =====================
+
+    @Nested
+    @DisplayName("PUT /api/v1/employees/keycloak-password")
+    class UpdateKeycloakPassword {
+
+        private com.example.employeeservice.dto.KeycloakPasswordUpdateRequest passwordRequest(
+                String username, String password, Boolean temporary) {
+            com.example.employeeservice.dto.KeycloakPasswordUpdateRequest request =
+                    new com.example.employeeservice.dto.KeycloakPasswordUpdateRequest();
+            request.setUsername(username);
+            request.setPassword(password);
+            request.setTemporary(temporary);
+            return request;
+        }
+
+        private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder putPassword(
+                com.example.employeeservice.dto.KeycloakPasswordUpdateRequest request) throws Exception {
+            return put("/api/v1/employees/keycloak-password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request));
+        }
+
+        private org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor actingAs(
+                String role, String subject, String companyId) {
+            return jwt().authorities(new SimpleGrantedAuthority(role))
+                    .jwt(j -> j.subject(subject).claim("company_id", companyId));
+        }
+
+        @Test
+        @DisplayName("ADMIN changes password of own company employee")
+        void adminUpdatesPasswordForOwnEmployee() throws Exception {
+            when(employeeService.getEmployeeByUsername("petr", 1L)).thenReturn(sampleEmployee());
+
+            mockMvc.perform(putPassword(passwordRequest("petr", "secret123", false))
+                            .with(actingAs("ROLE_ADMIN", "admin", "1")))
+                    .andExpect(status().isOk());
+
+            verify(employeeService).getEmployeeByUsername("petr", 1L);
+            verify(keycloakUserService).updatePassword("petr", "secret123", false);
+        }
+
+        @Test
+        @DisplayName("temporary flag is forwarded to Keycloak")
+        void temporaryFlagIsForwarded() throws Exception {
+            when(employeeService.getEmployeeByUsername("petr", 1L)).thenReturn(sampleEmployee());
+
+            mockMvc.perform(putPassword(passwordRequest("petr", "secret123", true))
+                            .with(actingAs("ROLE_ADMIN", "admin", "1")))
+                    .andExpect(status().isOk());
+
+            verify(keycloakUserService).updatePassword("petr", "secret123", true);
+        }
+
+        @Test
+        @DisplayName("ADMIN cannot reset password of a GOD user")
+        void adminCannotChangeGodUserPassword() throws Exception {
+            EmployeeResponse god = sampleEmployee();
+            god.setRoles(List.of("ROLE_GOD"));
+            when(employeeService.getEmployeeByUsername("admingod", 1L)).thenReturn(god);
+
+            mockMvc.perform(putPassword(passwordRequest("admingod", "secret123", false))
+                            .with(actingAs("ROLE_ADMIN", "admin", "1")))
+                    .andExpect(status().isForbidden());
+
+            verify(keycloakUserService, never()).updatePassword(anyString(), anyString(), anyBoolean());
+        }
+
+        @Test
+        @DisplayName("ADMIN cannot change password of an employee outside own company")
+        void adminCannotChangePasswordOfForeignEmployee() throws Exception {
+            when(employeeService.getEmployeeByUsername("petr", 1L))
+                    .thenThrow(new NotFoundException("Сотрудник не найден"));
+
+            mockMvc.perform(putPassword(passwordRequest("petr", "secret123", false))
+                            .with(actingAs("ROLE_ADMIN", "admin", "1")))
+                    .andExpect(status().isNotFound());
+
+            verify(keycloakUserService, never()).updatePassword(anyString(), anyString(), anyBoolean());
+        }
+
+        @Test
+        @DisplayName("GOD changes password without company scoping")
+        void godSkipsCompanyCheck() throws Exception {
+            mockMvc.perform(putPassword(passwordRequest("petr", "secret123", false))
+                            .with(actingAs("ROLE_GOD", "admingod", "1")))
+                    .andExpect(status().isOk());
+
+            verify(employeeService, never()).getEmployeeByUsername(anyString(), any());
+            verify(keycloakUserService).updatePassword("petr", "secret123", false);
+        }
+
+        @Test
+        @DisplayName("Password shorter than 6 chars is rejected with 400")
+        void tooShortPasswordRejected() throws Exception {
+            mockMvc.perform(putPassword(passwordRequest("petr", "123", false))
+                            .with(actingAs("ROLE_ADMIN", "admin", "1")))
+                    .andExpect(status().isBadRequest());
+
+            verify(keycloakUserService, never()).updatePassword(anyString(), anyString(), anyBoolean());
+        }
+
+        @Test
+        @DisplayName("MANAGER role is not allowed to change passwords")
+        @WithMockUser(roles = "MANAGER")
+        void managerCannotChangePassword() throws Exception {
+            mockMvc.perform(putPassword(passwordRequest("petr", "secret123", false)))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("Unauthenticated users get 401")
+        @WithAnonymousUser
+        void unauthenticatedGets401() throws Exception {
+            mockMvc.perform(putPassword(passwordRequest("petr", "secret123", false)))
+                    .andExpect(status().isUnauthorized());
         }
     }
 

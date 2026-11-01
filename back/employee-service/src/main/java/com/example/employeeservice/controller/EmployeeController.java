@@ -3,8 +3,11 @@ package com.example.employeeservice.controller;
 import com.example.employeeservice.dto.EmployeeCreateRequest;
 import com.example.employeeservice.dto.EmployeeResponse;
 import com.example.employeeservice.dto.EmployeeUpdateRequest;
+import com.example.employeeservice.dto.KeycloakPasswordUpdateRequest;
+import com.example.employeeservice.dto.KeycloakUserCreateRequest;
 import com.example.employeeservice.entity.Employee;
 import com.example.employeeservice.service.EmployeeService;
+import com.example.employeeservice.service.KeycloakUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,6 +19,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +36,7 @@ import java.util.List;
 public class EmployeeController {
 
     private final EmployeeService employeeService;
+    private final KeycloakUserService keycloakUserService;
 
     @Operation(summary = "Получить список сотрудников")
     @GetMapping
@@ -139,6 +144,53 @@ public class EmployeeController {
         return ResponseEntity.ok("Синхронизация по компании завершена. " + result);
     }
 
+    @Operation(summary = "Создать учётную запись сотрудника в Keycloak с ролью")
+    @PostMapping("/keycloak-user")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
+    public ResponseEntity<java.util.Map<String, String>> createKeycloakUser(
+            @Valid @RequestBody KeycloakUserCreateRequest request,
+            @AuthenticationPrincipal Jwt jwt,
+            Authentication authentication) {
+        String role = request.getRole() == null ? "" : request.getRole().trim().toUpperCase();
+        boolean god = isGod(jwt) || hasGodAuthority(authentication);
+        if (role.replace("ROLE_", "").equals("GOD") && !god) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Создавать пользователей с ролью GOD может только GOD");
+        }
+        Long targetCompanyId = request.getCompanyId();
+        if (targetCompanyId == null) {
+            targetCompanyId = scopedCompanyId(jwt);
+        } else if (!god && !targetCompanyId.equals(extractCompanyId(jwt))) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Другую компанию выбирать нельзя");
+        }
+        String userId = keycloakUserService.createUser(request, targetCompanyId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(java.util.Map.of("id", userId));
+    }
+
+    @Operation(summary = "Сменить пароль сотрудника в Keycloak")
+    @PutMapping("/keycloak-password")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
+    public ResponseEntity<Void> updateKeycloakPassword(
+            @Valid @RequestBody KeycloakPasswordUpdateRequest request,
+            @AuthenticationPrincipal Jwt jwt,
+            Authentication authentication) {
+        String username = request.getUsername().trim();
+        boolean god = isGod(jwt) || hasGodAuthority(authentication);
+        if (!god) {
+            // ADMIN меняет пароли только своим сотрудникам и не может сбросить пароль GOD-учётки
+            EmployeeResponse target = employeeService.getEmployeeByUsername(username, requireCompanyId(jwt));
+            List<String> targetRoles = target.getRoles() == null ? List.of() : target.getRoles();
+            if (targetRoles.contains("ROLE_GOD")) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Сменять пароль пользователя с ролью GOD может только GOD");
+            }
+        }
+        keycloakUserService.updatePassword(username, request.getPassword(),
+                Boolean.TRUE.equals(request.getTemporary()));
+        return ResponseEntity.ok().build();
+    }
+
     @Operation(summary = "Удалить сотрудника")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
@@ -181,6 +233,16 @@ public class EmployeeController {
             }
         }
         return false;
+    }
+
+    /**
+     * GOD может прийти и как authority (так его видит @PreAuthorize), когда claim realm_access
+     * в токене оформлен иначе — сверяемся с обоими источниками, чтобы права не расходились.
+     */
+    private boolean hasGodAuthority(Authentication authentication) {
+        return authentication != null
+                && authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_GOD".equals(a.getAuthority()));
     }
 
     private Long extractCompanyId(Jwt jwt) {

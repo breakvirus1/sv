@@ -169,6 +169,12 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     enabled: groupSelectionDialog.open && dialogMaterialId != null,
   });
 
+  // Данные для диалога выбора операций: по материалу позиции либо общие
+  const dialogGroupedData = dialogMaterialId != null ? materialGroupedOperations.groups : groupedOperationsData.groups;
+  const dialogUngroupedOps = dialogMaterialId != null
+    ? materialGroupedOperations.ungroupedOperations
+    : (groupedOperationsData.ungroupedOperations || []);
+
   const { data: eyeletsData = [], isLoading: isLoadingEyelets, error: eyeletsError } = useQuery({
     queryKey: ['eyelets'],
     queryFn: async () => {

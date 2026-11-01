@@ -16,8 +16,6 @@ public interface MaterialMapper {
     @Mapping(target = "defaultHeightM", source = "defaultHeightM")
     MaterialResponse toDto(Material material);
 
-    @Mapping(target = "defaultWidthM", ignore = true)
-    @Mapping(target = "defaultHeightM", ignore = true)
     Material toEntity(MaterialCreateRequest request);
 
     @Mapping(target = "id", ignore = true)

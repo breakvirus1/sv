@@ -37,6 +37,7 @@ public class EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final EmployeeMapper employeeMapper;
     private final RoleRepository roleRepository;
+    private final KeycloakAdminTokenProvider keycloakAdminTokenProvider;
 
     @Value("${keycloak.admin.server-url:http://localhost:8080}")
     private String keycloakServerUrl;
@@ -44,11 +45,22 @@ public class EmployeeService {
     @Value("${keycloak.admin.realm:print-sv}")
     private String keycloakRealm;
 
+
     @Value("${keycloak.admin.client-id:order-service}")
     private String keycloakClientId;
 
     @Value("${keycloak.admin.client-secret:order-service-secret}")
     private String keycloakClientSecret;
+
+    /**
+     * Учётка bootstrap-администратора master realm (KC_BOOTSTRAP_ADMIN_USERNAME/PASSWORD в Keycloak).
+     * Нужна для Admin REST API: service-account клиента print-sv realm-management ролей не имеет.
+     */
+    @Value("${keycloak.admin.master-username:}")
+    private String keycloakMasterUsername;
+
+    @Value("${keycloak.admin.master-password:}")
+    private String keycloakMasterPassword;
 
     @Cacheable(value = "employees", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all') + '_' + (#companyId ?: 'all')")
     public Page<EmployeeResponse> getAllEmployees(Specification<Employee> spec, Pageable pageable) {
@@ -291,8 +303,9 @@ public class EmployeeService {
                         existing.setEmail((String) kcUser.get("email"));
                     }
                     // Set companyId if provided
-                    if (companyId != null) {
-                        existing.setCompanyId(companyId);
+                    Long resolvedCompanyId = resolveCompanyId(kcUser, companyId);
+                    if (resolvedCompanyId != null) {
+                        existing.setCompanyId(resolvedCompanyId);
                     }
                     employeeRepository.save(existing);
                     updated++;
@@ -311,8 +324,9 @@ public class EmployeeService {
             employee.setRoles(roles);
             employee.setRoleId(firstRoleId);
             // Set companyId if provided
-            if (companyId != null) {
-                employee.setCompanyId(companyId);
+            Long resolvedCompanyId = resolveCompanyId(kcUser, companyId);
+            if (resolvedCompanyId != null) {
+                employee.setCompanyId(resolvedCompanyId);
             }
 
             employeeRepository.save(employee);
@@ -321,6 +335,34 @@ public class EmployeeService {
         }
 
         return "created=" + created + ", updated=" + updated;
+    }
+
+    /**
+     * Компания сотрудника: явный параметр синхронизации важнее атрибута пользователя в Keycloak.
+     * Без атрибута сотрудник остался бы без компании и перестал бы находиться запросами с company_id из JWT.
+     */
+    private Long resolveCompanyId(Map<String, Object> kcUser, Long requestedCompanyId) {
+        if (requestedCompanyId != null) {
+            return requestedCompanyId;
+        }
+        Object attrsObj = kcUser.get("attributes");
+        if (!(attrsObj instanceof Map)) {
+            return null;
+        }
+        Object companyAttr = ((Map<?, ?>) attrsObj).get("company_id");
+        Object raw = companyAttr instanceof List<?> list
+                ? (list.isEmpty() ? null : list.get(0))
+                : companyAttr;
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return Long.parseLong(raw.toString().trim());
+        } catch (NumberFormatException e) {
+            log.warn("Keycloak attribute company_id has non-numeric value '{}' for user {}",
+                    raw, kcUser.get("username"));
+            return null;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -402,27 +444,7 @@ public class EmployeeService {
     }
 
     private String obtainAdminToken(RestTemplate restTemplate) {
-        org.springframework.http.HttpHeaders tokenHeaders = new org.springframework.http.HttpHeaders();
-        tokenHeaders.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
-        // Try admin-cli password grant first
-        try {
-            String tokenUrl = keycloakServerUrl + "/realms/master/protocol/openid-connect/token";
-            var tokenRequest = new org.springframework.http.HttpEntity<>(
-                    "grant_type=password&client_id=admin-cli&username=admin&password=admin",
-                    tokenHeaders);
-            var tokenResponse = restTemplate.postForEntity(tokenUrl, tokenRequest, Map.class);
-            if (tokenResponse.getBody() != null && tokenResponse.getBody().get("access_token") != null) {
-                return (String) tokenResponse.getBody().get("access_token");
-            }
-        } catch (Exception ignored) {
-        }
-        // Fallback: client credentials on master realm
-        String tokenUrl = keycloakServerUrl + "/realms/master/protocol/openid-connect/token";
-        var tokenRequest = new org.springframework.http.HttpEntity<>(
-                "grant_type=client_credentials&client_id=" + keycloakClientId + "&client_secret=" + keycloakClientSecret,
-                tokenHeaders);
-        var tokenResponse = restTemplate.postForEntity(tokenUrl, tokenRequest, Map.class);
-        return (String) tokenResponse.getBody().get("access_token");
+        return keycloakAdminTokenProvider.obtainToken(restTemplate);
     }
 
     private ERole mapKeycloakRoleName(String kcRoleName) {

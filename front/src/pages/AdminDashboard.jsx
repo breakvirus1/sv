@@ -2,14 +2,26 @@ import { useState } from 'react';
 import {
   Box, Typography, Paper, TextField, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   Table, TableHead, TableRow, TableCell, TableBody, IconButton, MenuItem, Select, FormControl, InputLabel,
-  Snackbar, Alert, CircularProgress, Divider, Chip, Tabs, Tab, TableContainer
+  Snackbar, Alert, CircularProgress, Divider, Chip, Tabs, Tab, TableContainer,
+  InputAdornment, Checkbox, FormControlLabel, FormHelperText
 } from '@mui/material';
-import { Add, Edit, Delete, Backup } from '@mui/icons-material';
+import { Add, Edit, Delete, Backup, VpnKey, Visibility, VisibilityOff, Autorenew } from '@mui/icons-material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { getApiErrorMessage } from '../utils/apiError';
 import { useCompanies, useEmployees } from '../hooks/useSharedQueries';
 import { queryKeys } from '../hooks/queryKeys';
+
+const PASSWORD_MIN_LENGTH = 6;
+const PASSWORD_MAX_LENGTH = 100;
+
+// Без похожих друг на друга символов (0/O, 1/l), чтобы пароль можно было продиктовать
+const randomPassword = () => {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = new Uint8Array(12);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
+};
 
 const AdminDashboard = () => {
   const [tab, setTab] = useState(0);
@@ -30,6 +42,12 @@ const AdminDashboard = () => {
   const [adminDeleteDialogOpen, setAdminDeleteDialogOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const [adminForm, setAdminForm] = useState({ username: '', password: '', fullName: '', email: '', companyId: '', role: 'ADMIN' });
+
+  // ---- Смена пароля (Keycloak хранит только хеш, поэтому пароль сбрасывается, а не показывается) ----
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordTarget, setPasswordTarget] = useState(null);
+  const [passwordForm, setPasswordForm] = useState({ password: '', temporary: false });
+  const [showPassword, setShowPassword] = useState(false);
 
   // ---- Fetch data ----
   const { data: companiesData = [], isLoading: isLoadingCompanies, refetch: refetchCompanies } = useCompanies();
@@ -52,85 +70,17 @@ const AdminDashboard = () => {
     onError: (err) => showNotification('Ошибка: ' + getApiErrorMessage(err), 'error')
   });
 
-  // ---- Company Admin creation via Keycloak API ----
+  // ---- Company Admin creation (через employee-service: креды Keycloak не попадают в браузер) ----
   const createAdminMutation = useMutation({
     mutationFn: async (adminData) => {
-       const adminTokenRes = await fetch('/realms/master/protocol/openid-connect/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'password',
-          client_id: 'admin-cli',
-          username: 'admin',
-          password: 'admin'
-        })
+      await api.post('/api/v1/employees/keycloak-user', {
+        username: adminData.username,
+        password: adminData.password,
+        fullName: adminData.fullName,
+        email: adminData.email,
+        role: adminData.role,
+        companyId: adminData.companyId ? Number(adminData.companyId) : undefined
       });
-      if (!adminTokenRes.ok) throw new Error('Не удалось получить токен Keycloak');
-      const tokenData = await adminTokenRes.json();
-      const adminToken = tokenData.access_token;
-
-      // Check if user already exists
-      const checkUserRes = await fetch(`/admin/realms/print-sv/users?username=${encodeURIComponent(adminData.username)}`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${adminToken}` }
-      });
-      let users = [];
-      if (checkUserRes.ok) {
-        users = await checkUserRes.json();
-      }
-
-      if (users.length > 0) {
-        throw new Error('Пользователь с таким логином уже существует в Keycloak');
-      }
-
-      const adminNameParts = (adminData.fullName || '').trim().split(/\s+/);
-
-      const createUserRes = await fetch('/admin/realms/print-sv/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
-        },
-        body: JSON.stringify({
-          username: adminData.username,
-          firstName: adminNameParts[0] || adminData.fullName,
-          lastName: adminNameParts.slice(1).join(' ') || adminNameParts[0] || 'User',
-          email: adminData.email,
-          emailVerified: true,
-          enabled: true,
-          credentials: [{ type: 'password', value: adminData.password, temporary: false }],
-          realmRoles: [adminData.role.replace('ROLE_', '')],
-          attributes: {
-            company_id: [adminData.companyId]
-          }
-        })
-      });
-
-      if (!createUserRes.ok) {
-        const errText = await createUserRes.text();
-        throw new Error(errText || 'Ошибка создания пользователя в Keycloak');
-      }
-
-      // Keycloak игнорирует realmRoles при POST /users — назначаем роль явно
-      const roleName = adminData.role.replace('ROLE_', '');
-      const roleRes = await fetch(`/admin/realms/print-sv/roles/${encodeURIComponent(roleName)}`, {
-        headers: { 'Authorization': `Bearer ${adminToken}` }
-      });
-      if (roleRes.ok) {
-        const role = await roleRes.json();
-        const createdUserRes = await fetch(`/admin/realms/print-sv/users?username=${encodeURIComponent(adminData.username)}`, {
-          headers: { 'Authorization': `Bearer ${adminToken}` }
-        });
-        const createdUsers = createdUserRes.ok ? await createdUserRes.json() : [];
-        if (createdUsers.length > 0) {
-          await fetch(`/admin/realms/print-sv/users/${createdUsers[0].id}/role-mappings/realm`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-            body: JSON.stringify([role])
-          });
-        }
-      }
-
       await api.post(`/api/v1/employees/sync-by-company?companyId=${adminData.companyId}`);
       return true;
     },
@@ -141,6 +91,17 @@ const AdminDashboard = () => {
   const deleteEmployeeMutation = useMutation({
     mutationFn: (id) => api.delete(`/api/v1/employees/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.employees({ size: 100 }) }); setAdminDeleteDialogOpen(false); showNotification('Администратор удален'); },
+    onError: (err) => showNotification('Ошибка: ' + getApiErrorMessage(err), 'error')
+  });
+
+  // ---- Password reset via employee-service ----
+  const updatePasswordMutation = useMutation({
+    mutationFn: ({ username, password, temporary }) =>
+      api.put('/api/v1/employees/keycloak-password', { username, password, temporary }),
+    onSuccess: () => {
+      showNotification(`Пароль обновлён: ${passwordTarget?.username || ''}`);
+      closePasswordDialog();
+    },
     onError: (err) => showNotification('Ошибка: ' + getApiErrorMessage(err), 'error')
   });
 
@@ -202,6 +163,41 @@ const AdminDashboard = () => {
 
   const handleDeleteAdmin = () => {
     if (selectedAdmin) deleteEmployeeMutation.mutate(selectedAdmin.id);
+  };
+
+  const openPasswordDialog = (emp) => {
+    setPasswordTarget(emp);
+    setPasswordForm({ password: '', temporary: false });
+    setShowPassword(false);
+    setPasswordDialogOpen(true);
+  };
+
+  const closePasswordDialog = () => {
+    setPasswordDialogOpen(false);
+    setPasswordTarget(null);
+    setPasswordForm({ password: '', temporary: false });
+    setShowPassword(false);
+  };
+
+  const generatePassword = () => {
+    setPasswordForm((form) => ({ ...form, password: randomPassword() }));
+    setShowPassword(true);
+  };
+
+  const handlePasswordSubmit = () => {
+    if (!passwordTarget?.username) {
+      showNotification('Не известен логин пользователя', 'error');
+      return;
+    }
+    if (passwordForm.password.length < PASSWORD_MIN_LENGTH) {
+      showNotification(`Пароль должен быть не короче ${PASSWORD_MIN_LENGTH} символов`, 'error');
+      return;
+    }
+    updatePasswordMutation.mutate({
+      username: passwordTarget.username,
+      password: passwordForm.password,
+      temporary: passwordForm.temporary
+    });
   };
 
   const getEmployeeCompanyName = (emp) => {
@@ -300,6 +296,9 @@ const AdminDashboard = () => {
                     ))}
                   </TableCell>
                   <TableCell sx={{ textAlign: 'center' }}>
+                    <IconButton size="small" onClick={() => openPasswordDialog(emp)} title="Сменить пароль" aria-label={`Сменить пароль для ${emp.username || ''}`}>
+                      <VpnKey />
+                    </IconButton>
                     <IconButton size="small" onClick={() => openAdminDialog(emp)}><Edit /></IconButton>
                     <IconButton size="small" color="error" onClick={() => { setSelectedAdmin(emp); setAdminDeleteDialogOpen(true); }}><Delete /></IconButton>
                   </TableCell>
@@ -412,6 +411,60 @@ const AdminDashboard = () => {
         <DialogActions>
           <Button onClick={() => setAdminDeleteDialogOpen(false)}>Отмена</Button>
           <Button color="error" variant="contained" onClick={handleDeleteAdmin} disabled={deleteEmployeeMutation.isPending}>Удалить</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Password Dialog */}
+      <Dialog open={passwordDialogOpen} onClose={closePasswordDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Пароль: {passwordTarget?.fullName || passwordTarget?.username}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Посмотреть текущий пароль нельзя — Keycloak хранит только его хеш. Можно установить новый.
+          </Typography>
+          <TextField autoFocus fullWidth margin="dense" label="Логин" value={passwordTarget?.username || ''} InputProps={{ readOnly: true }} />
+          <TextField
+            fullWidth
+            margin="dense"
+            label="Новый пароль"
+            required
+            type={showPassword ? 'text' : 'password'}
+            value={passwordForm.password}
+            onChange={(e) => setPasswordForm({ ...passwordForm, password: e.target.value.slice(0, PASSWORD_MAX_LENGTH) })}
+            helperText={`От ${PASSWORD_MIN_LENGTH} до ${PASSWORD_MAX_LENGTH} символов`}
+            onKeyDown={(e) => { if (e.key === 'Enter') handlePasswordSubmit(); }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    edge="end"
+                    aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                  <IconButton onClick={generatePassword} edge="end" aria-label="Сгенерировать пароль" title="Сгенерировать">
+                    <Autorenew />
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
+          />
+          <FormControlLabel
+            control={(
+              <Checkbox
+                checked={passwordForm.temporary}
+                onChange={(e) => setPasswordForm({ ...passwordForm, temporary: e.target.checked })}
+              />
+            )}
+            label="Временный — потребовать смену при первом входе"
+          />
+          <FormHelperText>Активные сессии пользователя после смены пароля не отзываются.</FormHelperText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closePasswordDialog}>Отмена</Button>
+          <Button variant="contained" onClick={handlePasswordSubmit} disabled={updatePasswordMutation.isPending}>
+            {updatePasswordMutation.isPending ? <CircularProgress size={20} /> : 'Сменить пароль'}
+          </Button>
         </DialogActions>
       </Dialog>
 

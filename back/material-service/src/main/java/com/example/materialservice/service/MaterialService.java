@@ -84,6 +84,12 @@ public class MaterialService {
         if (request.getWasteCoefficient() != null) {
             material.setWasteCoefficient(request.getWasteCoefficient());
         }
+        if (request.getDefaultWidthM() != null) {
+            material.setDefaultWidthM(request.getDefaultWidthM());
+        }
+        if (request.getDefaultHeightM() != null) {
+            material.setDefaultHeightM(request.getDefaultHeightM());
+        }
         Material saved = materialRepository.save(material);
         return materialMapper.toDto(saved);
     }

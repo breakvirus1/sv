@@ -17,7 +17,8 @@ export async function trackServerErrors(page) {
  */
 export async function login(page, username, password) {
   await page.goto('/login')
-  await page.getByRole('button', { name: 'Войти' }).click()
+  // на странице две кнопки с текстом «Войти» — нужна SSO, иначе strict mode violation
+  await page.getByRole('button', { name: 'Войти через Keycloak (SSO)' }).click()
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 })
 
   if (page.url().includes('/realms/')) {
@@ -45,6 +46,9 @@ export async function logout(page) {
  * Если сессии нет — выполняет вход через UI Keycloak.
  */
 export async function apiToken(page, username, password) {
+  // sessionStorage доступна только внутри документа приложения: на about:blank её чтение даёт SecurityError
+  if (!/^https?:/.test(page.url())) await page.goto('/')
+
   const existing = await page.evaluate(() => window.sessionStorage.getItem('token'))
   if (existing) return existing
 

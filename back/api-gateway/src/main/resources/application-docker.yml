@@ -30,6 +30,11 @@ eureka:
   client:
     service-url:
       defaultZone: http://discovery-server:8761/eureka/
+    # Как можно быстрее узнавать о сменившемся адресе инстанса: иначе после перезапуска
+    # сервиса шлюз шлёт трафик на старый IP и отдаёт 500 вместо рабочих ответов.
+    registry-fetch-interval-seconds: 5
+    instance-info-replication-interval-seconds: 5
+    initial-instance-replication-interval-seconds: 5
   instance:
     prefer-ip-address: true
 

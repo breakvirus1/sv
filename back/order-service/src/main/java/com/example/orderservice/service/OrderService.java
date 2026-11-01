@@ -452,6 +452,7 @@ public class OrderService {
 
                 OrderItem orderItem = new OrderItem();
                 orderItem.setOrder(saved);
+                orderItem.setCompanyId(companyId);
                 orderItem.setName(material.getName());
                 BigDecimal qty = pm.getQuantity() != null ? pm.getQuantity() : BigDecimal.ONE;
                 orderItem.setQuantity(qty.intValue());
@@ -464,6 +465,7 @@ public class OrderService {
 
                 OrderMaterial orderMaterial = new OrderMaterial();
                 orderMaterial.setOrder(saved);
+                orderMaterial.setCompanyId(companyId);
                 orderMaterial.setOrderItem(orderItem);
                 orderMaterial.setMaterial(material);
                 orderMaterial.setQuantity(qty);
@@ -490,6 +492,7 @@ public class OrderService {
 
                         OrderOperation orderOp = new OrderOperation();
                         orderOp.setOrderItem(orderItem);
+                        orderOp.setCompanyId(companyId);
                         orderOp.setOperationId(po.getId());
                         orderOp.setOperationName(po.getName());
                         orderOp.setPricePerUnit(opPrice);
@@ -528,6 +531,7 @@ public class OrderService {
 
                 OrderItem orderItem = new OrderItem();
                 orderItem.setOrder(saved);
+                orderItem.setCompanyId(companyId);
                 orderItem.setName(material.getName() + (itemReq.getWidthM() != null ? " " + itemReq.getWidthM() + "x" + itemReq.getHeightM() + "m" : ""));
                 orderItem.setQuantity(itemReq.getQuantity() != null ? itemReq.getQuantity().intValue() : 1);
                 orderItem.setReadyDate(itemReq.getReadyDate());
@@ -542,6 +546,7 @@ public class OrderService {
 
                     OrderMaterial orderMaterial = new OrderMaterial();
                     orderMaterial.setOrder(saved);
+                    orderMaterial.setCompanyId(companyId);
                     orderMaterial.setOrderItem(orderItem);
                     orderMaterial.setMaterial(material);
                     orderMaterial.setQuantity(qty);
@@ -561,6 +566,7 @@ public class OrderService {
 
                             OrderOperation orderOp = new OrderOperation();
                             orderOp.setOrderItem(orderItem);
+                            orderOp.setCompanyId(companyId);
                             orderOp.setOperationId(reqOp.getOperationId());
                             orderOp.setOperationName(reqOp.getOperationName());
                             orderOp.setPricePerUnit(opPrice);
@@ -724,6 +730,7 @@ public class OrderService {
                 // Create OrderItem
                 orderItem = new OrderItem();
                 orderItem.setOrder(saved);
+                orderItem.setCompanyId(companyId);
                 orderItem.setName(material.getName() + " " + itemReq.getWidthM() + "x" + itemReq.getHeightM() + "m");
                 orderItem.setQuantity(1);
                 orderItem.setReadyDate(itemReq.getReadyDate());
@@ -733,6 +740,7 @@ public class OrderService {
                 // Create OrderMaterial
                 OrderMaterial orderMaterial = new OrderMaterial();
                 orderMaterial.setOrder(order);
+                orderMaterial.setCompanyId(companyId);
                 orderMaterial.setOrderItem(orderItem);
                 orderMaterial.setMaterial(material);
                 orderMaterial.setQuantity(effectiveArea);
@@ -750,6 +758,7 @@ public class OrderService {
                 // Attach operations
                 for (OrderOperation op : orderOps) {
                     op.setOrderItem(orderItem);
+                    op.setCompanyId(companyId);
                     orderItem.getOperations().add(op);
                 }
 
@@ -1253,6 +1262,7 @@ public class OrderService {
                                     orderItem.getOperations().add(existing);
                                 } else {
                                     op.setOrderItem(orderItem);
+                                    op.setCompanyId(order.getCompanyId());
                                     orderItem.getOperations().add(op);
                                 }
                             }
@@ -1263,6 +1273,7 @@ public class OrderService {
                 } else {
                     OrderItem orderItem = new OrderItem();
                     orderItem.setOrder(order);
+                    orderItem.setCompanyId(order.getCompanyId());
                     orderItem.setName(material.getName() + " " + widthM + "x" + heightM + "m");
                     orderItem.setQuantity(1);
                     orderItem.setReadyDate(itemReq.getReadyDate());
@@ -1271,11 +1282,13 @@ public class OrderService {
 
                     for (OrderOperation op : orderOps) {
                         op.setOrderItem(orderItem);
+                        op.setCompanyId(order.getCompanyId());
                         orderItem.getOperations().add(op);
                     }
 
                     OrderMaterial om = new OrderMaterial();
                     om.setOrder(order);
+                    om.setCompanyId(order.getCompanyId());
                     om.setOrderItem(orderItem);
                     om.setMaterial(material);
                     om.setQuantity(effectiveArea);
@@ -1465,7 +1478,7 @@ public class OrderService {
      */
     public void recalculateTotalAmount(Long orderId) {
         BigDecimal total = jdbcTemplate.queryForObject(
-            "SELECT COALESCE(SUM(cost), 0) FROM order_items WHERE order_id = ? AND deleted = false",
+            "SELECT COALESCE(SUM(cost), 0) FROM svschema.order_items WHERE order_id = ? AND deleted = false",
             new Object[]{orderId},
             BigDecimal.class
         );
@@ -1743,6 +1756,7 @@ return new CalculatedOrderResponse(
 
         OrderItem item = new OrderItem();
         item.setOrder(order);
+        item.setCompanyId(order.getCompanyId());
         item.setName(request.getName() != null ? request.getName() : "Позиция");
         item.setQuantity(request.getQuantity() != null ? request.getQuantity() : 1);
         item.setReadyDate(request.getReadyDate());

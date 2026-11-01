@@ -71,6 +71,10 @@ cookies.txt
 *.ear
 BOOT-INF/
 META-INF/
+# Spring Boot auto-configuration registration in common must be tracked
+!back/common/src/main/resources/META-INF/
+!back/common/src/main/resources/META-INF/spring/
+!back/common/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
 
 images/
 

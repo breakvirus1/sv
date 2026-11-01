@@ -41,6 +41,10 @@ keycloak:
     realm: ${KEYCLOAK_ADMIN_REALM:print-sv}
     client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:order-service}
     client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+    # bootstrap-админ master realm: Admin REST API доступен только ему,
+    # у service-account клиента print-sv realm-management ролей нет
+    master-username: ${KEYCLOAK_ADMIN_MASTER_USERNAME:}
+    master-password: ${KEYCLOAK_ADMIN_MASTER_PASSWORD:}
 
 eureka:
   client:

@@ -29,7 +29,7 @@ import java.util.Set;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@SQLDelete(sql = "UPDATE orders SET deleted = true WHERE id=?")
+@SQLDelete(sql = "UPDATE svschema.orders SET deleted = true WHERE id=?")
 @Where(clause = "deleted = false")
 public class Order extends BaseEntity {
 

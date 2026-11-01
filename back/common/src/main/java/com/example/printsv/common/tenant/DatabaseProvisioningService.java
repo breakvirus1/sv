@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Управление базами данных компаний: создание, удаление, регистрация маршрутизации, бэкап.
@@ -126,7 +127,17 @@ public class DatabaseProvisioningService {
         }
     }
 
-    /** Копирует DDL схемы svschema и таблиц public из мастер-БД в базу компании. */
+    /**
+     * Таблицы comment-service, которые исторически создавались Hibernate (ddl-auto=update) в схеме public.
+     * Сейчас они находятся в svschema, но в старых мастер-базах могут ещё оставаться в public.
+     */
+    private static final List<String> LEGACY_PUBLIC_TABLES =
+        List.of("comments", "comment_replies", "comment_images", "reply_images", "images", "notifications");
+
+    /**
+     * Копирует DDL схемы svschema (и, если они там ещё есть, таблицы comment-service из public)
+     * из мастер-БД в базу компании.
+     */
     public void copySchemaFromMaster(String databaseName) throws Exception {
         List<String> dumpCmd = new ArrayList<>(List.of(
             "pg_dump",
@@ -142,26 +153,55 @@ public class DatabaseProvisioningService {
 
         runPipeline(dumpCmd, databaseName);
 
-        // Таблицы public, используемые comment-service
-        List<String> publicDumpCmd = new ArrayList<>(List.of(
-            "pg_dump",
-            "-h", pgHost,
-            "-p", String.valueOf(pgPort),
-            "-U", username,
-            "--schema-only",
-            "--no-owner",
-            "--no-privileges",
-            "-t", "public.comments",
-            "-t", "public.comment_replies",
-            "-t", "public.comment_images",
-            "-t", "public.reply_images",
-            "-t", "public.images",
-            "-t", "public.notifications",
-            masterDatabaseName()
-        ));
+        // pg_dump с -t на отсутствующей таблице завершается ошибкой "no matching tables were found",
+        // поэтому public-часть выполняется только для legacy-баз, где эти таблицы ещё лежат в public.
+        List<String> legacyTables = existingLegacyPublicTables();
+        if (legacyTables.isEmpty()) {
+            log.info("No comment tables in public schema of {}, skipping that part", masterDatabaseName());
+        } else {
+            List<String> publicDumpCmd = new ArrayList<>(List.of(
+                "pg_dump",
+                "-h", pgHost,
+                "-p", String.valueOf(pgPort),
+                "-U", username,
+                "--schema-only",
+                "--no-owner",
+                "--no-privileges"
+            ));
+            for (String table : legacyTables) {
+                publicDumpCmd.add("-t");
+                publicDumpCmd.add("public." + table);
+            }
+            publicDumpCmd.add(masterDatabaseName());
 
-        runPipeline(publicDumpCmd, databaseName);
+            runPipeline(publicDumpCmd, databaseName);
+        }
+
         log.info("Schema copied from master to {}", databaseName);
+    }
+
+    /** Таблицы comment-service, которые в мастер-БД до сих пор находятся в схеме public. */
+    private List<String> existingLegacyPublicTables() {
+        String placeholders = LEGACY_PUBLIC_TABLES.stream()
+            .map(t -> "?")
+            .collect(Collectors.joining(", "));
+        try (var conn = getConnection();
+             var ps = conn.prepareStatement("SELECT tablename FROM pg_tables"
+                 + " WHERE schemaname = 'public' AND tablename IN (" + placeholders + ")")) {
+            for (int i = 0; i < LEGACY_PUBLIC_TABLES.size(); i++) {
+                ps.setString(i + 1, LEGACY_PUBLIC_TABLES.get(i));
+            }
+            try (var rs = ps.executeQuery()) {
+                List<String> found = new ArrayList<>();
+                while (rs.next()) {
+                    found.add(rs.getString("tablename"));
+                }
+                return found;
+            }
+        } catch (Exception e) {
+            log.warn("Cannot check legacy public comment tables in master database: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     private static final char BACKSLASH = (char) 92;

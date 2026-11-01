@@ -18,7 +18,8 @@ spring:
     enabled: true
     table: flyway_material_schema_history
     baseline-on-migrate: true
-    baseline-version: 20261020
+    # 0 — на чистой БД проигрываются все миграции сервиса (materials.company_id).
+    baseline-version: 0
     validate-on-migrate: true
     schemas: svschema
   jpa:

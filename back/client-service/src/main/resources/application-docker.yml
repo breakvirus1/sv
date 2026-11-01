@@ -15,7 +15,8 @@ spring:
     enabled: true
     table: flyway_client_schema_history
     baseline-on-migrate: true
-    baseline-version: 999999
+    # 0 — на чистой БД проигрываются все миграции сервиса (companies, client.company_id).
+    baseline-version: 0
     validate-on-migrate: true
     schemas: svschema
   jpa:

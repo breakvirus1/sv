@@ -15,7 +15,8 @@ spring:
     enabled: true
     table: flyway_employee_schema_history
     baseline-on-migrate: true
-    baseline-version: 999996
+    # 0 — на чистой БД проигрываются все миграции сервиса (roles, employee_roles, company_id).
+    baseline-version: 0
     validate-on-migrate: true
     schemas: svschema
   jpa:
@@ -48,6 +49,11 @@ app:
 keycloak:
   admin:
     server-url: http://keycloak:8080
+    realm: print-sv
+    client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:order-service}
+    client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:}
+    master-username: ${KEYCLOAK_ADMIN_MASTER_USERNAME:}
+    master-password: ${KEYCLOAK_ADMIN_MASTER_PASSWORD:}
 
 eureka:
   client:

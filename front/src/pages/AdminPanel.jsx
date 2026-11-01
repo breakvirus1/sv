@@ -860,55 +860,15 @@ const renderEmployeesTab = () => (
             }
             setCreatingEmployee(true);
             try {
-               const tokenRes = await fetch('/realms/master/protocol/openid-connect/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ grant_type: 'password', client_id: 'admin-cli', username: 'admin', password: 'admin' })
+              // Пользователя создаёт employee-service: креды Keycloak остаются на бэкенде
+              await api.post('/api/v1/employees/keycloak-user', {
+                username: newEmployeeForm.username,
+                password: newEmployeeForm.password,
+                fullName: newEmployeeForm.fullName,
+                email: newEmployeeForm.email,
+                role: newEmployeeForm.role,
+                companyId: userCompanyId
               });
-              if (!tokenRes.ok) throw new Error('Не удалось получить токен Keycloak');
-              const tokenData = await tokenRes.json();
-              const adminToken = tokenData.access_token;
-
-               const nameParts = newEmployeeForm.fullName.trim().split(/\s+/);
-               const createRes = await fetch('/admin/realms/print-sv/users', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-                body: JSON.stringify({
-                  username: newEmployeeForm.username,
-                  firstName: nameParts[0] || newEmployeeForm.fullName,
-                  lastName: nameParts.slice(1).join(' ') || nameParts[0] || 'User',
-                  email: newEmployeeForm.email,
-                  enabled: true,
-                  credentials: [{ type: 'password', value: newEmployeeForm.password, temporary: false }],
-                  realmRoles: [newEmployeeForm.role.replace('ROLE_', '')],
-                  attributes: {
-                    company_id: [String(userCompanyId)]
-                  }
-                })
-              });
-              if (!createRes.ok) {
-                const errText = await createRes.text();
-                throw new Error(errText || 'Ошибка создания пользователя');
-              }
-              // Keycloak игнорирует realmRoles при POST /users — назначаем роль явно
-              const roleName = newEmployeeForm.role.replace('ROLE_', '');
-              const roleRes = await fetch(`/admin/realms/print-sv/roles/${encodeURIComponent(roleName)}`, {
-                headers: { 'Authorization': `Bearer ${adminToken}` }
-              });
-              if (roleRes.ok) {
-                const role = await roleRes.json();
-                const createdUserRes = await fetch(`/admin/realms/print-sv/users?username=${encodeURIComponent(newEmployeeForm.username)}`, {
-                  headers: { 'Authorization': `Bearer ${adminToken}` }
-                });
-                const createdUsers = createdUserRes.ok ? await createdUserRes.json() : [];
-                if (createdUsers.length > 0) {
-                  await fetch(`/admin/realms/print-sv/users/${createdUsers[0].id}/role-mappings/realm`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-                    body: JSON.stringify([role])
-                  });
-                }
-              }
               await api.post(`/api/v1/employees/sync-by-company?companyId=${userCompanyId}`);
               showNotification('Сотрудник создан');
               setNewEmployeeDialogOpen(false);
