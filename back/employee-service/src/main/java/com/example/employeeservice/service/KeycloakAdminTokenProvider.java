@@ -48,9 +48,20 @@ public class KeycloakAdminTokenProvider {
         // 1. bootstrap-админ master realm (учётные данные берутся из окружения, не хардкод)
         if (!keycloakMasterUsername.isBlank() && !keycloakMasterPassword.isBlank()) {
             try {
-                String tokenUrl = keycloakServerUrl + "/realms/master/protocol/openid-connect/token";
-                var tokenRequest = new HttpEntity<>(
-                        "grant_type=password&client_id=admin-cli&username=" + keycloakMasterUsernameвцы
+                String masterTokenUrl = keycloakServerUrl + "/realms/master/protocol/openid-connect/token";
+                var masterTokenRequest = new HttpEntity<>(
+                        "grant_type=password&client_id=admin-cli&username=" + keycloakMasterUsername
+                                + "&password=" + keycloakMasterPassword,
+                        headers);
+                var masterTokenResponse = restTemplate.postForEntity(masterTokenUrl, masterTokenRequest, Map.class);
+                String masterAccessToken = masterTokenResponse.getBody() == null
+                        ? null : (String) masterTokenResponse.getBody().get("access_token");
+                if (masterAccessToken != null) {
+                    return masterAccessToken;
+                }
+            } catch (Exception e) {
+                log.warn("Не удалось получить токен bootstrap-администратора master realm ({}), "
+                        + "пробую service-account клиента realm", e.getMessage());
             }
         }
         // 2. service-account клиента в рабочем realm
