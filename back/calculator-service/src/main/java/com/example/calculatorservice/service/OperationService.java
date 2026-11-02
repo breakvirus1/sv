@@ -30,8 +30,15 @@ public class OperationService {
      *
      * @return список всех операций
      */
+    public List<Operation> getAllOperations(Long companyId) {
+        return operationRepository.findAll().stream()
+                .filter(op -> companyId == null || op.getCompanyId() == null
+                        || companyId.equals(op.getCompanyId()))
+                .collect(Collectors.toList());
+    }
+
     public List<Operation> getAllOperations() {
-        return operationRepository.findAll();
+        return getAllOperations(null);
     }
 
     /**
@@ -71,8 +78,15 @@ public class OperationService {
      *
      * @return список всех группировок
      */
+    public List<OperationGroup> getAllOperationGroups(Long companyId) {
+        return operationGroupRepository.findAll().stream()
+                .filter(g -> companyId == null || g.getCompanyId() == null
+                        || companyId.equals(g.getCompanyId()))
+                .collect(Collectors.toList());
+    }
+
     public List<OperationGroup> getAllOperationGroups() {
-        return operationGroupRepository.findAll();
+        return getAllOperationGroups(null);
     }
 
     /**
@@ -120,15 +134,28 @@ public class OperationService {
      * @return сгруппированный ответ операций
      */
     public GroupedOperationsResponse getGroupedOperationsByMaterialId(Long materialId) {
-        List<Operation> allOperations = operationRepository.findAll();
+        return getGroupedOperationsByMaterialId(materialId, null);
+    }
+
+    public GroupedOperationsResponse getGroupedOperationsByMaterialId(Long materialId, Long companyId) {
+        List<Operation> allOperations = operationRepository.findAll().stream()
+                .filter(op -> companyId == null || op.getCompanyId() == null
+                        || companyId.equals(op.getCompanyId()))
+                .collect(Collectors.toList());
 
         List<com.example.calculatorservice.entity.MaterialOperationGroup> mappings = Collections.emptyList();
         if (materialId != null) {
-            mappings = materialOperationGroupRepository.findAllByMaterialId(materialId);
+            mappings = materialOperationGroupRepository.findAllByMaterialId(materialId).stream()
+                    .filter(m -> companyId == null || m.getCompanyId() == null
+                            || companyId.equals(m.getCompanyId()))
+                    .collect(Collectors.toList());
         }
 
         if (materialId == null) {
-            List<OperationGroup> allGroups = operationGroupRepository.findAll();
+            List<OperationGroup> allGroups = operationGroupRepository.findAll().stream()
+                    .filter(group -> companyId == null || group.getCompanyId() == null
+                            || companyId.equals(group.getCompanyId()))
+                    .collect(Collectors.toList());
             List<GroupedOperationsResponse.GroupDto> result = new java.util.ArrayList<>();
             List<OperationDto> ungroupedOperations = new java.util.ArrayList<>();
 

@@ -1,7 +1,6 @@
 package com.example.materialservice.repository;
 
 import com.example.materialservice.entity.MaterialOperation;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

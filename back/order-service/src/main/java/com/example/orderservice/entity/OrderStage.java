@@ -50,4 +50,7 @@ public class OrderStage extends BaseEntity {
     /** Исходные файлы для этого этапа (пути к файлам или JSON с метаданными) */
     @Column(name = "source_files", columnDefinition = "TEXT")
     private String sourceFiles;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

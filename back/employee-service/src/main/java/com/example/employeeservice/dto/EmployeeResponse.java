@@ -20,4 +20,6 @@ public class EmployeeResponse {
     private java.math.BigDecimal managerCashPercent;
     private Long roleId;
     private List<String> roles;
+    /** ID компании */
+    private Long companyId;
 }

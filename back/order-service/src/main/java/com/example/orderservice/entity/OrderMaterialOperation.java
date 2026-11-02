@@ -1,7 +1,6 @@
 package com.example.orderservice.entity;
 
 import com.example.orderservice.entity.BaseEntity;
-import com.example.materialservice.entity.Material;
 import com.example.materialservice.entity.MaterialOperation;
 import jakarta.persistence.*;
 import lombok.*;
@@ -10,7 +9,6 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 /**
  * Операция, выполненная над материалом в заказе.
@@ -83,4 +81,7 @@ public class OrderMaterialOperation extends BaseEntity {
     @Column(name = "active")
     @ColumnDefault("true")
     private Boolean active = true;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

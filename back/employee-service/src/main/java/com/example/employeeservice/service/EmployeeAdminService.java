@@ -1,6 +1,7 @@
 package com.example.employeeservice.service;
 
 import com.example.employeeservice.entity.Employee;
+import com.example.employeeservice.exception.BadRequestException;
 import com.example.employeeservice.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,10 @@ public class EmployeeAdminService {
         "Менеджер", "Печатник", "Бухгалтер", "Производственник", "Дизайнер", "Ламинатор"
     };
 
-    public List<Employee> generateTestEmployees(int count) {
+    public List<Employee> generateTestEmployees(int count, Long companyId) {
+        if (companyId == null) {
+            throw new BadRequestException("Не удалось определить компанию пользователя");
+        }
         List<Employee> employees = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
@@ -42,6 +46,7 @@ public class EmployeeAdminService {
             employee.setPhone("+7(9" + (100 + random.nextInt(900)) + ")" + String.format("%03d-%02d-%02d",
                 random.nextInt(1000), random.nextInt(100), random.nextInt(100)));
             employee.setEmail("employee" + (i + 1) + "@example.com");
+            employee.setCompanyId(companyId);
 
             employees.add(employeeRepository.save(employee));
         }

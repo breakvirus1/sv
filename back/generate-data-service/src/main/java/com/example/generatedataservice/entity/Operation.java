@@ -29,4 +29,7 @@ public class Operation extends BaseEntity {
 
     @Column(name = "hem_count")
     private Integer hemCount;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

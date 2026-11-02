@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 
-const serverIp = process.env.VITE_SERVER_IP || process.env.SERVER_IP || '192.168.1.40'
+const serverIp = process.env.VITE_SERVER_IP || process.env.SERVER_IP || '127.0.0.1'
 
 export default defineConfig({
   root: resolve(__dirname, '.'),
@@ -11,6 +11,11 @@ export default defineConfig({
     port: 5174,
     host: true,
     proxy: {
+      '/api': {
+        target: `http://${serverIp}:8085`,
+        changeOrigin: true,
+        secure: false
+      },
       '/realms': {
         target: `http://${serverIp}:8080`,
         changeOrigin: true,
@@ -25,6 +30,11 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: false,
+    publicDir: 'public'
+  },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.{js,jsx}']
   }
 })

@@ -2,7 +2,6 @@ package com.example.orderservice.dto;
 
 import com.example.clientservice.dto.ClientResponse;
 import com.example.employeeservice.dto.EmployeeResponse;
-import com.example.materialservice.dto.MaterialResponse;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -24,6 +23,8 @@ public class OrderResponse {
     private Long id;
     /** Номер заказа */
     private String orderNumber;
+    /** ID компании (мультитенантность) */
+    private Long companyId;
     /** Клиент */
     private ClientResponse client;
     /** Описание */

@@ -2,6 +2,7 @@ package com.example.clientservice.service;
 
 import com.example.clientservice.entity.Client;
 import com.example.clientservice.entity.ClientType;
+import com.example.clientservice.exception.BadRequestException;
 import com.example.clientservice.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,7 +33,10 @@ public class ClientAdminService {
         "+7(900)123-45-67", "+7(903)987-65-43", "+7(905)456-78-90", "+7(903)111-22-33", "+7(999)888-77-66"
     };
 
-    public List<Client> generateTestClients(int count) {
+    public List<Client> generateTestClients(int count, Long companyId) {
+        if (companyId == null) {
+            throw new BadRequestException("Не удалось определить компанию пользователя");
+        }
         List<Client> clients = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
@@ -58,6 +62,7 @@ public class ClientAdminService {
             client.setEmail("test" + (i + 1) + "@example.com");
             client.setInn("" + (7700000000L + i));
             client.setAddress("г. Москва, ул. Примерная, д. " + (i + 1));
+            client.setCompanyId(companyId);
 
             clients.add(clientRepository.save(client));
         }

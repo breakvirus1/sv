@@ -1,6 +1,7 @@
 package com.example.orderservice.service;
 
 import com.example.orderservice.dto.*;
+import com.example.orderservice.exception.BadRequestException;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +40,7 @@ public class OrderAdminService {
         );
 
         if (clientIds.isEmpty() || employeeIds.isEmpty()) {
-            throw new RuntimeException("Необходимо сначала сгенерировать клиентов и сотрудников");
+            throw new BadRequestException("Необходимо сначала сгенерировать клиентов и сотрудников");
         }
 
         List<Order> orders = new ArrayList<>();

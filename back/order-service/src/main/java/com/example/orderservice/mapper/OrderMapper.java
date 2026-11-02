@@ -11,7 +11,6 @@ import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
-import java.util.List;
 import java.util.stream.Collectors;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
@@ -82,7 +81,8 @@ public interface OrderMapper {
                 entity.getWorkshop().getId(),
                 entity.getWorkshop().getName(),
                 entity.getWorkshop().getSortOrder(),
-                entity.getWorkshop().getOperationIds()));
+                entity.getWorkshop().getOperationIds(),
+                entity.getWorkshop().getCompanyId()));
         }
     }
 
@@ -184,7 +184,7 @@ public interface OrderMapper {
                 entity.getAuthor().getUsername(),
                 entity.getAuthor().getWorkshopId(),
                 entity.getAuthor().getManagerCashPercent(),
-                null, null));
+                null, null, null));
         }
     }
 

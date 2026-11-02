@@ -15,6 +15,7 @@ import com.example.commentservice.repository.ImageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -46,6 +47,23 @@ public class CommentService {
             return jwtAuth.getToken().getTokenValue();
         }
         throw new IllegalStateException("Unsupported authentication type");
+    }
+
+    private Long getCurrentCompanyId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            try {
+                Object claim = jwtAuth.getToken().getClaim("company_id");
+                if (claim instanceof Number number) {
+                    return number.longValue();
+                }
+                if (claim instanceof String str && !str.isBlank()) {
+                    return Long.parseLong(str);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
     }
 
     private Long getCurrentEmployeeId() {
@@ -135,6 +153,7 @@ public class CommentService {
         comment.setEmployeeId(getCurrentEmployeeId());
         comment.setEmployeeName(getCurrentEmployeeNameFromToken());
         comment.setReaded(false);
+        comment.setCompanyId(getCurrentCompanyId());
 
         if (request.getImageIds() != null && !request.getImageIds().isEmpty()) {
             List<Image> images = imageRepository.findAllById(request.getImageIds());
@@ -180,8 +199,11 @@ public class CommentService {
 
     @Transactional(readOnly = true)
     public List<CommentResponse> getCommentsByOrderId(Long orderId) {
+        Long companyId = getCurrentCompanyId();
         return commentRepository.findByOrderIdAndDeletedFalse(orderId)
                 .stream()
+                .filter(comment -> companyId == null || comment.getCompanyId() == null
+                        || companyId.equals(comment.getCompanyId()))
                 .map(comment -> {
                     var dto = commentMapper.toDto(comment);
                     dto.setEmployeeName(
@@ -254,7 +276,13 @@ public class CommentService {
 
     @Transactional(readOnly = true)
     public Page<CommentResponse> getAllComments(Pageable pageable) {
-        return commentRepository.findAll(pageable)
+        Long companyId = getCurrentCompanyId();
+        Specification<Comment> spec = Specification.where(null);
+        if (companyId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("companyId"), companyId));
+        }
+        // replies тоже привязаны к родительскому комментарию, фильтруем комментарии
+        return commentRepository.findAll(spec, pageable)
                 .map(commentMapper::toDto);
     }
 

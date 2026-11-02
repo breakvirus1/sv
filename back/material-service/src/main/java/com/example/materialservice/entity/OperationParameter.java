@@ -57,4 +57,7 @@ public class OperationParameter extends BaseEntity {
     /** Описание параметра (подсказка для пользователя) */
     @Column(name = "description", length = 500)
     private String description = "";
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

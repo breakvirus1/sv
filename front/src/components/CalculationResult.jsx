@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 const CalculationResult = ({ result }) => {
   return (

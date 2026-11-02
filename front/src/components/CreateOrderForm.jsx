@@ -34,10 +34,11 @@ import {
 import { Add, Delete, Save, AttachFile } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
+import { getApiErrorMessage, getApiFieldErrors } from '../utils/apiError';
 import { useNavigate } from 'react-router-dom';
 import { computeWorkshopTags } from '../utils/workshopTags';
-import { isM2, isLinearMeter } from '../utils/orderUtils';
-import { recalculateOrderLocally, applyPriceplus } from '../services/calculationService';
+import { isM2 } from '../utils/orderUtils';
+import { recalculateOrderLocally } from '../services/calculationService';
 import { useAuth } from '../context/AuthContext';
 
 const CreateOrderForm = ({ windowId, closeWindow }) => {
@@ -89,6 +90,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   });
   const [opsBeforeDialog, setOpsBeforeDialog] = useState([]);
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [clientFormErrors, setClientFormErrors] = useState({});
   const [orderAmountDialog, setOrderAmountDialog] = useState({ open: false, sumorder: 0 });
 
   // ── State: New Client Form ──
@@ -102,7 +104,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   });
 
   // Загрузка данных
-  const { data: clientsData = [], error: clientsError } = useQuery({
+  const { data: clientsData = [], isLoading: isLoadingClients, error: clientsError } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
       const response = await api.get('/api/v1/clients?size=100');
@@ -110,7 +112,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
-  const { data: materialsData = [], error: materialsError } = useQuery({
+  const { data: materialsData = [], isLoading: isLoadingMaterials, error: materialsError } = useQuery({
     queryKey: ['materials'],
     queryFn: async () => {
       const response = await api.get('/api/v1/materials?size=100');
@@ -118,7 +120,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
-  const { data: currentEmployee } = useQuery({
+  const { data: currentEmployee, isLoading: isLoadingEmployee } = useQuery({
     queryKey: ['currentEmployee', username],
     queryFn: async () => {
       if (!username) return null;
@@ -133,7 +135,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     ? (workshopsData.find(w => w.id === currentEmployee.workshopId)?.name || '#' + currentEmployee.workshopId)
     : null;
 
-  const { data: operationsData = [], error: operationsError } = useQuery({
+  const { data: operationsData = [], isLoading: isLoadingOperations, error: operationsError } = useQuery({
     queryKey: ['operations'],
     queryFn: async () => {
       const response = await api.get('/api/v1/calculations/operations');
@@ -141,7 +143,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     },
   });
 
-  const { data: groupedOperationsData = { groups: {}, ungroupedOperations: [] } } = useQuery({
+  const { data: groupedOperationsData = { groups: {}, ungroupedOperations: [] }, isLoading: isLoadingGroupedOps } = useQuery({
     queryKey: ['grouped-operations'],
     queryFn: async () => {
       const response = await api.get('/api/v1/calculations/operations/grouped');
@@ -155,7 +157,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     ? formData.items[groupSelectionDialog.itemIndex]?.materialId
     : null;
 
-  const { data: materialGroupedOperations = { groups: {}, ungroupedOperations: [] } } = useQuery({
+  const { data: materialGroupedOperations = { groups: {}, ungroupedOperations: [] }, isLoading: isLoadingMaterialGrouped } = useQuery({
     queryKey: ['material-grouped-operations', dialogMaterialId],
     queryFn: async () => {
       if (!dialogMaterialId) return { groups: {}, ungroupedOperations: [] };
@@ -167,20 +169,13 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     enabled: groupSelectionDialog.open && dialogMaterialId != null,
   });
 
+  // Данные для диалога выбора операций: по материалу позиции либо общие
   const dialogGroupedData = dialogMaterialId != null ? materialGroupedOperations.groups : groupedOperationsData.groups;
-  const dialogUngroupedOps = dialogMaterialId != null ? materialGroupedOperations.ungroupedOperations : (groupedOperationsData.ungroupedOperations || []);
+  const dialogUngroupedOps = dialogMaterialId != null
+    ? materialGroupedOperations.ungroupedOperations
+    : (groupedOperationsData.ungroupedOperations || []);
 
-  const allGroupedOpsFlat = useMemo(
-    () => Object.values(dialogGroupedData || {}).flatMap(g => (g.operations || [])),
-    [dialogGroupedData]
-  );
-
-  const eyeletMaterials = useMemo(
-    () => (materialsData || []).filter(m => (m.name || '').toLowerCase().includes('люверс')),
-    [materialsData]
-  );
-
-  const { data: eyeletsData = [], error: eyeletsError } = useQuery({
+  const { data: eyeletsData = [], isLoading: isLoadingEyelets, error: eyeletsError } = useQuery({
     queryKey: ['eyelets'],
     queryFn: async () => {
       const response = await api.get('/api/v1/calculations/eyelets');
@@ -190,7 +185,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   });
 
   // Получение данных выбранного клиента для получения priceplus
-  const { data: selectedClient } = useQuery({
+  const { data: selectedClient, isLoading: isLoadingSelectedClient } = useQuery({
     queryKey: ['client', formData.clientId],
     queryFn: async () => {
       if (!formData.clientId) return null;
@@ -218,7 +213,10 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
       setNewClientForm({ name: '', type: 'PRIVATE', contactPerson: '', phone: '', email: '', priceplus: null });
       setFormData(prev => ({ ...prev, clientId: response.data.id.toString() }));
     },
-    onError: (err) => setNotification({ open: true, message: 'Ошибка создания клиента: ' + err.message, severity: 'error' })
+    onError: (err) => {
+      setClientFormErrors(getApiFieldErrors(err));
+      setNotification({ open: true, message: 'Ошибка создания клиента: ' + getApiErrorMessage(err), severity: 'error' });
+    }
   });
 
   const handleUnitChange = (index, newUnit) => {
@@ -567,6 +565,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const handleClientChange = (e) => {
     const value = e.target.value;
     if (value === 'create_new') {
+      setClientFormErrors({});
       setClientDialogOpen(true);
     } else {
       setFormData(prev => ({ ...prev, clientId: value }));
@@ -574,6 +573,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   };
 
   const handleNewClientChange = (field) => (e) => {
+    setClientFormErrors(prev => (prev[field] ? { ...prev, [field]: undefined } : prev));
     setNewClientForm(prev => ({ ...prev, [field]: e.target.value }));
   };
 
@@ -758,13 +758,26 @@ const handleSubmit = async (e) => {
     } catch (err) {
       setNotification({
         open: true,
-        message: `Ошибка: ${err.response?.data?.message || err.message}`,
+        message: `Ошибка: ${getApiErrorMessage(err)}`,
         severity: 'error'
       });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const isLoading = isLoadingClients || isLoadingMaterials || isLoadingEmployee || isLoadingOperations || isLoadingGroupedOps || isLoadingEyelets;
+
+  if (isLoading) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, justifyContent: 'center', alignItems: 'center' }}>
+        <CircularProgress size={40} />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Загрузка данных...
+        </Typography>
+      </Box>
+    );
+  }
 
   if (clientsError || materialsError || operationsError || eyeletsError) {
     return (
@@ -1137,8 +1150,11 @@ const handleSubmit = async (e) => {
             fullWidth
             margin="dense"
             label="Название"
+            required
             value={newClientForm.name}
             onChange={handleNewClientChange('name')}
+            error={!!clientFormErrors.name}
+            helperText={clientFormErrors.name}
           />
           <FormControl fullWidth margin="dense">
             <InputLabel>Тип</InputLabel>
@@ -1164,6 +1180,8 @@ const handleSubmit = async (e) => {
             label="Телефон"
             value={newClientForm.phone}
             onChange={handleNewClientChange('phone')}
+            error={!!clientFormErrors.phone}
+            helperText={clientFormErrors.phone}
           />
           <TextField
             fullWidth
@@ -1171,6 +1189,8 @@ const handleSubmit = async (e) => {
             label="Email"
             value={newClientForm.email}
             onChange={handleNewClientChange('email')}
+            error={!!clientFormErrors.email}
+            helperText={clientFormErrors.email}
           />
           <TextField
             fullWidth
@@ -1180,6 +1200,8 @@ const handleSubmit = async (e) => {
             value={newClientForm.priceplus || ''}
             onChange={handleNewClientChange('priceplus')}
             inputProps={{ min: 0, step: 0.01 }}
+            error={!!clientFormErrors.priceplus}
+            helperText={clientFormErrors.priceplus}
           />
         </DialogContent>
         <DialogActions>

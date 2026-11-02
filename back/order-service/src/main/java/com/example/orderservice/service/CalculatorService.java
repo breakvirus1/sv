@@ -8,7 +8,6 @@ import com.example.orderservice.product.ProductMaterial;
 import com.example.orderservice.product.ProductOperation;
 import com.example.orderservice.product.repository.ProductRepository;
 import com.example.materialservice.entity.Material;
-import com.example.materialservice.repository.MaterialRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;

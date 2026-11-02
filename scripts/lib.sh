@@ -14,7 +14,12 @@ require_docker() {
 }
 
 kill_java() {
-    echo "=== Stopping running Java processes to release file locks ==="
-    pkill -f java || true
+    echo "=== Stopping running project Java processes to release file locks ==="
+    pkill -f 'exec\.jar' || true
     sleep 3
+}
+
+build_frontend() {
+    echo "=== Building frontend (npm run build) ==="
+    (cd "$PROJECT_ROOT/front" && npm install && npm run build)
 }

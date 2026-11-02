@@ -6,6 +6,8 @@ import com.example.orderservice.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -20,13 +22,13 @@ public class ProductController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ProductDTO> create(@RequestBody ProductDTO dto) {
-        return ResponseEntity.ok(productService.create(dto));
+    public ResponseEntity<ProductDTO> create(@RequestBody ProductDTO dto, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(productService.create(dto, extractCompanyId(jwt)));
     }
 
     @GetMapping
-    public ResponseEntity<List<ProductDTO>> getAll() {
-        return ResponseEntity.ok(productService.getAll());
+    public ResponseEntity<List<ProductDTO>> getAll(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(productService.getAll(extractCompanyId(jwt)));
     }
 
     @GetMapping("/{id}")
@@ -52,23 +54,37 @@ public class ProductController {
         ProductDTO product = productService.calculateEstimate(id);
         BigDecimal totalMaterials = BigDecimal.ZERO;
         BigDecimal totalOperations = BigDecimal.ZERO;
-        if (product.getMaterials() != null) {
-            for (var m : product.getMaterials()) {
-                BigDecimal qty = m.getQuantity() != null ? m.getQuantity() : BigDecimal.ONE;
-                BigDecimal waste = m.getWasteCoefficient() != null ? m.getWasteCoefficient() : BigDecimal.ONE;
-                BigDecimal price = m.getPrice() != null ? m.getPrice() : BigDecimal.ZERO;
-                totalMaterials = totalMaterials.add(qty.multiply(waste).multiply(price));
-            }
-        }
-        if (product.getOperations() != null) {
-            for (var o : product.getOperations()) {
-                BigDecimal qty = o.getQuantity() != null ? o.getQuantity() : BigDecimal.ONE;
-                BigDecimal coeff = o.getCoefficient() != null ? o.getCoefficient() : BigDecimal.ONE;
-                BigDecimal price = o.getPricePerUnit() != null ? o.getPricePerUnit() : BigDecimal.ZERO;
-                totalOperations = totalOperations.add(price.multiply(qty).multiply(coeff));
+        if (product.getPositions() != null) {
+            for (var position : product.getPositions()) {
+                BigDecimal qty = position.getQuantity() != null ? position.getQuantity() : BigDecimal.ONE;
+                BigDecimal waste = position.getWasteCoefficient() != null ? position.getWasteCoefficient() : BigDecimal.ONE;
+                BigDecimal price = position.getPrice() != null ? position.getPrice() : BigDecimal.ZERO;
+                totalMaterials = totalMaterials.add(price.multiply(qty).multiply(waste));
+                if (position.getOperations() != null) {
+                    for (var o : position.getOperations()) {
+                        BigDecimal opQty = o.getQuantity() != null ? o.getQuantity() : BigDecimal.ONE;
+                        BigDecimal coeff = o.getCoefficient() != null ? o.getCoefficient() : BigDecimal.ONE;
+                        BigDecimal opPrice = o.getPricePerUnit() != null ? o.getPricePerUnit() : BigDecimal.ZERO;
+                        totalOperations = totalOperations.add(opPrice.multiply(opQty).multiply(coeff));
+                    }
+                }
             }
         }
         BigDecimal grandTotal = totalMaterials.add(totalOperations);
         return ResponseEntity.ok(new ProductEstimateDTO(id, product.getMaterials(), product.getOperations(), totalMaterials, totalOperations, grandTotal));
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-const SERVER_IP = import.meta.env.VITE_SERVER_IP || '192.168.1.40';
-const API_BASE_URL = `http://${SERVER_IP}:8085`;
+const rawApiUrl = import.meta.env.VITE_API_URL;
+const API_BASE_URL = rawApiUrl && rawApiUrl !== '/' ? rawApiUrl : '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -11,6 +11,15 @@ const api = axios.create({
 })
 
 export { API_BASE_URL, api as default }
+
+const authStorage = () => window.sessionStorage;
+
+const clearStoredAuth = () => {
+  authStorage().removeItem('token');
+  authStorage().removeItem('auth');
+  window.localStorage.removeItem('token');
+  window.localStorage.removeItem('auth');
+};
 
 let isRefreshing = false;
 let refreshSubscribers = [];
@@ -25,7 +34,7 @@ const onRefreshed = (token) => {
 };
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = authStorage().getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -38,8 +47,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const originalRequest = error.config;
       if (!originalRequest || originalRequest._retry) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('auth');
+        clearStoredAuth();
         window.location.href = '/login';
         return Promise.reject(error);
       }
@@ -53,8 +61,7 @@ api.interceptors.response.use(
               originalRequest.headers.Authorization = `Bearer ${token}`;
               resolve(api(originalRequest));
             } else {
-              localStorage.removeItem('token');
-              localStorage.removeItem('auth');
+              clearStoredAuth();
               window.location.href = '/login';
               reject(error);
             }
@@ -64,7 +71,7 @@ api.interceptors.response.use(
 
       isRefreshing = true;
       try {
-        const stored = JSON.parse(localStorage.getItem('auth') || '{}');
+        const stored = JSON.parse(authStorage().getItem('auth') || '{}');
         const refreshToken = stored?.refresh_token;
         if (!refreshToken) {
           throw new Error('No refresh token');
@@ -84,20 +91,19 @@ api.interceptors.response.use(
         const expiresIn = response.data.expires_in || 3600;
 
         const auth = {
-          ...(JSON.parse(localStorage.getItem('auth') || '{}')),
+          ...(JSON.parse(authStorage().getItem('auth') || '{}')),
           access_token: newToken,
           refresh_token: newRefreshToken,
           expiresAt: Date.now() + expiresIn * 1000,
         };
-        localStorage.setItem('auth', JSON.stringify(auth));
-        localStorage.setItem('token', newToken);
+        authStorage().setItem('auth', JSON.stringify(auth));
+        authStorage().setItem('token', newToken);
 
         onRefreshed(newToken);
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('auth');
+        clearStoredAuth();
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {

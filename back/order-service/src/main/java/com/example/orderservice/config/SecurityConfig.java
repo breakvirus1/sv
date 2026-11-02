@@ -30,7 +30,7 @@ http
              .csrf(csrf -> csrf.disable())
              .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
              .authorizeHttpRequests(auth -> auth
-                 .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/api/v1/orders/*/calculated").permitAll()
+                 .requestMatchers("/actuator/**", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
                  .requestMatchers("/api/v1/orders/**").authenticated()
                  .anyRequest().authenticated()
              )

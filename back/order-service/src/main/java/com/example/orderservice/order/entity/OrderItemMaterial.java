@@ -30,4 +30,7 @@ public class OrderItemMaterial extends BaseEntity {
     private BigDecimal quantity;
     private BigDecimal wasteCoefficient = BigDecimal.ONE;
     private BigDecimal cost;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

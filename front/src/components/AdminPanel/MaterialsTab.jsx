@@ -22,7 +22,7 @@ import {
   TextField
 } from '@mui/material';
 import { Add, Edit, Delete, CopyAll } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import api from '../../services/api';
 
 const MaterialsTab = ({ materialsData, onAddClick, onEditClick, onDeleteClick, onRefresh }) => {

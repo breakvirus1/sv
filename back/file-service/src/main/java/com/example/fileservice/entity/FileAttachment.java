@@ -59,4 +59,7 @@ public class FileAttachment {
 
     @Column(name = "deleted")
     private Boolean deleted = false;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

@@ -37,4 +37,7 @@ public class Client extends BaseEntity {
 
     @Column(name = "priceplus", precision = 10, scale = 2)
     private BigDecimal priceplus;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

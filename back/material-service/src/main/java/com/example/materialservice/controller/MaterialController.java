@@ -8,6 +8,7 @@ import com.example.materialservice.service.MaterialService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,6 +16,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -27,10 +30,11 @@ public class MaterialController {
 
     @Operation(summary = "Получить список материалов")
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     public ResponseEntity<Page<MaterialResponse>> getAllMaterials(
             @RequestParam(required = false) String q,
-            Pageable pageable) {
+            Pageable pageable,
+            @AuthenticationPrincipal Jwt jwt) {
 
         Specification<Material> spec = Specification.where(null);
         if (q != null && !q.trim().isEmpty()) {
@@ -38,37 +42,53 @@ public class MaterialController {
                     cb.like(cb.lower(root.get("name")), "%" + q.toLowerCase() + "%"));
         }
 
-        return ResponseEntity.ok(materialService.getAllMaterials(spec, pageable));
+        return ResponseEntity.ok(materialService.getAllMaterials(spec, pageable, extractCompanyId(jwt)));
     }
 
     @Operation(summary = "Получить материал по ID")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     public ResponseEntity<MaterialResponse> getMaterial(@Parameter(description = "ID материала") @PathVariable Long id) {
         return ResponseEntity.ok(materialService.getMaterialById(id));
     }
 
     @Operation(summary = "Создать новый материал")
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<MaterialResponse> createMaterial(@RequestBody MaterialCreateRequest request) {
-        return new ResponseEntity<>(materialService.createMaterial(request), HttpStatus.CREATED);
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
+    public ResponseEntity<MaterialResponse> createMaterial(
+            @Valid @RequestBody MaterialCreateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return new ResponseEntity<>(materialService.createMaterial(request, extractCompanyId(jwt)), HttpStatus.CREATED);
     }
 
     @Operation(summary = "Обновить материал")
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<MaterialResponse> updateMaterial(
             @Parameter(description = "ID материала") @PathVariable Long id,
-            @RequestBody MaterialUpdateRequest request) {
+            @Valid @RequestBody MaterialUpdateRequest request) {
         return ResponseEntity.ok(materialService.updateMaterial(id, request));
     }
 
     @Operation(summary = "Удалить материал")
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
     public ResponseEntity<Void> deleteMaterial(@Parameter(description = "ID материала") @PathVariable Long id) {
         materialService.deleteMaterial(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private Long extractCompanyId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number) {
+                return ((Number) claim).longValue();
+            }
+            if (claim instanceof String) {
+                return Long.parseLong((String) claim);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

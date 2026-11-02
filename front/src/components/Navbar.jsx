@@ -1,11 +1,12 @@
-import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useMediaQuery, ListItemIcon, ListItemText, Chip, Divider, Badge } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, ListItemIcon, ListItemText, Divider, Badge } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
-import { Person, Logout, Add, AdminPanelSettings, ShoppingBag, ArrowDropDown, Assignment, Visibility, Category, Notifications } from '@mui/icons-material';
+import { Person, Logout, Add, AdminPanelSettings, ShoppingBag, ArrowDropDown, Assignment, Visibility, Category, Notifications, Security } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../hooks/queryKeys';
 import api from '../services/api';
-import { getStatusColor, getStatusLabel } from '../utils/orderUtils';
+import { getStatusColor } from '../utils/orderUtils';
 import { Dashboard } from '@mui/icons-material';
 
 const statusGroups = [
@@ -22,8 +23,20 @@ const Navbar = () => {
   const [ordersAnchorEl, setOrdersAnchorEl] = useState(null);
   const navigate = useNavigate();
 
+  const { data: companiesData = [] } = useQuery({
+    queryKey: queryKeys.companies('list'),
+    queryFn: async () => {
+      const r = await api.get('/api/v1/companies?size=100');
+      return r.data.content || [];
+    },
+    staleTime: 300000,
+    enabled: isAuthenticated,
+  });
+
+  const companyName = companiesData.length > 0 ? companiesData[0].name : 'ПАЗЛ МОРЕ SV';
+
   const { data: orders = [] } = useQuery({
-    queryKey: ['navbarOrders'],
+    queryKey: queryKeys.orders('navbar'),
     queryFn: async () => {
       const response = await api.get('/api/v1/orders?size=50');
       return response.data.content || [];
@@ -101,7 +114,7 @@ const Navbar = () => {
     <AppBar position="fixed" sx={{ bgcolor: '#1d1d1d', width: '100%' }}>
       <Toolbar>
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Система учета заказов ПАЗЛ МОРЕ SV
+          Система учета заказов {companyName}
         </Typography>
 
          {isAuthenticated && (
@@ -193,19 +206,33 @@ const Navbar = () => {
                </>
              )}
 
-             {/* Admin Panel button - only for ADMIN role */}
-             {user?.roles?.includes('ROLE_ADMIN') && (
-               <Button
-                 variant="outlined"
-                 color="inherit"
-                 size="small"
-                 onClick={() => navigate('/admin')}
-                 startIcon={<AdminPanelSettings />}
-                 sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
-               >
-                 Admin Panel
-               </Button>
-             )}
+              {/* Admin Panel button - only for ADMIN role */}
+              {user?.roles?.includes('ROLE_ADMIN') && (
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  size="small"
+                  onClick={() => navigate('/admin')}
+                  startIcon={<AdminPanelSettings />}
+                  sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
+                >
+                  Admin Panel
+                </Button>
+              )}
+
+              {/* Admin Dashboard button - only for GOD role */}
+              {user?.roles?.includes('ROLE_GOD') && (
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  size="small"
+                  onClick={() => navigate('/admin-dashboard')}
+                  startIcon={<Security />}
+                  sx={{ borderColor: 'rgba(255,255,255,0.5)' }}
+                >
+                  Admin Dashboard
+                </Button>
+              )}
 
                {/* Manager Dashboard button - only for ROLE_MANAGER */}
                {user?.roles?.includes('ROLE_MANAGER') && !user?.roles?.includes('ROLE_ADMIN') && (

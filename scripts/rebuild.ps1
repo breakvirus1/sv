@@ -2,6 +2,11 @@
 $projectRoot = Resolve-Path "$PSScriptRoot\.."
 Set-Location $projectRoot
 
+if (-not (Test-Path "$projectRoot\.env")) {
+    Write-Host "Error: .env not found in project root. Copy .env.example to .env and set POSTGRES_PASSWORD, KC_BOOTSTRAP_ADMIN_PASSWORD, KEYCLOAK_ADMIN_CLIENT_SECRET."
+    exit 1
+}
+
 function Test-DockerRunning {
     $output = docker info 2>&1
     return $LASTEXITCODE -eq 0
@@ -46,12 +51,32 @@ Start-Sleep -Seconds 3
 
 Write-Host "=== Building microservices with Maven ==="
 mvn clean install -DskipTests
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: Maven build failed"
+    exit 1
+}
+
+Write-Host "=== Building frontend (npm run build) ==="
+Push-Location "$projectRoot\front"
+npm ci --no-audit --no-fund
+if ($LASTEXITCODE -ne 0) { Pop-Location; Write-Host "Error: npm ci failed (run 'npm ci' in front/ manually)"; exit 1 }
+npm run build
+if ($LASTEXITCODE -ne 0) { Pop-Location; Write-Host "Error: frontend build failed"; exit 1 }
+Pop-Location
 
 Write-Host "=== Rebuilding Docker containers (no cache) ==="
 docker compose build --no-cache
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: Docker image build failed"
+    exit 1
+}
 
 Write-Host "=== Starting all services ==="
 docker compose up -d
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: docker compose up failed"
+    exit 1
+}
 
 Write-Host "=== Done. Checking status ==="
 docker compose ps

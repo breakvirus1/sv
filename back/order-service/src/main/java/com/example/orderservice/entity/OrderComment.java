@@ -41,4 +41,7 @@ public class OrderComment extends BaseEntity {
     /** Флаг внутреннего комментария (не показывается клиенту) */
     @Column(name = "is_internal")
     private Boolean isInternal = false;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

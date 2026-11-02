@@ -73,6 +73,9 @@ public class Order {
     @Column(name = "manager_id")
     private Long managerId;
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     @Column(name = "priceplus", precision = 10, scale = 2)
     private BigDecimal priceplus;
 

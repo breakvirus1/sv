@@ -15,9 +15,11 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    table: flyway_employee_schema_history
     baseline-on-migrate: true
-    baseline-version: 0
-    schemas: public
+    baseline-version: 999996
+    validate-on-migrate: true
+    schemas: svschema
   jpa:
     hibernate:
       ddl-auto: none
@@ -38,7 +40,11 @@ keycloak:
     server-url: ${KEYCLOAK_ADMIN_URL:http://localhost:8080}
     realm: ${KEYCLOAK_ADMIN_REALM:print-sv}
     client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:order-service}
-    client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:order-service-secret}
+    client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+    # bootstrap-админ master realm: Admin REST API доступен только ему,
+    # у service-account клиента print-sv realm-management ролей нет
+    master-username: ${KEYCLOAK_ADMIN_MASTER_USERNAME:}
+    master-password: ${KEYCLOAK_ADMIN_MASTER_PASSWORD:}
 
 eureka:
   client:

@@ -1,6 +1,8 @@
 package com.example.orderservice.service;
 
 import com.example.orderservice.dto.OrderEstimateDTO;
+import com.example.orderservice.exception.BadRequestException;
+import com.example.orderservice.exception.NotFoundException;
 import com.example.orderservice.dto.OrderItemMaterialDTO;
 import com.example.orderservice.dto.OrderItemOperationDTO;
 import com.example.orderservice.entity.OrderItem;
@@ -42,7 +44,7 @@ public class EstimateService {
         for (OrderItemMaterialDTO dto : request.getMaterials()) {
             Material material = entityManager.find(Material.class, dto.getMaterialId());
             if (material == null) {
-                throw new RuntimeException("Material not found: " + dto.getMaterialId());
+                throw new NotFoundException("Material not found: " + dto.getMaterialId());
             }
             OrderMaterial om = new OrderMaterial();
             om.setOrderItem(orderItem);

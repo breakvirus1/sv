@@ -989,6 +989,38 @@ class OrderServiceTest {
         }
     }
 
+    // ===================== addOrderItem =====================
+
+    @Nested
+    @DisplayName("addOrderItem")
+    class AddOrderItem {
+
+        @Test
+        @DisplayName("Позиция наследует company_id заказа")
+        void inheritsCompanyIdFromOrder() {
+            Order order = new Order();
+            order.setId(5L);
+            order.setCompanyId(7L);
+            when(orderRepository.findById(5L)).thenReturn(Optional.of(order));
+            when(orderItemRepository.save(any(OrderItem.class))).thenAnswer(invocation -> {
+                OrderItem saved = invocation.getArgument(0);
+                saved.setId(11L);
+                return saved;
+            });
+
+            OrderItemCreateRequest request = new OrderItemCreateRequest();
+            request.setOrderId(5L);
+            request.setName("Позиция");
+            orderService.addOrderItem(request);
+
+            org.mockito.ArgumentCaptor<OrderItem> captor = org.mockito.ArgumentCaptor.forClass(OrderItem.class);
+            verify(orderItemRepository).save(captor.capture());
+            assertThat(captor.getValue().getCompanyId())
+                    .as("file-service проверяет принадлежность позиции компании по company_id")
+                    .isEqualTo(7L);
+        }
+    }
+
     // ===================== Helpers =====================
 
     private void setCurrentUserRoles(String... roles) {

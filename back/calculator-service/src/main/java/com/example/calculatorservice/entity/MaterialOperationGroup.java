@@ -25,6 +25,9 @@ public class MaterialOperationGroup extends BaseEntity {
     @Column(name = "operation_id", nullable = false)
     private Long operationId;
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     @PrePersist
     protected void onCreate() {
         if (getCreatedAt() == null) setCreatedAt(LocalDateTime.now());

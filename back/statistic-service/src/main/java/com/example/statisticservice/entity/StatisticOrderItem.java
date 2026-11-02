@@ -47,4 +47,7 @@ public class StatisticOrderItem extends BaseEntity {
 
     @OneToMany(mappedBy = "statisticOrderItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<StatisticMaterialConsumption> materials = new ArrayList<>();
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

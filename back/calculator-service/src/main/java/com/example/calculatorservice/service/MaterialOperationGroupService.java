@@ -130,7 +130,7 @@ public class MaterialOperationGroupService {
      * @throws BadRequestException если связь уже существует
      */
     @Transactional
-    public MaterialOperationGroup createMaterialOperationGroup(MaterialOperationGroupCreateRequest request) {
+    public MaterialOperationGroup createMaterialOperationGroup(MaterialOperationGroupCreateRequest request, Long companyId) {
         if (mogRepository.existsByMaterialIdAndOperationGroupIdAndOperationIdAndDeletedFalse(
                 request.getMaterialId(), request.getOperationGroupId(), request.getOperationId())) {
             throw new BadRequestException("Связь материала с операцией уже существует");
@@ -140,6 +140,7 @@ public class MaterialOperationGroupService {
         mog.setMaterialId(request.getMaterialId());
         mog.setOperationGroupId(request.getOperationGroupId());
         mog.setOperationId(request.getOperationId());
+        mog.setCompanyId(companyId);
         mog.setCreatedAt(LocalDateTime.now());
         mog.setUpdatedAt(LocalDateTime.now());
         return mogRepository.save(mog);
@@ -160,7 +161,7 @@ public class MaterialOperationGroupService {
      * @throws ResourceNotFoundException если одна из операций не найдена
      */
     @Transactional
-    public List<MaterialOperationGroup> updateMaterialOperations(Long materialId, MaterialOperationGroupUpdateRequest request) {
+    public List<MaterialOperationGroup> updateMaterialOperations(Long materialId, MaterialOperationGroupUpdateRequest request, Long companyId) {
         mogRepository.hardDeleteByMaterialId(materialId);
         mogRepository.flush();
 
@@ -170,7 +171,10 @@ public class MaterialOperationGroupService {
                 Operation operation = operationRepository.findById(opId)
                         .orElseThrow(() -> new ResourceNotFoundException("Операция не найдена: " + opId));
 
-                List<OperationGroup> allGroups = operationGroupRepository.findAll();
+                List<OperationGroup> allGroups = operationGroupRepository.findAll().stream()
+                        .filter(g -> companyId == null || g.getCompanyId() == null
+                                || companyId.equals(g.getCompanyId()))
+                        .collect(Collectors.toList());
                 Long matchedGroupId = null;
                 for (OperationGroup group : allGroups) {
                     if (operation.getName() != null &&
@@ -184,7 +188,7 @@ public class MaterialOperationGroupService {
                 createReq.setMaterialId(materialId);
                 createReq.setOperationGroupId(matchedGroupId);
                 createReq.setOperationId(opId);
-                MaterialOperationGroup saved = createMaterialOperationGroup(createReq);
+                MaterialOperationGroup saved = createMaterialOperationGroup(createReq, companyId);
                 newMappings.add(saved);
             }
         }
@@ -198,8 +202,11 @@ public class MaterialOperationGroupService {
      * @return список связей материала с операциями
      */
     @Transactional(readOnly = true)
-    public List<MaterialOperationGroup> getMaterialOperationGroups(Long materialId) {
-        return mogRepository.findAllByMaterialId(materialId);
+    public List<MaterialOperationGroup> getMaterialOperationGroups(Long materialId, Long companyId) {
+        return mogRepository.findAllByMaterialId(materialId).stream()
+                .filter(m -> companyId == null || m.getCompanyId() == null
+                        || companyId.equals(m.getCompanyId()))
+                .collect(Collectors.toList());
     }
 
     /**
@@ -300,9 +307,28 @@ public class MaterialOperationGroupService {
         if (request.getOperationIds() != null && !request.getOperationIds().isEmpty()) {
             MaterialOperationGroupUpdateRequest updateRequest = new MaterialOperationGroupUpdateRequest();
             updateRequest.setOperationIds(request.getOperationIds());
-            updateMaterialOperations(materialId, updateRequest);
+            updateMaterialOperations(materialId, updateRequest, extractCompanyIdFromSecurityContext());
         }
 
         return new MaterialWithOperationsResponse(materialId, request.getName());
+    }
+
+    private Long extractCompanyIdFromSecurityContext() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) return null;
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Jwt jwt) {
+            try {
+                Object claim = jwt.getClaim("company_id");
+                if (claim instanceof Number number) {
+                    return number.longValue();
+                }
+                if (claim instanceof String str) {
+                    return Long.parseLong(str);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
     }
 }

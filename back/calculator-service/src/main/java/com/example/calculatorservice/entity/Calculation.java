@@ -7,7 +7,6 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.Where;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -71,6 +70,9 @@ public class Calculation extends BaseEntity {
     /** Выбранные операции с рассчитанными количествами и ценами */
     @OneToMany(mappedBy = "calculation", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CalculationOperation> selectedOperations = new ArrayList<>();
+
+    @Column(name = "company_id")
+    private Long companyId;
 
     // ==================== Удобные методы ====================
 

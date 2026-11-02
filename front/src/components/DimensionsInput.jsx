@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 const DimensionsInput = ({ dimensions, onChange }) => {
   const handleChange = (field, value) => {

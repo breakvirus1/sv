@@ -1,0 +1,13 @@
+ALTER TABLE svschema.orders ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.order_items ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.order_materials ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.order_item_operations ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.order_material_operations ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.order_stages ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.order_comments ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.payments ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.files ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.products ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.product_materials ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.product_operations ADD COLUMN IF NOT EXISTS company_id BIGINT;
+ALTER TABLE svschema.order_item_materials ADD COLUMN IF NOT EXISTS company_id BIGINT;

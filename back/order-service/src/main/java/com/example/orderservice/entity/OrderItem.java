@@ -65,4 +65,7 @@ public class OrderItem extends BaseEntity {
     /** Флаг готовности позиции (для производства) */
     @Column(name = "ready")
     private Boolean ready = false;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

@@ -206,31 +206,28 @@ const OrdersList = () => {
     setSelectedOrderForClose(null);
   };
 
-  const getTitle = () => {
+const getTitle = () => {
     if (myOrders) return 'Мои заказы';
     if (selectedStatus) return `Заказы: ${getStatusLabel(selectedStatus)}`;
     return 'Заказы';
   };
 
-  if (isLoading) {
-     return (
-       <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2, justifyContent: 'center', alignItems: 'center' }}>
-         <CircularProgress />
-       </Box>
-     );
-   }
-
-      return (
-      <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" flexShrink={0}>
-          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
-            <Box>
-              <Typography variant="h4">{getTitle()}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Заказов: {totalCount}
-              </Typography>
-            </Box>
-            <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+  return (
+    <Box sx={{ maxWidth: 1900, mx: 'auto', px: 0, height: 'calc(100vh - 74px)', display: 'flex', flexDirection: 'column', py: 2, position: 'relative' }}>
+      {isLoading && (
+        <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: 'background.paper', zIndex: 10 }}>
+          <CircularProgress size={40} />
+        </Box>
+      )}
+      <Box display="flex" justifyContent="space-between" alignItems="center" flexShrink={0}>
+        <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+          <Box>
+            <Typography variant="h4">{getTitle()}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Заказов: {totalCount}
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
               <FormControl size="small" sx={{ minWidth: 140 }}>
                 <InputLabel>Клиент</InputLabel>
                 <Select

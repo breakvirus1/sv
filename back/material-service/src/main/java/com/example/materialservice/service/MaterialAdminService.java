@@ -4,6 +4,9 @@ import com.example.materialservice.entity.Material;
 import com.example.materialservice.entity.MaterialType;
 import com.example.materialservice.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +46,7 @@ public class MaterialAdminService {
      * @return список сохранённых сущностей {@link Material} с присвоенными {@code id} и временными метками
      */
     public List<Material> generateTestMaterials(int count) {
+        Long companyId = extractCompanyId();
         List<Material> materials = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
@@ -53,10 +57,29 @@ public class MaterialAdminService {
             material.setPrice(BigDecimal.valueOf(100 + random.nextInt(9000), 0));
             material.setWasteCoefficient(BigDecimal.ONE.add(BigDecimal.valueOf(random.nextInt(50) / 100.0)));
             material.setType(TYPES[random.nextInt(TYPES.length)]);
+            material.setCompanyId(companyId);
 
             materials.add(materialRepository.save(material));
         }
 
         return materials;
+    }
+
+    private Long extractCompanyId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return null;
+        Object principal = auth.getPrincipal();
+        if (!(principal instanceof Jwt jwt)) return null;
+        try {
+            Object claim = jwt.getClaim("company_id");
+            if (claim instanceof Number number) {
+                return number.longValue();
+            }
+            if (claim instanceof String str) {
+                return Long.parseLong(str);
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 }

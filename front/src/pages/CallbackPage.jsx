@@ -10,8 +10,8 @@ const CallbackPage = () => {
   useEffect(() => {
     const processAuth = async () => {
       try {
-        await handleCallback();
-        navigate('/', { replace: true });
+        const redirectTarget = await handleCallback();
+        navigate(redirectTarget || '/', { replace: true });
       } catch (error) {
         console.error('Auth callback error:', error);
         navigate('/login', { replace: true });

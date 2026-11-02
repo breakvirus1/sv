@@ -1,6 +1,5 @@
 package com.example.clientservice.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -53,4 +52,7 @@ public class Client extends BaseEntity {
     /** Процент добавки к сумме заказа */
     @Column(name = "priceplus", precision = 10, scale = 2)
     private BigDecimal priceplus;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

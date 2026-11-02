@@ -51,4 +51,7 @@ public class OrderOperation extends BaseEntity {
     /** Высота в метрах (опционально, для операций с размерами) */
     @Column(name = "height_m", precision = 10, scale = 4)
     private BigDecimal heightM;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

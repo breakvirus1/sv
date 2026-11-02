@@ -9,18 +9,21 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Button
+  Button,
+  Alert
 } from '@mui/material';
 
-const NewClientDialog = ({ open, onClose, onSubmit, isLoading }) => {
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'PRIVATE',
-    contactPerson: '',
-    phone: '',
-    email: '',
-    priceplus: ''
-  });
+const INITIAL_FORM = {
+  name: '',
+  type: 'PRIVATE',
+  contactPerson: '',
+  phone: '',
+  email: '',
+  priceplus: ''
+};
+
+const NewClientDialog = ({ open, onClose, onSubmit, isLoading, fieldErrors = {}, errorMessage = null }) => {
+  const [formData, setFormData] = useState(INITIAL_FORM);
 
   const handleChange = (field) => (e) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
@@ -31,14 +34,7 @@ const NewClientDialog = ({ open, onClose, onSubmit, isLoading }) => {
   };
 
   const handleClose = () => {
-    setFormData({
-      name: '',
-      type: 'PRIVATE',
-      contactPerson: '',
-      phone: '',
-      email: '',
-      priceplus: ''
-    });
+    setFormData(INITIAL_FORM);
     onClose();
   };
 
@@ -46,13 +42,17 @@ const NewClientDialog = ({ open, onClose, onSubmit, isLoading }) => {
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Новый клиент</DialogTitle>
       <DialogContent>
+        {errorMessage && <Alert severity="error" sx={{ mt: 1, mb: 1 }}>{errorMessage}</Alert>}
         <TextField
           autoFocus
           fullWidth
           margin="dense"
           label="Название"
+          required
           value={formData.name}
           onChange={handleChange('name')}
+          error={!!fieldErrors.name}
+          helperText={fieldErrors.name}
         />
         <FormControl fullWidth margin="dense">
           <InputLabel>Тип</InputLabel>
@@ -78,6 +78,8 @@ const NewClientDialog = ({ open, onClose, onSubmit, isLoading }) => {
           label="Телефон"
           value={formData.phone}
           onChange={handleChange('phone')}
+          error={!!fieldErrors.phone}
+          helperText={fieldErrors.phone}
         />
         <TextField
           fullWidth
@@ -85,6 +87,8 @@ const NewClientDialog = ({ open, onClose, onSubmit, isLoading }) => {
           label="Email"
           value={formData.email}
           onChange={handleChange('email')}
+          error={!!fieldErrors.email}
+          helperText={fieldErrors.email}
         />
         <TextField
           fullWidth
@@ -94,6 +98,8 @@ const NewClientDialog = ({ open, onClose, onSubmit, isLoading }) => {
           value={formData.priceplus}
           onChange={handleChange('priceplus')}
           inputProps={{ min: 0, step: 0.01 }}
+          error={!!fieldErrors.priceplus}
+          helperText={fieldErrors.priceplus}
         />
       </DialogContent>
       <DialogActions>

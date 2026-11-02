@@ -6,13 +6,16 @@ import com.example.employeeservice.dto.EmployeeUpdateRequest;
 import com.example.employeeservice.entity.Employee;
 import com.example.employeeservice.entity.ERole;
 import com.example.employeeservice.entity.Role;
+import com.example.employeeservice.exception.ConflictException;
+import com.example.employeeservice.exception.NotFoundException;
 import com.example.employeeservice.mapper.EmployeeMapper;
 import com.example.employeeservice.repository.EmployeeRepository;
 import com.example.employeeservice.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -34,6 +37,7 @@ public class EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final EmployeeMapper employeeMapper;
     private final RoleRepository roleRepository;
+    private final KeycloakAdminTokenProvider keycloakAdminTokenProvider;
 
     @Value("${keycloak.admin.server-url:http://localhost:8080}")
     private String keycloakServerUrl;
@@ -41,14 +45,39 @@ public class EmployeeService {
     @Value("${keycloak.admin.realm:print-sv}")
     private String keycloakRealm;
 
+
     @Value("${keycloak.admin.client-id:order-service}")
     private String keycloakClientId;
 
     @Value("${keycloak.admin.client-secret:order-service-secret}")
     private String keycloakClientSecret;
 
+    /**
+     * Учётка bootstrap-администратора master realm (KC_BOOTSTRAP_ADMIN_USERNAME/PASSWORD в Keycloak).
+     * Нужна для Admin REST API: service-account клиента print-sv realm-management ролей не имеет.
+     */
+    @Value("${keycloak.admin.master-username:}")
+    private String keycloakMasterUsername;
+
+    @Value("${keycloak.admin.master-password:}")
+    private String keycloakMasterPassword;
+
+    @Cacheable(value = "employees", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all') + '_' + (#companyId ?: 'all')")
     public Page<EmployeeResponse> getAllEmployees(Specification<Employee> spec, Pageable pageable) {
-        Page<EmployeeResponse> employees = employeeRepository.findAll(spec, pageable)
+        return getAllEmployees(spec, pageable, null);
+    }
+
+    @Cacheable(value = "employees", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all') + '_' + (#companyId ?: 'all')")
+    public Page<EmployeeResponse> getAllEmployees(Specification<Employee> spec, Pageable pageable, Long companyId) {
+        Specification<Employee> finalSpec = spec;
+        if (companyId != null) {
+            finalSpec = spec == null ? Specification.where(null) : spec;
+            finalSpec = finalSpec.and((root, query, cb) -> cb.equal(root.get("companyId"), companyId));
+        }
+        // Exclude employees without companyId
+        finalSpec = finalSpec == null ? Specification.where(null) : finalSpec;
+        finalSpec = finalSpec.and((root, query, cb) -> cb.isNotNull(root.get("companyId")));
+        Page<EmployeeResponse> employees = employeeRepository.findAll(finalSpec, pageable)
                 .map(employeeMapper::toDto);
 
         // Populate roles from DB
@@ -69,6 +98,290 @@ public class EmployeeService {
         }
 
         return employees;
+    }
+
+    @Cacheable(value = "employees", key = "'id_' + #id + '_' + (#companyId ?: 'all')")
+    public EmployeeResponse getEmployeeById(Long id, Long companyId) {
+        Employee employee = getEmployeeEntity(id, companyId);
+        EmployeeResponse response = employeeMapper.toDto(employee);
+        if (employee.getRoles() != null) {
+            response.setRoles(employee.getRoles().stream()
+                    .map(r -> r.getRoleName())
+                    .filter(java.util.Objects::nonNull)
+                    .map(ERole::name)
+                    .toList());
+        }
+        return response;
+    }
+
+    @Cacheable(value = "employees", key = "'username_' + #username + '_' + (#companyId ?: 'all')")
+    public EmployeeResponse getEmployeeByUsername(String username, Long companyId) {
+        Employee employee = employeeRepository.findByUsername(username)
+                .orElseThrow(() -> new NotFoundException("Сотрудник не найден"));
+        if (companyId != null && !companyId.equals(employee.getCompanyId())) {
+            throw new NotFoundException("Сотрудник не найден");
+        }
+        EmployeeResponse response = employeeMapper.toDto(employee);
+        if (employee.getRoles() != null) {
+            response.setRoles(employee.getRoles().stream()
+                    .map(r -> r.getRoleName())
+                    .filter(java.util.Objects::nonNull)
+                    .map(ERole::name)
+                    .toList());
+        }
+        return response;
+    }
+
+    @CacheEvict(value = "employees", allEntries = true)
+    public EmployeeResponse createEmployee(EmployeeCreateRequest request) {
+        if (employeeRepository.findByUsername(request.getUsername()).isPresent()) {
+            throw new ConflictException("Сотрудник с таким логином уже существует");
+        }
+        Employee employee = employeeMapper.toEntity(request);
+        Employee saved = employeeRepository.save(employee);
+        return employeeMapper.toDto(saved);
+    }
+
+    @CacheEvict(value = "employees", allEntries = true)
+    public EmployeeResponse updateEmployee(Long id, EmployeeUpdateRequest request, Long companyId) {
+        Employee employee = getEmployeeEntity(id, companyId);
+        employeeMapper.updateEntityFromRequest(request, employee);
+        Employee saved = employeeRepository.save(employee);
+        return employeeMapper.toDto(saved);
+    }
+
+    @CacheEvict(value = "employees", allEntries = true)
+    public void deleteEmployee(Long id, Long companyId) {
+        Employee employee = getEmployeeEntity(id, companyId);
+        employeeRepository.delete(employee);
+    }
+
+    @CacheEvict(value = "employees", allEntries = true)
+    @Transactional
+    public EmployeeResponse syncOrCreateFromKeycloak(Jwt jwt) {
+        try {
+            String username = jwt.getClaimAsString("preferred_username");
+            if (username == null || username.isEmpty()) {
+                username = jwt.getSubject();
+            }
+            String fullName = jwt.getClaimAsString("name");
+            String email = jwt.getClaimAsString("email");
+
+            // Extract company_id from JWT
+            Long companyId = null;
+            Object companyClaim = jwt.getClaim("company_id");
+            if (companyClaim instanceof Number) {
+                companyId = ((Number) companyClaim).longValue();
+            } else if (companyClaim instanceof String) {
+                companyId = Long.parseLong((String) companyClaim);
+            }
+
+            if (username == null || username.isEmpty()) {
+                throw new IllegalArgumentException("Username is required for employee sync");
+            }
+
+            Employee employee = employeeRepository.findByUsername(username)
+                    .orElseGet(() -> new Employee());
+
+            employee.setUsername(username);
+            if (fullName != null) employee.setFullName(fullName);
+            if (email != null) employee.setEmail(email);
+            if (companyId != null) employee.setCompanyId(companyId);
+
+            // Sync roles from Keycloak
+            List<String> kcRoles = fetchKeycloakRolesForUsernames(List.of(username)).getOrDefault(username, List.of());
+            java.util.Set<Role> roles = new java.util.HashSet<>();
+            Long firstRoleId = null;
+            for (String roleName : kcRoles) {
+                ERole eRole = mapKeycloakRoleName(roleName);
+                if (eRole == null) continue;
+                try {
+                    Role role = roleRepository.findByName(eRole)
+                            .orElseGet(() -> roleRepository.save(new Role(eRole)));
+                    roles.add(role);
+                    if (firstRoleId == null) {
+                        firstRoleId = role.getId();
+                    }
+                } catch (Exception e) {
+                    // Skip problematic roles
+                }
+            }
+            employee.setRoles(roles);
+            employee.setRoleId(firstRoleId);
+
+            Employee saved = employeeRepository.save(employee);
+            EmployeeResponse dto = employeeMapper.toDto(saved);
+            dto.setRoles(kcRoles);
+            return dto;
+        } catch (Exception e) {
+            log.error("Failed to sync employee from Keycloak", e);
+            throw e;
+        }
+    }
+
+    @CacheEvict(value = "employees", allEntries = true)
+    @Transactional
+    public String syncAllFromKeycloak() {
+        return syncFromKeycloakByCompany(null);
+    }
+
+    @CacheEvict(value = "employees", allEntries = true)
+    @Transactional
+    public String syncFromKeycloakByCompany(Long companyId) {
+        RestTemplate restTemplate = new RestTemplate();
+
+        String adminToken = obtainAdminToken(restTemplate);
+
+        String usersUrl = keycloakServerUrl + "/admin/realms/" + keycloakRealm + "/users?max=1000";
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setBearerAuth(adminToken);
+        var request = new org.springframework.http.HttpEntity<>(headers);
+        var response = restTemplate.exchange(usersUrl, org.springframework.http.HttpMethod.GET, request, Object[].class);
+        java.util.List<Map<String, Object>> kcUsers = new java.util.ArrayList<>();
+        if (response.getBody() != null) {
+            for (Object item : response.getBody()) {
+                kcUsers.add((Map<String, Object>) item);
+            }
+        }
+
+        // Filter users by company_id attribute if companyId is provided
+        if (companyId != null) {
+            kcUsers = kcUsers.stream()
+                .filter(u -> {
+                    Map<String, Object> attrs = (Map<String, Object>) u.get("attributes");
+                    if (attrs == null) return false;
+                    Object companyAttr = attrs.get("company_id");
+                    if (companyAttr instanceof List) {
+                        List<?> list = (List<?>) companyAttr;
+                        return !list.isEmpty() && companyId.toString().equals(list.get(0).toString());
+                    }
+                    if (companyAttr instanceof String) {
+                        return companyId.toString().equals(companyAttr);
+                    }
+                    return false;
+                })
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+        }
+
+        Set<String> existingUsernames = employeeRepository.findAllUsernames();
+
+        int created = 0;
+        int updated = 0;
+        for (var kcUser : kcUsers) {
+            String username = (String) kcUser.get("username");
+            if (username == null) continue;
+
+            List<String> kcRoles = fetchUserRoles(restTemplate, adminToken, username);
+            java.util.Set<Role> roles = new java.util.HashSet<>();
+            Long firstRoleId = null;
+            for (String roleName : kcRoles) {
+                ERole eRole = mapKeycloakRoleName(roleName);
+                if (eRole == null) continue;
+                try {
+                    Role role = roleRepository.findByName(eRole)
+                            .orElseGet(() -> roleRepository.save(new Role(eRole)));
+                    roles.add(role);
+                    if (firstRoleId == null) {
+                        firstRoleId = role.getId();
+                    }
+                } catch (Exception e) {
+                    // Skip problematic roles
+                }
+            }
+
+            if (existingUsernames.contains(username)) {
+                Employee existing = employeeRepository.findByUsername(username).orElse(null);
+                if (existing != null) {
+                    existing.setRoles(roles);
+                    existing.setRoleId(firstRoleId);
+                    if (kcUser.get("firstName") != null) {
+                        String firstName = (String) kcUser.get("firstName");
+                        String lastName = (String) kcUser.get("lastName");
+                        existing.setFullName(firstName + " " + (lastName != null ? lastName : ""));
+                    }
+                    if (kcUser.get("email") != null) {
+                        existing.setEmail((String) kcUser.get("email"));
+                    }
+                    // Set companyId if provided
+                    Long resolvedCompanyId = resolveCompanyId(kcUser, companyId);
+                    if (resolvedCompanyId != null) {
+                        existing.setCompanyId(resolvedCompanyId);
+                    }
+                    employeeRepository.save(existing);
+                    updated++;
+                }
+                continue;
+            }
+
+            Employee employee = new Employee();
+            employee.setUsername(username);
+            String firstName = (String) kcUser.get("firstName");
+            String lastName = (String) kcUser.get("lastName");
+            employee.setFullName(firstName != null
+                    ? (firstName + " " + (lastName != null ? lastName : "")).trim()
+                    : username);
+            employee.setEmail((String) kcUser.get("email"));
+            employee.setRoles(roles);
+            employee.setRoleId(firstRoleId);
+            // Set companyId if provided
+            Long resolvedCompanyId = resolveCompanyId(kcUser, companyId);
+            if (resolvedCompanyId != null) {
+                employee.setCompanyId(resolvedCompanyId);
+            }
+
+            employeeRepository.save(employee);
+            existingUsernames.add(username);
+            created++;
+        }
+
+        return "created=" + created + ", updated=" + updated;
+    }
+
+    /**
+     * Компания сотрудника: явный параметр синхронизации важнее атрибута пользователя в Keycloak.
+     * Без атрибута сотрудник остался бы без компании и перестал бы находиться запросами с company_id из JWT.
+     */
+    private Long resolveCompanyId(Map<String, Object> kcUser, Long requestedCompanyId) {
+        if (requestedCompanyId != null) {
+            return requestedCompanyId;
+        }
+        Object attrsObj = kcUser.get("attributes");
+        if (!(attrsObj instanceof Map)) {
+            return null;
+        }
+        Object companyAttr = ((Map<?, ?>) attrsObj).get("company_id");
+        Object raw = companyAttr instanceof List<?> list
+                ? (list.isEmpty() ? null : list.get(0))
+                : companyAttr;
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return Long.parseLong(raw.toString().trim());
+        } catch (NumberFormatException e) {
+            log.warn("Keycloak attribute company_id has non-numeric value '{}' for user {}",
+                    raw, kcUser.get("username"));
+            return null;
+        }
+    }
+
+    @Transactional(readOnly = true)
+    private Employee getEmployeeEntity(Long id, Long companyId) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Сотрудник не найден"));
+        if (companyId != null && !companyId.equals(employee.getCompanyId())) {
+            throw new NotFoundException("Сотрудник не найден");
+        }
+        return employee;
+    }
+
+    /**
+     * Fetch Keycloak realm roles for a specific user by username.
+     */
+    public List<String> getKeycloakRolesForUser(String username) {
+        if (username == null || username.isEmpty()) return List.of();
+        Map<String, List<String>> rolesMap = fetchKeycloakRolesForUsernames(List.of(username));
+        return rolesMap.getOrDefault(username, List.of());
     }
 
     /**
@@ -130,187 +443,15 @@ public class EmployeeService {
         return roles;
     }
 
-    @Transactional(readOnly = true)
-    public EmployeeResponse getEmployeeById(Long id) {
-        Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
-        EmployeeResponse dto = employeeMapper.toDto(employee);
-        if (employee.getUsername() != null) {
-            Map<String, List<String>> rolesMap = fetchKeycloakRolesForUsernames(List.of(employee.getUsername()));
-            dto.setRoles(rolesMap.getOrDefault(employee.getUsername(), List.of()));
-        }
-        return dto;
-    }
-
-    public EmployeeResponse getEmployeeByUsername(String username) {
-        Employee employee = employeeRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
-        EmployeeResponse dto = employeeMapper.toDto(employee);
-        if (employee.getUsername() != null) {
-            Map<String, List<String>> rolesMap = fetchKeycloakRolesForUsernames(List.of(employee.getUsername()));
-            dto.setRoles(rolesMap.getOrDefault(employee.getUsername(), List.of()));
-        }
-        return dto;
-    }
-
-    public EmployeeResponse createEmployee(EmployeeCreateRequest request) {
-        if (employeeRepository.findByUsername(request.getUsername()).isPresent()) {
-            throw new RuntimeException("Сотрудник с таким логином уже существует");
-        }
-        Employee employee = employeeMapper.toEntity(request);
-        Employee saved = employeeRepository.save(employee);
-        return employeeMapper.toDto(saved);
-    }
-
-    public EmployeeResponse updateEmployee(Long id, EmployeeUpdateRequest request) {
-        Employee employee = getEmployeeEntity(id);
-        employeeMapper.updateEntityFromRequest(request, employee);
-        Employee saved = employeeRepository.save(employee);
-        return employeeMapper.toDto(saved);
-    }
-
-    public void deleteEmployee(Long id) {
-        Employee employee = getEmployeeEntity(id);
-        employeeRepository.delete(employee);
-    }
-
-    public EmployeeResponse syncOrCreateFromKeycloak(Jwt jwt) {
-        try {
-            String username = jwt.getClaimAsString("preferred_username");
-            if (username == null || username.isEmpty()) {
-                username = jwt.getSubject();
-            }
-            String fullName = jwt.getClaimAsString("name");
-            String email = jwt.getClaimAsString("email");
-
-            if (username == null || username.isEmpty()) {
-                throw new IllegalArgumentException("Username is required for employee sync");
-            }
-
-            Employee employee = employeeRepository.findByUsername(username)
-                    .orElseGet(() -> new Employee());
-
-            employee.setUsername(username);
-            if (fullName != null) employee.setFullName(fullName);
-            if (email != null) employee.setEmail(email);
-
-            // Sync roles from Keycloak
-            List<String> kcRoles = fetchKeycloakRolesForUsernames(List.of(username)).getOrDefault(username, List.of());
-            java.util.Set<Role> roles = new java.util.HashSet<>();
-            Long firstRoleId = null;
-            for (String roleName : kcRoles) {
-                ERole eRole = mapKeycloakRoleName(roleName);
-                if (eRole == null) continue;
-                try {
-                    Role role = roleRepository.findByName(eRole)
-                            .orElseGet(() -> roleRepository.save(new Role(eRole)));
-                    roles.add(role);
-                    if (firstRoleId == null) {
-                        firstRoleId = role.getId();
-                    }
-                } catch (Exception e) {
-                    // Skip problematic roles
-                }
-            }
-            employee.setRoles(roles);
-            employee.setRoleId(firstRoleId);
-
-            Employee saved = employeeRepository.save(employee);
-            EmployeeResponse dto = employeeMapper.toDto(saved);
-            dto.setRoles(kcRoles);
-            return dto;
-        } catch (Exception e) {
-            log.error("Failed to sync employee from Keycloak", e);
-            throw e;
-        }
-    }
-
-    @Transactional
-    public String syncAllFromKeycloak() {
-        RestTemplate restTemplate = new RestTemplate();
-
-        String adminToken = obtainAdminToken(restTemplate);
-
-        String usersUrl = keycloakServerUrl + "/admin/realms/" + keycloakRealm + "/users?max=1000";
-        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-        headers.setBearerAuth(adminToken);
-        var request = new org.springframework.http.HttpEntity<>(headers);
-        var response = restTemplate.exchange(usersUrl, org.springframework.http.HttpMethod.GET, request, Object[].class);
-        java.util.List<Map<String, Object>> kcUsers = new java.util.ArrayList<>();
-        if (response.getBody() != null) {
-            for (Object item : response.getBody()) {
-                kcUsers.add((Map<String, Object>) item);
-            }
-        }
-
-        Set<String> existingUsernames = employeeRepository.findAllUsernames();
-
-        int created = 0;
-        int updated = 0;
-        for (var kcUser : kcUsers) {
-            String username = (String) kcUser.get("username");
-            if (username == null) continue;
-
-            List<String> kcRoles = fetchUserRoles(restTemplate, adminToken, username);
-            java.util.Set<Role> roles = new java.util.HashSet<>();
-            Long firstRoleId = null;
-            for (String roleName : kcRoles) {
-                ERole eRole = mapKeycloakRoleName(roleName);
-                if (eRole == null) continue;
-                try {
-                    Role role = roleRepository.findByName(eRole)
-                            .orElseGet(() -> roleRepository.save(new Role(eRole)));
-                    roles.add(role);
-                    if (firstRoleId == null) {
-                        firstRoleId = role.getId();
-                    }
-                } catch (Exception e) {
-                    // Skip problematic roles
-                }
-            }
-
-            if (existingUsernames.contains(username)) {
-                Employee existing = employeeRepository.findByUsername(username).orElse(null);
-                if (existing != null) {
-                    existing.setRoles(roles);
-                    existing.setRoleId(firstRoleId);
-                    if (kcUser.get("firstName") != null) {
-                        String firstName = (String) kcUser.get("firstName");
-                        String lastName = (String) kcUser.get("lastName");
-                        existing.setFullName(firstName + " " + (lastName != null ? lastName : ""));
-                    }
-                    if (kcUser.get("email") != null) {
-                        existing.setEmail((String) kcUser.get("email"));
-                    }
-                    employeeRepository.save(existing);
-                    updated++;
-                }
-                continue;
-            }
-
-            Employee employee = new Employee();
-            employee.setUsername(username);
-            String firstName = (String) kcUser.get("firstName");
-            String lastName = (String) kcUser.get("lastName");
-            employee.setFullName(firstName != null
-                    ? (firstName + " " + (lastName != null ? lastName : "")).trim()
-                    : username);
-            employee.setEmail((String) kcUser.get("email"));
-            employee.setRoles(roles);
-            employee.setRoleId(firstRoleId);
-
-            employeeRepository.save(employee);
-            existingUsernames.add(username);
-            created++;
-        }
-
-        return "created=" + created + ", updated=" + updated;
+    private String obtainAdminToken(RestTemplate restTemplate) {
+        return keycloakAdminTokenProvider.obtainToken(restTemplate);
     }
 
     private ERole mapKeycloakRoleName(String kcRoleName) {
         if (kcRoleName == null) return null;
         switch (kcRoleName) {
             case "ADMIN":       return ERole.ROLE_ADMIN;
+            case "GOD":         return ERole.ROLE_GOD;
             case "MANAGER":     return ERole.ROLE_MANAGER;
             case "PRODUCTION":  return ERole.ROLE_PRODUCTION;
             case "ACCOUNTANT":  return ERole.ROLE_ACCOUNTANT;
@@ -322,44 +463,5 @@ public class EmployeeService {
                     return null;
                 }
         }
-    }
-
-    private String obtainAdminToken(RestTemplate restTemplate) {
-        org.springframework.http.HttpHeaders tokenHeaders = new org.springframework.http.HttpHeaders();
-        tokenHeaders.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
-        // Try admin-cli password grant first
-        try {
-            String tokenUrl = keycloakServerUrl + "/realms/master/protocol/openid-connect/token";
-            var tokenRequest = new org.springframework.http.HttpEntity<>(
-                    "grant_type=password&client_id=admin-cli&username=admin&password=admin",
-                    tokenHeaders);
-            var tokenResponse = restTemplate.postForEntity(tokenUrl, tokenRequest, Map.class);
-            if (tokenResponse.getBody() != null && tokenResponse.getBody().get("access_token") != null) {
-                return (String) tokenResponse.getBody().get("access_token");
-            }
-        } catch (Exception ignored) {
-        }
-        // Fallback: client credentials on master realm
-        String tokenUrl = keycloakServerUrl + "/realms/master/protocol/openid-connect/token";
-        var tokenRequest = new org.springframework.http.HttpEntity<>(
-                "grant_type=client_credentials&client_id=" + keycloakClientId + "&client_secret=" + keycloakClientSecret,
-                tokenHeaders);
-        var tokenResponse = restTemplate.postForEntity(tokenUrl, tokenRequest, Map.class);
-        return (String) tokenResponse.getBody().get("access_token");
-    }
-
-    @Transactional(readOnly = true)
-    private Employee getEmployeeEntity(Long id) {
-        return employeeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Сотрудник не найден"));
-    }
-
-    /**
-     * Get Keycloak roles for a specific user by username.
-     */
-    public List<String> getKeycloakRolesForUser(String username) {
-        if (username == null || username.isEmpty()) return List.of();
-        Map<String, List<String>> rolesMap = fetchKeycloakRolesForUsernames(List.of(username));
-        return rolesMap.getOrDefault(username, List.of());
     }
 }

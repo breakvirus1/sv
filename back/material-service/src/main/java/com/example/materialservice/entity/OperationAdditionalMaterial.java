@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 
@@ -42,4 +41,7 @@ public class OperationAdditionalMaterial extends BaseEntity {
     /** Цена за единицу на момент создания шаблона (для истории) */
     @Column(name = "price_per_unit", precision = 12, scale = 2)
     private BigDecimal pricePerUnit;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

@@ -1,6 +1,5 @@
 package com.example.orderservice.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -13,9 +12,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +36,7 @@ public class StatisticSyncService {
 
             Map<String, Object> orderData = new HashMap<>();
             orderData.put("id", order.getId());
+            orderData.put("companyId", order.getCompanyId());
             orderData.put("orderNumber", order.getOrderNumber());
             orderData.put("orderDate", order.getOrderDate() != null ? order.getOrderDate().toString() : null);
             orderData.put("totalAmount", order.getTotalAmount());

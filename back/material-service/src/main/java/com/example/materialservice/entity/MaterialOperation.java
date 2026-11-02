@@ -87,6 +87,9 @@ public class MaterialOperation extends BaseEntity {
     @ColumnDefault("true")
     private Boolean active = true;
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     @PrePersist
     protected void onCreate() {
         if (getCreatedAt() == null) setCreatedAt(LocalDateTime.now());

@@ -3,8 +3,15 @@
 Write-Host "=== Stopping running Java processes to release file locks ==="
 Get-Process -Name java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 3
+$SERVICE = "comment-service"
+
 $projectRoot = Resolve-Path "$PSScriptRoot\.."
 Set-Location $projectRoot
+
+if (-not (Test-Path "$projectRoot\.env")) {
+    Write-Host "Error: .env not found in project root. Copy .env.example to .env and set POSTGRES_PASSWORD, KC_BOOTSTRAP_ADMIN_PASSWORD, KEYCLOAK_ADMIN_CLIENT_SECRET."
+    exit 1
+}
 
 function Test-DockerRunning {
     $output = docker info 2>&1
@@ -44,12 +51,24 @@ if (-not (Test-DockerRunning)) {
 
 Write-Host "=== Building $SERVICE with Maven ==="
 mvn clean install -pl "back/$SERVICE" -am -DskipTests
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: Maven build failed for $SERVICE"
+    exit 1
+}
 
-Write-Host "=== Rebuilding comment-service Docker container (no cache) ==="
-docker compose build --no-cache comment-service
+Write-Host "=== Rebuilding $SERVICE Docker container (no cache) ==="
+docker compose build --no-cache $SERVICE
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: Docker image build failed for $SERVICE"
+    exit 1
+}
 
-Write-Host "=== Restarting comment-service ==="
-docker compose up -d comment-service
+Write-Host "=== Restarting $SERVICE ==="
+docker compose up -d --force-recreate --no-deps $SERVICE
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: failed to start $SERVICE"
+    exit 1
+}
 
 Write-Host "=== Done. Checking status ==="
-docker compose ps
+docker compose ps $SERVICE

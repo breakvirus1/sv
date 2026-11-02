@@ -44,4 +44,7 @@ public class Operation extends BaseEntity {
     /** Параметры для операции "Подворот": количество подворотов на сторону */
     @Column(name = "hem_count")
     private Integer hemCount;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

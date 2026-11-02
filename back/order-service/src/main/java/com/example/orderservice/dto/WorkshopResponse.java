@@ -14,4 +14,6 @@ public class WorkshopResponse {
     private String name;
     private Integer sortOrder;
     private List<Long> operationIds;
+    /** ID компании (мультитенантность) */
+    private Long companyId;
 }

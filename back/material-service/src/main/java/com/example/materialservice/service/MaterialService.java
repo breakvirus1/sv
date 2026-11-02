@@ -9,13 +9,14 @@ import com.example.materialservice.exception.ResourceNotFoundException;
 import com.example.materialservice.mapper.MaterialMapper;
 import com.example.materialservice.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,15 +27,30 @@ public class MaterialService {
     private final MaterialRepository materialRepository;
     private final MaterialMapper materialMapper;
 
-    public Page<MaterialResponse> getAllMaterials(Specification<Material> spec, Pageable pageable) {
-        return materialRepository.findAll(spec, pageable)
+    @Cacheable(value = "materials", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#spec?.toString() ?: 'all') + '_' + (#companyId ?: 'all')")
+    public Page<MaterialResponse> getAllMaterials(Specification<Material> spec, Pageable pageable, Long companyId) {
+        Specification<Material> finalSpec = spec == null ? Specification.where(null) : spec;
+        if (companyId != null) {
+            finalSpec = finalSpec.and((root, query, cb) -> cb.or(
+                    cb.isNull(root.get("companyId")),
+                    cb.equal(root.get("companyId"), companyId)));
+        }
+        return materialRepository.findAll(finalSpec, pageable)
                 .map(materialMapper::toDto);
     }
 
-    public List<Material> getMaterialsByType(MaterialType type) {
-        return materialRepository.findByType(type);
+    @Cacheable(value = "materials", key = "'type_' + #type + '_' + (#companyId ?: 'all')")
+    public List<Material> getMaterialsByType(MaterialType type, Long companyId) {
+        List<Material> result = materialRepository.findByType(type);
+        if (companyId != null) {
+            result = result.stream()
+                    .filter(m -> m.getCompanyId() == null || companyId.equals(m.getCompanyId()))
+                    .collect(Collectors.toList());
+        }
+        return result;
     }
 
+    @Cacheable(value = "materials", key = "'id_' + #id")
     @Transactional(readOnly = true)
     public MaterialResponse getMaterialById(Long id) {
         Material material = materialRepository.findById(id)
@@ -42,14 +58,17 @@ public class MaterialService {
         return materialMapper.toDto(material);
     }
 
-    public MaterialResponse createMaterial(MaterialCreateRequest request) {
+    @CacheEvict(value = "materials", allEntries = true)
+    public MaterialResponse createMaterial(MaterialCreateRequest request, Long companyId) {
         validateUnit(request.getUnit());
         Material material = materialMapper.toEntity(request);
         material.setType(MaterialType.MATERIAL);
+        material.setCompanyId(companyId);
         Material saved = materialRepository.save(material);
         return materialMapper.toDto(saved);
     }
 
+    @CacheEvict(value = "materials", allEntries = true)
     public MaterialResponse updateMaterial(Long id, MaterialUpdateRequest request) {
         Material material = getMaterialEntity(id);
         if (request.getName() != null) {
@@ -65,10 +84,17 @@ public class MaterialService {
         if (request.getWasteCoefficient() != null) {
             material.setWasteCoefficient(request.getWasteCoefficient());
         }
+        if (request.getDefaultWidthM() != null) {
+            material.setDefaultWidthM(request.getDefaultWidthM());
+        }
+        if (request.getDefaultHeightM() != null) {
+            material.setDefaultHeightM(request.getDefaultHeightM());
+        }
         Material saved = materialRepository.save(material);
         return materialMapper.toDto(saved);
     }
 
+    @CacheEvict(value = "materials", allEntries = true)
     public void deleteMaterial(Long id) {
         Material material = getMaterialEntity(id);
         materialRepository.delete(material);

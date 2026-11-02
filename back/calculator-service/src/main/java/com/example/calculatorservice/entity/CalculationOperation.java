@@ -40,4 +40,7 @@ public class CalculationOperation extends BaseEntity {
     /** Сумма (quantity * pricePerUnit) */
     @Column(name = "subtotal", precision = 12, scale = 2)
     private BigDecimal subtotal;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }
