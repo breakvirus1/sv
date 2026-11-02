@@ -11,6 +11,11 @@ Start-Sleep -Seconds 3
 $projectRoot = Resolve-Path "$PSScriptRoot\.."
 Set-Location $projectRoot
 
+if (-not (Test-Path "$projectRoot\.env")) {
+    Write-Host "Error: .env not found in project root. Copy .env.example to .env and set POSTGRES_PASSWORD, KC_BOOTSTRAP_ADMIN_PASSWORD, KEYCLOAK_ADMIN_CLIENT_SECRET."
+    exit 1
+}
+
 function Test-DockerRunning {
     $output = docker info 2>&1
     return $LASTEXITCODE -eq 0
@@ -50,9 +55,17 @@ if (-not (Test-DockerRunning)) {
 if ($Service -eq "all") {
     Write-Host "=== Building all services with Maven ==="
     mvn clean install -DskipTests
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Error: Maven build failed"
+        exit 1
+    }
 
     Write-Host "=== Rebuilding all Docker containers (no cache) ==="
     docker compose build --no-cache
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Error: Docker image build failed"
+        exit 1
+    }
 
     Write-Host "=== Restarting all services ==="
     docker compose up -d --force-recreate
@@ -63,12 +76,24 @@ if ($Service -eq "all") {
 else {
     Write-Host "=== Building $Service with Maven ==="
     mvn clean install -pl "back/$Service" -am -DskipTests
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Error: Maven build failed for $Service"
+        exit 1
+    }
 
     Write-Host "=== Rebuilding $Service Docker container (no cache) ==="
     docker compose build --no-cache $Service
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Error: Docker image build failed for $Service"
+        exit 1
+    }
 
     Write-Host "=== Restarting $Service ==="
     docker compose up -d --force-recreate --no-deps $Service
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Error: failed to start $Service"
+        exit 1
+    }
 
     Write-Host "=== Done. Checking status ==="
     docker compose ps $Service

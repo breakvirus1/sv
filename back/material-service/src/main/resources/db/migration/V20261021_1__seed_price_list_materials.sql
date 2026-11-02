@@ -1,4 +1,4 @@
--- Flyway migration V20261021: seed reference materials from the reklama1.su price list
+-- Flyway migration V20261021_1: seed reference materials from the reklama1.su price list
 -- (Рекламное агентство «Имидж», Севастополь; prices valid as of 2023-07-24).
 --
 -- Rows go into the shared master schema with company_id = NULL, which the tenant

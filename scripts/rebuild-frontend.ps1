@@ -6,6 +6,11 @@ Start-Sleep -Seconds 3
 $projectRoot = Resolve-Path "$PSScriptRoot\.."
 Set-Location $projectRoot
 
+if (-not (Test-Path "$projectRoot\.env")) {
+    Write-Host "Error: .env not found in project root. Copy .env.example to .env and set POSTGRES_PASSWORD, KC_BOOTSTRAP_ADMIN_PASSWORD, KEYCLOAK_ADMIN_CLIENT_SECRET."
+    exit 1
+}
+
 function Test-DockerRunning {
     $output = docker info 2>&1
     return $LASTEXITCODE -eq 0
@@ -44,17 +49,25 @@ if (-not (Test-DockerRunning)) {
 
 Write-Host "=== Building frontend (npm run build) ==="
 Push-Location "$projectRoot\front"
-npm install
-if ($LASTEXITCODE -ne 0) { Pop-Location; exit 1 }
+npm ci --no-audit --no-fund
+if ($LASTEXITCODE -ne 0) { Pop-Location; Write-Host "Error: npm ci failed (run 'npm ci' in front/ manually)"; exit 1 }
 npm run build
-if ($LASTEXITCODE -ne 0) { Pop-Location; exit 1 }
+if ($LASTEXITCODE -ne 0) { Pop-Location; Write-Host "Error: frontend build failed"; exit 1 }
 Pop-Location
 
 Write-Host "=== Rebuilding frontend Docker container (no cache) ==="
 docker compose build --no-cache frontend
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: Docker image build failed for frontend"
+    exit 1
+}
 
 Write-Host "=== Restarting frontend ==="
-docker compose up -d frontend
+docker compose up -d --force-recreate --no-deps frontend
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: failed to start frontend"
+    exit 1
+}
 
 Write-Host "=== Done. Checking status ==="
 docker compose ps frontend
