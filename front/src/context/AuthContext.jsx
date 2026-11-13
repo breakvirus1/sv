@@ -4,6 +4,7 @@ import api from '../services/api';
 const API_BASE_URL = api.defaults.baseURL;
 const KEYCLOAK_ISSUER = '/realms/print-sv';
 const CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'frontend';
+const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8080';
 const AUTH_STORAGE_KEY = 'auth';
 const TOKEN_STORAGE_KEY = 'token';
 const PKCE_STORAGE_KEY = 'pkce';
@@ -224,7 +225,7 @@ export const AuthProvider = ({ children }) => {
     const stored = getStoredAuth();
     clearAuth();
     setUser(null);
-    const url = new URL(`${KEYCLOAK_ISSUER}/protocol/openid-connect/logout`, window.location.origin);
+    const url = new URL(`${KEYCLOAK_ISSUER}/protocol/openid-connect/logout`, KEYCLOAK_URL);
     url.searchParams.set('client_id', CLIENT_ID);
     url.searchParams.set('post_logout_redirect_uri', `${window.location.origin}/`);
     if (stored?.id_token) {

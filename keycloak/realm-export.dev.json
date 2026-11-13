@@ -294,8 +294,8 @@
       }
     }
   ],
-  "bruteForceProtected": true,
-  "failureFactor": 10,
+  "bruteForceProtected": false,
+  "failureFactor": 100,
   "waitIncrementSeconds": 60,
   "maxFailureWaitSeconds": 900,
   "minimumQuickLoginWaitSeconds": 60,

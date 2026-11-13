@@ -12,10 +12,10 @@ app:
 spring:
   application:
     name: api-gateway
-  servlet:
+  webflux:
     multipart:
-      max-file-size: 5GB
-      max-request-size: 5GB
+      max-part-size: 5GB
+      max-disk-usage: 5GB
   cloud:
     gateway:
       discovery:

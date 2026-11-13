@@ -13,7 +13,7 @@ function Test-DockerRunning {
 }
 
 function Start-DockerDesktop {
-    $dockerDesktop = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+    $dockerDesktop = "C:\Users\SystemX\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe"
     if (-not (Test-Path $dockerDesktop)) {
         Write-Host "Docker Desktop not found at $dockerDesktop"
         exit 1

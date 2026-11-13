@@ -3,6 +3,7 @@ package com.example.printsv.common.tenant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.sql.Connection;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
  * Управление базами данных компаний: создание, удаление, регистрация маршрутизации, бэкап.
  */
 @Slf4j
+@Service
 public class DatabaseProvisioningService {
 
     @Value("${app.tenant.master-url:jdbc:postgresql://localhost:5432/svdb}")

@@ -105,7 +105,7 @@ services:
       discovery-server:
         condition: service_started
       keycloak:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 8081"]
       interval: 10s
@@ -408,6 +408,7 @@ services:
         VITE_SERVER_IP: "${SERVER_IP:-127.0.0.1}"
         VITE_API_URL: ${VITE_API_URL:-/}
         VITE_KEYCLOAK_ISSUER: "${KEYCLOAK_PUBLIC_URL:-http://localhost:5174}/realms/print-sv"
+        VITE_KEYCLOAK_URL: "${KEYCLOAK_SERVER_URL:-http://localhost:8080}"
         VITE_KEYCLOAK_CLIENT_ID: frontend
         SERVER_IP: "${SERVER_IP:-127.0.0.1}"
     ports:

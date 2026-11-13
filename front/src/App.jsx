@@ -31,6 +31,7 @@ function App() {
   const isAuthenticated = !!user
   const isManager = user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_ADMIN')
   const isProduction = user?.roles?.includes('ROLE_PRODUCTION')
+  const isGod = user?.roles?.includes('ROLE_GOD')
   const hasPermission = user?.roles?.some(role =>
     ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_PRODUCTION', 'ROLE_ACCOUNTANT'].includes(role)
   )
@@ -51,12 +52,12 @@ function App() {
          {/* Page content as "desktop icons" or background */}
          <div style={{ paddingTop: 74, paddingLeft: 50, paddingRight: 50, maxWidth: '100%', margin: 0, width: '100%' }}>
           <Routes>
-             <Route path="/" element={
-                isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Dashboard />) : <Navigate to="/login" />
-              } />
-              <Route path="/login" element={
-                isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Navigate to="/orders" />) : <LoginPage />
-              } />
+<Route path="/" element={
+     isAuthenticated ? (isGod ? <Navigate to="/admin-dashboard" /> : isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Dashboard />) : <Navigate to="/login" />
+   } />
+<Route path="/login" element={
+     isAuthenticated ? (isGod ? <Navigate to="/admin-dashboard" /> : isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Navigate to="/orders" />) : <LoginPage />
+   } />
             <Route path="/callback" element={<CallbackPage />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>

@@ -37,8 +37,9 @@ public class AuthController {
 
     public AuthController(WebClient.Builder webClientBuilder,
                           @Value("${app.keycloak.token-base-url:http://keycloak:8080/realms/print-sv}") String tokenBaseUrl,
-                          @Value("${app.keycloak.client-id:frontend}") String clientId) {
-        this.webClient = webClientBuilder
+                          @Value("${app.keycloak.client-id:frontend}") String clientId,
+                          org.springframework.web.reactive.function.client.WebClient keycloakWebClient) {
+        this.webClient = keycloakWebClient.mutate()
                 .baseUrl(tokenBaseUrl)
                 .defaultHeader("Accept", MediaType.APPLICATION_JSON_VALUE)
                 .build();
@@ -71,7 +72,7 @@ public class AuthController {
                             "scope", "openid profile email"
                     ));
                 })
-                .timeout(Duration.ofSeconds(10))
+                .timeout(Duration.ofSeconds(30))
                 .onErrorResume(e -> handleTimeout(e, "login"));
     }
 
@@ -96,7 +97,7 @@ public class AuthController {
                             "code_verifier", codeVerifier
                     ));
                 })
-                .timeout(Duration.ofSeconds(10))
+                .timeout(Duration.ofSeconds(30))
                 .onErrorResume(e -> handleTimeout(e, "token exchange"));
     }
 
@@ -117,7 +118,7 @@ public class AuthController {
                             "refresh_token", refreshToken
                     ));
                 })
-                .timeout(Duration.ofSeconds(10))
+                .timeout(Duration.ofSeconds(30))
                 .onErrorResume(e -> handleTimeout(e, "refresh"));
     }
 
@@ -161,6 +162,10 @@ public class AuthController {
                                     return Mono.error(new KeycloakAuthException(errorMsg, statusCode));
                                 }))
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                // Повтор на транзиентных сбоях соединения (пул отдал закрытое соединение и т.п.)
+                .retryWhen(reactor.util.retry.Retry.max(2)
+                        .filter(e -> e instanceof WebClientRequestException
+                                || e instanceof java.util.concurrent.TimeoutException))
                 .map(tokenResponse -> {
                     log.debug("Keycloak token response received successfully");
                     return ResponseEntity.ok(tokenResponse);
