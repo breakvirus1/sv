@@ -52,28 +52,36 @@ test.describe('Обход всех эндпоинтов', () => {
   // вернула бы токен предыдущего пользователя вместо запрошенного
   const tokenVia = async (browser, { username, password }) => {
     const context = await browser.newContext()
-    const page = await context.newPage()
-    const value = await apiToken(page, username, password)
+    const value = await apiToken(context.request, username, password)
     await context.close()
     return value
   }
 
-  test.beforeAll(async ({ browser, request }) => {
-    token = await tokenVia(browser, DEMO)
-    managerToken = await tokenVia(browser, DEMO_MANAGER)
+  test.beforeAll(async ({ browser }) => {
+    // Получаем токены через password grant API (надёжно, без SSO)
+    const adminCtx = await browser.newContext()
+    token = await apiToken(adminCtx.request, DEMO.username, DEMO.password)
+    await adminCtx.close()
 
-    const auth = { headers: { Authorization: `Bearer ${token}` } }
+    const mgrCtx = await browser.newContext()
+    managerToken = await apiToken(mgrCtx.request, DEMO_MANAGER.username, DEMO_MANAGER.password)
+    await mgrCtx.close()
+
+    // Один контекст со страницей для загрузки_seed-данных через браузерный fetch
+    const ctx = await browser.newContext()
+    const page = await ctx.newPage()
+
+    const authHeaders = { Authorization: `Bearer ${token}` }
     const json = async (path) => {
-      const res = await request.get(path, { headers: auth.headers })
+      const res = await apiGet(page, path, authHeaders)
       expect(res.status(), `${path} должен отдавать 200`).toBe(200)
       return res.json()
     }
     const listOf = (data) => (Array.isArray(data) ? data : data.content || [])
     const post = async (path, data) => {
-      const res = await request.post(path, { headers: auth.headers, data })
-      const text = await res.text()
-      expect(res.status(), `POST ${path}: ${text.slice(0, 200)}`).toBeLessThan(300)
-      return JSON.parse(text)
+      const res = await apiPost(page, path, { headers: authHeaders, data })
+      expect(res.status(), `POST ${path}: ${(await res.text()).slice(0, 200)}`).toBeLessThan(300)
+      return res.json()
     }
     const isoDate = (offsetDays) => new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10)
 
@@ -119,8 +127,6 @@ test.describe('Обход всех эндпоинтов', () => {
     }
 
     // полный заказ = тот, у которого есть и позиции, и материалы.
-    // В постраничном списке заказов items/materials не сериализуются (они пустые),
-    // поэтому состав берём из карточки выбранного заказа.
     const picked = orders.find((o) => (o.items || []).length > 0 && (o.materials || []).length > 0) || orders[0] || {}
     const full = picked.id ? await json(`/api/v1/orders/${picked.id}`) : picked
     const manager = employees.find((e) => (e.roles || []).includes('ROLE_MANAGER'))
@@ -140,6 +146,8 @@ test.describe('Обход всех эндпоинтов', () => {
       employeeId: employees[0]?.id,
       employeeUsername: employees[0]?.username
     }
+
+    await ctx.close()
   })
 
   test('стенд содержит демо-данные для обхода', () => {
@@ -150,8 +158,8 @@ test.describe('Обход всех эндпоинтов', () => {
   })
 
   for (const path of PLAIN_GETS) {
-    test(`GET ${path} → 200`, async ({ request }) => {
-      const res = await apiGet(request, path, token)
+    test(`GET ${path} → 200`, async ({ page }) => {
+      const res = await apiGet(page, path, token)
       const body = await res.text()
       expect(res.status(), `${path}: ${body.slice(0, 300)}`).toBe(200)
     })
@@ -179,30 +187,30 @@ test.describe('Обход всех эндпоинтов', () => {
       [`/api/v1/products/${ids.productId}/estimate`, 'смета изделия']
     ].filter(([path]) => !/\/(undefined|null)\b/.test(path))
 
-    test('все адресные GET доступны', async ({ request }) => {
+    test('все адресные GET доступны', async ({ page }) => {
       const missing = []
       for (const [path, label] of cases()) {
-        const res = await apiGet(request, path, token)
+        const res = await apiGet(page, path, token)
         const body = await res.text()
         if (res.status() !== 200) missing.push(`${label}: ${path} → ${res.status()} ${body.slice(0, 160)}`)
       }
       expect(missing, 'адресные эндпоинты, ответившие не 200:\n' + missing.join('\n')).toEqual([])
     })
 
-    test('GET /api/files/order-item/{itemId} — доступ по тенанту, без 403/500', async ({ request }) => {
+    test('GET /api/files/order-item/{itemId} — доступ по тенанту, без 403/500', async ({ page }) => {
       test.skip(!ids.orderItemId, 'нет позиций у заказа')
-      const res = await apiGet(request, `/api/files/order-item/${ids.orderItemId}`, token)
+      const res = await apiGet(page, `/api/files/order-item/${ids.orderItemId}`, token)
       // файла у позиции может не быть — это 404; но не 403 (company_id у позиции пустой) и не 500
       expect([200, 404], `${await res.text()}`).toContain(res.status())
     })
 
-    test('GET /api/v1/orders/number/{orderNumber} → 200', async ({ request }) => {
+    test('GET /api/v1/orders/number/{orderNumber} → 200', async ({ page }) => {
       test.skip(!ids.orderNumber, 'нет заказа с orderNumber')
-      const res = await apiGet(request, `/api/v1/orders/number/${ids.orderNumber}`, token)
+      const res = await apiGet(page, `/api/v1/orders/number/${ids.orderNumber}`, token)
       expect(res.status()).toBe(200)
     })
 
-    test('GET /api/v1/orders/{id}/positions/{materialId}/default → 200', async ({ request }) => {
+    test('GET /api/v1/orders/{id}/positions/{materialId}/default → 200', async ({ page }) => {
       test.skip(!ids.orderMaterialId, 'нет материалов у заказа')
       const res = await apiGet(
         request,
@@ -212,31 +220,31 @@ test.describe('Обход всех эндпоинтов', () => {
       expect(res.status(), await res.text()).toBe(200)
     })
 
-    test('GET /api/v1/orders/manager-earnings/{managerId} → 200', async ({ request }) => {
+    test('GET /api/v1/orders/manager-earnings/{managerId} → 200', async ({ page }) => {
       test.skip(!ids.managerId, 'в стенде нет менеджера')
-      const res = await apiGet(request, `/api/v1/orders/manager-earnings/${ids.managerId}`, token)
+      const res = await apiGet(page, `/api/v1/orders/manager-earnings/${ids.managerId}`, token)
       expect(res.status()).toBe(200)
     })
 
-    test('GET /api/v1/orders/items/{itemId}/estimate → 200', async ({ request }) => {
+    test('GET /api/v1/orders/items/{itemId}/estimate → 200', async ({ page }) => {
       test.skip(!ids.orderItemId, 'нет позиций у заказа')
-      const res = await apiGet(request, `/api/v1/orders/items/${ids.orderItemId}/estimate`, token)
+      const res = await apiGet(page, `/api/v1/orders/items/${ids.orderItemId}/estimate`, token)
       expect(res.status()).toBe(200)
     })
 
-    test('GET /api/v1/comment-replies/parent/{commentId} → 200', async ({ request }) => {
-      const data = await (await apiGet(request, '/api/v1/comments?size=5', token)).json()
+    test('GET /api/v1/comment-replies/parent/{commentId} → 200', async ({ page }) => {
+      const data = await (await apiGet(page, '/api/v1/comments?size=5', token)).json()
       const comments = Array.isArray(data) ? data : data.content || []
       test.skip(comments.length === 0, 'в стенде нет комментариев')
-      const res = await apiGet(request, `/api/v1/comment-replies/parent/${comments[0].id}`, token)
+      const res = await apiGet(page, `/api/v1/comment-replies/parent/${comments[0].id}`, token)
       expect(res.status()).toBe(200)
     })
   })
 
   test.describe('POST-расчёты калькулятора', () => {
-    test('POST /api/v1/calculations → 200 и GET по id созданного расчёта', async ({ request }) => {
+    test('POST /api/v1/calculations → 200 и GET по id созданного расчёта', async ({ page }) => {
       test.skip(!ids.materialId, 'нет материала')
-      const res = await request.post('/api/v1/calculations', {
+      const res = await apiPost(page,'/api/v1/calculations', {
         headers: { Authorization: `Bearer ${token}` },
         data: { materialId: ids.materialId, materialType: 'BANNER', widthM: 1.5, heightM: 1 }
       })
@@ -245,30 +253,30 @@ test.describe('Обход всех эндпоинтов', () => {
       const created = JSON.parse(body)
       expect(created.id, 'расчёт должен сохраниться и вернуть id').toBeTruthy()
 
-      const get = await apiGet(request, `/api/v1/calculations/${created.id}`, token)
+      const get = await apiGet(page, `/api/v1/calculations/${created.id}`, token)
       expect(get.status()).toBe(200)
     })
 
-    test('POST /api/v1/calculations/preview → 200 без сохранения', async ({ request }) => {
+    test('POST /api/v1/calculations/preview → 200 без сохранения', async ({ page }) => {
       test.skip(!ids.materialId, 'нет материала')
-      const res = await request.post('/api/v1/calculations/preview', {
+      const res = await apiPost(page,'/api/v1/calculations/preview', {
         headers: { Authorization: `Bearer ${token}` },
         data: { materialId: ids.materialId, materialType: 'BANNER', widthM: 1.5, heightM: 1 }
       })
       expect(res.status(), await res.text()).toBe(200)
     })
 
-    test('POST /api/v1/calculations/calculate-area → 200', async ({ request }) => {
-      const res = await request.post('/api/v1/calculations/calculate-area', {
+    test('POST /api/v1/calculations/calculate-area → 200', async ({ page }) => {
+      const res = await apiPost(page,'/api/v1/calculations/calculate-area', {
         headers: { Authorization: `Bearer ${token}` },
         data: { widthM: 2, heightM: 1.5, podvorotMmHorizontal: 50, podvorotMmVertical: 50, podvorotCountPerSide: 2 }
       })
       expect(res.status(), await res.text()).toBe(200)
     })
 
-    test('POST /api/v1/calculations/estimate-item → 200', async ({ request }) => {
+    test('POST /api/v1/calculations/estimate-item → 200', async ({ page }) => {
       test.skip(!ids.materialId, 'нет материала')
-      const res = await request.post('/api/v1/calculations/estimate-item', {
+      const res = await apiPost(page,'/api/v1/calculations/estimate-item', {
         headers: { Authorization: `Bearer ${token}` },
         data: {
           materialId: ids.materialId,
@@ -282,9 +290,9 @@ test.describe('Обход всех эндпоинтов', () => {
   })
 
   test.describe('CRUD-циклы', () => {
-    test('клиент: create → get → update → search → delete', async ({ request }) => {
+    test('клиент: create → get → update → search → delete', async ({ page }) => {
       const name = `E2E Клиент ${RUN}`
-      const created = await request.post('/api/v1/clients', {
+      const created = await apiPost(page,'/api/v1/clients', {
         headers: { Authorization: `Bearer ${token}` },
         data: { name, contactPerson: 'Тест', email: `e2e${RUN}@example.com`, priceplus: 10 }
       })
@@ -293,32 +301,32 @@ test.describe('Обход всех эндпоинтов', () => {
       const client = JSON.parse(createdBody)
       expect(client.id).toBeTruthy()
 
-      const get = await apiGet(request, `/api/v1/clients/${client.id}`, token)
+      const get = await apiGet(page, `/api/v1/clients/${client.id}`, token)
       expect(get.status()).toBe(200)
 
-      const upd = await request.put(`/api/v1/clients/${client.id}`, {
+      const upd = await apiPut(page,`/api/v1/clients/${client.id}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: { ...client, name: `${name} (обн)` }
       })
       expect(upd.status(), await upd.text()).toBe(200)
       expect((await upd.json()).name).toBe(`${name} (обн)`)
 
-      const search = await apiGet(request, `/api/v1/clients/search?q=${encodeURIComponent('E2E Клиент')}`, token)
+      const search = await apiGet(page, `/api/v1/clients/search?q=${encodeURIComponent('E2E Клиент')}`, token)
       expect(search.status()).toBe(200)
       expect((await search.json()).some((c) => c.id === client.id), 'поиск должен находить созданного клиента').toBe(true)
 
-      const del = await request.delete(`/api/v1/clients/${client.id}`, {
+      const del = await apiDelete(page,`/api/v1/clients/${client.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       expect(del.status(), await del.text()).toBe(204)
 
-      const after = await apiGet(request, `/api/v1/clients/${client.id}`, token)
+      const after = await apiGet(page, `/api/v1/clients/${client.id}`, token)
       expect(after.status(), 'удалённый клиент не должен отдаваться').toBe(404)
     })
 
-    test('материал: create → update → delete', async ({ request }) => {
+    test('материал: create → update → delete', async ({ page }) => {
       const name = `E2E Материал ${RUN}`
-      const created = await request.post('/api/v1/materials', {
+      const created = await apiPost(page,'/api/v1/materials', {
         headers: { Authorization: `Bearer ${token}` },
         data: { name, unit: 'м2', price: 500, wasteCoefficient: 1.1, defaultWidthM: 1.6, defaultHeightM: 1 }
       })
@@ -328,7 +336,7 @@ test.describe('Обход всех эндпоинтов', () => {
       expect(Number(material.defaultWidthM), 'ширина по умолчанию должна сохраниться при создании').toBe(1.6)
       expect(Number(material.defaultHeightM), 'высота по умолчанию должна сохраниться при создании').toBe(1)
 
-      const upd = await request.put(`/api/v1/materials/${material.id}`, {
+      const upd = await apiPut(page,`/api/v1/materials/${material.id}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: {
           name: `${name} (обн)`, unit: 'м2', price: 550, wasteCoefficient: 1.1,
@@ -343,15 +351,15 @@ test.describe('Обход всех эндпоинтов', () => {
       expect(Number(updated.defaultWidthM), 'размеры по умолчанию должны обновляться').toBe(3.2)
       expect(Number(updated.defaultHeightM), 'размеры по умолчанию должны обновляться').toBe(1.2)
 
-      const del = await request.delete(`/api/v1/materials/${material.id}`, {
+      const del = await apiDelete(page,`/api/v1/materials/${material.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       expect(del.status()).toBe(204)
     })
 
-    test('цех: create → update → delete', async ({ request }) => {
+    test('цех: create → update → delete', async ({ page }) => {
       const name = `E2E Цех ${RUN}`
-      const created = await request.post('/api/v1/workshops', {
+      const created = await apiPost(page,'/api/v1/workshops', {
         headers: { Authorization: `Bearer ${token}` },
         data: { name, sortOrder: 99, operationIds: ids.operationId ? [ids.operationId] : [] }
       })
@@ -359,22 +367,22 @@ test.describe('Обход всех эндпоинтов', () => {
       expect(created.status(), body.slice(0, 300)).toBe(201)
       const workshop = JSON.parse(body)
 
-      const upd = await request.put(`/api/v1/workshops/${workshop.id}`, {
+      const upd = await apiPut(page,`/api/v1/workshops/${workshop.id}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: { ...workshop, name: `${name} (обн)` }
       })
       expect(upd.status(), await upd.text()).toBe(200)
 
-      const del = await request.delete(`/api/v1/workshops/${workshop.id}`, {
+      const del = await apiDelete(page,`/api/v1/workshops/${workshop.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       expect(del.status()).toBe(204)
     })
 
-    test('заказ: create → get → delete', async ({ request }) => {
+    test('заказ: create → get → delete', async ({ page }) => {
       test.skip(!ids.clientId || !ids.materialId, 'нет клиента или материала')
       const iso = (days) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10)
-      const created = await request.post('/api/v1/orders', {
+      const created = await apiPost(page,'/api/v1/orders', {
         headers: { Authorization: `Bearer ${token}` },
         data: {
           clientId: ids.clientId,
@@ -389,22 +397,22 @@ test.describe('Обход всех эндпоинтов', () => {
       const order = JSON.parse(body)
       expect(order.orderNumber, 'номер заказа генерируется на сервере').toBeTruthy()
 
-      const card = await apiGet(request, `/api/v1/orders/${order.id}`, token)
+      const card = await apiGet(page, `/api/v1/orders/${order.id}`, token)
       expect(card.status()).toBe(200)
       expect(((await card.json()).items || []).length, 'позиция заказа должна сохраниться').toBe(1)
 
-      const del = await request.delete(`/api/v1/orders/${order.id}`, {
+      const del = await apiDelete(page,`/api/v1/orders/${order.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       expect(del.status(), await del.text()).toBe(204)
 
-      const after = await apiGet(request, `/api/v1/orders/${order.id}`, token)
+      const after = await apiGet(page, `/api/v1/orders/${order.id}`, token)
       expect(after.status(), 'удалённый заказ не должен отдаваться').toBe(404)
     })
 
-    test('комментарий заказа: create → update → mark read → delete', async ({ request }) => {
+    test('комментарий заказа: create → update → mark read → delete', async ({ page }) => {
       test.skip(!ids.orderId, 'нет заказа')
-      const created = await request.post(`/api/v1/comments/order/${ids.orderId}`, {
+      const created = await apiPost(page,`/api/v1/comments/order/${ids.orderId}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: { body: `E2E комментарий ${RUN}` }
       })
@@ -412,50 +420,50 @@ test.describe('Обход всех эндпоинтов', () => {
       expect(created.status(), body.slice(0, 300)).toBe(201)
       const comment = JSON.parse(body)
 
-      const list = await apiGet(request, `/api/v1/comments/order/${ids.orderId}`, token)
+      const list = await apiGet(page, `/api/v1/comments/order/${ids.orderId}`, token)
       expect(list.status()).toBe(200)
       expect((await list.json()).some((c) => c.id === comment.id)).toBe(true)
 
-      const upd = await request.put(`/api/v1/comments/${comment.id}`, {
+      const upd = await apiPut(page,`/api/v1/comments/${comment.id}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: { body: `E2E комментарий ${RUN} (обн)` }
       })
       expect(upd.status(), await upd.text()).toBe(200)
 
-      const read = await request.patch(`/api/v1/comments/${comment.id}/read`, {
+      const read = await apiPatch(page,`/api/v1/comments/${comment.id}/read`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       expect(read.status(), await read.text()).toBe(200)
 
-      const del = await request.delete(`/api/v1/comments/${comment.id}`, {
+      const del = await apiDelete(page,`/api/v1/comments/${comment.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       expect([200, 204], await del.text()).toContain(del.status())
     })
 
-    test('уведомления: unread-count → PATCH read-all', async ({ request }) => {
+    test('уведомления: unread-count → PATCH read-all', async ({ page }) => {
       test.skip(!ids.orderId, 'нет заказа для комментария')
-      const created = await request.post(`/api/v1/comments/order/${ids.orderId}`, {
+      const created = await apiPost(page,`/api/v1/comments/order/${ids.orderId}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: { body: `E2E уведомление ${RUN}` }
       })
       expect(created.status(), await created.text()).toBe(201)
 
-      const count = await apiGet(request, '/api/v1/notifications/unread-count', token)
+      const count = await apiGet(page, '/api/v1/notifications/unread-count', token)
       expect(count.status()).toBe(200)
 
-      const readAll = await request.patch('/api/v1/notifications/read-all', {
+      const readAll = await apiPatch(page,'/api/v1/notifications/read-all', {
         headers: { Authorization: `Bearer ${token}` }
       })
       expect(readAll.status(), await readAll.text()).toBe(200)
 
-      const after = await apiGet(request, '/api/v1/notifications/unread-count', token)
+      const after = await apiGet(page, '/api/v1/notifications/unread-count', token)
       expect((await after.json())).toBe(0)
     })
 
-    test('Keycloak-пользователь: создание, смена пароля, вход, удаление', async ({ request }) => {
+    test('Keycloak-пользователь: создание, смена пароля, вход, удаление', async ({ page }) => {
       const username = `e2e_pw_${RUN}`
-      const created = await request.post('/api/v1/employees/keycloak-user', {
+      const created = await apiPost(page,'/api/v1/employees/keycloak-user', {
         headers: { Authorization: `Bearer ${token}` },
         data: {
           username,
@@ -471,16 +479,16 @@ test.describe('Обход всех эндпоинтов', () => {
       const userId = (JSON.parse(body)).id
       expect(userId).toBeTruthy()
 
-      const sync = await request.post('/api/v1/employees/sync-by-company?companyId=1', {
+      const sync = await apiPost(page,'/api/v1/employees/sync-by-company?companyId=1', {
         headers: { Authorization: `Bearer ${token}` }
       })
       expect(sync.status(), await sync.text()).toBe(200)
 
-      const employee = await apiGet(request, `/api/v1/employees/username/${username}`, token)
+      const employee = await apiGet(page, `/api/v1/employees/username/${username}`, token)
       expect(employee.status(), await employee.text()).toBe(200)
       const employeeId = (await employee.json()).id
 
-      const changed = await request.put('/api/v1/employees/keycloak-password', {
+      const changed = await apiPut(page,'/api/v1/employees/keycloak-password', {
         headers: { Authorization: `Bearer ${token}` },
         data: { username, password: 'e2epass2', temporary: false }
       })
@@ -489,14 +497,14 @@ test.describe('Обход всех эндпоинтов', () => {
       // новый пароль должен подходить, старый — нет
       const keycloak = 'http://127.0.0.1:8080/realms/print-sv/protocol/openid-connect/token'
       const loginWith = async (password) =>
-        (await request.post(keycloak, {
+        (await apiPost(page,keycloak, {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           data: new URLSearchParams({ grant_type: 'password', client_id: 'frontend', username, password }).toString()
         })).ok()
       expect(await loginWith('e2epass2'), 'вход с новым паролем').toBe(true)
       expect(await loginWith('e2epass1'), 'старый пароль должен быть невалиден').toBe(false)
 
-      const del = await request.delete(`/api/v1/employees/${employeeId}`, {
+      const del = await apiDelete(page,`/api/v1/employees/${employeeId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       expect(del.status(), await del.text()).toBe(204)
@@ -504,7 +512,7 @@ test.describe('Обход всех эндпоинтов', () => {
   })
 
   test.describe('Права доступа', () => {
-    test('без токена — 401 на представителях каждого сервиса', async ({ request }) => {
+    test('без токена — 401 на представителях каждого сервиса', async ({ page }) => {
       const paths = [
         '/api/v1/clients?size=1',
         '/api/v1/companies',
@@ -517,45 +525,45 @@ test.describe('Обход всех эндпоинтов', () => {
         '/api/v1/products'
       ]
       for (const path of paths) {
-        const res = await request.get(path)
+        const res = await apiGet(page, path)
         expect(res.status(), `${path} без токена`).toBe(401)
       }
     })
 
-    test('ADMIN не видит GOD-only эндпоинты компаний', async ({ request }) => {
-      const databases = await apiGet(request, '/api/v1/companies/databases', token)
+    test('ADMIN не видит GOD-only эндпоинты компаний', async ({ page }) => {
+      const databases = await apiGet(page, '/api/v1/companies/databases', token)
       expect(databases.status(), 'список БД компаний — только GOD').toBe(403)
     })
 
-    test('MANAGER не создаёт компании и не читает сотрудников целиком', async ({ request }) => {
-      const create = await request.post('/api/v1/companies', {
+    test('MANAGER не создаёт компании и не читает сотрудников целиком', async ({ page }) => {
+      const create = await apiPost(page,'/api/v1/companies', {
         headers: { Authorization: `Bearer ${managerToken}` },
         data: { name: `E2E Нельзя ${RUN}` }
       })
       expect(create.status()).toBe(403)
 
-      const keycloakUser = await request.post('/api/v1/employees/keycloak-user', {
+      const keycloakUser = await apiPost(page,'/api/v1/employees/keycloak-user', {
         headers: { Authorization: `Bearer ${managerToken}` },
         data: { username: `e2e_no_${RUN}`, password: 'e2epass1', fullName: 'Нельзя Тест', role: 'PRODUCTION' }
       })
       expect(keycloakUser.status()).toBe(403)
     })
 
-    test('смена пароля: валидация длины и несуществующий пользователь', async ({ request }) => {
-      const short = await request.put('/api/v1/employees/keycloak-password', {
+    test('смена пароля: валидация длины и несуществующий пользователь', async ({ page }) => {
+      const short = await apiPut(page,'/api/v1/employees/keycloak-password', {
         headers: { Authorization: `Bearer ${token}` },
         data: { username: ids.employeeUsername, password: '123', temporary: false }
       })
       expect(short.status()).toBe(400)
 
-      const missing = await request.put('/api/v1/employees/keycloak-password', {
+      const missing = await apiPut(page,'/api/v1/employees/keycloak-password', {
         headers: { Authorization: `Bearer ${token}` },
         data: { username: 'e2e_no_such_user', password: 'e2epass1', temporary: false }
       })
       expect(missing.status()).toBe(404)
     })
 
-    test('несуществующие id дают 404, а не 500', async ({ request }) => {
+    test('несуществующие id дают 404, а не 500', async ({ page }) => {
       const paths = [
         '/api/v1/clients/999999999',
         '/api/v1/materials/999999999',
@@ -566,24 +574,24 @@ test.describe('Обход всех эндпоинтов', () => {
       ]
       const bad = []
       for (const path of paths) {
-        const res = await apiGet(request, path, token)
+        const res = await apiGet(page, path, token)
         if (res.status() !== 404) bad.push(`${path} → ${res.status()} ${(await res.text()).slice(0, 120)}`)
       }
       expect(bad, 'эндпоинты с несуществующим id:\n' + bad.join('\n')).toEqual([])
     })
 
-    test('невалидное тело даёт 400, а не 500', async ({ request }) => {
+    test('невалидное тело даёт 400, а не 500', async ({ page }) => {
       const cases = [
-        ['POST /api/v1/clients без имени', () => request.post('/api/v1/clients', {
+        ['POST /api/v1/clients без имени', () => apiPost(page,'/api/v1/clients', {
           headers: { Authorization: `Bearer ${token}` }, data: { email: 'not-an-email' }
         })],
-        ['POST /api/v1/materials без цены', () => request.post('/api/v1/materials', {
+        ['POST /api/v1/materials без цены', () => apiPost(page,'/api/v1/materials', {
           headers: { Authorization: `Bearer ${token}` }, data: { name: `E2E Плохой ${RUN}` }
         })],
-        ['POST /api/v1/calculations без materialId', () => request.post('/api/v1/calculations', {
+        ['POST /api/v1/calculations без materialId', () => apiPost(page,'/api/v1/calculations', {
           headers: { Authorization: `Bearer ${token}` }, data: { widthM: 1 }
         })],
-        ['POST /api/v1/comments/order без тела', () => request.post(`/api/v1/comments/order/${ids.orderId}`, {
+        ['POST /api/v1/comments/order без тела', () => apiPost(page,`/api/v1/comments/order/${ids.orderId}`, {
           headers: { Authorization: `Bearer ${token}` }, data: {}
         })]
       ]
@@ -594,8 +602,8 @@ test.describe('Обход всех эндпоинтов', () => {
       }
     })
 
-    test('несуществующий id уведомления/комментария даёт 404', async ({ request }) => {
-      const read = await request.patch('/api/v1/notifications/999999999/read', {
+    test('несуществующий id уведомления/комментария даёт 404', async ({ page }) => {
+      const read = await apiPatch(page,'/api/v1/notifications/999999999/read', {
         headers: { Authorization: `Bearer ${token}` }
       })
       expect([404, 200], `PATCH read несуществующего: ${await read.text()}`).toContain(read.status())
@@ -604,8 +612,8 @@ test.describe('Обход всех эндпоинтов', () => {
 
   test.describe('Мёртвые маршруты шлюза', () => {
     for (const path of KNOWN_DEAD_ROUTES) {
-      test(`GET ${path} — маршрут без контроллера`, async ({ request }) => {
-        const res = await apiGet(request, path, token)
+      test(`GET ${path} — маршрут без контроллера`, async ({ page }) => {
+        const res = await apiGet(page, path, token)
         expect(res.status(), `${path}: ${(await res.text()).slice(0, 200)}`).toBe(404)
       })
     }

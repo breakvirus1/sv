@@ -17,7 +17,6 @@ import java.util.stream.Collectors;
 public interface OrderMapper {
 
     @Mapping(target = "productId", source = "productId")
-    @Mapping(target = "client", ignore = true)
     @Mapping(target = "manager", ignore = true)
     @Mapping(target = "items", ignore = true)
     @Mapping(target = "stages", ignore = true)
@@ -29,9 +28,6 @@ public interface OrderMapper {
 
     @AfterMapping
     default void afterToDto(Order order, @MappingTarget OrderResponse dto) {
-        if (order.getClient() != null) {
-            dto.setClient(clientToDto(order.getClient()));
-        }
         if (order.getManager() != null) {
             dto.setManager(employeeToDto(order.getManager()));
         }
@@ -85,8 +81,6 @@ public interface OrderMapper {
                 entity.getWorkshop().getCompanyId()));
         }
     }
-
-    ClientResponse clientToDto(com.example.clientservice.entity.Client client);
 
     @Mapping(target = "roles", ignore = true)
     EmployeeResponse employeeToDto(com.example.employeeservice.entity.Employee employee);

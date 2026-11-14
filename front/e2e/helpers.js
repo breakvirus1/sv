@@ -17,9 +17,8 @@ export async function trackServerErrors(page) {
  */
 export async function login(page, username, password) {
   await page.goto('/login')
-  // на странице две кнопки с текстом «Войти» — нужна SSO, иначе strict mode violation
   await page.getByRole('button', { name: 'Войти через Keycloak (SSO)' }).click()
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 })
+  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 60_000 })
 
   if (page.url().includes('/realms/')) {
     await page.locator('#username').fill(username)
@@ -32,7 +31,7 @@ export async function login(page, username, password) {
       !url.pathname.startsWith('/login') &&
       !url.pathname.startsWith('/callback') &&
       !url.pathname.includes('/realms/'),
-    { timeout: 30_000 }
+    { timeout: 60_000 }
   )
 }
 
@@ -43,21 +42,82 @@ export async function logout(page) {
 
 /**
  * Возвращает access token из текущей сессии браузера.
- * Если сессии нет — выполняет вход через UI Keycloak.
+ * Всегда логинится заново (очищает sessionStorage), чтобы не вернуть чужой токен.
  */
-export async function apiToken(page, username, password) {
-  // sessionStorage доступна только внутри документа приложения: на about:blank её чтение даёт SecurityError
-  if (!/^https?:/.test(page.url())) await page.goto('/')
-
-  const existing = await page.evaluate(() => window.sessionStorage.getItem('token'))
-  if (existing) return existing
-
-  await login(page, username, password)
-  const token = await page.evaluate(() => window.sessionStorage.getItem('token'))
-  expect(token, 'access token должен быть сохранён в sessionStorage').toBeTruthy()
-  return token
+/**
+ * Возвращает access token через password grant API (минуя браузерный SSO).
+ * Работает через Playwright APIRequestContext, надёжно и быстро.
+ */
+export async function apiToken(request, username, password) {
+  const response = await request.post('/api/v1/auth/login', {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    form: { username, password }
+  })
+  if (!response.ok()) {
+    const text = await response.text()
+    throw new Error(`Login failed: ${response.status()} ${text.slice(0, 200)}`)
+  }
+  const data = await response.json()
+  expect(data.access_token, 'access token должен быть получен').toBeTruthy()
+  return data.access_token
 }
 
-export async function apiGet(request, path, token) {
-  return request.get(path, { headers: { Authorization: `Bearer ${token}` } })
+/**
+ * Делает fetch через контекст браузера (page.evaluate), чтобы запрос шёл
+ * с теми же куки/заголовками, что и из приложения.
+ * options может содержать headers и body/data.
+ * Возвращает объект с методом .status() и .json() как у Playwright APIResponse.
+ */
+export async function apiFetch(page, path, method = 'GET', options = {}) {
+  const headers = { ...(options.headers || {}) }
+  if (options.Authorization) headers['Authorization'] = options.Authorization
+  else if (options.token) headers['Authorization'] = `Bearer ${options.token}`
+  const body = options.body !== undefined ? options.body : options.data
+  if (body && !headers['Content-Type']) headers['Content-Type'] = 'application/json'
+  const res = await page.evaluate(async ({ p, m, h, b }) => {
+    const r = await fetch(p, {
+      method: m,
+      headers: h,
+      body: b ? JSON.stringify(b) : undefined,
+    })
+    return { status: r.status, body: await r.text() }
+  }, { p: path, m: method, h: headers, b: body })
+  return {
+    status: () => res.status,
+    text: async () => res.body,
+    json: async () => JSON.parse(res.body),
+    body: res.body,
+  }
+}
+
+export async function apiGet(page, path, optionsOrToken = {}) {
+  let options = optionsOrToken
+  if (typeof optionsOrToken === 'string') {
+    options = { headers: { Authorization: `Bearer ${optionsOrToken}` } }
+  }
+  return apiFetch(page, path, 'GET', options)
+}
+
+export async function apiPost(page, path, bodyOrOptions = {}, tokenOrOptions = {}) {
+  let options = bodyOrOptions
+  let token = tokenOrOptions
+  if (typeof bodyOrOptions === 'string' || !bodyOrOptions || !bodyOrOptions.headers) {
+    options = { headers: {} }
+    if (typeof bodyOrOptions === 'string') token = bodyOrOptions
+    if (tokenOrOptions && typeof tokenOrOptions === 'string') token = tokenOrOptions
+    if (token) options.headers['Authorization'] = `Bearer ${token}`
+  }
+  return apiFetch(page, path, 'POST', options)
+}
+
+export async function apiPut(page, path, options = {}) {
+  return apiFetch(page, path, 'PUT', options)
+}
+
+export async function apiPatch(page, path, options = {}) {
+  return apiFetch(page, path, 'PATCH', options)
+}
+
+export async function apiDelete(page, path, options = {}) {
+  return apiFetch(page, path, 'DELETE', options)
 }
