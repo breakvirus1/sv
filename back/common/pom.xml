@@ -8,6 +8,7 @@
         <groupId>com.example.printsv</groupId>
         <artifactId>printsv</artifactId>
         <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>common</artifactId>

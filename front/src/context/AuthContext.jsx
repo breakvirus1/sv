@@ -112,6 +112,15 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
+  // Fetch company name when companyId changes
+  useEffect(() => {
+    if (user?.companyId && !user.companyName) {
+      api.get(`/api/v1/companies/${user.companyId}`)
+        .then(r => setUser(u => u ? { ...u, companyName: r.data.name } : null))
+        .catch(() => {});
+    }
+  }, [user?.companyId]);
+
   const applyTokens = useCallback((tokens) => {
     const accessToken = tokens.access_token;
     const idToken = tokens.id_token;
@@ -222,6 +231,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(() => {
     const stored = getStoredAuth();
+    callbackProcessed = false;
     clearAuth();
     setUser(null);
     const url = new URL(`${KEYCLOAK_ISSUER}/protocol/openid-connect/logout`, window.location.origin);

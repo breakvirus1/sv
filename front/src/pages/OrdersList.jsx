@@ -43,7 +43,7 @@ const OrdersList = () => {
       const data = response.data.content || [];
       return data.length > 0 ? data[0] : null;
     },
-    enabled: !!user?.username,
+    enabled: !!user?.username && user?.roles?.some(r => ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_PRODUCTION', 'ROLE_GOD'].includes(r)),
   });
 
   const managerId = currentEmployee?.id;

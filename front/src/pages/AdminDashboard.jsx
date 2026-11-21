@@ -208,7 +208,7 @@ const AdminDashboard = () => {
 
   const companyAdmins = employeesData.filter(emp => {
     const roles = Array.isArray(emp.roles) ? emp.roles : [];
-    return roles.includes('ROLE_ADMIN');
+    return roles.includes('ROLE_ADMIN') || roles.includes('ROLE_GOD');
   });
 
   const isLoading = isLoadingCompanies || isLoadingEmployees;

@@ -23,17 +23,7 @@ const Navbar = () => {
   const [ordersAnchorEl, setOrdersAnchorEl] = useState(null);
   const navigate = useNavigate();
 
-  const { data: companiesData = [] } = useQuery({
-    queryKey: queryKeys.companies('list'),
-    queryFn: async () => {
-      const r = await api.get('/api/v1/companies?size=100');
-      return r.data.content || [];
-    },
-    staleTime: 300000,
-    enabled: isAuthenticated,
-  });
-
-  const companyName = companiesData.length > 0 ? companiesData[0].name : 'ПАЗЛ МОРЕ SV';
+  const companyName = user?.companyName || 'PrintSV';
 
   const { data: orders = [] } = useQuery({
     queryKey: queryKeys.orders('navbar'),
@@ -114,7 +104,7 @@ const Navbar = () => {
     <AppBar position="fixed" sx={{ bgcolor: '#1d1d1d', width: '100%' }}>
       <Toolbar>
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Система учета заказов {companyName}
+          {companyName}
         </Typography>
 
          {isAuthenticated && (

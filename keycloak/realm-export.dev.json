@@ -37,8 +37,8 @@
       "redirectUris": [
         "http://127.0.0.1:5174/*",
         "http://127.0.0.1:5174/callback",
-        "http://192.168.247.131:5174/*",
-        "http://192.168.247.131:5174/callback",
+        "http://192.168.88.88:5174/*",
+        "http://192.168.88.88:5174/callback",
         "http://localhost:5174/*",
         "http://localhost:5174/callback"
       ],

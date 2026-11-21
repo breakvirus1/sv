@@ -20,15 +20,18 @@ import ManagerDashboard from './pages/ManagerDashboard'
 import NotificationsList from './pages/NotificationsList'
 import ProductConstructorPage from './pages/ProductConstructorPage'
 import CreateProductOrder from './pages/CreateProductOrder'
+import { usePageTitle } from './hooks/usePageTitle'
 
 function App() {
   const { user, loading } = useAuth()
+  usePageTitle()
 
   if (loading) {
     return <div className="container">Loading...</div>
   }
 
   const isAuthenticated = !!user
+  const isGod = user?.roles?.includes('ROLE_GOD')
   const isManager = user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_ADMIN')
   const isProduction = user?.roles?.includes('ROLE_PRODUCTION')
   const hasPermission = user?.roles?.some(role =>
@@ -52,10 +55,10 @@ function App() {
          <div style={{ paddingTop: 74, paddingLeft: 50, paddingRight: 50, maxWidth: '100%', margin: 0, width: '100%' }}>
           <Routes>
              <Route path="/" element={
-                isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Dashboard />) : <Navigate to="/login" />
+                isAuthenticated ? (isGod ? <Navigate to="/admin-dashboard" /> : isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Dashboard />) : <Navigate to="/login" />
               } />
               <Route path="/login" element={
-                isAuthenticated ? (isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Navigate to="/orders" />) : <LoginPage />
+                isAuthenticated ? (isGod ? <Navigate to="/admin-dashboard" /> : isManager ? <Navigate to="/manager" /> : isProduction ? <Navigate to="/production" /> : <Navigate to="/orders" />) : <LoginPage />
               } />
             <Route path="/callback" element={<CallbackPage />} />
             <Route path="/dashboard" element={
