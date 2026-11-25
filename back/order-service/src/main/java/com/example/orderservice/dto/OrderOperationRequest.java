@@ -23,4 +23,6 @@ public class OrderOperationRequest {
     private BigDecimal widthM;
     /** Высота в метрах (опционально) */
     private BigDecimal heightM;
+    /** Длина кривой в метрах (для операций резки, заменяет расчёт по периметру) */
+    private BigDecimal curveLengthM;
 }

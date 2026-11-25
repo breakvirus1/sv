@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -45,6 +45,14 @@ import EditOrder from './EditOrder';
 const OrderDetail = ({ mode = 'view' }) => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam !== null) {
+      const idx = isNaN(Number(tabParam)) ? ({ positions:0, payments:1, comments:2, history:3 }[tabParam]) : Number(tabParam);
+      if (idx !== undefined && !isNaN(idx)) setActiveTab(idx);
+    }
+  }, [searchParams]);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const username = user?.username;
@@ -807,7 +815,10 @@ const PositionsTab = ({ materials = [], items = [] }) => {
      if (!materials || materials.length === 0) return items;
 
      const materialsByOrderItemId = new Map(materials.map(m => [m.orderItemId, m]));
-     return items.map(item => materialsByOrderItemId.get(item.id) || item);
+     return items.map(item => {
+       const material = materialsByOrderItemId.get(item.id);
+       return material ? { ...material, orderItemQuantity: item.quantity } : { ...item, orderItemQuantity: item.quantity };
+     });
    }, [materials, items]);
 
    const displayList = rawList;
@@ -834,41 +845,45 @@ const PositionsTab = ({ materials = [], items = [] }) => {
 
   const isMaterial = displayList[0]?.material !== undefined;
 
-  return (
-    <Box>
-      {displayList.map((entry) => {
-        const name = isMaterial ? entry.material?.name : entry.name;
-        const price = isMaterial ? entry.material?.price : entry.price;
-        const quantity = entry.quantity;
-        const cost = entry.cost;
-        const readyDate = entry.readyDate;
-        const unit = isMaterial ? entry.material?.unit : '';
+return (
+     <Box>
+       {displayList.map((entry) => {
+         const name = isMaterial ? entry.material?.name : entry.name;
+         const price = isMaterial ? entry.material?.price : entry.price;
+         const quantity = entry.quantity;
+         const cost = entry.cost;
+         const readyDate = entry.readyDate;
+         const unit = isMaterial ? entry.material?.unit : '';
+         const orderItemQuantity = entry.orderItemQuantity || 1;
 
-        const qtyDisplay = isMaterial 
-          ? parseFloat(quantity).toFixed(3) 
-          : quantity;
+         const qtyDisplay = isMaterial 
+           ? parseFloat(quantity).toFixed(3) 
+           : quantity;
 
-        // Extract size from material name if available (for materials)
-        // Expected format: "БАНЕР 1.111x1.111m" from item name
-        // But we'll just show material name as is.
+         // Extract size from material name if available (for materials)
+         // Expected format: "БАНЕР 1.111x1.111m" from item name
+         // But we'll just show material name as is.
 
-        return (
-          <Paper key={entry.materialId || entry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="subtitle1">{name}</Typography>
-              <Typography variant="h6">{cost?.toFixed(2)} ₽</Typography>
-            </Box>
-            <Box display="flex" gap={4} mt={1}>
-              <Typography variant="body2" color="text.secondary">
-                Цена за ед.: {price?.toFixed(2)} ₽
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Кол-во: {qtyDisplay} {unit}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Срок: {readyDate || '—'}
-              </Typography>
-            </Box>
+         return (
+           <Paper key={entry.materialId || entry.id} sx={{ p: 2, mb: 2 }} variant="outlined">
+             <Box display="flex" justifyContent="space-between" alignItems="center">
+               <Typography variant="subtitle1">{name}</Typography>
+               <Typography variant="h6">{cost?.toFixed(2)} ₽</Typography>
+             </Box>
+             <Box display="flex" gap={4} mt={1}>
+               <Typography variant="body2" color="text.secondary">
+                 Цена за ед.: {price?.toFixed(2)} ₽
+               </Typography>
+               <Typography variant="body2" color="text.secondary">
+                 Кол-во материала: {qtyDisplay} {unit}
+               </Typography>
+               <Typography variant="body2" color="text.secondary">
+                 Кол-во изделий: {orderItemQuantity}
+               </Typography>
+               <Typography variant="body2" color="text.secondary">
+                 Срок: {readyDate || '—'}
+               </Typography>
+             </Box>
             {/* Operations list with indentation */}
             {((entry.operations && entry.operations.length > 0) || (entry.operations && entry.operations.length > 0)) && (
               <Box sx={{ mt: 2, pl: 2, borderLeft: '3px solid #e0e0e0' }}>

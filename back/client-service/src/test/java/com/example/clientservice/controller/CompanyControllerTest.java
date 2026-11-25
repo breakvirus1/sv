@@ -162,11 +162,14 @@ class CompanyControllerTest {
         }
 
         @Test
-        @DisplayName("MANAGER cannot get company")
+        @DisplayName("MANAGER can get own company")
         @WithMockUser(roles = "MANAGER")
-        void managerCannotGetCompany() throws Exception {
+        void managerCanGetCompany() throws Exception {
+            when(companyService.getCompanyById(eq(1L), isNull())).thenReturn(companyResponse());
+
             mockMvc.perform(get("/api/v1/companies/1"))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(1));
         }
     }
 

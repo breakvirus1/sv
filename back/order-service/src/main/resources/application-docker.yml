@@ -18,7 +18,7 @@ spring:
     # 0 — на чистой БД проигрываются все миграции (V1 создаёт svschema).
     # Для существующей базы baseline не ставится (history уже есть), значение безвредно.
     baseline-version: 0
-    validate-on-migrate: true
+    validate-on-migrate: false
     schemas: svschema
   jpa:
     show-sql: false

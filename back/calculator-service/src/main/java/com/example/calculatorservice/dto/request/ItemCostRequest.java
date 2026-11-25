@@ -44,4 +44,14 @@ public class ItemCostRequest {
      * Selected operation IDs to include in cost calculation
      */
     private List<Long> operationIds;
+
+    /**
+     * Quantity (count) - multiplies material and operation costs
+     */
+    private Integer quantity = 1;
+
+    /**
+     * Длина кривой (в метрах) для операций резки — заменяет расчёт по периметру
+     */
+    private BigDecimal curveLengthM;
 }

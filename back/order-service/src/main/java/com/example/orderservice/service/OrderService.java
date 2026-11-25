@@ -233,6 +233,20 @@ public class OrderService {
     }
 
     /**
+     * Добавляет длину кривой для операций резки в запрос калькулятора.
+     * Название операции здесь не проверяется: фронтенд присылает только operationId,
+     * а калькулятор применяет curveLengthM исключительно к операциям резки
+     * (LINEAR_METER + имя содержит "резк"), поэтому лишним параметром это не мешает.
+     */
+    private void putCurveLength(Map<String, Object> calcRequest, List<OrderOperationRequest> operations) {
+        if (operations == null) return;
+        operations.stream()
+                .filter(op -> op.getCurveLengthM() != null)
+                .findFirst()
+                .ifPresent(op -> calcRequest.put("curveLengthM", op.getCurveLengthM()));
+    }
+
+    /**
      * Build a specification that filters orders by the current PRODUCTION user's workshop operations.
      * For ADMIN/MANAGER/ACCOUNTANT roles, no workshop filtering is applied.
      * For PRODUCTION, returns orders where any OrderItem has an OrderOperation with operationId
@@ -574,6 +588,7 @@ public class OrderService {
                             orderOp.setSubtotal(subtotal);
                             orderOp.setWidthM(reqOp.getWidthM());
                             orderOp.setHeightM(reqOp.getHeightM());
+                            orderOp.setCurveLengthM(reqOp.getCurveLengthM());
                             orderItem.getOperations().add(orderOp);
                             total = total.add(subtotal);
                         }
@@ -585,7 +600,7 @@ public class OrderService {
                     continue;
                 }
 
-                // Build request to calculator service
+// Build request to calculator service
                  Map<String, Object> calcRequest = new HashMap<>();
                  calcRequest.put("materialId", material.getId());
                  calcRequest.put("widthM", itemReq.getWidthM());
@@ -595,6 +610,13 @@ public class OrderService {
                          .map(OrderOperationRequest::getOperationId)
                          .collect(Collectors.toList());
                  calcRequest.put("operationIds", opIds);
+
+                 // Include curve length for резка operations (replaces perimeter calculation)
+                 putCurveLength(calcRequest, itemReq.getOperations());
+
+                 // Include quantity (count) to multiply material and operation costs
+                 int itemCount = itemReq.getQuantity() != null ? itemReq.getQuantity().intValue() : 1;
+                 calcRequest.put("quantity", itemCount);
 
                   // Include eyelet parameters if present
                   if (itemReq.getEyeletId() != null) {
@@ -646,7 +668,7 @@ public class OrderService {
                     throw new BadRequestException("Пустой ответ от службы расчета");
                 }
 
-                // Parse total price
+                // Parse total price (already multiplied by quantity in calculator service)
                 Number totalPriceNum = (Number) calcResponse.get("totalPrice");
                 BigDecimal totalPrice = new BigDecimal(totalPriceNum.toString());
 
@@ -703,6 +725,7 @@ public class OrderService {
                         if (reqOp != null) {
                             orderOp.setWidthM(reqOp.getWidthM());
                             orderOp.setHeightM(reqOp.getHeightM());
+                            orderOp.setCurveLengthM(reqOp.getCurveLengthM());
                         }
 
                         orderOps.add(orderOp);
@@ -715,10 +738,11 @@ public class OrderService {
                 BigDecimal materialPrice = material.getPrice();
                 BigDecimal height = itemReq.getHeightM() != null ? itemReq.getHeightM() : BigDecimal.ONE;
                 BigDecimal materialArea = itemReq.getWidthM().multiply(height);
-                BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal materialCostPerItem = materialArea.multiply(materialPrice).multiply(wasteCoeff).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal materialCost = materialCostPerItem.multiply(BigDecimal.valueOf(itemCount)).setScale(2, RoundingMode.HALF_UP);
 
-                // Effective area = materialCost / (price * wasteCoeff) = materialArea
-                BigDecimal effectiveArea = materialArea.setScale(2, RoundingMode.HALF_UP);
+                // Effective area = materialCost / (price * wasteCoeff) = materialArea * quantity
+                BigDecimal effectiveArea = materialArea.multiply(BigDecimal.valueOf(itemCount)).setScale(2, RoundingMode.HALF_UP);
 
                 // Compute eyelet hardware cost from calculator response (totalPrice includes it)
                 BigDecimal eyeletCost = totalPrice.subtract(operationsSubtotal).subtract(materialCost);
@@ -732,7 +756,7 @@ public class OrderService {
                 orderItem.setOrder(saved);
                 orderItem.setCompanyId(companyId);
                 orderItem.setName(material.getName() + " " + itemReq.getWidthM() + "x" + itemReq.getHeightM() + "m");
-                orderItem.setQuantity(1);
+                orderItem.setQuantity(itemReq.getQuantity() != null ? itemReq.getQuantity().intValue() : 1);
                 orderItem.setReadyDate(itemReq.getReadyDate());
                 orderItem.setPrice(totalPrice);
                 orderItem.setCost(totalPrice);
@@ -1116,6 +1140,13 @@ public class OrderService {
                         .collect(Collectors.toList());
                 calcRequest.put("operationIds", opIds);
 
+                // Include curve length for резка operations (replaces perimeter calculation)
+                putCurveLength(calcRequest, itemReq.getOperations());
+
+                // Include quantity (count) to multiply material and operation costs
+                int itemCount = itemReq.getQuantity() != null ? itemReq.getQuantity().intValue() : 1;
+                calcRequest.put("quantity", itemCount);
+
                 // Include eyelet parameters
                 if (itemReq.getEyeletId() != null) {
                     calcRequest.put("eyeletId", itemReq.getEyeletId());
@@ -1214,6 +1245,7 @@ public class OrderService {
                         if (reqOp != null) {
                             orderOp.setWidthM(reqOp.getWidthM());
                             orderOp.setHeightM(reqOp.getHeightM());
+                            orderOp.setCurveLengthM(reqOp.getCurveLengthM());
                         }
 
                         orderOps.add(orderOp);
@@ -1226,10 +1258,14 @@ public class OrderService {
                 BigDecimal materialPrice = material.getPrice();
                 BigDecimal h = heightM != null ? heightM : BigDecimal.ONE;
                 BigDecimal materialArea = widthM.multiply(h);
-                BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal materialCostPerItem = materialArea.multiply(materialPrice).multiply(wasteCoeff).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal materialCost = materialCostPerItem.multiply(BigDecimal.valueOf(itemCount)).setScale(2, RoundingMode.HALF_UP);
 
-                // Effective area = materialCost / (price * wasteCoeff) = materialArea
-                BigDecimal effectiveArea = materialArea.setScale(2, RoundingMode.HALF_UP);
+                // Effective area = materialCost / (price * wasteCoeff) = materialArea * quantity
+                BigDecimal effectiveArea = materialArea.multiply(BigDecimal.valueOf(itemCount)).setScale(2, RoundingMode.HALF_UP);
+
+                // Compute eyelet hardware cost from calculator response (totalPrice includes it)
+                BigDecimal eyeletCost = totalPrice.subtract(operationsSubtotal).subtract(materialCost);
 
                 // Calculate cost with priceplus
                 BigDecimal priceplus = order.getPriceplus() != null ? order.getPriceplus() : BigDecimal.ZERO;
@@ -1264,6 +1300,7 @@ public class OrderService {
                                     existing.setSubtotal(op.getSubtotal());
                                     if (op.getWidthM() != null) existing.setWidthM(op.getWidthM());
                                     if (op.getHeightM() != null) existing.setHeightM(op.getHeightM());
+                                    if (op.getCurveLengthM() != null) existing.setCurveLengthM(op.getCurveLengthM());
                                     orderItem.getOperations().add(existing);
                                 } else {
                                     op.setOrderItem(orderItem);
@@ -1273,6 +1310,7 @@ public class OrderService {
                             }
                             orderItem.setPrice(totalPrice);
                             orderItem.setCost(totalPrice);
+                            orderItem.setQuantity(itemReq.getQuantity() != null ? itemReq.getQuantity().intValue() : orderItem.getQuantity());
                         }
                     }
                 } else {
@@ -1280,7 +1318,7 @@ public class OrderService {
                     orderItem.setOrder(order);
                     orderItem.setCompanyId(order.getCompanyId());
                     orderItem.setName(material.getName() + " " + widthM + "x" + heightM + "m");
-                    orderItem.setQuantity(1);
+                    orderItem.setQuantity(itemReq.getQuantity() != null ? itemReq.getQuantity().intValue() : 1);
                     orderItem.setReadyDate(itemReq.getReadyDate());
                     orderItem.setPrice(totalPrice);
                     orderItem.setCost(totalPrice);
@@ -1551,7 +1589,8 @@ private void recalculatePaidAmount(Long orderId) {
                     op.getCalculatedQuantity(),
                     op.getSubtotal(),
                     op.getWidthM(),
-                    op.getHeightM()))
+                    op.getHeightM(),
+                    op.getCurveLengthM()))
                 .collect(Collectors.toList());
         }
 
@@ -1609,7 +1648,8 @@ private void recalculatePaidAmount(Long orderId) {
                         op.getOperationId(),
                         op.getOperationName(),
                         op.getWidthM(),
-                        op.getHeightM()
+                        op.getHeightM(),
+                        op.getCurveLengthM()
                 ));
             }
         }
@@ -1721,7 +1761,8 @@ List<MaterialCalculation> materials = order.getMaterials().stream()
                                        op.getCalculatedQuantity(),
                                        op.getSubtotal(),
                                        op.getWidthM(),
-                                       op.getHeightM()))
+                                       op.getHeightM(),
+                                       op.getCurveLengthM()))
                                    .collect(Collectors.toList());
                                operationsTotal = operations.stream()
                                    .map(op -> op.getSubtotal() != null ? op.getSubtotal() : BigDecimal.ZERO)

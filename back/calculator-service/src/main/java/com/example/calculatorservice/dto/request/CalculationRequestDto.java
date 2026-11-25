@@ -29,4 +29,10 @@ public class CalculationRequestDto {
 
     // Selected operation IDs
     private List<Long> operationIds;
+
+    // Длина кривой (в метрах) для операций резки — заменяет расчёт по периметру
+    private BigDecimal curveLengthM;
+
+    // Quantity (count) - multiplies material and operation costs
+    private Integer quantity = 1;
 }

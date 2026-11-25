@@ -49,5 +49,7 @@ public class ItemPositionInfo {
         private String operationName;
         private BigDecimal widthM;
         private BigDecimal heightM;
+        /** Длина кривой в метрах (для операций резки) */
+        private BigDecimal curveLengthM;
     }
 }

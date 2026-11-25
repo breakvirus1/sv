@@ -437,7 +437,7 @@ class CalculationControllerTest {
         @DisplayName("MANAGER gets estimated cost")
         @WithMockUser(roles = "MANAGER")
         void managerGetsEstimate() throws Exception {
-            when(calculationService.calculateItemCost(any(), any(), any(), any(), any(), any(), any()))
+            when(calculationService.calculateItemCost(any(), any(), any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(new BigDecimal("980.00"));
 
             mockMvc.perform(post("/api/v1/calculations/estimate-item")

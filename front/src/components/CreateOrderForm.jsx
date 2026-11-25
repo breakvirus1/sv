@@ -29,7 +29,8 @@ import {
   FormControlLabel,
   FormGroup,
   InputAdornment,
-  List
+  List,
+  Autocomplete
 } from '@mui/material';
 import { Add, Delete, Save, AttachFile } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -92,6 +93,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientFormErrors, setClientFormErrors] = useState({});
   const [orderAmountDialog, setOrderAmountDialog] = useState({ open: false, sumorder: 0 });
+  const [curveLengthDialog, setCurveLengthDialog] = useState({ open: false, itemIndex: null, ops: [], values: {} });
 
   // ── State: New Client Form ──
   const [newClientForm, setNewClientForm] = useState({
@@ -248,7 +250,7 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [], file: null, fileName: '' }]
+      items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [], file: null, fileName: '', count: 1 }]
     }));
   };
 
@@ -372,7 +374,24 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
         updateItemOperations(itemIndex, [...selectedOpsData, ...preserveOps]);
       }
     }
-    
+
+    const curveSelectedIds = new Set();
+    Object.values(groupedOpSelections).filter(Boolean).forEach(id => {
+      const raw = typeof id === 'object' && id !== null ? id.id : id;
+      curveSelectedIds.add(typeof raw === 'string' ? Number(raw) : raw);
+    });
+    const groupedCurveOps = operationsData.filter(op => curveSelectedIds.has(op.id) && (op.name || '').toLowerCase().includes('резка'));
+    const ungroupedCurveOps = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => beforeOp.id === op.id) && (op.name || '').toLowerCase().includes('резка'));
+    const allCurveOps = [...groupedCurveOps, ...ungroupedCurveOps.filter(op => !groupedCurveOps.some(gco => gco.id === op.id))];
+    if (allCurveOps.length > 0) {
+      const initialValues = {};
+      allCurveOps.forEach(op => {
+        const existing = currentOps.find(cop => cop.id === op.id);
+        initialValues[op.id] = existing?.curveLengthM != null ? existing.curveLengthM : '';
+      });
+      setCurveLengthDialog({ open: true, itemIndex, ops: allCurveOps, values: initialValues });
+    }
+
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
     setGroupedOpSelections({});
   };
@@ -526,6 +545,24 @@ const CreateOrderForm = ({ windowId, closeWindow }) => {
     handleCloseOperationParamsDialog();
   };
 
+  const handleCloseCurveLengthDialog = () => {
+    setCurveLengthDialog({ open: false, itemIndex: null, ops: [], values: {} });
+  };
+
+  const handleSaveCurveLength = () => {
+    const { itemIndex, ops, values } = curveLengthDialog;
+    const currentOps = formData.items[itemIndex]?.operations || [];
+    const updatedOps = currentOps.map(op => {
+      const match = ops.find(o => o.id === op.id);
+      if (!match) return op;
+      const raw = values[op.id];
+      const parsed = raw !== '' && raw != null ? parseFloat(raw) : null;
+      return { ...op, curveLengthM: parsed != null && !Number.isNaN(parsed) ? parsed : op.curveLengthM };
+    });
+    updateItemOperations(itemIndex, updatedOps);
+    handleCloseCurveLengthDialog();
+  };
+
   const handleToggleGroup = (groupId, groupName) => {
     const isSelected = groupSelectionDialog.selectedItems.some(item => item.type === 'group' && item.id === groupId);
     
@@ -595,6 +632,7 @@ const handleClose = () => {
   };
 
   const [totalOrderAmount, setTotalOrderAmount] = useState(0);
+  const [totalWithoutPriceplus, setTotalWithoutPriceplus] = useState(0);
   const [cashFromPriceplus, setCashFromPriceplus] = useState(0);
 
   const calculateTotals = async () => {
@@ -604,8 +642,9 @@ const handleClose = () => {
     try {
       const result = await recalculateOrderLocally(formData.items, priceplus);
       setTotalOrderAmount(result.totalWithPriceplus);
+      const totalWithout = result.totalWithoutPriceplus || 0;
+      setTotalWithoutPriceplus(totalWithout);
       if (currentEmployee) {
-        const totalWithout = result.totalWithoutPriceplus || 0;
         const totalWith = result.totalWithPriceplus || 0;
         const priceplusAmount = totalWith - totalWithout;
         const mgrPercent = currentEmployee.managerCashPercent != null ? Number(currentEmployee.managerCashPercent) : 0;
@@ -615,6 +654,33 @@ const handleClose = () => {
     } catch (err) {
       console.error('Calculation error:', err);
     }
+  };
+
+  // Изменение итоговой суммы: пересчитываем процент наценки клиента и заработок
+  const handleSumorderChange = (value) => {
+    const newSumorder = parseFloat(value) || 0;
+    setOrderAmountDialog(prev => ({ ...prev, sumorder: newSumorder }));
+    setTotalOrderAmount(newSumorder);
+    const base = totalWithoutPriceplus || 0;
+    if (base > 0) {
+      const newPriceplus = ((newSumorder - base) / base) * 100;
+      setPriceplus(Number(newPriceplus.toFixed(2)));
+    }
+    if (currentEmployee) {
+      const mgrPercent = currentEmployee.managerCashPercent != null ? Number(currentEmployee.managerCashPercent) : 0;
+      setCashFromPriceplus((newSumorder - base) * mgrPercent / 100);
+    }
+  };
+
+  const openOrderAmountDialog = () => {
+    setOrderAmountDialog({ open: true, sumorder: totalOrderAmount, prevPriceplus: priceplus });
+  };
+
+  const handleCancelOrderAmountDialog = () => {
+    if (orderAmountDialog.prevPriceplus != null) {
+      setPriceplus(orderAmountDialog.prevPriceplus);
+    }
+    setOrderAmountDialog({ open: false, sumorder: totalOrderAmount });
   };
 
   useEffect(() => {
@@ -666,12 +732,14 @@ const handleSubmit = async (e) => {
 
         return {
           materialId: parseInt(item.materialId),
+          quantity: parseInt(item.count) || 1,
           widthM,
           heightM: isM2(material) ? heightM : null,
           operations: item.operations.map(op => ({
             operationId: op.id,
             widthM: op.widthMm != null ? op.widthMm / 1000 : null,
-            heightM: op.heightMm != null ? op.heightMm / 1000 : null
+            heightM: op.heightMm != null ? op.heightMm / 1000 : null,
+            ...(op.curveLengthM != null && { curveLengthM: op.curveLengthM })
           })),
           readyDate: item.readyDate || null,
           ...(eyeletStepCm !== null && { eyeletStepCm }),
@@ -753,7 +821,7 @@ const handleSubmit = async (e) => {
 
       setTimeout(() => {
         if (closeWindow) closeWindow();
-        else navigate(getOrdersRedirect());
+        else navigate(`/orders/${createdOrderId}?tab=comments`);
       }, 1500);
     } catch (err) {
       setNotification({
@@ -880,7 +948,8 @@ const handleSubmit = async (e) => {
                       <TableCell>Материал</TableCell>
                       <TableCell>Размер 1</TableCell>
                       <TableCell>Размер 2</TableCell>
-                     <TableCell>Операции</TableCell>
+                      <TableCell sx={{ width: 140 }}>Кол-во</TableCell>
+                      <TableCell>Операции</TableCell>
                      <TableCell>Срок готовности</TableCell>
                      <TableCell>Файл</TableCell>
                      <TableCell sx={{ width: 80 }}>Действия</TableCell>
@@ -895,17 +964,30 @@ const handleSubmit = async (e) => {
                       <TableRow key={index}>
                         <TableCell>
                           <FormControl fullWidth size="small">
-                            <Select
-                              value={item.materialId}
-                              onChange={(e) => updateItem(index, 'materialId', e.target.value)}
-                            >
-                              <MenuItem value="">Выберите материал</MenuItem>
-                              {materialsData.map((mat) => (
-                                <MenuItem key={mat.id} value={mat.id}>
-                                  {mat.name} ({mat.unit})
-                                </MenuItem>
-                              ))}
-                            </Select>
+                               <Autocomplete
+                               sx={{ width: 500 }}
+                               value={item.materialId ? materialsData.find(m => m.id === parseInt(item.materialId)) : null}
+                               onChange={(e, value) => updateItem(index, 'materialId', value?.id || '')}
+                               options={materialsData}
+                              getOptionLabel={(option) => `${option.name} (${option.unit})`}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  label="Материал"
+                                  placeholder="Поиск материала..."
+                                  variant="outlined"
+                                />
+                              )}
+                              filterOptions={(options, state) => {
+                                return options.filter(option =>
+                                  option.name.toLowerCase().includes(state.inputValue.toLowerCase())
+                                );
+                              }}
+                              disableClearable={false}
+                              clearText="Очистить"
+                              noOptionsText="Материал не найден"
+                              loading={isLoadingMaterials}
+                            />
                           </FormControl>
                         </TableCell>
                         <TableCell>
@@ -917,13 +999,13 @@ const handleSubmit = async (e) => {
                               onChange={(e) => updateItem(index, 'qty1value', e.target.value)}
                               inputProps={{ min: 0 }}
                               placeholder={isM2(material) ? 'Ширина' : 'Длина'}
-                              sx={{ width: 100 }}
+                              sx={{ width: 200 }}
                             />
                             <Select
                               size="small"
                               value={item.unit || 'мм'}
                               onChange={(e) => handleUnitChange(index, e.target.value)}
-                              sx={{ width: 70 }}
+                              sx={{ width: 140 }}
                             >
                               <MenuItem value="мм">мм</MenuItem>
                               <MenuItem value="м">м</MenuItem>
@@ -939,12 +1021,23 @@ const handleSubmit = async (e) => {
                               onChange={(e) => updateItem(index, 'qty2value', e.target.value)}
                               inputProps={{ min: 0 }}
                               placeholder="Высота"
-                              sx={{ width: 100 }}
+                              sx={{ width: 200 }}
                             />
                           </TableCell>
                         ) : (
                           <TableCell></TableCell>
                         )}
+                        <TableCell sx={{ width: 140 }}>
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={item.count || 1}
+                            onChange={(e) => updateItem(index, 'count', e.target.value)}
+                            inputProps={{ min: 1 }}
+                            placeholder="Кол-во"
+                            sx={{ width: 140 }}
+                          />
+                        </TableCell>
                         <TableCell>
                           <Button
                             variant="outlined"
@@ -1050,6 +1143,15 @@ const handleSubmit = async (e) => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box
+              role="button"
+              tabIndex={0}
+              onClick={openOrderAmountDialog}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openOrderAmountDialog();
+                }
+              }}
               sx={{
                 border: '1px solid',
                 borderColor: 'divider',
@@ -1061,6 +1163,8 @@ const handleSubmit = async (e) => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
+                cursor: 'pointer',
+                '&:hover': { bgcolor: 'action.hover' },
               }}
             >
               Сумма: {totalOrderAmount.toFixed(2)} ₽{workshopTags ? '   ' + workshopTags : ''}
@@ -1111,7 +1215,7 @@ const handleSubmit = async (e) => {
           </Box>
       </Box>
 
-      <Dialog open={orderAmountDialog.open} onClose={() => setOrderAmountDialog({ open: false, sumorder: totalOrderAmount })} maxWidth="xs" fullWidth>
+      <Dialog open={orderAmountDialog.open} onClose={handleCancelOrderAmountDialog} maxWidth="xs" fullWidth>
         <DialogTitle>Итоговая сумма заказа</DialogTitle>
         <DialogContent>
           <TextField
@@ -1121,21 +1225,17 @@ const handleSubmit = async (e) => {
             label="Сумма с учетом наценки (sumorder)"
             type="number"
             value={orderAmountDialog.sumorder}
-            onChange={(e) => {
-              const newSumorder = parseFloat(e.target.value) || 0;
-              setOrderAmountDialog(prev => ({ ...prev, sumorder: newSumorder }));
-              setTotalOrderAmount(newSumorder);
-            }}
+            onChange={(e) => handleSumorderChange(e.target.value)}
             InputProps={{
               endAdornment: <InputAdornment position="end">₽</InputAdornment>
             }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOrderAmountDialog({ open: false, sumorder: totalOrderAmount })}>
+          <Button onClick={handleCancelOrderAmountDialog}>
             Отмена
           </Button>
-          <Button onClick={() => setOrderAmountDialog({ open: false })} variant="contained">
+          <Button onClick={() => setOrderAmountDialog(prev => ({ ...prev, open: false }))} variant="contained">
             ОК
           </Button>
         </DialogActions>
@@ -1445,6 +1545,39 @@ const handleSubmit = async (e) => {
           >
             Сохранить
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Curve length dialog for резка operations */}
+      <Dialog open={curveLengthDialog.open} onClose={handleCloseCurveLengthDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>введи длину кривой</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {curveLengthDialog.ops.map(op => (
+              <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                <Typography variant="subtitle2" gutterBottom color="primary">
+                  {op.name} — {op.price ?? ''} ₽
+                </Typography>
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label="Длина кривой (м)"
+                  type="number"
+                  value={curveLengthDialog.values[op.id] ?? ''}
+                  onChange={(e) => setCurveLengthDialog(prev => ({
+                    ...prev,
+                    values: { ...prev.values, [op.id]: e.target.value }
+                  }))}
+                  inputProps={{ min: 0, step: '0.01' }}
+                  required
+                />
+              </Box>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCurveLengthDialog}>Отмена</Button>
+          <Button onClick={handleSaveCurveLength} variant="contained">ОК</Button>
         </DialogActions>
       </Dialog>
     </Box>

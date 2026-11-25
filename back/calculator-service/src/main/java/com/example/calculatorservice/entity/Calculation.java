@@ -63,6 +63,14 @@ public class Calculation extends BaseEntity {
     @Transient
     private Integer manualFilmSelectionValue;
 
+    /** Количество изделий (умножает материал и операции) */
+    @Transient
+    private Integer quantity = 1;
+
+    /** Длина кривой (в метрах) для операций резки — заменяет расчёт по периметру */
+    @Transient
+    private BigDecimal curveLengthM;
+
     /** Итоговая себестоимость */
     @Column(name = "total_price", precision = 12, scale = 2)
     private BigDecimal totalPrice;

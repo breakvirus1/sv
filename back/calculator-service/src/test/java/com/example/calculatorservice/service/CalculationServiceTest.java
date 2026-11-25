@@ -170,6 +170,161 @@ class CalculationServiceTest {
         }
     }
 
+    // ===================== Quantity multiplication =====================
+
+    @Nested
+    @DisplayName("Quantity (count) multiplication")
+    class QuantityMultiplication {
+
+        @Test
+        @DisplayName("Material cost is multiplied by quantity")
+        void materialCostMultipliedByQuantity() {
+            CalculationRequestDto request = baseRequest();
+            request.setWidthM(new BigDecimal("2.0"));
+            request.setHeightM(new BigDecimal("3.0"));
+            request.setOperationIds(null);
+            request.setQuantity(3);
+
+            when(materialRepository.findByIdAndDeletedFalse(1L))
+                    .thenReturn(Optional.of(testMaterial));
+
+            CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
+
+            // materialCost per item = 6.0 * 200.00 = 1200.00; x3 = 3600.00
+            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("3600.00"));
+        }
+
+        @Test
+        @DisplayName("SQUARE_METER operation quantity scales with count")
+        void squareMeterOperationScalesWithQuantity() {
+            Operation op = createOperation(1L, "Печать 720 dpi", UnitType.SQUARE_METER, new BigDecimal("50.00"));
+
+            CalculationRequestDto request = baseRequest();
+            request.setWidthM(new BigDecimal("2.0"));
+            request.setHeightM(new BigDecimal("3.0"));
+            request.setOperationIds(List.of(1L));
+            request.setQuantity(5);
+
+            when(materialRepository.findByIdAndDeletedFalse(1L))
+                    .thenReturn(Optional.of(testMaterial));
+            when(operationRepository.findById(1L)).thenReturn(Optional.of(op));
+
+            CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
+
+            // materialCost = 6.0 * 200 = 1200.00; x5 = 6000.00
+            // opQty = 6.0 m² * 5 = 30.0; opSubtotal = 30.0 * 50.00 = 1500.00
+            // total = 6000.00 + 1500.00 = 7500.00
+            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("7500.00"));
+            assertThat(response.getOperations().get(0).getQuantity()).isEqualByComparingTo(new BigDecimal("30.0"));
+            assertThat(response.getOperations().get(0).getSubtotal()).isEqualByComparingTo(new BigDecimal("1500.00"));
+        }
+
+        @Test
+        @DisplayName("quantity defaults to 1 when omitted")
+        void quantityDefaultsToOne() {
+            CalculationRequestDto request = baseRequest();
+            request.setWidthM(new BigDecimal("2.0"));
+            request.setHeightM(new BigDecimal("3.0"));
+            request.setOperationIds(null);
+
+            when(materialRepository.findByIdAndDeletedFalse(1L))
+                    .thenReturn(Optional.of(testMaterial));
+
+            CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
+
+            // materialCost = 6.0 * 200.00 = 1200.00 (quantity defaults to 1)
+            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("1200.00"));
+        }
+
+        @Test
+        @DisplayName("Резка quantity = curveLengthM * count (perimeter ignored)")
+        void curveLengthDrivesCuttingQuantityAndCost() {
+            Operation op = createOperation(2L, "Резка", UnitType.LINEAR_METER, new BigDecimal("5.00"));
+
+            CalculationRequestDto request = baseRequest();
+            request.setWidthM(new BigDecimal("2.0"));
+            request.setHeightM(new BigDecimal("3.0"));
+            request.setOperationIds(List.of(2L));
+            request.setCurveLengthM(new BigDecimal("8.0"));
+            request.setQuantity(4);
+
+            when(materialRepository.findByIdAndDeletedFalse(1L))
+                    .thenReturn(Optional.of(testMaterial));
+            when(operationRepository.findById(2L)).thenReturn(Optional.of(op));
+
+            CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
+
+            // materialCost = 1200.00 * 4 = 4800.00
+            // cut qty = curveLengthM 8.0 * 4 = 32.0 (perimeter 10.0 ignored)
+            // cut subtotal = 32.0 * 5.00 = 160.00
+            // total = 4800.00 + 160.00 = 4960.00
+            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("4960.00"));
+            assertThat(response.getOperations().get(0).getQuantity()).isEqualByComparingTo(new BigDecimal("32.0"));
+            assertThat(response.getOperations().get(0).getSubtotal()).isEqualByComparingTo(new BigDecimal("160.00"));
+        }
+    }
+
+    // ===================== Item cost estimation =====================
+
+    @Nested
+    @DisplayName("calculateItemCost")
+    class ItemCostEstimation {
+
+        @Test
+        @DisplayName("Резка LINEAR_METER uses curveLengthM instead of perimeter")
+        void cuttingUsesCurveLength() {
+            Operation cutOp = createOperation(2L, "Резка", UnitType.LINEAR_METER, new BigDecimal("5.00"));
+
+            when(materialRepository.findByIdAndDeletedFalse(1L))
+                    .thenReturn(Optional.of(testMaterial));
+            when(operationRepository.findById(2L)).thenReturn(Optional.of(cutOp));
+
+            BigDecimal cost = calculationService.calculateItemCost(
+                    1L,
+                    new BigDecimal("2.0"),
+                    new BigDecimal("3.0"),
+                    null,
+                    null,
+                    2,
+                    List.of(2L),
+                    4,
+                    new BigDecimal("8.0")
+            );
+
+            // material = 6.0 * 200.00 * 4 = 4800.00
+            // cut qty = curveLengthM 8.0 * 4 = 32.0 (perimeter 10.0 ignored)
+            // cut subtotal = 32.0 * 5.00 = 160.00
+            assertThat(cost).isEqualByComparingTo(new BigDecimal("4960.00"));
+        }
+
+        @Test
+        @DisplayName("Non-резка LINEAR_METER still uses perimeter")
+        void weldingUsesPerimeter() {
+            Operation weldOp = createOperation(3L, "Сварка", UnitType.LINEAR_METER, new BigDecimal("5.00"));
+
+            when(materialRepository.findByIdAndDeletedFalse(1L))
+                    .thenReturn(Optional.of(testMaterial));
+            when(operationRepository.findById(3L)).thenReturn(Optional.of(weldOp));
+
+            BigDecimal cost = calculationService.calculateItemCost(
+                    1L,
+                    new BigDecimal("2.0"),
+                    new BigDecimal("3.0"),
+                    null,
+                    null,
+                    2,
+                    List.of(3L),
+                    2,
+                    new BigDecimal("8.0")
+            );
+
+            // material = 6.0 * 200.00 * 2 = 2400.00
+            // weld qty = perimeter 10.0 * 2 = 20.0
+            // weld subtotal = 20.0 * 5.00 = 100.00
+            assertThat(cost).isEqualByComparingTo(new BigDecimal("2500.00"));
+        }
+    }
+
     // ===================== Operation calculations =====================
 
     @Nested
@@ -202,7 +357,7 @@ class CalculationServiceTest {
         }
 
         @Test
-        @DisplayName("LINEAR_METER operation: quantity = perimeter")
+        @DisplayName("LINEAR_METER резка operation: quantity = curveLengthM (not perimeter)")
         void linearMeterOperation() {
             Operation op = createOperation(2L, "Резка", UnitType.LINEAR_METER, new BigDecimal("5.00"));
 
@@ -210,6 +365,7 @@ class CalculationServiceTest {
             request.setWidthM(new BigDecimal("2.0"));
             request.setHeightM(new BigDecimal("3.0"));
             request.setOperationIds(List.of(2L));
+            request.setCurveLengthM(new BigDecimal("12.0"));
 
             when(materialRepository.findByIdAndDeletedFalse(1L))
                     .thenReturn(Optional.of(testMaterial));
@@ -218,12 +374,12 @@ class CalculationServiceTest {
             CalculationResponseDto response = calculationService.calculateWithoutSaving(request);
 
             // materialCost = 6.0 * 200 = 1200.00
-            // perimeter = (2.0 + 3.0) * 2 = 10.0
-            // opSubtotal = 10.0 * 5.00 = 50.00
-            // total = 1200.00 + 50.00 = 1250.00
-            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("1250.00"));
+            // perimeter (10.0) is ignored for резка; quantity = curveLengthM = 12.0
+            // opSubtotal = 12.0 * 5.00 = 60.00
+            // total = 1200.00 + 60.00 = 1260.00
+            assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("1260.00"));
             assertThat(response.getOperations()).hasSize(1);
-            assertThat(response.getOperations().get(0).getQuantity()).isEqualByComparingTo(new BigDecimal("10.0"));
+            assertThat(response.getOperations().get(0).getQuantity()).isEqualByComparingTo(new BigDecimal("12.0"));
         }
 
         @Test
@@ -236,6 +392,7 @@ class CalculationServiceTest {
             request.setWidthM(new BigDecimal("2.0"));
             request.setHeightM(new BigDecimal("3.0"));
             request.setOperationIds(List.of(1L, 2L));
+            request.setCurveLengthM(new BigDecimal("10.0"));
 
             when(materialRepository.findByIdAndDeletedFalse(1L))
                     .thenReturn(Optional.of(testMaterial));
@@ -246,7 +403,7 @@ class CalculationServiceTest {
 
             // materialCost = 6.0 * 200 = 1200.00
             // print: 6.0 * 50.00 = 300.00
-            // cut: 10.0 * 5.00 = 50.00
+            // cut: curveLengthM 10.0 * 5.00 = 50.00
             // total = 1200 + 300 + 50 = 1550.00
             assertThat(response.getTotalPrice()).isEqualByComparingTo(new BigDecimal("1550.00"));
             assertThat(response.getOperations()).hasSize(2);

@@ -3,6 +3,7 @@ package com.example.clientservice.controller;
 import com.example.clientservice.dto.CompanyCreateRequest;
 import com.example.clientservice.dto.CompanyResponse;
 import com.example.clientservice.service.CompanyService;
+import com.example.printsv.common.tenant.TenantContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -40,17 +41,24 @@ public class CompanyController {
                     cb.like(cb.lower(root.get("name")), "%" + q.toLowerCase() + "%")
             );
         }
+        final Specification<com.example.clientservice.entity.Company> finalSpec = spec;
 
-        return ResponseEntity.ok(companyService.getAllCompanies(spec, pageable, extractCompanyId(jwt)));
+        return ResponseEntity.ok(TenantContext.runAs(null,
+                () -> companyService.getAllCompanies(finalSpec, pageable, extractCompanyId(jwt))));
     }
 
     @Operation(summary = "Получить компанию по ID")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'GOD')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<CompanyResponse> getCompany(
             @Parameter(description = "ID компании") @PathVariable Long id,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(companyService.getCompanyById(id, extractCompanyId(jwt)));
+        // companies — глобальный справочник без company_id; читаем из мастер-БД,
+        // иначе запрос уходит в БД компании (tenant), где таблица пуста.
+        Long requesterCompanyId = extractCompanyId(jwt);
+        CompanyResponse response = TenantContext.runAs(null,
+                () -> companyService.getCompanyById(id, requesterCompanyId));
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Создать новую компанию")

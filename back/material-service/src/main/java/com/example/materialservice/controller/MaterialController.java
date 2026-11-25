@@ -12,7 +12,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,7 +35,7 @@ public class MaterialController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PRODUCTION', 'GOD')")
     public ResponseEntity<Page<MaterialResponse>> getAllMaterials(
             @RequestParam(required = false) String q,
-            Pageable pageable,
+            @PageableDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable,
             @AuthenticationPrincipal Jwt jwt) {
 
         Specification<Material> spec = Specification.where(null);

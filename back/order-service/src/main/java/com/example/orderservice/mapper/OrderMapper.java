@@ -61,7 +61,8 @@ public interface OrderMapper {
                     op.getCalculatedQuantity(),
                     op.getSubtotal(),
                     op.getWidthM(),
-                    op.getHeightM()))
+                    op.getHeightM(),
+                    op.getCurveLengthM()))
                 .collect(Collectors.toList()));
         }
         if (entity.getFile() != null) {
@@ -108,7 +109,8 @@ public interface OrderMapper {
                     op.getCalculatedQuantity(),
                     op.getSubtotal(),
                     op.getWidthM(),
-                    op.getHeightM()))
+                    op.getHeightM(),
+                    op.getCurveLengthM()))
                 .collect(Collectors.toList()));
         }
         if (entity.getOrderItem() != null) {

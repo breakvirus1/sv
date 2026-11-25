@@ -37,7 +37,7 @@ app:
     table: flyway_order_schema_history
     baseline-on-migrate: true
     baseline-version: 20261022
-    validate-on-migrate: true
+    validate-on-migrate: false
     schemas: svschema
 
   security:

@@ -116,7 +116,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (user?.companyId && !user.companyName) {
       api.get(`/api/v1/companies/${user.companyId}`)
-        .then(r => setUser(u => u ? { ...u, companyName: r.data.name } : null))
+        .then(r => setUser(u => (u && r?.data) ? { ...u, companyName: r.data.name } : u))
         .catch(() => {});
     }
   }, [user?.companyId]);

@@ -29,7 +29,8 @@ import {
   FormControlLabel,
   InputAdornment,
   Link,
-  Tooltip
+  Tooltip,
+  Autocomplete
 } from '@mui/material';
 import { ArrowBack, Add, Delete, Save, Info, Download, Upload } from '@mui/icons-material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -47,6 +48,18 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userRoles = user?.roles || [];
+  const username = user?.username;
+
+  const { data: currentEmployee } = useQuery({
+    queryKey: ['currentEmployee', username],
+    queryFn: async () => {
+      if (!username) return null;
+      const response = await api.get('/api/v1/employees?size=1&q=' + username);
+      const data = response.data.content || [];
+      return data.length > 0 ? data[0] : null;
+    },
+    enabled: !!username,
+  });
 
   const identifier = orderNumber || order?.id;
   const isOrderNumber = !!orderNumber && !order;
@@ -106,6 +119,7 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
   });
   const [opsBeforeDialog, setOpsBeforeDialog] = useState([]);
   const [clientInfoDialog, setClientInfoDialog] = useState({ open: false, clientId: null });
+  const [curveLengthDialog, setCurveLengthDialog] = useState({ open: false, itemIndex: null, ops: [], values: {} });
 
   // ── Запросы: Сотрудники, Материалы, Операции ──
   const { data: employeesData = [], isLoading: isLoadingEmployees } = useQuery({
@@ -201,17 +215,25 @@ const { data: operationsData = [] } = useQuery({
   // ── Онлайн расчёт итоговой суммы при изменении позиций ──
   const [liveTotalWithPriceplus, setLiveTotalWithPriceplus] = useState(0);
   const [liveTotalWithoutPriceplus, setLiveTotalWithoutPriceplus] = useState(0);
+  const [cashFromPriceplus, setCashFromPriceplus] = useState(0);
+  const [orderAmountDialog, setOrderAmountDialog] = useState({ open: false, sumorder: 0, prevPriceplus: 0 });
 
   const calculateTotals = async () => {
     if (formData.items.length === 0) {
       setLiveTotalWithPriceplus(0);
       setLiveTotalWithoutPriceplus(0);
+      setCashFromPriceplus(0);
       return;
     }
     try {
       const result = await recalculateOrderLocally(formData.items, priceplus);
       setLiveTotalWithoutPriceplus(result.totalWithoutPriceplus);
       setLiveTotalWithPriceplus(result.totalWithPriceplus);
+      if (currentEmployee) {
+        const priceplusAmount = (result.totalWithPriceplus || 0) - (result.totalWithoutPriceplus || 0);
+        const mgrPercent = currentEmployee.managerCashPercent != null ? Number(currentEmployee.managerCashPercent) : 0;
+        setCashFromPriceplus(priceplusAmount * mgrPercent / 100);
+      }
     } catch (err) {
       console.error('Calculation error:', err);
     }
@@ -219,7 +241,32 @@ const { data: operationsData = [] } = useQuery({
 
   useEffect(() => {
     calculateTotals();
-  }, [formData.items, priceplus]);
+  }, [formData.items, priceplus, currentEmployee]);
+
+  // Изменение итоговой суммы: пересчитываем процент наценки клиента и заработок
+  const handleSumorderChange = (value) => {
+    const newSumorder = parseFloat(value) || 0;
+    setOrderAmountDialog(prev => ({ ...prev, sumorder: newSumorder }));
+    setLiveTotalWithPriceplus(newSumorder);
+    const base = liveTotalWithoutPriceplus || backendTotalWithoutPriceplus || 0;
+    if (base > 0) {
+      const newPriceplus = ((newSumorder - base) / base) * 100;
+      setPriceplus(Number(newPriceplus.toFixed(2)));
+    }
+    if (currentEmployee) {
+      const mgrPercent = currentEmployee.managerCashPercent != null ? Number(currentEmployee.managerCashPercent) : 0;
+      setCashFromPriceplus((newSumorder - base) * mgrPercent / 100);
+    }
+  };
+
+  const openOrderAmountDialog = () => {
+    setOrderAmountDialog({ open: true, sumorder: displayTotalWithPriceplus, prevPriceplus: priceplus });
+  };
+
+  const handleCancelOrderAmountDialog = () => {
+    setPriceplus(orderAmountDialog.prevPriceplus);
+    setOrderAmountDialog(prev => ({ ...prev, open: false }));
+  };
 
   // Fallback на данные с бэкенда если онлайн расчёт ещё не выполнен
   const backendTotalWithoutPriceplus = calculatedData?.totalWithoutPriceplus ?? 0;
@@ -274,6 +321,7 @@ const { data: operationsData = [] } = useQuery({
           unit: 'мм',
           qty2value: mat.heightM != null ? (mat.heightM * 1000).toString() : '',
           readyDate: mat.readyDate || '',
+          count: orderItem?.quantity != null ? String(orderItem.quantity) : '1',
           cost: mat.cost != null ? Number(mat.cost) : null,
           manualFilmSelectionValue: mat.manualFilmSelectionValue ?? null,
           operations: (mat.operations ?? []).map((op) => ({
@@ -283,6 +331,7 @@ const { data: operationsData = [] } = useQuery({
             subtotal: op.subtotal != null ? Number(op.subtotal) : null,
             widthM: op.widthM,
             heightM: op.heightM,
+            curveLengthM: op.curveLengthM ?? null,
           })),
           fileId: orderItem?.fileId || null,
           fileUrl: orderItem?.fileUrl || null,
@@ -361,7 +410,7 @@ const { data: operationsData = [] } = useQuery({
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [] }]
+      items: [...prev.items, { materialId: '', qty1value: '', unit: 'мм', qty2value: '', readyDate: '', operations: [], count: '1' }]
     }));
   };
 
@@ -571,6 +620,24 @@ const oldUnit = item.unit || 'м';
     handleCloseOperationParamsDialog();
   };
 
+  const handleCloseCurveLengthDialog = () => {
+    setCurveLengthDialog({ open: false, itemIndex: null, ops: [], values: {} });
+  };
+
+  const handleSaveCurveLength = () => {
+    const { itemIndex, ops, values } = curveLengthDialog;
+    const currentOps = formData.items[itemIndex]?.operations || [];
+    const updatedOps = currentOps.map(op => {
+      const match = ops.find(o => o.id === (op.id ?? op.operationId));
+      if (!match) return op;
+      const raw = values[match.id];
+      const parsed = raw !== '' && raw != null ? parseFloat(raw) : null;
+      return { ...op, curveLengthM: parsed != null && !Number.isNaN(parsed) ? parsed : op.curveLengthM };
+    });
+    updateItemOperations(itemIndex, updatedOps);
+    handleCloseCurveLengthDialog();
+  };
+
   const handleToggleItem = (itemId, type) => {
     setGroupSelectionDialog(prev => {
       const exists = prev.selectedItems.find(item => item.id === itemId);
@@ -696,6 +763,23 @@ const oldUnit = item.unit || 'м';
       const selectedIds = new Set(selectedOpsData.map(op => op.id));
       const preserveOps = currentOps.filter(op => !selectedIds.has(op.id));
       updateItemOperations(itemIndex, [...selectedOpsData, ...preserveOps]);
+    }
+
+    const curveSelectedIds = new Set();
+    Object.values(groupedOpSelections).filter(Boolean).forEach(id => {
+      const raw = typeof id === 'object' && id !== null ? id.id : id;
+      curveSelectedIds.add(typeof raw === 'string' ? Number(raw) : raw);
+    });
+    const groupedCurveOps = operationsData.filter(op => curveSelectedIds.has(op.id) && (op.name || '').toLowerCase().includes('резка'));
+    const ungroupedCurveOps = currentOps.filter(op => !opsBeforeDialog.some(beforeOp => (beforeOp.id ?? beforeOp.operationId) === (op.id ?? op.operationId)) && (op.name || '').toLowerCase().includes('резка'));
+    const allCurveOps = [...groupedCurveOps, ...ungroupedCurveOps.filter(op => !groupedCurveOps.some(gco => gco.id === op.id))];
+    if (allCurveOps.length > 0) {
+      const initialValues = {};
+      allCurveOps.forEach(op => {
+        const existing = currentOps.find(cop => (cop.id ?? cop.operationId) === op.id);
+        initialValues[op.id] = existing?.curveLengthM != null ? existing.curveLengthM : '';
+      });
+      setCurveLengthDialog({ open: true, itemIndex, ops: allCurveOps, values: initialValues });
     }
 
     setGroupSelectionDialog({ open: false, itemIndex: null, selectedItems: [] });
@@ -868,13 +952,15 @@ const oldUnit = item.unit || 'м';
         return {
           ...(item.id ? { id: item.id } : {}),
           materialId: parseInt(item.materialId),
+          quantity: parseInt(item.count) || 1,
           widthM,
           heightM,
           readyDate: item.readyDate || null,
           operations: (item.operations || []).map(op => ({
             operationId: op.id,
             widthM: op.widthM != null ? op.widthM : null,
-            heightM: op.heightM != null ? op.heightM : null
+            heightM: op.heightM != null ? op.heightM : null,
+            ...(op.curveLengthM != null && { curveLengthM: op.curveLengthM })
           })),
           ...(item.operations?.find(op => op.eyeletStepCm != null) ? { eyeletStepCm: item.operations.find(op => op.eyeletStepCm != null).eyeletStepCm } : {}),
           ...(item.operations?.find(op => op.hemWidthMm != null) ? { podvorotMmHorizontal: item.operations.find(op => op.hemWidthMm != null).hemWidthMm } : {}),
@@ -912,11 +998,11 @@ const oldUnit = item.unit || 'м';
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order-calculated', String(orderData.id)] });
 
-      if (onSuccess) {
-        onSuccess(getRedirectPath());
-      } else {
-        navigate(getRedirectPath());
-      }
+       if (onSuccess) {
+         onSuccess(`/orders/${orderData.id}?tab=comments`);
+       } else {
+         navigate(`/orders/${orderData.id}?tab=comments`);
+       }
     } catch (err) {
       setNotification({
         open: true,
@@ -1056,13 +1142,14 @@ value={priceplus}
                   <Table size="small" sx={{ fontSize: '0.875rem', borderCollapse: 'collapse' }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 180 }}>Материал</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Размер 1</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 120 }}>Размер 2</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 160 }}>Операции</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Файл</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 140 }}>Срок готовности</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 80 }}>Действия</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 360 }}>Материал</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 240 }}>Размер 1</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 240 }}>Размер 2</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 280 }}>Кол-во</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 320 }}>Операции</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 280 }}>Файл</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', minWidth: 280 }}>Срок готовности</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', color: 'text.secondary', bgcolor: 'grey.50', padding: '8px 16px', borderBottom: '2px solid', borderColor: 'primary.main', textAlign: 'center', minWidth: 160 }}>Действия</TableCell>
                       </TableRow>
                     </TableHead>
                   <TableBody>
@@ -1071,21 +1158,34 @@ value={priceplus}
                       const showSecond = isM2(material);
                       return (
                          <TableRow key={item.id || index}>
-                           <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
-                             <FormControl fullWidth size="small">
-                              <Select
-                                value={item.materialId}
-                                onChange={(e) => updateItem(index, 'materialId', e.target.value)}
-                              >
-                                <MenuItem value="">Выберите материал</MenuItem>
-                                {materialsData.map((mat) => (
-                                  <MenuItem key={mat.id} value={mat.id}>
-                                    {mat.name} ({mat.unit})
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                           </TableCell>
+<TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
+                              <FormControl fullWidth size="small">
+                                 <Autocomplete
+                                   sx={{ width: 500 }}
+                                   value={item.materialId ? materialsData.find(m => m.id === parseInt(item.materialId)) : null}
+                                   onChange={(e, value) => updateItem(index, 'materialId', value?.id || '')}
+                                   options={materialsData}
+                                  getOptionLabel={(option) => `${option.name} (${option.unit})`}
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      label="Материал"
+                                      placeholder="Поиск материала..."
+                                      variant="outlined"
+                                    />
+                                  )}
+                                  filterOptions={(options, state) => {
+                                    return options.filter(option =>
+                                      option.name.toLowerCase().includes(state.inputValue.toLowerCase())
+                                    );
+                                  }}
+                                  disableClearable={false}
+                                  clearText="Очистить"
+                                  noOptionsText="Материал не найден"
+                                  loading={isLoadingMaterials}
+                                />
+                              </FormControl>
+                            </TableCell>
                            <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>
                              <Box display="flex" gap={0.5} alignItems="center">
                               <TextField
@@ -1095,13 +1195,13 @@ value={priceplus}
                                 onChange={(e) => updateItem(index, 'qty1value', e.target.value)}
                                 inputProps={{ min: 0, step: 0.001 }}
                                  placeholder={isM2(material) ? 'Ширина' : 'Длина'}
-                                sx={{ width: 100 }}
+                                sx={{ width: 200 }}
                               />
                               <Select
                                 size="small"
                                 value={item.unit || 'м'}
                                 onChange={(e) => handleUnitChange(index, e.target.value)}
-                                sx={{ width: 70 }}
+                                sx={{ width: 140 }}
                               >
                                 <MenuItem value="м">м</MenuItem>
                                 <MenuItem value="мм">мм</MenuItem>
@@ -1117,13 +1217,24 @@ value={priceplus}
                                 onChange={(e) => updateItem(index, 'qty2value', e.target.value)}
                                 inputProps={{ min: 0, step: 0.001 }}
                                 placeholder="Высота"
-                                sx={{ width: 100 }}
+                                sx={{ width: 200 }}
                               />
                             </TableCell>
-                           ) : (
-                             <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }} />
-                           )}
-                           <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 160 }}>
+                            ) : (
+                              <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }} />
+                            )}
+                            <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center', minWidth: 280 }}>
+                              <TextField
+                                size="small"
+                                type="number"
+                                value={item.count || 1}
+                                onChange={(e) => updateItem(index, 'count', e.target.value)}
+                                inputProps={{ min: 1 }}
+                                placeholder="Кол-во"
+                                sx={{ width: 140 }}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 320 }}>
                              <Button
                               variant="outlined"
                               size="small"
@@ -1148,7 +1259,7 @@ value={priceplus}
                               </Box>
                             )}
                            </TableCell>
-                           <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 140 }}>
+                           <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', minWidth: 280 }}>
                              {item.fileUrl ? (
                               <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
                                 <Link
@@ -1201,24 +1312,57 @@ value={priceplus}
 
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
-                <Box
-                  sx={{
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    px: 2,
-                    py: 1,
-                    fontSize: '1.25rem',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                  }}
-                >
-                  Сумма: {displayTotalWithPriceplus.toFixed(2)} ₽
-                  <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                    (без наценки: {displayTotalWithoutPriceplus.toFixed(2)})
-                  </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box
+                    role="button"
+                    tabIndex={0}
+                    onClick={openOrderAmountDialog}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openOrderAmountDialog();
+                      }
+                    }}
+                    sx={{
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      px: 2,
+                      py: 1,
+                      fontSize: '1.25rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: 'action.hover' },
+                    }}
+                  >
+                    Сумма: {displayTotalWithPriceplus.toFixed(2)} ₽
+                    <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                      (без наценки: {displayTotalWithoutPriceplus.toFixed(2)})
+                    </Typography>
+                  </Box>
+                  {currentEmployee && cashFromPriceplus > 0 && (
+                    <Box
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'success.main',
+                        borderRadius: 1,
+                        px: 2,
+                        py: 1,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        color: 'success.dark',
+                        bgcolor: '#e8f5e9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                      }}
+                    >
+                      Твой заработок с заказа: {cashFromPriceplus.toFixed(2)} ₽
+                    </Box>
+                  )}
                 </Box>
                 <Box display="flex" gap={2}>
                   <Button
@@ -1243,6 +1387,31 @@ value={priceplus}
           </Grid>
         </form>
       </Paper>
+
+      <Dialog open={orderAmountDialog.open} onClose={handleCancelOrderAmountDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>Итоговая сумма заказа</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            margin="dense"
+            label="Сумма с учетом наценки (sumorder)"
+            type="number"
+            value={orderAmountDialog.sumorder}
+            onChange={(e) => handleSumorderChange(e.target.value)}
+            InputProps={{
+              endAdornment: <InputAdornment position="end">₽</InputAdornment>
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelOrderAmountDialog}>Отмена</Button>
+          <Button onClick={() => setOrderAmountDialog(prev => ({ ...prev, open: false }))} variant="contained">
+            ОК
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Group selection dialog */}
       <Dialog open={groupSelectionDialog.open} onClose={handleCloseGroupSelectionDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Выбрать операции</DialogTitle>
@@ -1516,6 +1685,39 @@ value={priceplus}
           >
             Сохранить
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Curve length dialog for резка operations */}
+      <Dialog open={curveLengthDialog.open} onClose={handleCloseCurveLengthDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>введи длину кривой</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {curveLengthDialog.ops.map(op => (
+              <Box key={op.id} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                <Typography variant="subtitle2" gutterBottom color="primary">
+                  {op.name} — {op.price ?? ''} ₽
+                </Typography>
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label="Длина кривой (м)"
+                  type="number"
+                  value={curveLengthDialog.values[op.id] ?? ''}
+                  onChange={(e) => setCurveLengthDialog(prev => ({
+                    ...prev,
+                    values: { ...prev.values, [op.id]: e.target.value }
+                  }))}
+                  inputProps={{ min: 0, step: '0.01' }}
+                  required
+                />
+              </Box>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCurveLengthDialog}>Отмена</Button>
+          <Button onClick={handleSaveCurveLength} variant="contained">ОК</Button>
         </DialogActions>
       </Dialog>
 

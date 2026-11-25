@@ -52,6 +52,10 @@ public class OrderOperation extends BaseEntity {
     @Column(name = "height_m", precision = 10, scale = 4)
     private BigDecimal heightM;
 
+    /** Длина кривой в метрах (для операций резки, заменяет расчёт по периметру) */
+    @Column(name = "curve_length_m", precision = 10, scale = 4)
+    private BigDecimal curveLengthM;
+
     @Column(name = "company_id")
     private Long companyId;
 }

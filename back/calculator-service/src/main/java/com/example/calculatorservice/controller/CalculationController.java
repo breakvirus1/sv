@@ -121,7 +121,9 @@ public class CalculationController {
                 request.getPodvorotMmHorizontal(),
                 request.getPodvorotMmVertical(),
                 request.getPodvorotCountPerSide(),
-                request.getOperationIds()
+                request.getOperationIds(),
+                request.getQuantity(),
+                request.getCurveLengthM()
         );
         return ResponseEntity.ok(cost);
     }

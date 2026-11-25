@@ -95,6 +95,8 @@ public class CalculationService {
         calc.setPodvorotCountPerSide(request.getPodvorotCountPerSide() != null ? request.getPodvorotCountPerSide() : 2);
         calc.setEyeletStepCm(request.getEyeletStepCm());
         calc.setManualFilmSelectionValue(request.getManualFilmSelectionValue());
+        calc.setQuantity(request.getQuantity() != null ? request.getQuantity() : 1);
+        calc.setCurveLengthM(request.getCurveLengthM());
 
         if (request.getEyeletId() != null) {
             Eyelet eyelet = resolveEyelet(request.getEyeletId());
@@ -191,7 +193,15 @@ public class CalculationService {
      */
     public BigDecimal calculateItemCost(Long materialId, BigDecimal widthM, BigDecimal heightM,
                                          BigDecimal podvorotMmHorizontal, BigDecimal podvorotMmVertical,
-                                         Integer podvorotCountPerSide, List<Long> operationIds) {
+                                         Integer podvorotCountPerSide, List<Long> operationIds, Integer quantity) {
+        return calculateItemCost(materialId, widthM, heightM, podvorotMmHorizontal, podvorotMmVertical,
+                podvorotCountPerSide, operationIds, quantity, null);
+    }
+
+    public BigDecimal calculateItemCost(Long materialId, BigDecimal widthM, BigDecimal heightM,
+                                         BigDecimal podvorotMmHorizontal, BigDecimal podvorotMmVertical,
+                                         Integer podvorotCountPerSide, List<Long> operationIds, Integer quantity,
+                                         BigDecimal curveLengthM) {
         Material material = materialRepository.findByIdAndDeletedFalse(materialId)
                 .orElseThrow(() -> new BadRequestException("Материал не найден"));
 
@@ -203,6 +213,8 @@ public class CalculationService {
         calc.setPodvorotMmHorizontal(podvorotMmHorizontal);
         calc.setPodvorotMmVertical(podvorotMmVertical);
         calc.setPodvorotCountPerSide(podvorotCountPerSide != null ? podvorotCountPerSide : 2);
+        calc.setQuantity(quantity != null ? quantity : 1);
+        calc.setCurveLengthM(curveLengthM);
 
         // Присоединяем операции, если они указаны
         if (operationIds != null) {
@@ -223,13 +235,17 @@ public class CalculationService {
         if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
         BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff);
 
+        // Умножаем стоимость материала на количество
+        BigDecimal quantityBD = BigDecimal.valueOf(quantity != null ? quantity : 1);
+        materialCost = materialCost.multiply(quantityBD);
+
         // Вычисляем стоимость операций
         BigDecimal operationsCost = BigDecimal.ZERO;
         for (CalculationOperation calcOp : calc.getSelectedOperations()) {
             Operation op = calcOp.getOperation();
-            BigDecimal quantity = calculateOperationQuantity(calc, op);
-            calcOp.setQuantity(quantity);
-            BigDecimal subtotal = quantity.multiply(calcOp.getPricePerUnit());
+            BigDecimal qty = calculateOperationQuantity(calc, op);
+            calcOp.setQuantity(qty);
+            BigDecimal subtotal = qty.multiply(calcOp.getPricePerUnit());
             calcOp.setSubtotal(subtotal);
             operationsCost = operationsCost.add(subtotal);
         }
@@ -255,6 +271,11 @@ public class CalculationService {
         BigDecimal wasteCoeff = calc.getMaterial().getWasteCoefficient();
         if (wasteCoeff == null) wasteCoeff = BigDecimal.ONE;
         BigDecimal materialCost = materialArea.multiply(materialPrice).multiply(wasteCoeff);
+
+        // Умножаем на количество изделий
+        Integer qty = calc.getQuantity() != null ? calc.getQuantity() : 1;
+        BigDecimal quantityBD = BigDecimal.valueOf(qty);
+        materialCost = materialCost.multiply(quantityBD);
 
         BigDecimal total = materialCost;
 
@@ -317,6 +338,8 @@ public class CalculationService {
     private BigDecimal calculateOperationQuantity(Calculation c, Operation op) {
         UnitType unit = op.getUnit();
         String name = op.getName().toLowerCase();
+        Integer qty = c.getQuantity() != null ? c.getQuantity() : 1;
+        BigDecimal quantityBD = BigDecimal.valueOf(qty);
 
         // Операция "подворот": если заданы параметры подворота, вычисляем количество по формуле
         if (op.getHemWidthMm() != null && op.getHemCount() != null) {
@@ -330,25 +353,33 @@ public class CalculationService {
             // Площадь в мм²
             BigDecimal areaMm2 = newWidth.multiply(newHeight);
             // Переводим в м²
-            return areaMm2.divide(BigDecimal.valueOf(1_000_000), 4, RoundingMode.HALF_UP);
+            return areaMm2.divide(BigDecimal.valueOf(1_000_000), 4, RoundingMode.HALF_UP).multiply(quantityBD);
         }
 
         switch (unit) {
             case SQUARE_METER:
                 // Для всех операций, измеряемых в квадратных метрах (печать, ламинация, аппликация)
-                return calculateMaterialArea(c);
+                return calculateMaterialArea(c).multiply(quantityBD);
             case LINEAR_METER:
-                // Для всех операций, измеряемых в погонных метрах (резка, подворот, сварка)
-                return perimeter(c);
+                // Для операций резки количество задаётся вручную (длина кривой), периметр не используется
+                if (name.contains("резк")) {
+                    BigDecimal curveLength = c.getCurveLengthM();
+                    BigDecimal cutQuantity = (curveLength != null ? curveLength : BigDecimal.ZERO).multiply(quantityBD);
+                    log.info("Cutting operation: name={}, unit={}, curveLengthM={}, perimeter={}, quantity={}",
+                            op.getName(), unit, curveLength, perimeter(c), cutQuantity);
+                    return cutQuantity;
+                }
+                // Для прочих операций, измеряемых в погонных метрах (сварка и т.п.)
+                return perimeter(c).multiply(quantityBD);
             case PIECE:
                 // Обычно — установка люверсов
                 if (name.contains("люверс") || name.contains("установка")) {
-                    return BigDecimal.valueOf(calculateEyeletsQuantity(c));
+                    return BigDecimal.valueOf(calculateEyeletsQuantity(c)).multiply(quantityBD);
                 }
                 // Для прочих операций "по штукам" обычно quantity = 1
-                return BigDecimal.ONE;
+                return quantityBD;
             default:
-                return BigDecimal.ONE;
+                return quantityBD;
         }
     }
 

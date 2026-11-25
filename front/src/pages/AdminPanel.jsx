@@ -505,6 +505,9 @@ const AdminPanel = () => {
         <Typography variant="h6">Группировки операций</Typography>
         <Button variant="contained" startIcon={<Add />} onClick={() => openGroupDialog()} fullWidth={isMobile}>Добавить группировку</Button>
       </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        При выборе операции в компонентах «Создать заказ» и «Редактировать заказ» появляются диалоги: подворот, люверсы, выборка.
+      </Typography>
       {operationGroupsData.length === 0 && <Typography>Нет группировок</Typography>}
       {operationGroupsData.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
