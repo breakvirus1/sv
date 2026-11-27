@@ -233,6 +233,19 @@ public class OrderService {
     }
 
     /**
+     * ID операций, закреплённых за цехом. Используется для фильтрации заказов по цеху.
+     * Пустой список означает, что в цехе нет операций и ни один заказ под него не подпадает.
+     */
+    public List<Long> getWorkshopOperationIds(Long workshopId) {
+        if (workshopId == null) return List.of();
+        Workshop workshop = workshopRepository.findById(workshopId).orElse(null);
+        if (workshop == null || workshop.getOperationIds() == null || workshop.getOperationIds().isEmpty()) {
+            return List.of();
+        }
+        return workshop.getOperationIds();
+    }
+
+    /**
      * Добавляет длину кривой для операций резки в запрос калькулятора.
      * Название операции здесь не проверяется: фронтенд присылает только operationId,
      * а калькулятор применяет curveLengthM исключительно к операциям резки
@@ -853,17 +866,27 @@ public class OrderService {
 
     /**
      * Сгенерировать уникальный номер заказа.
-     * Формат: YYYYMMDDHHmmssSSS (где SSS - последовательный номер для уникальности)
+     * Формат: yyyy-MM-dd-nnnnn (гггг-мм-дд-ннннн), где nnnnn — дневной порядковый номер 00001–99999.
      */
     private String generateOrderNumber() {
-        while (true) {
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-            int seq = sequence.getAndIncrement() % 1000;
-            String orderNumber = timestamp + String.format("%03d", seq);
+        String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        String prefix = date + "-";
+        for (int attempt = 0; attempt < 200; attempt++) {
+            String maxNumber = orderRepository.findMaxOrderNumber(prefix + "%");
+            int next = 1;
+            if (maxNumber != null) {
+                int dash = maxNumber.lastIndexOf('-');
+                next = Integer.parseInt(maxNumber.substring(dash + 1)) + 1;
+            }
+            if (next > 99999) {
+                next = 1;
+            }
+            String orderNumber = prefix + String.format("%05d", next);
             if (orderRepository.findByOrderNumber(orderNumber) == null) {
                 return orderNumber;
             }
         }
+        throw new IllegalStateException("Не удалось сгенерировать уникальный номер заказа");
     }
 
     /**

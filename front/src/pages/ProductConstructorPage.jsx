@@ -4,7 +4,7 @@ import {
   Table, TableHead, TableRow, TableCell, TableBody, TableContainer, TextField, FormControl, InputLabel, Select, MenuItem, CircularProgress, Alert, Snackbar, useMediaQuery
 } from '@mui/material';
 import { Add, Delete, Save, ArrowBack } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import api from '../services/api';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -13,6 +13,9 @@ const round2 = (value) => Number((Number(value) || 0).toFixed(2));
 
 const ProductConstructorPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const productId = searchParams.get('productId');
+  const isEdit = !!productId;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [allMaterials, setAllMaterials] = useState([]);
@@ -36,6 +39,37 @@ const ProductConstructorPage = () => {
       setNotification({ open: true, message: 'Ошибка загрузки данных', severity: 'error' });
     }).finally(() => setLoading(false));
   }, []);
+
+  // Загрузка существующего изделия для редактирования (productId из URL)
+  useEffect(() => {
+    if (!productId) return;
+    setLoading(true);
+    api.get(`/api/v1/products/${productId}`)
+      .then(({ data }) => {
+        setProductName(data.name || '');
+        const loaded = (data.positions || []).map((p, i) => ({
+          key: Date.now() + Math.random() + i,
+          materialId: p.materialId,
+          name: p.materialName || '',
+          price: Number(p.price) || 0,
+          unit: p.unit || 'шт',
+          quantity: Number(p.quantity) || 0,
+          wasteCoefficient: Number(p.wasteCoefficient) || 1,
+          operations: (p.operations || []).map((op) => ({
+            key: Date.now() + Math.random(),
+            operationId: op.operationId ?? op.id ?? '',
+            name: op.name || '',
+            pricePerUnit: Number(op.pricePerUnit) || 0,
+            unit: op.unit || 'шт',
+            quantity: Number(op.quantity) || 0,
+            coefficient: Number(op.coefficient) || 1
+          }))
+        }));
+        setPositions(loaded);
+      })
+      .catch((err) => setNotification({ open: true, message: 'Ошибка загрузки изделия: ' + getApiErrorMessage(err), severity: 'error' }))
+      .finally(() => setLoading(false));
+  }, [productId]);
 
   const createOperationRow = () => ({
     key: Date.now() + Math.random(),
@@ -169,11 +203,14 @@ const ProductConstructorPage = () => {
           }))
         }))
       };
-      await api.post('/api/v1/products', payload);
-      setNotification({ open: true, message: 'Изделие сохранено', severity: 'success' });
+      if (isEdit) {
+        await api.put(`/api/v1/products/${productId}`, payload);
+      } else {
+        await api.post('/api/v1/products', payload);
+      }
+      setNotification({ open: true, message: isEdit ? 'Изделие обновлено' : 'Изделие сохранено', severity: 'success' });
       setNameDialogOpen(false);
-      setProductName('');
-      setPositions([]);
+      navigate('/admin');
     } catch (err) {
       console.error('Failed to save product', err);
       setNotification({ open: true, message: 'Ошибка сохранения: ' + (getApiErrorMessage(err)), severity: 'error' });
@@ -358,13 +395,13 @@ const ProductConstructorPage = () => {
             Общий итог: <strong style={{ color: '#1976d2' }}>{grandTotal.toFixed(2)} ₽</strong>
           </Typography>
           <Button variant="contained" color="success" size="large" startIcon={<Save />} onClick={() => setNameDialogOpen(true)} fullWidth={isMobile}>
-            Добавить изделие
+            {isEdit ? 'Сохранить изменения' : 'Добавить изделие'}
           </Button>
         </Grid>
       </Paper>
 
       <Dialog open={nameDialogOpen} onClose={() => setNameDialogOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}>
-        <DialogTitle>Добавить изделие</DialogTitle>
+        <DialogTitle>{isEdit ? 'Редактировать изделие' : 'Добавить изделие'}</DialogTitle>
         <DialogContent>
           <TextField autoFocus fullWidth margin="dense" label="Название изделия" value={productName} onChange={(e) => setProductName(e.target.value)} />
           <Alert severity="info" sx={{ mt: 2 }}>
@@ -373,7 +410,7 @@ const ProductConstructorPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setNameDialogOpen(false)} disabled={saving}>Отмена</Button>
-          <Button onClick={handleSaveProduct} variant="contained" disabled={saving || !productName.trim()}>{saving ? 'Сохранение...' : 'Добавить'}</Button>
+          <Button onClick={handleSaveProduct} variant="contained" disabled={saving || !productName.trim()}>{saving ? 'Сохранение...' : (isEdit ? 'Сохранить' : 'Добавить')}</Button>
         </DialogActions>
       </Dialog>
 

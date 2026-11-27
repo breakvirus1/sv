@@ -38,6 +38,7 @@ public class EmployeeService {
     private final EmployeeMapper employeeMapper;
     private final RoleRepository roleRepository;
     private final KeycloakAdminTokenProvider keycloakAdminTokenProvider;
+    private final KeycloakUserService keycloakUserService;
 
     @Value("${keycloak.admin.server-url:http://localhost:8080}")
     private String keycloakServerUrl;
@@ -145,15 +146,21 @@ public class EmployeeService {
     @CacheEvict(value = "employees", allEntries = true)
     public EmployeeResponse updateEmployee(Long id, EmployeeUpdateRequest request, Long companyId) {
         Employee employee = getEmployeeEntity(id, companyId);
+        String previousUsername = employee.getUsername();
         employeeMapper.updateEntityFromRequest(request, employee);
         Employee saved = employeeRepository.save(employee);
+        // Синхронизируем профиль в Keycloak с основной базой (логин, ФИО, email)
+        keycloakUserService.updateUser(previousUsername, saved.getUsername(), saved.getFullName(), saved.getEmail());
         return employeeMapper.toDto(saved);
     }
 
     @CacheEvict(value = "employees", allEntries = true)
     public void deleteEmployee(Long id, Long companyId) {
         Employee employee = getEmployeeEntity(id, companyId);
+        String username = employee.getUsername();
         employeeRepository.delete(employee);
+        // Удаляем учётную запись в Keycloak, чтобы основная база и Keycloak оставались синхронными
+        keycloakUserService.deleteUser(username);
     }
 
     @CacheEvict(value = "employees", allEntries = true)

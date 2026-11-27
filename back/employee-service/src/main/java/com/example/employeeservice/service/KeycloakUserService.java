@@ -112,6 +112,87 @@ public class KeycloakUserService {
         log.info("Password updated for Keycloak user {}", username);
     }
 
+    /**
+     * Обновляет профиль пользователя Keycloak (логин, ФИО, email) по текущему логину.
+     * Если пользователь в Keycloak не найден — только логируем предупреждение (сотрудник мог быть
+     * создан только в основной базе), чтобы синхронизация не ломала локальные правки.
+     */
+    public void updateUser(String currentUsername, String newUsername, String fullName, String email) {
+        RestTemplate restTemplate = new RestTemplate();
+        String adminToken = tokenProvider.obtainToken(restTemplate);
+        HttpHeaders headers = authHeaders(adminToken);
+
+        List<Map<String, Object>> users = findUsers(restTemplate, headers, currentUsername);
+        if (users.isEmpty()) {
+            log.warn("Keycloak user {} not found for update, skipping Keycloak sync", currentUsername);
+            return;
+        }
+        Object userId = users.get(0).get("id");
+        if (userId == null) {
+            throw new BadRequestException("Keycloak не вернул id пользователя " + currentUsername);
+        }
+
+        Map<String, Object> payload = new HashMap<>();
+        if (newUsername != null && !newUsername.isBlank()) {
+            payload.put("username", newUsername);
+        }
+        String[] nameParts = splitFullName(fullName);
+        payload.put("firstName", nameParts[0]);
+        payload.put("lastName", nameParts[1]);
+        if (email != null) {
+            payload.put("email", email);
+            // Email считается подтверждённым: Keycloak не требует подтверждение при обновлении
+            payload.put("emailVerified", true);
+        }
+
+        try {
+            restTemplate.put(adminUrl("/users/" + userId), new HttpEntity<>(payload, headers));
+        } catch (HttpStatusCodeException e) {
+            log.error("Keycloak rejected user update for {}: {}", currentUsername, e.getStatusCode());
+            if (e.getStatusCode().value() == 404) {
+                throw new NotFoundException("Пользователь " + currentUsername + " не найден в Keycloak");
+            }
+            if (e.getStatusCode().value() == 409) {
+                throw new ConflictException("Пользователь с таким логином уже существует в Keycloak");
+            }
+            throw new BadRequestException("Keycloak отклонил обновление пользователя: " + e.getResponseBodyAsString());
+        }
+        log.info("Updated Keycloak user {} -> {}", currentUsername, newUsername);
+    }
+
+    /**
+     * Удаляет пользователя Keycloak по логину. Отсутствие пользователя не считается ошибкой
+     * ( Keycloak и основная база могли разойтись ранее ) — операция идемпотентна.
+     */
+    public void deleteUser(String username) {
+        RestTemplate restTemplate = new RestTemplate();
+        String adminToken = tokenProvider.obtainToken(restTemplate);
+        HttpHeaders headers = authHeaders(adminToken);
+
+        List<Map<String, Object>> users = findUsers(restTemplate, headers, username);
+        if (users.isEmpty()) {
+            log.warn("Keycloak user {} not found for deletion, skipping Keycloak sync", username);
+            return;
+        }
+        Object userId = users.get(0).get("id");
+        if (userId == null) {
+            throw new BadRequestException("Keycloak не вернул id пользователя " + username);
+        }
+
+        try {
+            restTemplate.exchange(adminUrl("/users/" + userId), HttpMethod.DELETE,
+                    new HttpEntity<>(headers), Void.class);
+        } catch (HttpStatusCodeException e) {
+            if (e.getStatusCode().value() == 404) {
+                log.warn("Keycloak user {} already absent during deletion", username);
+                return;
+            }
+            log.error("Keycloak rejected user deletion for {}: {}", username, e.getStatusCode());
+            throw new BadRequestException("Keycloak отклонил удаление пользователя: " + e.getResponseBodyAsString());
+        }
+        log.info("Deleted Keycloak user {}", username);
+    }
+
     private Map<String, Object> buildUserPayload(KeycloakUserCreateRequest request, Long companyId) {
         String[] nameParts = splitFullName(request.getFullName());
 
@@ -120,14 +201,21 @@ public class KeycloakUserService {
         passwordCredential.put("value", request.getPassword());
         passwordCredential.put("temporary", false);
 
+        // Email необязателен: если не задан — генерируем произвольный, чтобы пользователь
+        // гарантированно мог войти без верификации email.
+        String email = request.getEmail();
+        if (email == null || email.isBlank()) {
+            String localPart = request.getUsername() == null ? "user" : request.getUsername().replaceAll("[^a-zA-Z0-9._-]", "");
+            if (localPart.isBlank()) localPart = "user";
+            email = localPart + "@noemail.local";
+        }
+
         Map<String, Object> payload = new HashMap<>();
         payload.put("username", request.getUsername());
         payload.put("firstName", nameParts[0]);
         payload.put("lastName", nameParts[1]);
-        if (request.getEmail() != null && !request.getEmail().isBlank()) {
-            payload.put("email", request.getEmail());
-            payload.put("emailVerified", true);
-        }
+        payload.put("email", email);
+        payload.put("emailVerified", true);
         payload.put("enabled", true);
         payload.put("credentials", List.of(passwordCredential));
         if (companyId != null) {

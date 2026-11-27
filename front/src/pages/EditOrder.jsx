@@ -54,9 +54,19 @@ const EditOrder = ({ order, orderNumber, onSuccess, mode = 'edit' }) => {
     queryKey: ['currentEmployee', username],
     queryFn: async () => {
       if (!username) return null;
-      const response = await api.get('/api/v1/employees?size=1&q=' + username);
-      const data = response.data.content || [];
-      return data.length > 0 ? data[0] : null;
+      try {
+        const response = await api.get('/api/v1/employees/username/' + encodeURIComponent(username));
+        return response.data ?? null;
+      } catch {
+        // Fallback: точный эндпоинт мог вернуть 404/ошибку — ищем точное совпадение в списке
+        try {
+          const res = await api.get('/api/v1/employees?size=100&q=' + encodeURIComponent(username));
+          const content = res.data?.content || [];
+          return content.find((e) => e.username === username) || null;
+        } catch {
+          return null;
+        }
+      }
     },
     enabled: !!username,
   });
@@ -1343,7 +1353,7 @@ value={priceplus}
                       (без наценки: {displayTotalWithoutPriceplus.toFixed(2)})
                     </Typography>
                   </Box>
-                  {currentEmployee && cashFromPriceplus > 0 && (
+                  {currentEmployee && currentEmployee.managerCashPercent != null && (
                     <Box
                       sx={{
                         border: '1px solid',

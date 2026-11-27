@@ -3,9 +3,10 @@ import {
   Box, Typography, Tabs, Tab, Paper, Table, TableHead, TableRow, TableCell,
   TableBody, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, FormControl, InputLabel, Select, MenuItem, CircularProgress, Alert,
-  Snackbar, Grid, Divider, TableContainer, Chip, useMediaQuery, useTheme
+  Snackbar, Grid, Divider, TableContainer, Chip, useMediaQuery, useTheme,
+  FormControlLabel, Checkbox
 } from '@mui/material';
-import { Add, Edit, Delete, Refresh, Save, Cancel, Sync } from '@mui/icons-material';
+import { Add, Edit, Delete, Refresh, Save, Cancel, Sync, Key } from '@mui/icons-material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useClients, useEmployees, useMaterials, useOperations, useWorkshops, useProducts, useOperationGroups } from '../hooks/useSharedQueries';
 import { queryKeys } from '../hooks/queryKeys';
@@ -99,6 +100,11 @@ const AdminPanel = () => {
   const [newEmployeeDialogOpen, setNewEmployeeDialogOpen] = useState(false);
   const [newEmployeeForm, setNewEmployeeForm] = useState({ username: '', password: '', fullName: '', email: '', role: 'ROLE_MANAGER' });
   const [creatingEmployee, setCreatingEmployee] = useState(false);
+
+  // ---- Password reset state ----
+  const [passwordResetDialogOpen, setPasswordResetDialogOpen] = useState(false);
+  const [passwordResetForm, setPasswordResetForm] = useState({ password: '', temporary: false });
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   // ---- Products (Constructor) state ----
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -418,6 +424,35 @@ const AdminPanel = () => {
     const payload = { ...employeeForm, workshopId: employeeForm.workshopId ? parseInt(employeeForm.workshopId) : null, managerCashPercent: employeeForm.managerCashPercent ? parseFloat(employeeForm.managerCashPercent) : null };
     updateEmployeeMutation.mutate({ id: selectedEmployee.id, data: payload });
   };
+
+  const openPasswordResetDialog = (emp) => {
+    setSelectedEmployee(emp);
+    setPasswordResetForm({ password: '', temporary: false });
+    setPasswordResetDialogOpen(true);
+  };
+
+  const handlePasswordReset = async () => {
+    if (!selectedEmployee?.username) { showNotification('Сотрудник не выбран', 'error'); return; }
+    if (!passwordResetForm.password || passwordResetForm.password.length < 6) {
+      showNotification('Пароль должен быть не короче 6 символов', 'error'); return;
+    }
+    setResettingPassword(true);
+    try {
+      await api.put('/api/v1/employees/keycloak-password', {
+        username: selectedEmployee.username,
+        password: passwordResetForm.password,
+        temporary: passwordResetForm.temporary,
+      });
+      showNotification('Пароль сброшен');
+      setPasswordResetDialogOpen(false);
+      setSelectedEmployee(null);
+      setPasswordResetForm({ password: '', temporary: false });
+    } catch (err) {
+      showNotification('Ошибка: ' + getApiErrorMessage(err), 'error');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
   const handleProductSubmit = () => {
     if (!productForm.name) { showNotification('Введите название изделия', 'error'); return; }
     const payload = { ...productForm, width: productForm.width ? parseFloat(productForm.width) : null, height: productForm.height ? parseFloat(productForm.height) : null, basePrice: productForm.basePrice ? parseFloat(productForm.basePrice) : null };
@@ -609,6 +644,7 @@ const renderEmployeesTab = () => (
                       <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right' }}>{emp.managerCashPercent != null ? `${emp.managerCashPercent.toFixed(2)}%` : '-'}</TableCell>
                       <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
                         <IconButton size="small" onClick={() => openEmployeeDialog(emp)}><Edit /></IconButton>
+                        <IconButton size="small" title="Сбросить пароль" onClick={() => openPasswordResetDialog(emp)}><Key /></IconButton>
                         <IconButton size="small" color="error" onClick={() => { setSelectedEmployee(emp); setEmployeeDeleteDialogOpen(true); }}><Delete /></IconButton>
                       </TableCell>
                     </TableRow>
@@ -649,7 +685,7 @@ const renderEmployeesTab = () => (
                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{p.positions?.reduce((sum, position) => sum + (position.operations?.length || 0), 0) ?? p.operations?.length ?? 0}</TableCell>
                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider' }}>{Number(p.totalPrice ?? p.basePrice ?? 0).toFixed(2)} ₽</TableCell>
                   <TableCell sx={{ padding: '8px 16px', fontSize: '0.875rem', borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
-                    <IconButton size="small" onClick={() => openProductDialog(p)}><Edit /></IconButton>
+                    <IconButton size="small" title="Редактировать изделие" onClick={() => navigate('/constructor/new?productId=' + p.id)}><Edit /></IconButton>
                     <IconButton size="small" color="error" onClick={() => { setSelectedProduct(p); setProductDeleteDialogOpen(true); }}><Delete /></IconButton>
                   </TableCell>
                 </TableRow>
@@ -884,6 +920,28 @@ const renderEmployeesTab = () => (
             }
           }} disabled={creatingEmployee}>
             {creatingEmployee ? <CircularProgress size={20} /> : 'Создать'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reset password */}
+      <Dialog open={passwordResetDialogOpen} onClose={() => setPasswordResetDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Сброс пароля</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Новый пароль для «{selectedEmployee?.fullName || selectedEmployee?.username}» ({selectedEmployee?.username})
+          </Typography>
+          <TextField autoFocus fullWidth margin="dense" label="Новый пароль" type="password" value={passwordResetForm.password}
+            onChange={(e) => setPasswordResetForm({ ...passwordResetForm, password: e.target.value })} inputProps={{ minLength: 6 }} />
+          <FormControlLabel
+            control={<Checkbox checked={passwordResetForm.temporary} onChange={(e) => setPasswordResetForm({ ...passwordResetForm, temporary: e.target.checked })} />}
+            label="Временный пароль (пользователь сменит при входе)"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPasswordResetDialogOpen(false)}>Отмена</Button>
+          <Button variant="contained" onClick={handlePasswordReset} disabled={resettingPassword || !passwordResetForm.password}>
+            {resettingPassword ? <CircularProgress size={20} /> : 'Сбросить'}
           </Button>
         </DialogActions>
       </Dialog>

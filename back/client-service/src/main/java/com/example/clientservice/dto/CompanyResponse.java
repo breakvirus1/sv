@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 public class CompanyResponse {
     private Long id;
     private String name;
+    private String fileStoragePath;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

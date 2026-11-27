@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Box, Button, Typography, Alert, TextField, Paper, Divider } from '@mui/material'
+import { Box, Button, Typography, Alert, TextField, Paper } from '@mui/material'
 
 const LoginPage = () => {
   const navigate = useNavigate()
-  const { loginWithPassword, login, isAuthenticated, authError, user, setAuthError } = useAuth()
+  const { loginWithPassword, isAuthenticated, authError, user, setAuthError } = useAuth()
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -49,11 +49,6 @@ const LoginPage = () => {
   return (
     <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="100vh" gap={3} px={2}>
       <Paper elevation={3} sx={{ p: { xs: 3, sm: 4 }, width: '100%', maxWidth: 400 }}>
-        <Typography variant="h4" textAlign="center" gutterBottom>Print SV</Typography>
-        <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
-          Введите логин и пароль, выданные администратором
-        </Typography>
-
         {showError && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => { setError(''); setAuthError?.(null) }}>
             {showError}
@@ -93,14 +88,6 @@ const LoginPage = () => {
             {submitting ? 'Входим...' : 'Войти'}
           </Button>
         </Box>
-
-        <Divider sx={{ my: 2 }}>
-          <Typography variant="caption" color="text.secondary">или</Typography>
-        </Divider>
-
-        <Button variant="outlined" fullWidth onClick={login} disabled={submitting}>
-          Войти через Keycloak (SSO)
-        </Button>
       </Paper>
     </Box>
   )

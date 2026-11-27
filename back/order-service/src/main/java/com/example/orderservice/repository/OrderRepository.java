@@ -43,6 +43,9 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     @Query("SELECT o FROM Order o WHERE o.orderNumber = :orderNumber AND o.deleted = false")
     Order findByOrderNumber(@Param("orderNumber") String orderNumber);
 
+    @Query("SELECT MAX(o.orderNumber) FROM Order o WHERE o.orderNumber LIKE :prefix")
+    String findMaxOrderNumber(@Param("prefix") String prefix);
+
     @EntityGraph(attributePaths = {"client", "manager"})
     Page<Order> findAll(Specification<Order> spec, Pageable pageable);
 

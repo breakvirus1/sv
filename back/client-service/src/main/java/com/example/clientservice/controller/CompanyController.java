@@ -65,7 +65,8 @@ public class CompanyController {
     @PostMapping
     @PreAuthorize("hasRole('GOD')")
     public ResponseEntity<CompanyResponse> createCompany(@Valid @RequestBody CompanyCreateRequest request) {
-        return new ResponseEntity<>(companyService.createCompany(request), HttpStatus.CREATED);
+        CompanyResponse response = TenantContext.runAs(null, () -> companyService.createCompany(request));
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @Operation(summary = "Обновить компанию")
@@ -75,7 +76,10 @@ public class CompanyController {
             @Parameter(description = "ID компании") @PathVariable Long id,
             @Valid @RequestBody CompanyCreateRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(companyService.updateCompany(id, request, extractCompanyId(jwt)));
+        Long requesterCompanyId = extractCompanyId(jwt);
+        CompanyResponse response = TenantContext.runAs(null,
+                () -> companyService.updateCompany(id, request, requesterCompanyId));
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Удалить компанию")
@@ -84,7 +88,8 @@ public class CompanyController {
     public ResponseEntity<Void> deleteCompany(
             @Parameter(description = "ID компании") @PathVariable Long id,
             @AuthenticationPrincipal Jwt jwt) {
-        companyService.deleteCompany(id, extractCompanyId(jwt));
+        Long requesterCompanyId = extractCompanyId(jwt);
+        TenantContext.runAs(null, () -> companyService.deleteCompany(id, requesterCompanyId));
         return ResponseEntity.noContent().build();
     }
 

@@ -16,4 +16,8 @@ public class Company extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 255)
     private String name;
+
+    /** Абсолютный путь для сохранения файлов заказов компании. */
+    @Column(name = "file_storage_path", length = 500)
+    private String fileStoragePath;
 }

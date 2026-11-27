@@ -126,11 +126,11 @@ const AdminDashboard = () => {
   });
 
   // ---- Handlers ----
-  const resetCompanyForm = () => { setCompanyForm({ name: '' }); setSelectedCompany(null); };
+  const resetCompanyForm = () => { setCompanyForm({ name: '', fileStoragePath: '' }); setSelectedCompany(null); };
   const resetAdminForm = () => { setAdminForm({ username: '', password: '', fullName: '', email: '', companyId: '', role: 'ADMIN' }); setSelectedAdmin(null); };
 
   const openCompanyDialog = (company = null) => {
-    if (company) { setSelectedCompany(company); setCompanyForm({ name: company.name || '' }); } else { resetCompanyForm(); }
+    if (company) { setSelectedCompany(company); setCompanyForm({ name: company.name || '', fileStoragePath: company.fileStoragePath || '' }); } else { resetCompanyForm(); }
     setCompanyDialogOpen(true);
   };
 
@@ -146,7 +146,8 @@ const AdminDashboard = () => {
 
   const handleCompanySubmit = () => {
     if (!companyForm.name) { showNotification('Введите название компании', 'error'); return; }
-    const payload = { name: companyForm.name };
+    if (!companyForm.fileStoragePath?.trim()) { showNotification('Укажите абсолютный путь для файлов заказов', 'error'); return; }
+    const payload = { name: companyForm.name, fileStoragePath: companyForm.fileStoragePath.trim() };
     selectedCompany ? updateCompanyMutation.mutate({ id: selectedCompany.id, data: payload }) : createCompanyMutation.mutate(payload);
   };
 
@@ -350,6 +351,7 @@ const AdminDashboard = () => {
         <DialogTitle>{selectedCompany ? 'Редактировать компанию' : 'Новая компания'}</DialogTitle>
         <DialogContent>
           <TextField autoFocus fullWidth margin="dense" label="Название компании" value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} />
+          <TextField fullWidth margin="dense" required label="Абсолютный путь для файлов заказов" placeholder="Например, D:\\PrintSV\\files" value={companyForm.fileStoragePath} onChange={(e) => setCompanyForm({ ...companyForm, fileStoragePath: e.target.value })} helperText="Файлы сохраняются в <путь>\<номер заказа>\<имя файла>" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCompanyDialogOpen(false)}>Отмена</Button>

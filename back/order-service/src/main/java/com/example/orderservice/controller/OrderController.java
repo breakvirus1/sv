@@ -47,6 +47,7 @@ public class OrderController {
               @Parameter(description = "Статус заказа") @RequestParam(required = false) String status,
               @Parameter(description = "ID менеджера") @RequestParam(required = false) Long managerId,
               @Parameter(description = "ID клиента") @RequestParam(required = false) Long clientId,
+              @Parameter(description = "ID цеха") @RequestParam(required = false) Long workshopId,
               @Parameter(description = "Дата с") @RequestParam(required = false) LocalDate fromDate,
               @Parameter(description = "Дата по") @RequestParam(required = false) LocalDate toDate,
               @RequestParam(required = false, defaultValue = "50") Integer size,
@@ -66,6 +67,21 @@ public class OrderController {
           if (clientId != null) {
               spec = spec.and((root, query, cb) ->
                       cb.equal(root.get("client").get("id"), clientId));
+          }
+          if (workshopId != null) {
+              java.util.List<Long> workshopOperationIds = orderService.getWorkshopOperationIds(workshopId);
+              if (workshopOperationIds == null || workshopOperationIds.isEmpty()) {
+                  spec = spec.and((root, query, cb) -> cb.disjunction());
+              } else {
+                  spec = spec.and((root, query, cb) -> {
+                      jakarta.persistence.criteria.Subquery<Long> sub = query.subquery(Long.class);
+                      jakarta.persistence.criteria.Root<com.example.orderservice.entity.OrderItem> item = sub.from(com.example.orderservice.entity.OrderItem.class);
+                      jakarta.persistence.criteria.Join<com.example.orderservice.entity.OrderItem, com.example.orderservice.entity.OrderOperation> op = item.join("operations", jakarta.persistence.criteria.JoinType.INNER);
+                      return cb.exists(sub.select(item.get("id"))
+                              .where(cb.equal(item.get("order").get("id"), root.get("id")),
+                                     op.get("operationId").in(workshopOperationIds)));
+                  });
+              }
           }
           if (fromDate != null) {
               spec = spec.and((root, query, cb) ->

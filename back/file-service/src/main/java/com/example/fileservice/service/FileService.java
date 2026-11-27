@@ -58,20 +58,37 @@ public class FileService {
     }
 
     public FileAttachment storeFile(MultipartFile file, Long orderId, Long orderItemId, String uploadedBy) {
-        return storeFile(file, orderId, orderItemId, uploadedBy, null, null, null, null, null, null);
+        return storeFile(file, orderId, orderItemId, uploadedBy, null, null, null, null, null, null, null);
     }
 
     public FileAttachment storeFile(MultipartFile file, Long orderId, Long orderItemId, String uploadedBy,
                                      String orderNumber, String managerName, String clientName,
-                                     String materialName, String operationNames, String operationParams) {
+                                     String materialName, String operationNames, String operationParams,
+                                     String companyBasePath) {
         String originalFilename = file.getOriginalFilename();
         String extension = extractExtension(originalFilename);
         String fileName = buildFileName(orderNumber, managerName, clientName, materialName, operationNames, operationParams, extension);
         String mimeType = file.getContentType();
         long fileSize = file.getSize();
 
-        Path targetLocation = this.fileStorageLocation.resolve(fileName).normalize();
-        if (!targetLocation.startsWith(this.fileStorageLocation)) {
+        // Базовая директория: абсолютный путь компании, если задан, иначе стандартное хранилище
+        Path baseDir = this.fileStorageLocation;
+        if (companyBasePath != null && !companyBasePath.isBlank()) {
+            baseDir = Paths.get(companyBasePath).toAbsolutePath().normalize();
+        }
+
+        // Подпапка с номером заказа: <базовый путь>\<номер заказа>\
+        Path orderDir = (orderNumber != null && !orderNumber.isBlank())
+                ? baseDir.resolve(sanitize(orderNumber))
+                : baseDir;
+        try {
+            Files.createDirectories(orderDir);
+        } catch (IOException ex) {
+            throw new RuntimeException("Could not create order directory " + orderDir, ex);
+        }
+
+        Path targetLocation = orderDir.resolve(fileName).normalize();
+        if (!targetLocation.startsWith(baseDir)) {
             throw new IllegalArgumentException("Invalid file name: " + fileName);
         }
 

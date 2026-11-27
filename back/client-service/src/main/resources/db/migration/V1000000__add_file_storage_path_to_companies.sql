@@ -1,0 +1,1 @@
+ALTER TABLE svschema.companies ADD COLUMN IF NOT EXISTS file_storage_path VARCHAR(500);

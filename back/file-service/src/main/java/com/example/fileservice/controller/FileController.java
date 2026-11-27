@@ -24,6 +24,7 @@ import java.awt.Desktop;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +66,17 @@ public class FileController {
             assertEntityAccess("order_items", orderItemId, companyId, god);
         }
 
-        FileAttachment attachment = fileService.storeFile(file, orderId, orderItemId, uploadedBy, orderNumber, managerName, clientName, materialName, operationNames, operationParams);
+        // Абсолютный путь хранения файлов компании берём из мастер-БД (таблица companies)
+        String companyBasePath = com.example.printsv.common.tenant.TenantContext.runAs(null, () -> {
+            try {
+                return jdbcTemplate.queryForObject(
+                        "SELECT file_storage_path FROM svschema.companies WHERE id = ?", String.class, companyId);
+            } catch (EmptyResultDataAccessException e) {
+                return null;
+            }
+        });
+
+        FileAttachment attachment = fileService.storeFile(file, orderId, orderItemId, uploadedBy, orderNumber, managerName, clientName, materialName, operationNames, operationParams, companyBasePath);
         attachment.setCompanyId(companyId);
         FileAttachment saved = fileAttachmentRepository.save(attachment);
 
@@ -79,7 +90,7 @@ public class FileController {
     @GetMapping("/download/{fileName:.+}")
     public ResponseEntity<Resource> downloadFile(@PathVariable String fileName) {
         FileAttachment attachment = findAccessibleAttachment(fileName);
-        Path filePath = fileService.getFilePath(attachment.getFileName());
+        Path filePath = Paths.get(attachment.getFilePath());
         try {
             Resource resource = new UrlResource(filePath.toUri());
             if (resource.exists()) {
@@ -98,7 +109,7 @@ public class FileController {
     @GetMapping("/show/{fileName:.+}")
     public ResponseEntity<Map<String, String>> showInFolder(@PathVariable String fileName) {
         FileAttachment attachment = findAccessibleAttachment(fileName);
-        Path filePath = fileService.getFilePath(attachment.getFileName());
+        Path filePath = Paths.get(attachment.getFilePath());
         try {
             if (!Desktop.isDesktopSupported()) {
                 return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)

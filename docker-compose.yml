@@ -256,6 +256,7 @@ services:
       - sv-network
     volumes:
       - ./uploads:/app/uploads
+      - /mnt/obmen:/mnt/obmen
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - DB_HOST=postgres
